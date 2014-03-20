@@ -128,7 +128,7 @@ def get_projector():
     f = sock.makefile()
     proj = pjlink.Projector(f)
     rv = proj.authenticate(lambda: param_password)
-    if(rv):
+    if(rv or rv is None):
       return proj
     else:
       local_event_Error.emit('authentication error')
