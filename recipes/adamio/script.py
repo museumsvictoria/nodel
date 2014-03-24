@@ -1,12 +1,11 @@
-# Copyright (c) 2014 Museum Victoria
-# This software is released under the MIT license (see license.txt for details)
-
 from pymodbus.client.sync import ModbusTcpClient
 import threading
 import atexit
 
 param_ipAddress = Parameter('{"title":"IP Address", "desc":"The IP address to connect to.", "schema":{"type":"string"}}')
 POLL = 100
+# old firmware uses unit=0, new firmware unit=1. Change this if you are receiving a connection error
+UNIT = 1
 
 local_event_Input1On = LocalEvent('{"title":"Input 1 On","desc":"Input 1 On", "group":"Input 1"}')
 local_event_Input2On = LocalEvent('{"title":"Input 2 On","desc":"Input 2 On", "group":"Input 2"}')
@@ -32,7 +31,7 @@ class ModbusPoll(threading.Thread):
     self.client = ModbusTcpClient(param_ipAddress)
     while not self.event.isSet():
       try:
-        result = self.client.read_coils(0,6)
+        result = self.client.read_coils(0,6, unit=UNIT)
         for num in range(0,5):
           if (result.bits[num] != self.current[num]):
             func = globals()['local_event_Input'+str(num+1)+('On' if self.current[num] else 'Off')]
@@ -49,13 +48,13 @@ class ModbusPoll(threading.Thread):
   def on(self, num):
     if not self.event.isSet():
       try:
-        self.client.write_coil(num,True)
+        self.client.write_coil(num, True, unit=UNIT)
       except Exception, e:
         local_event_Error.emit(e)
   def off(self, num):
     if not self.event.isSet():
       try:
-        self.client.write_coil(num,False)
+        self.client.write_coil(num, False, unit=UNIT)
       except Exception, e:
         local_event_Error.emit(e)
   def stop(self):
