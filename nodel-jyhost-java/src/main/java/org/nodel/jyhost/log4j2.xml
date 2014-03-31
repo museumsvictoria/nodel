@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- see http://logging.apache.org/log4j/2.x/manual/layouts.html -->
+<configuration status="WARN">
+    <appenders>
+        <Console name="Console" target="SYSTEM_OUT">
+            <PatternLayout pattern="%d{yy-MM-dd HH:mm:ss.SSS} [%-20t] %-5level %-44logger{36} %-20method - %msg%n" />
+        </Console>
+        <RollingFile name="File" fileName="logs/program.log" filePattern="logs/program-%i.log.gz" append="false">
+            <PatternLayout pattern="%d{yy-MM-dd HH:mm:ss.SSS} [%-20t] %-5level %-44logger{36} %-20method - %msg%n" />
+            <Policies>
+                <SizeBasedTriggeringPolicy size="10 MB" />
+            </Policies>
+            <DefaultRolloverStrategy max="5"/>
+        </RollingFile>
+        <RollingFile name="NodelClients" fileName="logs/NodelClients.log" filePattern="logs/NodelClients-%i.log.gz" append="false">
+            <PatternLayout pattern="%d{yy-MM-dd HH:mm:ss.SSS} [%-20t] %-5level %-44logger{36} %-20method - %msg%n" />
+            <Policies>
+                <SizeBasedTriggeringPolicy size="10 MB" />
+            </Policies>
+            <DefaultRolloverStrategy max="5"/>
+        </RollingFile>
+        <RollingFile name="ChannelClient" fileName="logs/ChannelClient.log" filePattern="logs/ChannelClient-%i.log.gz" append="false">
+            <PatternLayout pattern="%d{yy-MM-dd HH:mm:ss.SSS} [%-20t] %-5level %-44logger{36} %-20method - %msg%n" />
+            <Policies>
+                <SizeBasedTriggeringPolicy size="10 MB" />
+            </Policies>
+            <DefaultRolloverStrategy max="5"/>
+        </RollingFile>
+        <RollingFile name="ChannelServer" fileName="logs/ChannelServer.log" filePattern="logs/ChannelServer-%i.log.gz" append="false">
+            <PatternLayout pattern="%d{yy-MM-dd HH:mm:ss.SSS} [%-20t] %-5level %-44logger{36} %-20method - %msg%n" />
+            <Policies>
+                <SizeBasedTriggeringPolicy size="10 MB" />
+            </Policies>
+            <DefaultRolloverStrategy max="5"/>
+        </RollingFile>        
+        <RollingFile name="Naming" fileName="logs/Discovery.log" filePattern="logs/Discovery-%i.log.gz" append="false">
+            <PatternLayout pattern="%d{yy-MM-dd HH:mm:ss.SSS} [%-20t] %-5level %-44logger{36} %-20method - %msg%n" />
+            <Policies>
+                <SizeBasedTriggeringPolicy size="10 MB" />
+            </Policies>
+            <DefaultRolloverStrategy max="5"/>
+        </RollingFile>
+        <RollingFile name="NodelServers" fileName="logs/NodelServers.log" filePattern="logs/NodelServers-%i.log.gz" append="false">
+            <PatternLayout pattern="%d{yy-MM-dd HH:mm:ss.SSS} [%-20t] %-5level %-44logger{36} %-20method - %msg%n" />
+            <Policies>
+                <SizeBasedTriggeringPolicy size="10 MB" />
+            </Policies>
+            <DefaultRolloverStrategy max="5"/>
+        </RollingFile>
+    </appenders>
+    <loggers>
+        <logger name="org.nodel.core.NodelClients" level="info" additivity="false">
+            <appender-ref ref="NodelClients" />
+        </logger>
+        <logger name="org.nodel.core.ChannelClient" level="trace" additivity="false">
+            <appender-ref ref="ChannelClient" />
+        </logger>
+        <logger name="org.nodel.core.ChannelServer" level="trace" additivity="false">
+            <appender-ref ref="ChannelServer" />
+        </logger>
+        <logger name="org.nodel.core.TCPChannelServer" level="trace" additivity="false">
+            <appender-ref ref="ChannelServer" />
+        </logger>            
+        <logger name="org.nodel.discovery" level="info" additivity="false">
+            <appender-ref ref="Discovery" />
+        </logger>
+        <logger name="org.nodel.core.NodelServers" level="trace" additivity="false">
+            <appender-ref ref="NodelServers" />
+        </logger>
+        <root level="info">
+            <appender-ref ref="Console" />
+            <appender-ref ref="File" />
+        </root>
+    </loggers>
+</configuration>
