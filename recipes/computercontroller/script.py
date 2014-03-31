@@ -1,4 +1,4 @@
-# Copyright (c) 2014 Museum Victoria
+# Copyright (c) 2014Museum Victoria
 # This software is released under the MIT license (see license.txt for details)
 
 '''This node provides mac/pc controls.'''
@@ -7,6 +7,7 @@ import java.lang.System
 import subprocess
 
 system = java.lang.System.getProperty('os.name')
+arch = java.lang.System.getProperty('sun.arch.data.model').lower()
 
 def shutdown():
   if(system=="Windows 7"):
@@ -19,13 +20,13 @@ def shutdown():
 
 def mute():
   if(system=="Windows 7"):
-    returncode = subprocess.call("nircmd.exe mutesysvolume 1", shell=True)
+    returncode = subprocess.call("nircmd"+arch+".exe mutesysvolume 1", shell=True)
   elif(system=="Mac OS X"):
     returncode = subprocess.call("osascript -e 'set volume output muted true'", shell=True)
 
 def unmute():
   if(system=="Windows 7"):
-    returncode = subprocess.call("nircmd.exe mutesysvolume 0", shell=True)
+    returncode = subprocess.call("nircmd"+arch+".exe mutesysvolume 0", shell=True)
     print returncode
   elif(system=="Mac OS X"):
     returncode = subprocess.call("osascript -e 'set volume output muted false'", shell=True)
@@ -33,7 +34,7 @@ def unmute():
 def set_volume(vol):
   if(system=="Windows 7"):
     winvol = (65535/100)*vol
-    returncode = subprocess.call("nircmd.exe setsysvolume "+str(winvol), shell=True)
+    returncode = subprocess.call("nircmd"+arch+".exe setsysvolume "+str(winvol), shell=True)
   elif(system=="Mac OS X"):
     returncode = subprocess.call("osascript -e 'set volume output volume "+str(vol)+"'", shell=True)
     
