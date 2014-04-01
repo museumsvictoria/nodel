@@ -3,6 +3,8 @@ About
 
 [Nodel](http://nodel.io) is a digital media control system for museums and galleries.
 
+Nodel is typically used to control digital media in galleries, museums, corporate meeting rooms and digital signage.
+
 
 Technologies
 ============
