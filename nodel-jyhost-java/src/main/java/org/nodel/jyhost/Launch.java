@@ -52,7 +52,7 @@ public class Launch {
     /**
      * Program version.
      */
-    protected final static String VERSION = "2.0.2";
+    protected final static String VERSION = "2.0.3";
     
     /**
      * (initialised late in 'initLogging' depending on config)
