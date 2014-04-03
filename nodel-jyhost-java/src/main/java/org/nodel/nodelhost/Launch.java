@@ -1,4 +1,4 @@
-package org.nodel.jyhost;
+package org.nodel.nodelhost;
 
 /* 
  * This Source Code Form is subject to the terms of the Mozilla Public
@@ -33,6 +33,8 @@ import org.nodel.io.Stream;
 import org.nodel.json.JSONArray;
 import org.nodel.json.JSONException;
 import org.nodel.json.JSONObject;
+import org.nodel.jyhost.NodelHost;
+import org.nodel.jyhost.NodelHostHTTPD;
 import org.nodel.reflection.Schema;
 import org.nodel.reflection.Serialisation;
 import org.nodel.reflection.Value;
@@ -52,7 +54,7 @@ public class Launch {
     /**
      * Program version.
      */
-    protected final static String VERSION = "2.0.3";
+    public final static String VERSION = "2.0.4";
     
     /**
      * (initialised late in 'initLogging' depending on config)

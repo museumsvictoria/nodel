@@ -9,6 +9,7 @@ package org.nodel.jyhost;
 import org.apache.commons.daemon.Daemon;
 import org.apache.commons.daemon.DaemonContext;
 import org.apache.commons.daemon.DaemonInitException;
+import org.nodel.nodelhost.Launch;
 
 /**
  * For NT / Unix daemons.
