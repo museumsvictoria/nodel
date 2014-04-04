@@ -1,4 +1,4 @@
-package org.nodel.jyhost;
+package org.nodel.nodelhost;
 
 /* 
  * This Source Code Form is subject to the terms of the Mozilla Public
@@ -9,7 +9,7 @@ package org.nodel.jyhost;
 import org.apache.commons.daemon.Daemon;
 import org.apache.commons.daemon.DaemonContext;
 import org.apache.commons.daemon.DaemonInitException;
-import org.nodel.nodelhost.Launch;
+import org.nodel.jyhost.Launch;
 
 /**
  * For NT / Unix daemons.
