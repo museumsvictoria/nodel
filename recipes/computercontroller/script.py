@@ -38,7 +38,7 @@ def set_volume(vol):
   elif(system=="Mac OS X"):
     returncode = subprocess.call("osascript -e 'set volume output volume "+str(vol)+"'", shell=True)
     # raspberry pi volume: "amixer cset numid=1 -- 20%"
-    # returncode = subprocess.call("amixer cset numid=1 -- "+str(vol)+"'", shell=True)
+    # returncode = subprocess.call("amixer cset numid=1 -- "+str(vol)+"%", shell=True)
     
 # Local actions this Node provides
 def local_action_TurnOff(arg = None):
