@@ -5,6 +5,22 @@
   <version>2.0.3</version>
   <name>nodel-jyhost-java</name>
   <description>Nodel host (Jython)</description>
+    <build>
+    <plugins>
+        <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-jar-plugin</artifactId>
+            <configuration>
+                <archive>
+                    <manifest>
+                        <addClasspath>true</addClasspath>
+                        <mainClass>org.nodel.jyhost.Launch</mainClass>
+                    </manifest>
+                </archive>
+            </configuration>
+        </plugin>
+    </plugins>
+    </build>  
   <dependencies>
   <dependency>
   	<groupId>org.nodel</groupId>
