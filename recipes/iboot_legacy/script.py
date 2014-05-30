@@ -1,4 +1,4 @@
-# Copyright (c) 2014 Museum Victoria
+# Copyright (c) 2014 Museum Victoria
 # This software is released under the MIT license (see license.txt for details)
 
 import socket

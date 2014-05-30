@@ -1,3 +1,8 @@
+# Copyright (c) 2014 Museum Victoria
+# This software is released under the MIT license (see license.txt for details)
+
+'''This is ADAM IO node.'''
+
 from pymodbus.client.sync import ModbusTcpClient
 import threading
 import atexit
