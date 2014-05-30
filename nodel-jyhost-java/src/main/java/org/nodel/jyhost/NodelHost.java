@@ -159,7 +159,8 @@ public class NodelHost {
         // (do this outside synchronized loop because it is IO dependent)
         Map<SimpleName, File> currentFolders = new HashMap<SimpleName, File>();
         for (File file : _root.listFiles()) {
-            if (file.isDirectory() && !file.getName().startsWith("_")) {
+            // (skip "_" prefixed and 'New folder' names)
+            if (file.isDirectory() && !file.getName().startsWith("_") && (!file.getName().equalsIgnoreCase("New folder"))) {
                 currentFolders.put(new SimpleName(file.getName()), file);
             }
         } // (for)
