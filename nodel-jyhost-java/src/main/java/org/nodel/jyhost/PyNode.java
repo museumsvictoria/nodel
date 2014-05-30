@@ -8,6 +8,7 @@ package org.nodel.jyhost;
 
 import java.io.File;
 import java.io.FileFilter;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
@@ -186,7 +187,7 @@ public class PyNode extends BaseDynamicNode {
             
             final String scriptFilePrefix = "script_backup_";
             
-            // get the list of 'script (backup *.py files
+            // get the list of 'script (backup *.py files)
             File[] files = _root.listFiles(new FileFilter() {
                 
                 @Override
@@ -280,6 +281,8 @@ public class PyNode extends BaseDynamicNode {
         }
         
         _scriptFile = new File(_root, "script.py");
+        if (!_scriptFile.exists())
+            Stream.writeFully(_scriptFile, ExampleScript.generateExampleScript());
         
         s_threadPool.execute(new Runnable() {
             
@@ -417,6 +420,8 @@ public class PyNode extends BaseDynamicNode {
      * cannot cleanup after itself waiting for, what becomes, its 'MainThread' thread to die.
      */
     private void applyConfig0(NodeConfig config) throws Exception {
+        boolean hasErrors = false;
+        
         cleanupInterpreter();
         
         long startTime = System.nanoTime();
@@ -435,15 +440,16 @@ public class PyNode extends BaseDynamicNode {
         
         _python = new PythonInterpreter(locals, pySystemState);
         
-        _logger.info("Python interpreter: {}", _python);
+        _logger.info("Interpreter initialised (took {}).", DateTimes.formatPeriod(startTime)); 
         
         // redirect 
         _python.setErr(_errReader);
         _python.setOut(_outReader);       
         
         // apply monkey patching
-        InputStream moneyPatchStream = PyNode.class.getResourceAsStream("monkeyPatch.py");
-        _python.execfile(moneyPatchStream);
+        try(InputStream moneyPatchStream = PyNode.class.getResourceAsStream("monkeyPatch.py")) {
+            _python.execfile(moneyPatchStream);
+        }
         
         // dump a new example script if necessary
         String exampleScript = ExampleScript.generateExampleScript();
@@ -454,12 +460,17 @@ public class PyNode extends BaseDynamicNode {
         if (exampleStringFileStr == null || !exampleScript.equals(exampleStringFileStr))
             Stream.writeFully(exampleScriptFile, exampleScript);
         
+        Bindings bindings = Bindings.Empty;
+        
         try {
+            if (!_scriptFile.exists())
+                throw new FileNotFoundException("No script file exists.");
+            
             _python.execfile(_scriptFile.getAbsolutePath());
             
             List<String> warnings = new ArrayList<String>();
             
-            Bindings bindings = BindingsExtractor.extract(_python, warnings);
+            bindings = BindingsExtractor.extract(_python, warnings);
 
             if (warnings.size() > 0) {
                 for (String warning : warnings) {
@@ -472,37 +483,46 @@ public class PyNode extends BaseDynamicNode {
             
             injectParamValues(config, bindings.params);
             
-            applyBindings(bindings);
-            
-            _bindings = bindings;
-            
             _config = config;
         } catch (Exception exc) {
+            hasErrors = true;
+            
             // inject into the error
             _errReader.inject(exc.toString());
             
-            _logger.warn("The bindings could not be applied to the Python instance; retrying...", exc);
-            exc.printStackTrace();
-            
-            _errReader.inject("Retrying in a few seconds...");
-            
-            throw exc;
+            _logger.warn("The bindings could not be applied to the Python instance.", exc);
         }
+        
+        applyBindings(bindings);
+        
+        _bindings = bindings;
         
         try {
             // log a message to the console and the program log
-            String logMessage = "Interpreter has been initialised (took " + DateTimes.formatPeriod(startTime) + "); calling 'main'...";
-            _outReader.inject(logMessage);
-            _logger.info(logMessage);
+            String msg;
+            if (!hasErrors) {
+                msg = "Python and Node script loaded (took " + DateTimes.formatPeriod(startTime) + "); calling 'main'...";
+                _outReader.inject(msg);
+                _logger.info(msg);
+            } else {
+                msg = "Python and Node script loaded with errors (took " + DateTimes.formatPeriod(startTime) + "); calling 'main'...";
+                _errReader.inject(msg);
+                _logger.warn(msg);
+            }
             
             try {
                 
-                _python.exec("main()");
+                if (_python.get("main") == null) {
+                    msg = "(no 'main' method to call)";
+                    
+                } else {
+                    _python.exec("main()");
                 
-                logMessage = "'main' completed cleanly."; 
+                    msg = "'main' completed cleanly.";
+                }
                 
-                _logger.info(logMessage);
-                _outReader.inject(logMessage);
+                _logger.info(msg);
+                _outReader.inject(msg);
 
                 // config has changed, so update creation time
                 synchronized (_signal) {
@@ -515,12 +535,10 @@ public class PyNode extends BaseDynamicNode {
                 // don't let this interrupt anything
 
                 // log will end up in console anyway
-                logMessage = "'main' completed with errors - " + exc; 
+                msg = "'main' completed with errors - " + exc; 
 
-                _logger.warn(logMessage);
-                
-                // inject into the error
-                _errReader.inject(logMessage);
+                _logger.warn(msg);
+                _errReader.inject(msg);
             }
         } finally {
             _config = config;
