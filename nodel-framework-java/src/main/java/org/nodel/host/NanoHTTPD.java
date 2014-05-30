@@ -1192,7 +1192,7 @@ public class NanoHTTPD {
                 "htm		text/html " + 
                 "html		text/html " + 
                 "xml		text/xml " + 
-                "txt		text/plain " + 
+                "txt		text/plain;charset=utf-8 " + 
                 "asc		text/plain " + 
                 "gif		image/gif "+ 
                 "jpg		image/jpeg " + 

@@ -215,7 +215,7 @@ public class NodelHostHTTPD extends NanoHTTPD {
 
 				// adjust the response headers for script compatibility
 
-				Response resp = new Response(HTTP_OK, "application/json", targetAsJSON);
+				Response resp = new Response(HTTP_OK, "application/json; charset=utf-8", targetAsJSON);
 				resp.addHeader("Access-Control-Allow-Origin", "*");
 
 				return resp;

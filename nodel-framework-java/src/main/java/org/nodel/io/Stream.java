@@ -102,7 +102,7 @@ public class Stream {
     public static String readFully(File file) throws IOException {
         InputStreamReader isr = null;
         try {
-            isr = new InputStreamReader(new FileInputStream(file));
+            isr = new InputStreamReader(new FileInputStream(file), "UTF8");
             return readFully(isr);
         } finally {
             if (isr != null)
@@ -131,7 +131,7 @@ public class Stream {
         OutputStreamWriter osw = null;
         
         try {
-            osw = new OutputStreamWriter(os);
+            osw = new OutputStreamWriter(os, "UTF8");
 
             int bufferSize = 1024;
             int bytesLeft = str.length();
