@@ -54,7 +54,7 @@ public class Launch {
     /**
      * Program version.
      */
-    public final static String VERSION = "2.0.4";
+    public final static String VERSION = "2.0.5";
     
     /**
      * (initialised late in 'initLogging' depending on config)
@@ -416,6 +416,8 @@ public class Launch {
      */
     private static void initialisePython() {
         PythonInterpreter.initialize(System.getProperties(), null, s_processArgs);
+        
+        Py.getSystemState().setdefaultencoding("UTF8");
         
         // JSONObject.NULL
         Py.getAdapter().addPostClass(new PyObjectAdapter() {

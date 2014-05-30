@@ -373,7 +373,6 @@ public class PyNode extends BaseDynamicNode {
             
         } catch (Exception exc) {
             _logger.warn("Config monitoring failed; will backoff and retry.", exc);
-            exc.printStackTrace();
             
         } finally {
             if (!_closed) {
@@ -482,7 +481,6 @@ public class PyNode extends BaseDynamicNode {
             _errReader.inject(exc.toString());
             
             _logger.warn("The bindings could not be applied to the Python instance; retrying...", exc);
-            exc.printStackTrace();
             
             _errReader.inject("Retrying in a few seconds...");
             
