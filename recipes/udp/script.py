@@ -14,6 +14,8 @@ def send_udp_string(msg):
   except socket.error, msg:
     print "error: %s\n" % msg
     local_event_Error.emit(msg)
+  finally:
+    sock.close()
 
 # Local actions this Node provides
 def local_action_Start(arg = None):
