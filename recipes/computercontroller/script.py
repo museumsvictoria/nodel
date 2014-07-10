@@ -11,12 +11,12 @@ arch = java.lang.System.getProperty('sun.arch.data.model').lower()
 
 def shutdown():
   if((system=="Windows 7") or (system=="Windows 8")):
-    # shutdown pc
+    # shutdown WIN
     returncode = subprocess.call("shutdown -s -f -t 0", shell=True)
   elif(system=="Mac OS X"):
-    # sleep osx
+    # shutdown OSX
     # nodel process must have sudo rights to shutdown command
-    returncode = subprocess.call("sudo shutdown -h now", shell=True)
+    returncode = subprocess.call("sudo shutdown -h - u now", shell=True)
   else:
     print 'unknown system: ' + system
 
