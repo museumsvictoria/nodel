@@ -16,7 +16,7 @@ def shutdown():
   elif(system=="Mac OS X"):
     # shutdown OSX
     # nodel process must have sudo rights to shutdown command
-    returncode = subprocess.call("sudo shutdown -h - u now", shell=True)
+    returncode = subprocess.call("sudo shutdown -h -u now", shell=True)
   else:
     print 'unknown system: ' + system
 
