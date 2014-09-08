@@ -1076,6 +1076,21 @@ var buildFormSchema = function(data, key, parent) {
           case 'file':
             set = '<div class="field"><label for="field_'+parent.replace(/\./g, '_')+'{{:#index}}"'+cls+'>'+data.title+'</label><input id="field_'+parent.replace(/\./g, '_')+'{{:#index}}" title="'+data.description+'" type="text" data-link="'+parent+'"'+cls+' disabled /><input title="browse" class="browse" type="button" value="Browse"/><input class="upload" type="file" /><progress value="0" max="100"></progress></div>';
             break;
+          // format a time
+          case 'time':
+            // time is rendered as html5 time type
+            set = '<div class="field"><label for="field_'+parent.replace(/\./g, '_')+'{{:#index}}"'+cls+'>'+data.title+'</label><input id="field_'+parent.replace(/\./g, '_')+'{{:#index}}" title="'+data.description+'" type="time" data-link="'+parent+'"'+cls+' /></div>';
+            break;
+          // format a date
+          case 'date':
+            // date is rendered as html5 date type
+            set = '<div class="field"><label for="field_'+parent.replace(/\./g, '_')+'{{:#index}}"'+cls+'>'+data.title+'</label><input id="field_'+parent.replace(/\./g, '_')+'{{:#index}}" title="'+data.description+'" type="date" data-link="'+parent+'"'+cls+' /></div>';
+            break;
+          // format a date-time
+          case 'date-time':
+            // date-time is rendered as html5 datetime type
+            set = '<div class="field"><label for="field_'+parent.replace(/\./g, '_')+'{{:#index}}"'+cls+'>'+data.title+'</label><input id="field_'+parent.replace(/\./g, '_')+'{{:#index}}" title="'+data.description+'" type="datetime" data-link="'+parent+'"'+cls+' /></div>';
+            break;
           // basic renderer for any other elements
           default:
             set = '<div class="field"><label for="field_'+parent.replace(/\./g, '_')+'{{:#index}}"'+cls+'>'+data.title+'</label><input id="field_'+parent.replace(/\./g, '_')+'{{:#index}}" title="'+data.description+'" type="text" data-link="'+parent+'"'+cls+' /></div>';
@@ -1097,21 +1112,6 @@ var buildFormSchema = function(data, key, parent) {
     case 'boolean':
       // booleans are rendered as checkboxes
       set = '<div class="field"><fieldset><legend>'+data.title+'</legend><label for="field_'+parent.replace(/\./g, '_')+'{{:#index}}"'+cls+'><input id="field_'+parent.replace(/\./g, '_')+'{{:#index}}" title="'+data.description+'" type="checkbox" data-link="'+parent+'"'+cls+' /><span>Yes</span></label></fieldset></div>';
-      break;
-    // format a time
-    case 'time':
-      // time is rendered as html5 time type
-      set = '<div class="field"><label for="field_'+parent.replace(/\./g, '_')+'{{:#index}}"'+cls+'>'+data.title+'</label><input id="field_'+parent.replace(/\./g, '_')+'{{:#index}}" title="'+data.description+'" type="time" data-link="'+parent+'"'+cls+' /></div>';
-      break;
-    // format a date
-    case 'date':
-      // date is rendered as html5 date type
-      set = '<div class="field"><label for="field_'+parent.replace(/\./g, '_')+'{{:#index}}"'+cls+'>'+data.title+'</label><input id="field_'+parent.replace(/\./g, '_')+'{{:#index}}" title="'+data.description+'" type="date" data-link="'+parent+'"'+cls+' /></div>';
-      break;
-    // format a date-time
-    case 'date-time':
-      // date-time is rendered as html5 datetime type
-      set = '<div class="field"><label for="field_'+parent.replace(/\./g, '_')+'{{:#index}}"'+cls+'>'+data.title+'</label><input id="field_'+parent.replace(/\./g, '_')+'{{:#index}}" title="'+data.description+'" type="datetime" data-link="'+parent+'"'+cls+' /></div>';
       break;
     // don't render a null type
     case 'null':
