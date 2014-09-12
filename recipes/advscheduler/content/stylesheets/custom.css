@@ -1,0 +1,96 @@
+label:after, button:after {
+	content: ' ';
+	font-size: 0.6em;
+	vertical-align: super;
+}
+#params div.block, #params > div.block > div {
+  overflow: visible;
+}
+#params > div.block > div > span{
+  display: inline-block;
+  width: 100%;
+  margin-left: -15px;
+  padding: 5px 15px 0;
+}
+#params .field {
+  float: left;
+  padding-right: 20px;
+  width: 173px;
+  overflow: visible;
+}
+#params .field textarea {
+  min-height: 30px;
+  height: 30px;
+}
+#params input[type="button"].delete {
+  margin-top: 24px;
+}
+#params div.block div.block {
+  width: 173px;
+  float: left;
+  margin-right: 20px;
+  margin-top: 19px;
+  background-color: rgb(232,232,232);
+  position: relative;
+}
+#params div.block div.block > div {
+  display: none;
+}
+#params div.block div.block .field {
+  width: 100%;
+  padding-right: 0;
+}
+#params div.block div.block input[type="button"].delete {
+  margin-top: 0px;
+}
+#params span.jqCron {
+  width: 910px;
+  display: block;
+}
+#params span.hide:last-of-type  ~ hr {
+  display: none;
+}
+#params .exclude {
+  opacity: 0.5;
+}
+
+#paramfilter .field {
+  max-width: 200px;
+}
+.hide {
+  display: none !important;
+}
+
+/* Smaller than standard 960 (devices and browsers) */
+@media only screen and (max-width: 959px) {
+  #params .field {
+    width: 113px;
+  }
+  #params div.block div.block {
+    width: 160px;
+  }
+  #params span.jqCron {
+    width: 718px;
+  }
+}
+/* All Mobile Sizes (devices and browser) */
+@media only screen and (max-width: 767px) {
+  #params .field {
+    width: 100%;
+    padding-right: 0;
+    float: none;
+  }
+  #params input[type="button"].delete {
+    clear: both;
+    float: none;
+    margin-top: 0;
+  }
+  #params div.block div.block {
+    width: 100%;
+    margin-top: 0;
+    float: none;
+  }
+  #params span.jqCron {
+    width: 100%;
+  }
+}
