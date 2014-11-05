@@ -1022,12 +1022,12 @@ var buildFormSchema = function(data, key, parent) {
           opt[lvalue.title]=keys;
         });
         // add conditionally displayed delete, up and down buttons (accounting for a minimum number of items)
-        if(data.minItems) set= '{^{for '+parent+'}}<span>'+set+'{^{if #parent.data.length > '+data.minItems+'}}<input type="button" class="delete" id="'+parent.replace(/\./g, '_')+'{{:#index}}" value="Delete" />{{/if}}{^{if #index > 0}}<input type="button" class="up" id="up_'+parent.replace(/\./g, '_')+'{{:#index}}" value="&#x25b2;" />{{/if}}{^{if #index < #parent.data.length-1}}<input type="button" class="down" id="down_'+parent.replace(/\./g, '_')+'{{:#index}}" value="&#x25bc;" /><hr/>{{/if}}</span>{{/for}}';
-        else set= '{^{for '+parent+'}}<span>'+set+'<input type="button" class="delete" id="'+parent.replace(/\./g, '_')+'{{:#index}}" value="Delete" />{^{if #index > 0}}<input type="button" class="up" id="up_'+parent.replace(/\./g, '_')+'{{:#index}}" value="&#x25b2;" />{{/if}}{^{if #index < #parent.data.length-1}}<input type="button" class="down" id="down_'+parent.replace(/\./g, '_')+'{{:#index}}" value="&#x25bc;" /><hr/>{{/if}}</span>{{/for}}';
+        if(data.minItems) set= '{^{for '+parent+'}}<span>'+set+'{^{if #parent.data.length > '+data.minItems+'}}<input type="button" class="delete" id="'+parent+'{{:#index}}" value="Delete" />{{/if}}{^{if #index > 0}}<input type="button" class="up" id="up_'+parent+'{{:#index}}" value="&#x25b2;" />{{/if}}{^{if #index < #parent.data.length-1}}<input type="button" class="down" id="down_'+parent+'{{:#index}}" value="&#x25bc;" /><hr/>{{/if}}</span>{{/for}}';
+        else set= '{^{for '+parent+'}}<span>'+set+'<input type="button" class="delete" id="'+parent+'{{:#index}}" value="Delete" />{^{if #index > 0}}<input type="button" class="up" id="up_'+parent+'{{:#index}}" value="&#x25b2;" />{{/if}}{^{if #index < #parent.data.length-1}}<input type="button" class="down" id="down_'+parent+'{{:#index}}" value="&#x25bc;" /><hr/>{{/if}}</span>{{/for}}';
         // create an 'add' button for each of the object types
         var buttons = '';
         $.each(opt, function(e, i) {
-          buttons+= '<input type="button" class="add" id="'+parent.replace(/\./g, '_')+'" data-seed="'+i.join(',')+'" value="Add '+e+'" />';
+          buttons+= '<input type="button" class="add" id="'+parent+'" data-seed="'+i.join(',')+'" value="Add '+e+'" />';
         });
         // add conditionally displayed add buttons (accounting for a maximm number of items)
         if(data.maxItems) set+= '{^{if '+parent+'}}{^{if '+parent+'.length < '+data.maxItems+'}}{^{if '+parent+'.length != 0}}<hr/>{{/if}}'+buttons+'{{/if}}{{/if}}'; 
@@ -1040,11 +1040,11 @@ var buildFormSchema = function(data, key, parent) {
         // render the object
         get=buildFormSchema(data.items, null, null);
         // add conditionally displayed delete, up and down buttons (accounting for a minimum number of items)
-        if(data.minItems) set= '{^{for '+parent+'}}<span>'+get+'{^{if #parent.data.length > '+data.minItems+'}}<input type="button" class="delete" id="'+parent.replace(/\./g, '_')+'{{:#index}}" value="Delete" />{{/if}}{^{if #index > 0}}<input type="button" class="up" id="up_'+parent.replace(/\./g, '_')+'{{:#index}}" value="&#x25b2;" />{{/if}}{^{if #index < #parent.data.length-1}}<input type="button" class="down" id="down_'+parent.replace(/\./g, '_')+'{{:#index}}" value="&#x25bc;" /><hr/>{{/if}}</span>{{/for}}';
-        else set= '{^{for '+parent+'}}<span>'+get+'<input type="button" class="delete" id="'+parent.replace(/\./g, '_')+'{{:#index}}" value="Delete" />{^{if #index > 0}}<input type="button" class="up" id="up_'+parent.replace(/\./g, '_')+'{{:#index}}" value="&#x25b2;" />{{/if}}{^{if #index < #parent.data.length-1}}<input type="button" class="down" id="down_'+parent.replace(/\./g, '_')+'{{:#index}}" value="&#x25bc;" /><hr/>{{/if}}</span>{{/for}}';
-        // add conditionally displayed add button (accounting for a maximm number of items)
-        if(data.maxItems) set+= '{^{if '+parent+'}}{^{if '+parent+'.length < '+data.maxItems+'}}{^{if '+parent+'.length != 0}}<hr/>{{/if}}<input type="button" class="add" id="'+parent.replace(/\./g, '_')+'" value="Add" />{{/if}}{{/if}}'; 
-        else set+= '{^{if '+parent+'}}{^{if '+parent+'.length > 0}}<hr/>{{/if}}{{/if}}<input type="button" class="add" id="'+parent.replace(/\./g, '_')+'" value="Add" />';
+        if(data.minItems) set= '{^{for '+parent+'}}<span>'+get+'{^{if #parent.data.length > '+data.minItems+'}}<input type="button" class="delete" id="'+parent+'{{:#index}}" value="Delete" />{{/if}}{^{if #index > 0}}<input type="button" class="up" id="up_'+parent+'{{:#index}}" value="&#x25b2;" />{{/if}}{^{if #index < #parent.data.length-1}}<input type="button" class="down" id="down_'+parent+'{{:#index}}" value="&#x25bc;" /><hr/>{{/if}}</span>{{/for}}';
+        else set= '{^{for '+parent+'}}<span>'+get+'<input type="button" class="delete" id="'+parent+'{{:#index}}" value="Delete" />{^{if #index > 0}}<input type="button" class="up" id="up_'+parent+'{{:#index}}" value="&#x25b2;" />{{/if}}{^{if #index < #parent.data.length-1}}<input type="button" class="down" id="down_'+parent+'{{:#index}}" value="&#x25bc;" /><hr/>{{/if}}</span>{{/for}}';
+        // add conditionally displayed add button (accounting for a maximum number of items)
+        if(data.maxItems) set+= '{^{if '+parent+'}}{^{if '+parent+'.length < '+data.maxItems+'}}{^{if '+parent+'.length != 0}}<hr/>{{/if}}<input type="button" class="add" id="'+parent+'" value="Add" />{{/if}}{{/if}}'; 
+        else set+= '{^{if '+parent+'}}{^{if '+parent+'.length > 0}}<hr/>{{/if}}{{/if}}<input type="button" class="add" id="'+parent+'" value="Add" />';
         // if this isn't a root object, add a block element wrapper
         if(key) set = '<div class="block"><h6>'+data.title+'</h6><div>'+set+'</div></div>';
       }
@@ -1053,7 +1053,7 @@ var buildFormSchema = function(data, key, parent) {
     case 'string':
       // if the string has a fixed set of options, render as a select list
       if(data['enum']){
-        set = '<div class="field"><label for="field_'+parent+'{{:#index}}"'+cls+'>'+data.title+'</label><select id="field_'+parent.replace(/\./g, '_')+'{{:#index}}" title="'+data.description+'" data-link="'+parent+'"'+cls+'>';
+        set = '<div class="field"><label for="field_'+parent+'{{:#index}}"'+cls+'>'+data.title+'</label><select id="field_'+parent+'{{:#index}}" title="'+data.description+'" data-link="'+parent+'"'+cls+'>';
           set+= '<option value=""></option>';
         for (var i=0;i<data['enum'].length;i++) {
           set+= '<option value="'+data['enum'][i]+'">'+data['enum'][i]+'</option>';
@@ -1064,36 +1064,36 @@ var buildFormSchema = function(data, key, parent) {
         switch(data.format){
           // long fields are rendered as a textarea element
           case 'long':
-            set = '<div class="field"><label for="field_'+parent.replace(/\./g, '_')+'{{:#index}}"'+cls+'>'+data.title+'</label><textarea id="field_'+parent.replace(/\./g, '_')+'{{:#index}}" title="'+data.description+'" data-link="'+parent+'"'+cls+'></textarea></div>';
+            set = '<div class="field"><label for="field_'+parent+'{{:#index}}"'+cls+'>'+data.title+'</label><textarea id="field_'+parent+'{{:#index}}" title="'+data.description+'" data-link="'+parent+'"'+cls+'></textarea></div>';
             break;
           // node, action and event fields render with an additional group attribute
           case 'node':
           case 'action':
           case 'event':
-            set = '<div class="field"><label for="field_'+parent.replace(/\./g, '_')+'{{:#index}}"'+cls+'>'+data.title+'</label><input id="field_'+parent.replace(/\./g, '_')+'{{:#index}}" title="'+data.description+'" type="text" data-group="'+group+'" data-link="'+parent+'"'+cls+' /></div>';
+            set = '<div class="field"><label for="field_'+parent+'{{:#index}}"'+cls+'>'+data.title+'</label><input id="field_'+parent+'{{:#index}}" title="'+data.description+'" type="text" data-group="'+group+'" data-link="'+parent+'"'+cls+' /></div>';
             break;
           // file fields have a hidden upload element, progress indicator and 'browse' button
           case 'file':
-            set = '<div class="field"><label for="field_'+parent.replace(/\./g, '_')+'{{:#index}}"'+cls+'>'+data.title+'</label><input id="field_'+parent.replace(/\./g, '_')+'{{:#index}}" title="'+data.description+'" type="text" data-link="'+parent+'"'+cls+' disabled /><input title="browse" class="browse" type="button" value="Browse"/><input class="upload" type="file" /><progress value="0" max="100"></progress></div>';
+            set = '<div class="field"><label for="field_'+parent+'{{:#index}}"'+cls+'>'+data.title+'</label><input id="field_'+parent+'{{:#index}}" title="'+data.description+'" type="text" data-link="'+parent+'"'+cls+' disabled /><input title="browse" class="browse" type="button" value="Browse"/><input class="upload" type="file" /><progress value="0" max="100"></progress></div>';
             break;
           // format a time
           case 'time':
             // time is rendered as html5 time type
-            set = '<div class="field"><label for="field_'+parent.replace(/\./g, '_')+'{{:#index}}"'+cls+'>'+data.title+'</label><input id="field_'+parent.replace(/\./g, '_')+'{{:#index}}" title="'+data.description+'" type="time" data-link="'+parent+'"'+cls+' /></div>';
+            set = '<div class="field"><label for="field_'+parent+'{{:#index}}"'+cls+'>'+data.title+'</label><input id="field_'+parent+'{{:#index}}" title="'+data.description+'" type="time" data-link="'+parent+'"'+cls+' /></div>';
             break;
           // format a date
           case 'date':
             // date is rendered as html5 date type
-            set = '<div class="field"><label for="field_'+parent.replace(/\./g, '_')+'{{:#index}}"'+cls+'>'+data.title+'</label><input id="field_'+parent.replace(/\./g, '_')+'{{:#index}}" title="'+data.description+'" type="date" data-link="'+parent+'"'+cls+' /></div>';
+            set = '<div class="field"><label for="field_'+parent+'{{:#index}}"'+cls+'>'+data.title+'</label><input id="field_'+parent+'{{:#index}}" title="'+data.description+'" type="date" data-link="'+parent+'"'+cls+' /></div>';
             break;
           // format a date-time
           case 'date-time':
             // date-time is rendered as html5 datetime type
-            set = '<div class="field"><label for="field_'+parent.replace(/\./g, '_')+'{{:#index}}"'+cls+'>'+data.title+'</label><input id="field_'+parent.replace(/\./g, '_')+'{{:#index}}" title="'+data.description+'" type="datetime" data-link="'+parent+'"'+cls+' /></div>';
+            set = '<div class="field"><label for="field_'+parent+'{{:#index}}"'+cls+'>'+data.title+'</label><input id="field_'+parent+'{{:#index}}" title="'+data.description+'" type="datetime" data-link="'+parent+'"'+cls+' /></div>';
             break;
           // basic renderer for any other elements
           default:
-            set = '<div class="field"><label for="field_'+parent.replace(/\./g, '_')+'{{:#index}}"'+cls+'>'+data.title+'</label><input id="field_'+parent.replace(/\./g, '_')+'{{:#index}}" title="'+data.description+'" type="text" data-link="'+parent+'"'+cls+' /></div>';
+            set = '<div class="field"><label for="field_'+parent+'{{:#index}}"'+cls+'>'+data.title+'</label><input id="field_'+parent+'{{:#index}}" title="'+data.description+'" type="text" data-link="'+parent+'"'+cls+' /></div>';
             break;
         }
       }
@@ -1101,17 +1101,17 @@ var buildFormSchema = function(data, key, parent) {
     // format an integer
     case 'integer':
       // integers are forced to whole numbers
-      set = '<div class="field"><label for="field_'+parent.replace(/\./g, '_')+'{{:#index}}"'+cls+'>'+data.title+'</label><input id="field_'+parent.replace(/\./g, '_')+'{{:#index}}" title="'+data.description+'" type="number" step="1" data-link="{numToStr:'+parent+':strToInt}"'+cls+' /></div>';
+      set = '<div class="field"><label for="field_'+parent+'{{:#index}}"'+cls+'>'+data.title+'</label><input id="field_'+parent+'{{:#index}}" title="'+data.description+'" type="number" step="1" data-link="{numToStr:'+parent+':strToInt}"'+cls+' /></div>';
       break;
     // format a number
     case 'number':
       // numbers can be floating point
-      set = '<div class="field"><label for="field_'+parent.replace(/\./g, '_')+'{{:#index}}"'+cls+'>'+data.title+'</label><input id="field_'+parent.replace(/\./g, '_')+'{{:#index}}" title="'+data.description+'" type="number" step="any" data-link="{numToStr:'+parent+':strToFloat}"'+cls+' /></div>';
+      set = '<div class="field"><label for="field_'+parent+'{{:#index}}"'+cls+'>'+data.title+'</label><input id="field_'+parent+'{{:#index}}" title="'+data.description+'" type="number" step="any" data-link="{numToStr:'+parent+':strToFloat}"'+cls+' /></div>';
       break;
     // format a boolean
     case 'boolean':
       // booleans are rendered as checkboxes
-      set = '<div class="field"><fieldset><legend>'+data.title+'</legend><label for="field_'+parent.replace(/\./g, '_')+'{{:#index}}"'+cls+'><input id="field_'+parent.replace(/\./g, '_')+'{{:#index}}" title="'+data.description+'" type="checkbox" data-link="'+parent+'"'+cls+' /><span>Yes</span></label></fieldset></div>';
+      set = '<div class="field"><fieldset><legend>'+data.title+'</legend><label for="field_'+parent+'{{:#index}}"'+cls+'><input id="field_'+parent+'{{:#index}}" title="'+data.description+'" type="checkbox" data-link="'+parent+'"'+cls+' /><span>Yes</span></label></fieldset></div>';
       break;
     // don't render a null type
     case 'null':
