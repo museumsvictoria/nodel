@@ -625,8 +625,8 @@ var buildForm = function(name, formname, path, action, link){
       // set the form action (if it exsits)
       if($('#'+formname).get(0)) $('#'+formname).get(0).setAttribute('action', '/REST/nodes/'+node+'/'+(path.length!==0?(path.join('/')+'/'+name):name)+'/'+action);
       // link the form to the data (this renders the form)
-      eval('$.link.'+formname+'Template("#"+formname, data, {onAfterCreate: function() { $(\'.addobj\').each(function(){var view = $.view(this); $.observable(view.data).setProperty(this.id, {});})}})');
-      // attach UI events      
+      eval('$.link.'+formname+'Template("#"+formname, data)');
+      // attach UI events
       buildFormEvents(formname, action, data);
       // indicate that the form is ready
       $('#'+formname).trigger('ready');
@@ -638,7 +638,7 @@ var buildForm = function(name, formname, path, action, link){
     // set the form action (if it exsits)
     if($('#'+formname).get(0)) $('#'+formname).get(0).setAttribute('action', '/REST/nodes/'+node+'/'+(path.length!==0?(path.join('/')+'/'+name):name)+'/'+action);
     // link the form to the data (this renders the form)
-    eval('$.link.'+formname+'Template("#"+formname, data, {onAfterCreate: function() { $(\'.addobj\').each(function(){var view = $.view(this); $.observable(view.data).setProperty(this.id, {});})}})');
+    eval('$.link.'+formname+'Template("#"+formname, data)');
     // attach UI events
     buildFormEvents(formname, action, data);
     // indicate that the form is ready
@@ -775,6 +775,10 @@ var buildFormEvents = function(name, action, data){
   });
   // handle when cron fields are created
   $('#'+name).on('ready updated', function() {
+    $(this).find('.addobj').each(function(){
+        var v = $.view(this);
+        $.observable(v.data).setProperty(this.id, {});
+    });
     // initialise jqCron and set the current value
     $.when($(this).find('input.cron').each(function() {
       $(this).jqCron({
@@ -956,7 +960,7 @@ var buildFormEvents = function(name, action, data){
   // handle when an item is selected from the autocomplete popup
   $('#'+name).on('click touchstart', 'div.autocomplete ul li', function() {
     // set the field value
-    $(this).parents('div.autocomplete').siblings('input#'+$(this).parents('div.autocomplete').data('target')).val($(this).text()).trigger('change');
+    $(this).parents('div.autocomplete').siblings('input#'+$(this).parents('div.autocomplete').data('target').replace(/\./g,'\\.')).val($(this).text()).trigger('change');
     // hide the autocomplete popup
     $(this).parents('div.autocomplete').remove();
   });
@@ -977,12 +981,12 @@ var buildFormSchema = function(data, key, parent) {
   // set empty variables for the element and its class
   var set = '';
   var cls = '';
-  // field group is always the parent
-  var group = parent;
   // if there is a parent, set the new parent to be the current parent plus the current field key
   if(parent) parent = parent + '.' + key;
   // otherwise, set the parent to the field key
   else parent = key;
+  // field group is always the parent
+  var group = parent;
   // collect and format extra classes required for the element
   var xtr = [];
   if(data.required) xtr.push('required');
@@ -997,7 +1001,8 @@ var buildFormSchema = function(data, key, parent) {
         get=buildFormSchema(lvalue, lkey, parent);       
         // if the item rendered is an object, append a conditionally displayed 'add' div for jsviews to initialise
         if(lvalue.type=="object") {
-          get='{^{if ~isSet('+lkey+')}}'+get+'{{else}}<div class="addobj" id="'+lkey+'"></div>{{/if}}';
+            var fkey = parent ? parent+'.'+lkey : lkey;
+            get='{^{if ~isSet('+fkey+')}}'+get+'{{else}}<div class="addobj" id="'+fkey+'"></div>{{/if}}';
         }
         // add the item to the current template string
         set+=get;
