@@ -26,6 +26,8 @@ local_event_Input5Off = LocalEvent('{"title":"Input 5 Off","desc":"Input 5 Off",
 local_event_Input6Off = LocalEvent('{"title":"Input 6 Off","desc":"Input 6 Off", "group":"Input 6"}')
 local_event_Error = LocalEvent('{"title":"Error","desc":"Error state."}')
 
+lock = threading.Lock()
+
 class ModbusPoll(threading.Thread):
   def __init__(self):
     threading.Thread.__init__(self)
@@ -35,6 +37,7 @@ class ModbusPoll(threading.Thread):
   def run(self):
     self.client = ModbusTcpClient(param_ipAddress)
     while not self.event.isSet():
+      lock.acquire()
       try:
         result = self.client.read_coils(0,6, unit=UNIT)
         for num in range(0,5):
@@ -49,19 +52,27 @@ class ModbusPoll(threading.Thread):
       except Exception, e:
         local_event_Error.emit(e)
         self.event.wait(1)
+      finally:
+        lock.release()
     self.client.close()
   def on(self, num):
     if not self.event.isSet():
+      lock.acquire()
       try:
         self.client.write_coil(num, True, unit=UNIT)
       except Exception, e:
         local_event_Error.emit(e)
+      finally:
+        lock.release()
   def off(self, num):
     if not self.event.isSet():
+      lock.acquire()
       try:
         self.client.write_coil(num, False, unit=UNIT)
       except Exception, e:
         local_event_Error.emit(e)
+      finally:
+        lock.release()
   def stop(self):
     self.event.set()
 
