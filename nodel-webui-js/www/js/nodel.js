@@ -773,8 +773,9 @@ var buildFormEvents = function(name, action, data){
     $('#'+name).trigger('updated');
     return false;
   });
-  // handle when cron fields are created
+  // handle updates to forms
   $('#'+name).on('ready updated', function() {
+    // initialise unset objects
     $(this).find('.addobj').each(function(){
         var v = $.view(this);
         $.observable(v.data).setProperty(this.id, {});
