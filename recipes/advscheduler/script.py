@@ -24,7 +24,7 @@ def cleanup():
 atexit.register(cleanup)
 
 _split_re  = re.compile("\s+")
-_cron_re = re.compile(r"^(?:[0-9-,*/]+\s){4}[0-9-,*/]$")
+_cron_re = re.compile(r"^(?:[0-9-,*/]+\s){4}[0-9-,*/]+$")
 _sched_seq = ('minute', 'hour', 'day', 'month', 'day_of_week')
 
 
