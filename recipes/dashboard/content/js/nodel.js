@@ -235,8 +235,12 @@ var init = function() {
        $('.advancededitor').slideDown();
        loadEditor();
       }
+      window.history.replaceState('','','http://'+host+'/nodes/'+node+'/?advanced=true');
     // if it is 'disabled', hide the advanced section
-    } else $('.advanced, .advancededitor').slideUp();
+    } else {
+      window.history.replaceState('','','http://'+host+'/nodes/'+node+'/');
+      $('.advanced, .advancededitor').slideUp();
+    }
   });
   // if advanced mode is specified on the query string, open it by default
   if(adv) $('#advancedmode').prop('checked', true).trigger('change');
@@ -317,9 +321,7 @@ var loadEditor = function() {
 
 // function to reload the UI
 var reload = function() {
-  if(!adv && $('#advancedmode').prop('checked')) window.location.replace(window.location.href+'?advanced=true'); 
-  else if(adv && !$('#advancedmode').prop('checked')) window.location.replace(window.location.href.replace("?advanced=true",""));
-  else window.location.reload();
+  window.location.reload();
 };
 
 // function to display all nodes in the nodel network
