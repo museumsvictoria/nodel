@@ -110,7 +110,7 @@ public class BootstrapConfig {
         this.nodelPackage = value;
     }
     
-    @Value(title = "Network interface", order = 800, required = false)
+    @Value(name = "networkInterface", title = "Network interface", order = 800, required = false)
     private byte[] networkInterface = null;
 
     public byte[] getNetworkInterface() {
@@ -121,7 +121,7 @@ public class BootstrapConfig {
         this.networkInterface = value;
     }
     
-    @Value(title = "Disable advertisements", order = 900, required = false)
+    @Value(name = "disableAdvertisements", title = "Disable advertisements", order = 900, required = false)
     private boolean disableAdvertisements = false;
 
     public boolean getDisableAdvertisements() {

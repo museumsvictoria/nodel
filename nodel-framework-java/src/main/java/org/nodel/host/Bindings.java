@@ -26,16 +26,16 @@ public class Bindings {
         Empty.params = ParameterBindings.Empty;
     } // (static)
     
-    @Value(title = "Description", order = 0.5, desc = "The description of the node.")
+    @Value(name = "desc", title = "Description", order = 0.5, desc = "The description of the node.")
     public String desc;
     
-    @Value(title = "Local", order = 1, desc = "The actions and events this node provides (local).")
+    @Value(name = "local", title = "Local", order = 1, desc = "The actions and events this node provides (local).")
     public LocalBindings local;
     
-    @Value(title = "Remote", order = 2, desc = "The actions and events this node requires of remote (or peer) nodes.")
+    @Value(name = "remote", title = "Remote", order = 2, desc = "The actions and events this node requires of remote (or peer) nodes.")
     public RemoteBindings remote;
     
-    @Value(title = "Parameters", order = 3, desc = "The global parameters used within the script.", genericClassA = String.class, genericClassB = ParameterBinding.class)
+    @Value(name = "params", title = "Parameters", order = 3, desc = "The global parameters used within the script.", genericClassA = String.class, genericClassB = ParameterBinding.class)
     public ParameterBindings params;
     
     public String toString() {

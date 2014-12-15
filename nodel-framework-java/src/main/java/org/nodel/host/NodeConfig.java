@@ -26,11 +26,11 @@ public class NodeConfig {
         Example.paramValues = ParamValues.Example;
     }
     
-    @Value(title = "Remote binding values", order = 50, required = true, 
+    @Value(name = "remoteBindingValues", title = "Remote binding values", order = 50, required = true, 
            desc = "The remote action and event binding values.")
     public RemoteBindingValues remoteBindingValues;
     
-    @Value(title = "Parameter values", order = 60, required = true,
+    @Value(name = "paramValues", title = "Parameter values", order = 60, required = true,
            genericClassA = SimpleName.class, genericClassB = Object.class,
            desc = "The script parameter values.")
     public ParamValues paramValues;

@@ -1029,7 +1029,7 @@ public class PyNode extends BaseDynamicNode {
     /**
      * Evaluates a Python expression related to the current interpreter instance.
      */
-    @Service(title = "Evaluate", desc = "Evaluates a Python expression.")
+    @Service(name = "eval", title = "Evaluate", desc = "Evaluates a Python expression.")
     public Object eval(@Param(name = "expr", title = "Expression", desc = "A Python expression.") final String expr) throws Exception {
         final PythonInterpreter python = _python;
         
