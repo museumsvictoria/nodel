@@ -35,6 +35,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.nodel.Base64;
 import org.nodel.DateTimes;
+import org.nodel.io.UTF8Charset;
 import org.nodel.net.Credentials;
 import org.nodel.threading.ThreadPool;
 
@@ -91,9 +92,20 @@ import org.nodel.threading.ThreadPool;
  */
 public class NanoHTTPD {
     
-    private static Object staticLock = new Object();
+    private static Object s_lock = new Object();
     
-    private static ThreadPool staticThreadPool = new ThreadPool("nano_http", 128);
+    private static ThreadPool s_threadPool;
+    
+    private static ThreadPool staticThreadPool() {
+        if (s_threadPool == null) {
+            synchronized(s_lock) {
+                if (s_threadPool == null)
+                    s_threadPool = new ThreadPool("nano_http", 128);
+            }
+        }
+        
+        return s_threadPool;
+    }
     
     // ==================================================
     // API parts
@@ -423,10 +435,8 @@ public class NanoHTTPD {
 
         public HTTPSession(Socket s) {
             this.mySocket = s;
-//            Thread t = new Thread(this);
-//            t.setDaemon(true);
-//            t.start();
-            staticThreadPool.execute(this);
+            
+            staticThreadPool().execute(this);
         }
 
         public void run() {
@@ -773,23 +783,36 @@ public class NanoHTTPD {
          */
         private String decodePercent(String str) throws InterruptedException {
             try {
-                StringBuffer sb = new StringBuffer();
-                for (int i = 0; i < str.length(); i++) {
+                // convert into literal bytes
+                int strLen = str.length();
+                
+                // this will be the write ptr and final length of buffer
+                int bIndex = 0;
+                
+                // buffer length will always be equal to or less than original length
+                byte[] buffer = new byte[strLen];
+                
+                for (int i = 0; i < strLen; i++) {
                     char c = str.charAt(i);
+                    byte b = (byte) c;
                     switch (c) {
                     case '+':
-                        sb.append(' ');
+                        buffer[bIndex++] = (byte) ' ';
                         break;
                     case '%':
-                        sb.append((char) Integer.parseInt(str.substring(i + 1, i + 3), 16));
+                        buffer[bIndex++] = (byte) Integer.parseInt(str.substring(i + 1, i + 3), 16);
                         i += 2;
                         break;
                     default:
-                        sb.append(c);
+                        buffer[bIndex++] = b;
                         break;
                     }
                 }
-                return sb.toString();
+                
+                // UTF8 conversion
+                String result = new String(buffer, 0, bIndex, UTF8Charset.instance().charset());
+                
+                return result; 
             } catch (Exception e) {
                 sendError(HTTP_BADREQUEST, "BAD REQUEST: Bad percent-encoding.");
                 return null;
@@ -1161,7 +1184,7 @@ public class NanoHTTPD {
             return null;
         
         // get the raw base64 encoded 'username:password' string 
-        String rawString = authorizationField.substring(firstSpace + 1, authorizationField.length() - 1);
+        String rawString = authorizationField.substring(firstSpace + 1);
         
         byte[] rawAuthorisationField = Base64.decode(rawString);
         String authorisationField;
@@ -1297,7 +1320,7 @@ public class NanoHTTPD {
     private Logger logger;
 
     private void initLogging() {
-        synchronized (staticLock) {
+        synchronized (s_lock) {
             this.instance = staticInstanceCounter++;
         }
 
