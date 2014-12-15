@@ -47,4 +47,10 @@ public class ParameterInfo implements Comparable<ParameterInfo> {
         return (x < y) ? -1 : ((x == y) ? 0 : 1);
     }
     
+    @Override
+    public String toString() {
+        return String.format("{ name=%s, index=%s, class=%s }",
+                this.name, this.index, this.klass);
+    }
+    
 } // (class)
