@@ -975,6 +975,13 @@ var buildFormEvents = function(name, action, data){
       if(!$(ele).is(":focus")) $(ele).siblings('div.autocomplete[data-target="'+$(ele).attr('id')+'"]').remove();
     }, 1000);
   });
+  $('#'+name).on('focusout', 'input.date', function() {
+    var ele = this;
+    if(!moment($(this).val(),'YYYY-MM-DD').isValid()) {
+      $(this).addClass('highlight').focus();
+      dialog('Date is invalid', 'error');
+    } else $(this).removeClass('highlight');
+  });
 };
 
 // function to build a form template using a provided JSON schema (recursive)
