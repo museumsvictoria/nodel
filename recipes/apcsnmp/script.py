@@ -36,8 +36,8 @@ local_event_Error = LocalEvent('{ "title": "Error", "desc": "Error sending comma
 param_ipAddress = Parameter('{ "name": "ipAddress", "schema": {"type": "string"} }')
 
 def set_status(outlet, state):
+  sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
   try:
-    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     sock.settimeout(3)
     sock.bind(('', 0))
     packet = SET_PACKET_HEAD + '%02x' % outlet + VAR_INT + '%02x' % state
@@ -47,14 +47,16 @@ def set_status(outlet, state):
     while(not read_result(buffer)):
       data, addr = sock.recvfrom(1024)
       buffer+=data
-    sock.close()
   except:
     print 'error setting status for outlet %02x' % outlet
     local_event_Error.emit('error setting status for outlet %02x' % outlet)
+  finally:
+    if sock:
+      sock.close()
 
 def get_status(outlet):
+  sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
   try:
-    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     sock.settimeout(3)
     sock.bind(('', 0))
     packet = GET_PACKET_HEAD + '%02x' % outlet + GET_TAIL
@@ -64,10 +66,12 @@ def get_status(outlet):
     while(not read_result(buffer)):
       data, addr = sock.recvfrom(1024)
       buffer+=data
-    sock.close()
   except:
     print 'error getting status for outlet %02x' % outlet
     local_event_Error.emit('error getting status for outlet %02x' % outlet)
+  finally:
+    if sock:
+      sock.close()
 
 def read_result(data):
   match = re.search(OID+r"(\d{2})"+VAR_INT+r"(\d{2})", data.encode('hex'), re.MULTILINE | re.VERBOSE)
