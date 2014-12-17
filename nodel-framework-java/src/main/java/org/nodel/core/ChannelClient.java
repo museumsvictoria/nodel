@@ -43,7 +43,7 @@ public abstract class ChannelClient {
     /**
      * (logging related)
      */
-    @Value
+    @Value(name = "instance")
     protected long _instance = s_instance.getAndIncrement();
 
     /**
@@ -94,7 +94,7 @@ public abstract class ChannelClient {
          */
         List<ChannelEventHandler> handlers = new ArrayList<ChannelEventHandler>();
         
-        @Value
+        @Value(name = "beenRegistered")
         public boolean beenRegistered = false;
         
         public EventHandlersEntry(NodelPoint key) {
@@ -115,7 +115,7 @@ public abstract class ChannelClient {
     /**
      * Holds the registered event handlers.
      */
-    @Value
+    @Value(name = "eventHandlers")
     private Map<NodelPoint, EventHandlersEntry> eventHandlers = new HashMap<NodelPoint, EventHandlersEntry>();
     
     private class ActionPointEntry {
@@ -199,7 +199,7 @@ public abstract class ChannelClient {
     /**
      * Holds the possible wiring points by node
      */
-    @Value
+    @Value(name = "wiringPointsByNode")
     private Map<SimpleName, WiringPointEntry> _wiringPointsByNode = new HashMap<SimpleName, WiringPointEntry>();    
     
     /**

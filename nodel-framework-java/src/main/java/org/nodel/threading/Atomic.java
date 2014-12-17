@@ -44,7 +44,7 @@ public class Atomic {
     } // (method)
     
     /**
-     * Atomic way to set if less than.
+     * Atomic way to set if more than.
      */    
     public static int atomicMoreThanAndSet(int value, AtomicInteger currentValue) {
         for (;;) {

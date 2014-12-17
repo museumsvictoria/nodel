@@ -56,7 +56,7 @@ public class NodelClientEvent {
     /**
      * The last status.
      */
-    @Value
+    @Value(name = "lastStatus")
     private AtomicReference<BindingState> _lastStatus = new AtomicReference<BindingState>(BindingState.Empty);
     
     /**

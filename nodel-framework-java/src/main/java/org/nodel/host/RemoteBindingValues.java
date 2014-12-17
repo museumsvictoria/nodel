@@ -62,10 +62,10 @@ public class RemoteBindingValues {
             Example.event = new SimpleName("Triggered");
         }        
         
-        @Value(order = 1, title = "Node", desc = "A node name.", format = "node")
+        @Value(name = "node", order = 1, title = "Node", desc = "A node name.", format = "node")
         public SimpleName node;
         
-        @Value(order = 2, title = "Event", desc = "An event name.", format = "event")
+        @Value(name = "event", order = 2, title = "Event", desc = "An event name.", format = "event")
         public SimpleName event;
         
         public String toString() {  

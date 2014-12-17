@@ -28,19 +28,19 @@ public class ParameterBinding {
         Example.value = "192.168.100.1";
     }
     
-    @Value(order = 2)
+    @Value(name = "desc", order = 2)
     public String desc;
     
-    @Value(order = 3)
+    @Value(name = "group", order = 3)
     public String group;
     
-    @Value(order = 4)
+    @Value(name = "schema", order = 4)
     public Map<String, Object> schema;
     
-    @Value(order = 5)
+    @Value(name = "value", order = 5)
     public Object value;
 
-    @Value(order = 6)
+    @Value(name = "title", order = 6)
     public String title;
 
     public String toString() {  

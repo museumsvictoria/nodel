@@ -46,10 +46,10 @@ public class LocalBindings {
         Example.events.put(new SimpleName("Triggered"), Binding.LocalEventExample);
     }
     
-    @Value(order = 1, genericClassA = SimpleName.class, genericClassB = Binding.class)
+    @Value(name = "actions", order = 1, genericClassA = SimpleName.class, genericClassB = Binding.class)
     public Map<SimpleName, Binding> actions;
     
-    @Value(order = 2, genericClassA = SimpleName.class, genericClassB = Binding.class)
+    @Value(name = "events", order = 2, genericClassA = SimpleName.class, genericClassB = Binding.class)
     public Map<SimpleName, Binding> events;
     
     public String toString() {

@@ -21,7 +21,7 @@ public @interface Value {
     /**
      * The strict name/id/alias to use for the value.
      */
-    public String name() default "";
+    public String name();
 
     /**
      * A short title for the value.
@@ -82,5 +82,15 @@ public @interface Value {
      * Allows the 'format' to be overridden.
      */
     public String format() default "";
+    
+    /**
+     * For arrays, the minimum number of items allowed OR -1 for any number.
+     */
+    public int minItems() default -1;
+    
+    /**
+     * For arrays, the maximum number of items allowed OR -1 for any number.
+     */
+    public int maxItems() default -1;    
 
 } // (class)

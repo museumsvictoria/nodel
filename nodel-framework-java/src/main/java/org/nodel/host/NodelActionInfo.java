@@ -23,19 +23,19 @@ public class NodelActionInfo {
         Example.group = "Power";
     }
     
-    @Value(title = "Node", order = 2)
+    @Value(name = "node", title = "Node", order = 2)
     public String node;
     
-    @Value(title = "Action", order = 3)
+    @Value(name = "action", title = "Action", order = 3)
     public String action;
     
-    @Value(title = "Title", order = 4, required = false)
+    @Value(name = "title", title = "Title", order = 4, required = false)
     public String title;
     
-    @Value(title = "Group", order = 5, required = false)
+    @Value(name = "group", title = "Group", order = 5, required = false)
     public String group;
 
-    @Value(title = "Description", order = 6, required = false)
+    @Value(name = "desc", title = "Description", order = 6, required = false)
     public String desc;
     
     @Value(name = "caution", title = "Caution", order = 7, required = false)
