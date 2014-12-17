@@ -6,10 +6,12 @@ package org.nodel.core;
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. 
  */
 
+import java.io.Closeable;
+
 import org.nodel.SimpleName;
 import org.nodel.Strings;
 
-public class NodelServerAction {
+public class NodelServerAction implements Closeable {
     
     protected SimpleName _node;
     

@@ -18,42 +18,42 @@ public class ChannelMessage {
      * FROM SERVER: The node this message is being addressed to.
      * FROM CLIENT: The node this message originated from.
      */
-    @Value(order = 1)
+    @Value(name = "node", order = 1)
     public String node;
     
     /**
      * FROM SERVER: The node's events registered to listen to in the channel.
      * FROM CLIENT: The node's events registered to listen to in the channel.
      */
-    @Value(order = 4)
+    @Value(name = "events", order = 4)
     public String[] events;
     
     /**
      * FROM CLIENT: Registering for interests (actions)
      * FROM SERVER: The actions
      */
-    @Value(order = 3)    
+    @Value(name = "actions", order = 3)    
     public String[] actions;
     
     /**
      * The action to call.
      * (client req.)
      */
-    @Value(order = 6)
+    @Value(name = "action", order = 6)
     public String action;
     
     /**
      * A provide argument
      * (client req. or server resp.)
      */
-    @Value(order = 7)
+    @Value(name = "arg", order = 7)
     public Object arg;
     
     /**
      * The event that occurred
      * (server resp.)
      */
-    @Value(order = 8)
+    @Value(name = "event", order = 8)
     public String event;
     
     public enum Announcement {
@@ -63,14 +63,14 @@ public class ChannelMessage {
     /**
      * General purpose (non error) announcements e.g. "Moved"
      */
-    @Value(order = 8.5)
+    @Value(name = "announcement", order = 8.5)
     public Announcement announcement;
     
     /**
      * A short error category.
      * (server resp.)
      */
-    @Value(order = 9)
+    @Value(name = "error", order = 9)
     public String error;
     
     /**
@@ -78,7 +78,7 @@ public class ChannelMessage {
      * e.g. '*' reveal all 
      * (client req.)
      */
-    @Value(order = 12)
+    @Value(name = "reveal", order = 12)
     public String[] reveal;
     
     /**
@@ -94,6 +94,6 @@ public class ChannelMessage {
             this.string = Serialisation.serialise(this);
         
         return this.string;
-    } // (method)
+    }
 
 } // (class)

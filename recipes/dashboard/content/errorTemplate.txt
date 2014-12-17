@@ -1,0 +1,26 @@
+{^{forsorttime nodes}}
+  <div class="block" data-link="class{:~getClass(alerted, watched)}">
+    <a class="nodelink" target="_blank" href="#" data-link="href{:nodelink}">&#x2197;</a>
+    <h6 data-link="text{:title} id{:title}"></h6>
+    {^{for alert}}
+      {^{if #getIndex()==0}}<div class="info"><button class="clearallinfo">Clear All</button></div>{{/if}}
+      <div class="info">
+        <div class="alertblock">
+          <button class="clearinfo">Clear</button>
+          <p><strong>Timestamp</strong>: <span data-link="timestamp"></span></p>
+          <p><strong>Source</strong>: <span data-link="source"></span></p>
+          <p><strong>Type</strong>: <span data-link="type"></span></p>
+          <p><strong>Alias</strong>: <span data-link="alias"></span></p>
+          <p><strong>Message</strong>: <span data-link="arg"></span></p>
+        </div>
+      </div>
+    {{/for}}
+    {^{for watch}}
+      <div class="info">
+        <div class="watchblock">
+          <p><strong data-link="alias"></strong>: <span data-link="arg"></span></p>
+        </div>
+      </div>
+    {{/for}}
+  </div>
+{{/for}}

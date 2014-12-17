@@ -10,7 +10,7 @@ from datetime import date
 
 
 ### Parameters used by this Node
-param_schedule = Parameter('{ "title" : "Schedule", "group" : "Schedule", "schema": { "type": "array", "title": "Schedule", "required": false, "items": { "type": "object", "required": false, "properties": { "cron": { "type": "string", "format": "cron", "required": true, "title": "Cron", "desc": "Format: <minute> <hour> <day> <month> <day of week>" }, "signal": { "type": "string", "required": true, "title": "Signal", "format": "event" }, "except": { "type":"array", "required":false, "title":"Except", "items": { "type":"object", "required":false, "properties":{ "date": { "type":"date", "title":"Date", "required":false } } } }, "note": { "type": "string", "format": "long", "required": false, "title": "Notes", "desc": "Schedule notes" } } } } }')
+param_schedule = Parameter('{ "title" : "Schedule", "group" : "Schedule", "schema": { "type": "array", "title": "Schedule", "required": false, "items": { "type": "object", "required": false, "properties": { "cron": { "type": "string", "format": "cron", "required": true, "title": "Cron", "desc": "Format: <minute> <hour> <day> <month> <day of week>" }, "signal": { "type": "string", "required": true, "title": "Signal", "format": "event" }, "except": { "type":"array", "required":false, "title":"Except", "items": { "type":"object", "required":false, "properties":{ "date": { "type":"string", "format":"date", "title":"Date", "required":false } } } }, "note": { "type": "string", "format": "long", "required": false, "title": "Notes", "desc": "Schedule notes" } } } } }')
 
 
 
@@ -24,7 +24,7 @@ def cleanup():
 atexit.register(cleanup)
 
 _split_re  = re.compile("\s+")
-_cron_re = re.compile(r"^(?:[0-9-,*/]+\s){4}[0-9-,*/]$")
+_cron_re = re.compile(r"^(?:[0-9-,*/]+\s){4}[0-9-,*/]+$")
 _sched_seq = ('minute', 'hour', 'day', 'month', 'day_of_week')
 
 

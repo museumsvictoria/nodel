@@ -69,7 +69,7 @@ public class NodelClientAction {
     /**
      * The last status.
      */
-    @Value
+    @Value(name = "lastStatus")
     private AtomicReference<BindingState> _lastStatus = new AtomicReference<BindingState>(BindingState.Empty);    
     
     /**

@@ -37,10 +37,10 @@ public class RemoteBindings {
         Empty.events = Collections.emptyMap();
     }
     
-    @Value(title = "Actions", order = 1, desc = "The remote actions required by this node.", genericClassA = SimpleName.class, genericClassB = NodelActionInfo.class)
+    @Value(name = "actions", title = "Actions", order = 1, desc = "The remote actions required by this node.", genericClassA = SimpleName.class, genericClassB = NodelActionInfo.class)
     public Map<SimpleName, NodelActionInfo> actions;
 
-    @Value(title = "Events", order = 2, desc = "The remote events required by this node.", genericClassA = SimpleName.class, genericClassB = NodelEventInfo.class)
+    @Value(name = "events", title = "Events", order = 2, desc = "The remote events required by this node.", genericClassA = SimpleName.class, genericClassB = NodelEventInfo.class)
     public Map<SimpleName, NodelEventInfo> events;
 
     public String toString() {

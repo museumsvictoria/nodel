@@ -22,7 +22,7 @@ public class AdvertisementInfo {
     /**
      * (millis)
      */
-    @Value
+    @Value(name = "timeStamp")
     public long timeStamp;
 
 } // (class)

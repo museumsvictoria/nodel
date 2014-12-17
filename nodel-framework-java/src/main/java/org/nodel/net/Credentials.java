@@ -10,38 +10,39 @@ package org.nodel.net;
  * Represents network credentials
  */
 public class Credentials {
-    
+
     private String username;
-    
+
     private String password;
-    
+
     /**
      * Empty constructor.
      */
-    public Credentials() { }
+    public Credentials() {
+    }
 
     /**
      * Full constructor.
      */
     public Credentials(String username, String password) {
-	this.username = username;
-	this.password = password;
+        this.username = username;
+        this.password = password;
     }
-    
+
     public String getUsername() {
-	return this.username;
+        return this.username;
     }
-    
+
     public void setUsername(String value) {
-	this.username = value;
+        this.username = value;
     }
-    
+
     public String getPassword() {
-	return this.password;
+        return this.password;
     }
-    
+
     public void setPassword(String value) {
-	this.password = value;
+        this.password = value;
     }
-    
+
 } // (class)
