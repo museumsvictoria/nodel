@@ -595,7 +595,8 @@ var updateConsoleForm = function(){
       // parse the timestamp for formatting
       var timestamp = moment(value.timestamp);
       // add the entry to the list
-      $('#console').append('<div class="'+value.console+'"></div>').text(timestamp.format('MM-DD HH:mm:ss')+' - '+value.comment);
+      var div = $('<div class="'+value.console+'"></div>').text(timestamp.format('MM-DD HH:mm:ss')+' - '+value.comment);
+      $('#console').append(div);
       // set the current sequence number
       $('#console').data('seq', value.seq+1);
       // trim the list if it goes over 100 items
