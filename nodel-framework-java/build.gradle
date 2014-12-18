@@ -1,0 +1,23 @@
+apply plugin: 'java'
+apply plugin: 'maven'
+
+repositories {
+    mavenCentral()
+}
+
+version =  '2.0.4'
+
+jar {
+	from "$buildDir/output"
+    baseName = 'nodel-framework'
+    manifest {
+         attributes 'Implementation-Title': 'Nodel framework for Java',
+                    'Implementation-Version': version
+    }    
+}
+
+dependencies {
+    compile 'joda-time:joda-time:2.6'
+    compile 'org.apache.logging.log4j:log4j-api:2.1'
+}
+
