@@ -67,6 +67,8 @@ public class Reflection {
         private String[] enumValues;
 
         private Member defaultValue;
+        
+        private Member defaultService;
 
         /**
          * (can be null)
@@ -142,6 +144,14 @@ public class Reflection {
     public static Member getTreatAsValueMember(Class<?> klass) {
         return tryInitReflectionData(klass).defaultValue;
     }
+    
+    /**
+     * Gets the member (field or arg-less method) that returns
+     * its default service.
+     */
+    public static Member getTreatAsServiceMember(Class<?> klass) {
+        return tryInitReflectionData(klass).defaultService;
+    }    
 
     /**
      * Initialises the lookup tables if they haven't been initialised already.
@@ -205,6 +215,8 @@ public class Reflection {
 
             tryMemberAsService(serviceInfos, serviceInfoMap, field, originalField);
         }
+        
+        List<SetterInfo> setterInfos = new ArrayList<SetterInfo>();
 
         // go through the discovered methods...
         for (Method method : allMethods) {
@@ -213,7 +225,22 @@ public class Reflection {
             tryMemberAsService(serviceInfos, serviceInfoMap, method, originalMethod);
             
             tryMemberAsValue(reflectionInfo, valueInfos, valueInfoMap, method, originalMethod);
+            
+            SetterInfo setterInfo = tryMemberAsSetter(method, originalMethod);
+            if (setterInfo != null)
+                setterInfos.add(setterInfo);
         } // (for)
+        
+        // process all the discovered setters, updating relevant value infos.
+        for (SetterInfo setterInfo : setterInfos) {
+            // find the relevant value info
+            ValueInfo valueInfo = valueInfoMap.get(setterInfo.name);
+            if (valueInfo == null)
+                // a setter doesn't have a corresponding value
+                ;
+            else
+                valueInfo.setter = setterInfo;
+        }
         
         // find a constructor by string...
         Constructor<?> constructorByString = null;
@@ -229,6 +256,7 @@ public class Reflection {
         
         // find the member that is used to define a default value
         Member defaultValueMember = null;
+        Member defaultServiceMember = null;
         
         for (ValueInfo value : valueInfos) {
             if (value.annotation.treatAsDefaultValue())
@@ -236,8 +264,8 @@ public class Reflection {
         } // (for)
         
         for (ServiceInfo service : serviceInfos) {
-            if (service.annotation.treatAsDefaultValue())
-                defaultValueMember = service.member;
+            if (service.annotation.treatAsDefaultService())
+                defaultServiceMember = service.member;
         } // (for)
         
         // get the enum map if they're enum class
@@ -342,6 +370,7 @@ public class Reflection {
         reflectionInfo.serviceInfoByName = serviceInfoMap;
         reflectionInfo.constructorByString = constructorByString;
         reflectionInfo.defaultValue = defaultValueMember;
+        reflectionInfo.defaultService = defaultServiceMember;
         reflectionInfo.enumInfos = enumInfos;
         reflectionInfo.enumConstantMapByName = enumConstantMapByName;
         reflectionInfo.enumConstantMap = enumConstantMap;
@@ -404,12 +433,15 @@ public class Reflection {
         Field field = null;
 
         Service serviceAnnotation;
+        
         if (member instanceof Method) {
             method = (Method) (actualMember == null ? member : actualMember);
             serviceAnnotation = (Service) method.getAnnotation(Service.class);
+            
         } else if (member instanceof Field) {
             field = (Field) (actualMember == null ? member : actualMember);
             serviceAnnotation = (Service) field.getAnnotation(Service.class);
+            
         } else {
             return false;
         }
@@ -463,6 +495,27 @@ public class Reflection {
         
         return true;
     } // (method)
+    
+    private static SetterInfo tryMemberAsSetter(Member member, Method actualMember) {
+        Setter setterAnnotation = null;
+        Method method = null;
+        
+        if (member instanceof Method) {
+            method = (Method) member;
+            setterAnnotation = (Setter) method.getAnnotation(Setter.class);
+        }
+
+        // skip if no annotation present
+        if (setterAnnotation == null)
+            return null;
+        
+        String name = setterAnnotation.name().toLowerCase();
+        SetterInfo setterInfo = new SetterInfo(name, (Method) member);
+        
+        setterInfo.method = (actualMember == null ? method : (Method) actualMember);
+        
+        return setterInfo;
+    }    
     
     private static Param findParamAnnotation(Annotation[] annotations) {
         for (Annotation annotation : annotations) {
@@ -526,12 +579,16 @@ public class Reflection {
         } catch (IllegalAccessException e) {
             return null;
         }
-    } // (method)    
+    } // (method)
     
     /**
      * Deals with 'treatAsDefaultValue' annotations.
      */
     public static Object getDefaultValue(Object obj) {
+        // TODO: use a class
+        if (obj == null)
+            return null;
+        
         Class<?> klass = obj.getClass();
         
         Member member = getTreatAsValueMember(klass);
@@ -542,19 +599,24 @@ public class Reflection {
         
         if (member instanceof Field) {
             try {
-                return ((Field) member).get(obj);
+                return getDefaultValue(((Field) member).get(obj));
+                
             } catch (IllegalArgumentException e1) {
                 return obj;
+                
             } catch (IllegalAccessException e1) {
                 return obj;
             }
         } else if (member instanceof Method) {
             try {
-                return ((Method) member).invoke(obj);
+                return getDefaultValue(((Method) member).invoke(obj));
+                
             } catch (IllegalArgumentException e) {
                 return obj;
+                
             } catch (IllegalAccessException e) {
                 return obj;
+                
             } catch (InvocationTargetException e) {
                 throw new RuntimeException(e.getTargetException());
             }
@@ -564,6 +626,53 @@ public class Reflection {
             return obj;
         }
     } // (method)
+    
+    /**
+     * Deals with 'treatAsDefaultValue' annotations.
+     */
+    public static Object getDefaultService(Object obj) {
+        // TODO: use a class
+        if (obj == null)
+            return null;
+        
+        Class<?> klass = obj.getClass();
+        
+        Member member = getTreatAsServiceMember(klass);
+        
+        // nothing specified so return the object itself
+        if (member == null)
+            return obj;
+        
+        if (member instanceof Field) {
+            try {
+                return getDefaultService(((Field) member).get(obj));
+
+            } catch (IllegalArgumentException e1) {
+                return obj;
+
+            } catch (IllegalAccessException e1) {
+                return obj;
+            }
+        } else if (member instanceof Method) {
+            try {
+                // (recursive call to deal with nested)
+                return getDefaultService(((Method) member).invoke(obj));
+                
+            } catch (IllegalArgumentException e) {
+                return obj;
+
+            } catch (IllegalAccessException e) {
+                return obj;
+
+            } catch (InvocationTargetException e) {
+                throw new RuntimeException(e.getTargetException());
+            }
+        } else {
+            // should never get here
+            assert obj != null : "Is neither a Field or Method."; 
+            return obj;
+        }
+    } // (method)    
     
     /**
      * Does a shallow copy from one object to another.

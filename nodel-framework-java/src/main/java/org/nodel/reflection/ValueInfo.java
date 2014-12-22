@@ -21,6 +21,11 @@ public class ValueInfo implements Comparable<ValueInfo> {
     public Member member;
     
     public Value annotation;
+    
+    /**
+     * Holds the matcher setter info (if present)
+     */
+    public SetterInfo setter;    
 
     /**
      * Compare by 'order' field.

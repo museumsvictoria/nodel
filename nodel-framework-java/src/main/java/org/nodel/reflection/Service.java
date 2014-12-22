@@ -36,7 +36,7 @@ public @interface Service {
     /**
      * Is the default value for a given class.
      */
-    public boolean treatAsDefaultValue() default false;	
+    public boolean treatAsDefaultService() default false;	
 	
 	/**
 	 * Holds an optional description of this service.
