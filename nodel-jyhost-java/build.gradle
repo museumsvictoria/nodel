@@ -1,0 +1,43 @@
+apply plugin:'java'
+apply plugin:'application'
+apply plugin: 'maven'
+
+repositories {
+    mavenCentral()
+}
+
+version =  '2.0.5'
+
+mainClassName = "org.nodel.jyhost.Launch"
+
+jar {
+	from "$buildDir/output"
+    baseName = 'nodel-jyhost'
+    manifest {
+         attributes 'Implementation-Title': 'Nodel JyHost',
+                    'Implementation-Version': version
+    }    
+}
+
+task fatJar(type: Jar) {
+	manifest {
+        attributes 'Implementation-Title': 'Nodel JyHost',  
+        	'Implementation-Version': version,
+        	'Main-Class': mainClassName
+    }
+    baseName = project.name + '-all'
+    from { configurations.compile.collect { it.isDirectory() ? it : zipTree(it) } }
+    with jar
+}
+
+build.doLast {
+    tasks.fatJar.execute()
+}
+
+dependencies {
+		compile project(':nodel-framework-java')
+		compile 'commons-daemon:commons-daemon:1.0.15'
+		compile 'org.apache.logging.log4j:log4j-core:2.1'
+		compile 'org.python:jython-standalone:2.5.4-rc1'
+}
+
