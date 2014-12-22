@@ -45,15 +45,13 @@ class ModbusPoll(threading.Thread):
             func = globals()['local_event_Input'+str(num+1)+('On' if self.current[num] else 'Off')]
             func.emit()
           self.current[num] = result.bits[num]
-        self.event.wait(POLL/1000.0)
       except AttributeError:
         local_event_Error.emit('Could not connect to ADAM')
-        self.event.wait(1)
       except Exception, e:
         local_event_Error.emit(e)
-        self.event.wait(1)
       finally:
         lock.release()
+    self.event.wait(POLL/1000.0)
     self.client.close()
   def on(self, num):
     if not self.event.isSet():
