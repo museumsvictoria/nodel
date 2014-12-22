@@ -105,6 +105,13 @@ public class BaseDynamicNode {
     protected SimpleName _name;
     
     /**
+     * Returns the name
+     */
+    public SimpleName getName() {
+        return _name;
+    }
+    
+    /**
      * (see 'getDesc')
      */
     protected String _desc;

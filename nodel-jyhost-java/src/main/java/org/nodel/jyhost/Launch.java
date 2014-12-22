@@ -21,7 +21,7 @@ import java.util.List;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.apache.logging.log4j.core.config.ConfigurationFactory.ConfigurationSource;
+import org.apache.logging.log4j.core.config.ConfigurationSource;
 import org.apache.logging.log4j.core.config.Configurator;
 import org.nodel.StartupException;
 import org.nodel.core.Nodel;
@@ -54,7 +54,7 @@ public class Launch {
     /**
      * Program version.
      */
-    public final static String VERSION = "2.0.4";
+    public final static String VERSION = "2.0.5";
     
     /**
      * (initialised late in 'initLogging' depending on config)
@@ -233,7 +233,7 @@ public class Launch {
             // update the version stamp so extraction isn't done again
             Stream.writeFully(versionFile, VERSION);
         }
-
+        
         // have got config now (default one or one from disk) so
         // fire up pyNode console
         File nodelRoot = prepareDirectory("nodelRoot", _root, _bootstrapConfig.getNodelRoot());
@@ -297,23 +297,23 @@ public class Launch {
         for (final NetworkInterface inf : filtered) {
             Object wrapper = new Object() {
                 
-                @Value
+                @Value(name = "displayName")
                 public String displayName = inf.getDisplayName();
 
-                @Value
+                @Value(name = "hardwareAddr")
                 public byte[] hardwareAddr = inf.getHardwareAddress();
 
                 // JDK 7 only
                 // @Value
                 // public int index = inf.getIndex();
 
-                @Value
+                @Value(name = "addresses")
                 public List<InterfaceAddress> addresses = inf.getInterfaceAddresses();
 
-                @Value
+                @Value(name = "mtu")
                 public int mtu = inf.getMTU();
 
-                @Value
+                @Value(name = "name")
                 public String name = inf.getName();
                 
             };

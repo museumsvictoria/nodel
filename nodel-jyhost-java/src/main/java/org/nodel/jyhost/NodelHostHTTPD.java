@@ -248,19 +248,19 @@ public class NodelHostHTTPD extends NanoHTTPD {
      */
     public class ExceptionMessage {
     	
-    	@Value
+    	@Value(name = "code")
     	public String code;
 
-        @Value
+        @Value(name = "error")
         public String error;
         
-        @Value
+        @Value(name = "message")
         public String message;
         
-        @Value
+        @Value(name = "cause")
         public ExceptionMessage cause;
         
-        @Value
+        @Value(name = "stackTrace")
         public String stackTrace;        
         
     } // (class)

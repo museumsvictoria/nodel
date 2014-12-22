@@ -1,3 +1,8 @@
 /nodel-jyhost-java/.settings
 /nodel-framework-java/.settings
 /export
+/nodel-jyhost-java/build
+/nodel-framework-java/build
+/.gradle
+/nodel-framework-java/bin
+/nodel-jyhost-java/bin
