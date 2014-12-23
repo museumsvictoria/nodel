@@ -533,6 +533,14 @@ public class Launch {
                     }
                 }
             }
+        } else {
+            try (InputStream is = Launch.class.getResourceAsStream("log4j2_default.xml")) {
+                Configurator.initialize(null, new ConfigurationSource(is));
+                
+            } catch (Exception e) {
+                // logging related exception, so can't do much else but dump it
+                e.printStackTrace();
+            }
         }
         
         _logger = LogManager.getLogger(Launch.class.getName());
