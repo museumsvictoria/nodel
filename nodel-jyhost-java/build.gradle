@@ -7,7 +7,7 @@ repositories {
     mavenCentral()
 }
 
-version =  '2.0.5'
+version =  '2.0.5-rc1'
 
 mainClassName = "org.nodel.jyhost.Launch"
 
@@ -26,7 +26,8 @@ task fatJar(type: Jar) {
         	'Implementation-Version': version,
         	'Main-Class': mainClassName
     }
-    baseName = project.name + '-all'
+    baseName = 'nodelhost'
+    destinationDir new File(buildDir, 'distributions/standalone')
     from { configurations.compile.collect { it.isDirectory() ? it : zipTree(it) } }
     with jar
 }
