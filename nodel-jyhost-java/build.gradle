@@ -7,7 +7,7 @@ repositories {
     mavenCentral()
 }
 
-version =  '2.0.5-rc1'
+version =  '2.0.5-rc2'
 
 mainClassName = "org.nodel.jyhost.Launch"
 
