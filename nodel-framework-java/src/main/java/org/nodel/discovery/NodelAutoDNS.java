@@ -33,6 +33,7 @@ import org.nodel.SimpleName;
 import org.nodel.Threads;
 import org.nodel.core.NodeAddress;
 import org.nodel.core.Nodel;
+import org.nodel.io.UTF8Charset;
 import org.nodel.logging.AtomicLongMeasurementProvider;
 import org.nodel.reflection.Serialisation;
 import org.nodel.threading.ThreadPool;
@@ -369,6 +370,7 @@ public class NodelAutoDNS extends AutoDNS {
             }
 
         }, "autodns_multicastreceiver");
+        _multicastHandlerThread.setDaemon(true);
 
         // create the receiver thread and start it
         _unicastHandlerThread = new Thread(new Runnable() {
@@ -379,6 +381,7 @@ public class NodelAutoDNS extends AutoDNS {
             }
 
         }, "autodns_unicastreceiver");
+        _unicastHandlerThread.setDaemon(true);
         
         // don't want anything to hold up the sequence or throw any exceptions
         _threadPool.execute(new Runnable() {
@@ -682,8 +685,8 @@ public class NodelAutoDNS extends AutoDNS {
      * Parses the incoming packet.
      */
     private NameServicesChannelMessage parsePacket(DatagramPacket dp) {
-        String packetString = new String(dp.getData(), 0, dp.getLength());
-        
+        String packetString = new String(dp.getData(), 0, dp.getLength(), UTF8Charset.instance());
+
         return (NameServicesChannelMessage) Serialisation.coerceFromJSON(NameServicesChannelMessage.class, packetString);
     }
     
@@ -772,14 +775,18 @@ public class NodelAutoDNS extends AutoDNS {
             message.addresses.add(_httpAddress);
             
             // IO is involved so use thread-pool
-            _threadPool.execute(new Runnable() {
+            // (and only send if the 'present' list is not empty)
+            
+            if (message.present.size() > 0) {
+                _threadPool.execute(new Runnable() {
 
-                @Override
-                public void run() {
-                    sendMessage(_recipient, message);
-                }
+                    @Override
+                    public void run() {
+                        sendMessage(_recipient, message);
+                    }
 
-            });
+                });
+            }
             
             // do we need this completed in the very near future?
             // if so, space out by at least 333ms.
@@ -815,7 +822,7 @@ public class NodelAutoDNS extends AutoDNS {
         
         // convert into bytes
         String json = Serialisation.serialise(message);
-        byte[] bytes = json.getBytes();
+        byte[] bytes = json.getBytes(UTF8Charset.instance());
         
         DatagramPacket packet = new DatagramPacket(bytes, bytes.length);
         packet.setSocketAddress(to);
@@ -855,12 +862,12 @@ public class NodelAutoDNS extends AutoDNS {
 
             synchronized (_responders) {
                 if (!_responders.containsKey(from)) {
-                    Responder responser = new Responder(from);
-                    _responders.put(from, responser);
+                    Responder responder = new Responder(from);
+                    _responders.put(from, responder);
 
                     int delay = message.delay == null ? 0 : message.delay.intValue();
                     
-                    responser.start(delay);
+                    responder.start(delay);
                 }
             }
         }
