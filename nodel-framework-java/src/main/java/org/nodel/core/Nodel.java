@@ -23,7 +23,7 @@ import org.nodel.discovery.AutoDNS;
 
 public class Nodel {
 
-	private final static String VERSION = "2.0.5";
+	private final static String VERSION = "2.0.6";
 	
 	public static String getVersion() {
 		return VERSION;

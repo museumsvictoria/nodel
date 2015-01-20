@@ -54,7 +54,7 @@ public class Launch {
     /**
      * Program version.
      */
-    public final static String VERSION = "2.0.5";
+    public final static String VERSION = "2.0.6";
     
     /**
      * (initialised late in 'initLogging' depending on config)
