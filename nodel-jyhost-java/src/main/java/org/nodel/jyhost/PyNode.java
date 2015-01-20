@@ -796,10 +796,8 @@ public class PyNode extends BaseDynamicNode {
     @Service(name = "remote", title = "Remote", desc = "The remote bindings.")
     public Remote getRemote() {
         return _remote;
-    }    
-        
-    private List<RemoteActionEntry> _clientActions = new ArrayList<RemoteActionEntry>();
-    
+    }
+
     private void bindRemoteActions(Map<SimpleName, NodelActionInfo> actions) {
         if (actions == null) {
             _logger.info("This node does not require any actions.");
@@ -850,9 +848,7 @@ public class PyNode extends BaseDynamicNode {
         } // (for)
         
     } // (method)
-        
-    private List<RemoteEventEntry> _remoteEvents = new ArrayList<RemoteEventEntry>();
-    
+
     private void bindRemoteEvents(Map<SimpleName, NodelEventInfo> events) {
         if (events == null) {
             _logger.info("This node does not require any events.");

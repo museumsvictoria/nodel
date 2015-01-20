@@ -742,7 +742,7 @@ public class BaseDynamicNode {
         }
     }
     
-    private List<RemoteActionEntry> _clientActions = new ArrayList<RemoteActionEntry>();
+    protected List<RemoteActionEntry> _clientActions = new ArrayList<RemoteActionEntry>();
         
     protected class RemoteEventEntry {
         
@@ -754,7 +754,7 @@ public class BaseDynamicNode {
         
     } // (class)
     
-    private List<RemoteEventEntry> _remoteEvents = new ArrayList<RemoteEventEntry>();
+    protected List<RemoteEventEntry> _remoteEvents = new ArrayList<RemoteEventEntry>();
             
     protected List<ParameterEntry> _parameters = new ArrayList<ParameterEntry>();
     
