@@ -1,11 +1,29 @@
 apply plugin: 'java'
 apply plugin: 'maven'
+apply plugin: 'eclipse'
 
 repositories {
     mavenCentral()
 }
 
-version =  '2.0.4'
+version =  '2.0.6-rc1'
+
+dependencies {
+    project(':nodel-webui-js')
+    compile 'joda-time:joda-time:2.6'
+    compile 'org.apache.logging.log4j:log4j-api:2.1'
+}
+
+
+task jscontent(type: Zip) {
+    from new File(project(':nodel-webui-js').projectDir, 'www')
+    archiveName 'content.zip'
+	destinationDir new File(buildDir, 'resources/main/org/nodel/host')
+}
+
+compileJava.doLast {
+    tasks.jscontent.execute()
+}
 
 jar {
 	from "$buildDir/output"
@@ -16,8 +34,4 @@ jar {
     }    
 }
 
-dependencies {
-    compile 'joda-time:joda-time:2.6'
-    compile 'org.apache.logging.log4j:log4j-api:2.1'
-}
 

@@ -95,7 +95,8 @@ public class Logging {
             Iterator<LogEntry> inReverse = this.logs.descendingIterator();
             while (inReverse.hasNext()) {
                 LogEntry entry = inReverse.next();
-                if (entry.seq >= from && entry.level.isAtLeastAsSpecificAs(filterLevel))
+                // if (entry.seq >= from && entry.level.isAtLeastAsSpecificAs(filterLevel))
+                if (entry.seq >= from && entry.level.isMoreSpecificThan(filterLevel))
                     batch.add(entry);
 
                 if (entry.seq < from || batch.size() >= max)

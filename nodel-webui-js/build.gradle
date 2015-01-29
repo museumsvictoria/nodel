@@ -1,0 +1,6 @@
+// (this Gradle project may be expanded in the future)
+
+task content(type: Zip) {
+	from 'www'
+}
+

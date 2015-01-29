@@ -810,7 +810,7 @@ public class NanoHTTPD {
                 }
                 
                 // UTF8 conversion
-                String result = new String(buffer, 0, bIndex, UTF8Charset.instance().charset());
+                String result = new String(buffer, 0, bIndex, UTF8Charset.instance());
                 
                 return result; 
             } catch (Exception e) {

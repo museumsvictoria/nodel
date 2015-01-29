@@ -331,6 +331,14 @@ public class Schema {
             String format = value.format();
             if (!Strings.isNullOrEmpty(format))
                 schema.put("format", format);
+            
+            int minItems = value.minItems();
+            if (minItems >= 0)
+                schema.put("minItems", minItems);
+            
+            int maxItems = value.maxItems();
+            if (maxItems >= 0)
+                schema.put("maxItems", maxItems);            
 
         } else if (serviceInfo != null) {
             Service service = serviceInfo.annotation;

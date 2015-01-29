@@ -33,7 +33,7 @@
             </Policies>
             <DefaultRolloverStrategy max="5"/>
         </RollingFile>        
-        <RollingFile name="Naming" fileName="logs/Discovery.log" filePattern="logs/Discovery-%i.log.gz" append="false">
+        <RollingFile name="Discovery" fileName="logs/Discovery.log" filePattern="logs/Discovery-%i.log.gz" append="false">
             <PatternLayout pattern="%d{yy-MM-dd HH:mm:ss.SSS} [%-20t] %-5level %-44logger{36} %-20method - %msg%n" />
             <Policies>
                 <SizeBasedTriggeringPolicy size="10 MB" />

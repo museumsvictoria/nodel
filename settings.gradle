@@ -1,1 +1,1 @@
-include 'nodel-framework-java', 'nodel-jyhost-java'
+include 'nodel-framework-java',  'nodel-webui-js', 'nodel-jyhost-java'

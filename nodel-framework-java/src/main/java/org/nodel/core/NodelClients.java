@@ -141,7 +141,7 @@ public class NodelClients {
          * Holds entry related to unique 'events'
          * NodelName here is the 'Event'
          */
-        @Value
+        @Value(name = "eventHandlerEntries")
         public Map<SimpleName, EventHandlerEntry> eventHandlerEntries = new LinkedHashMap<SimpleName, EventHandlerEntry>();
         
         /**
@@ -152,17 +152,17 @@ public class NodelClients {
             /**
              * (will never be null)
              */
-            @Value
+            @Value(name = "actionPoint")
             public NodelPoint actionPoint;
             
-            @Value
+            @Value(name = "isRegistered")
             public boolean isRegistered = false;
             
             /**
              * Holds *ALL* the action bindings for this unique action.
              * (using LinkedList to help rapid 'adding' and 'removing')
              */
-            @Value
+            @Value(name = "bindings")
             public List<NodelClientAction> bindings = new LinkedList<NodelClientAction>();
             
             public ActionEntry(NodelPoint actionPoint) {
@@ -180,7 +180,7 @@ public class NodelClients {
          * Holds entry related to unique 'actions'
          * NodelName here is the 'Action'
          */
-        @Value
+        @Value(name = "actionEntries")
         public Map<SimpleName, ActionEntry> actionEntries = new LinkedHashMap<SimpleName, ActionEntry>();
         
         public NodeEntry(SimpleName node) {
@@ -898,10 +898,10 @@ public class NodelClients {
     
     public static class NodeURL {
         
-        @Value
+        @Value(name = "node")
         public SimpleName node;
         
-        @Value
+        @Value(name = "address")
         public String address;
 
     } // (class)
