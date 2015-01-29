@@ -462,7 +462,7 @@ var fetchHost = function(value){
 
 var createView = function(){
   viewData = {"nodes":[{"title":"Initialising","alert":[],"watch":[]}]};
-  viewTemplate = '{^{forsorttime nodes}} <div class="block" data-link="class{:~getClass(alerted, watched)}"> <a class="nodelink" target="_blank" href="#" data-link="href{:nodelink}">&#x2197;</a> <h6 data-link="text{:title} id{:title}"></h6> {^{for alert}} {^{if #getIndex()==0}}<div class="info"><button class="clearallinfo">Clear All</button></div>{{/if}} <div class="info"> <div class="alertblock"> <button class="clearinfo">Clear</button> <p><strong>Timestamp</strong>: <span data-link="timestamp"></span></p> <p><strong>Source</strong>: <span data-link="source"></span></p> <p><strong>Type</strong>: <span data-link="type"></span></p> <p><strong>Alias</strong>: <span data-link="alias"></span></p> <p><strong>Message</strong>: <span data-link="arg"></span></p> </div> </div> {{/for}} {^{for watch}} <div class="info"> <div class="watchblock"> <p><strong data-link="alias"></strong>: <span data-link="arg"></span></p> </div> </div> {{/for}} </div> {{/forsorttime}}';
+  viewTemplate = '{^{forsorttime nodes}} <div class="block" data-link="class{:~getClass(alerted, watched)}"> <a class="nodelink" target="_blank" href="#" data-link="href{:nodelink}">&#x2197;</a> <h6 data-link="text{:title} id{:node}"></h6> {^{for alert}} {^{if #getIndex()==0}}<div class="info"><button class="clearallinfo">Clear All</button></div>{{/if}} <div class="info"> <div class="alertblock"> <button class="clearinfo">Clear</button> <p><strong>Timestamp</strong>: <span data-link="timestamp"></span></p> <p><strong>Source</strong>: <span data-link="source"></span></p> <p><strong>Type</strong>: <span data-link="type"></span></p> <p><strong>Alias</strong>: <span data-link="alias"></span></p> <p><strong>Message</strong>: <span data-link="arg"></span></p> </div> </div> {{/for}} {^{for watch}} <div class="info"> <div class="watchblock"> <p><strong data-link="alias"></strong>: <span data-link="arg"></span></p> </div> </div> {{/for}} </div> {{/forsorttime}}';
   $.templates({viewTemplate: viewTemplate})
   $.link.viewTemplate("#activity", viewData);
   $.getJSON('http://'+host+'/REST/nodes/'+node+'/params',"",
@@ -987,12 +987,13 @@ var buildFormSchema = function(data, key, parent) {
   // set empty variables for the element and its class
   var set = '';
   var cls = '';
+  var group = '';
+  // field group is always the parent
+  if(parent) group = parent;
   // if there is a parent, set the new parent to be the current parent plus the current field key
   if(parent) parent = parent + '.' + key;
   // otherwise, set the parent to the field key
   else parent = key;
-  // field group is always the parent
-  var group = parent;
   // collect and format extra classes required for the element
   var xtr = [];
   if(data.required) xtr.push('required');

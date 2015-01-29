@@ -992,12 +992,13 @@ var buildFormSchema = function(data, key, parent) {
   // set empty variables for the element and its class
   var set = '';
   var cls = '';
+  var group = '';
+  // field group is always the parent
+  if(parent) group = parent;
   // if there is a parent, set the new parent to be the current parent plus the current field key
   if(parent) parent = parent + '.' + key;
   // otherwise, set the parent to the field key
   else parent = key;
-  // field group is always the parent
-  var group = parent;
   // collect and format extra classes required for the element
   var xtr = [];
   if(data.required) xtr.push('required');

@@ -40,7 +40,7 @@ class ModbusPoll(threading.Thread):
       lock.acquire()
       try:
         result = self.client.read_coils(0,6, unit=UNIT)
-        for num in range(0,5):
+        for num in range(0,6):
           if (result.bits[num] != self.current[num]):
             func = globals()['local_event_Input'+str(num+1)+('On' if self.current[num] else 'Off')]
             func.emit()
