@@ -506,7 +506,7 @@ var updateLogs = function(){
   var url;
   var node;
   var nodeList = $("#activity .node > h6[id]").map(function() { return this.id; }).get();
-  var retry = ((1000/nodeList.length) > 100) ? 1000/nodeList.length : 100;
+  var retry = ((5000/nodeList.length) > 100) ? 5000/nodeList.length : 100;
   if(typeof $('#activity').data('nodeindex') === "undefined") {
     $('#activity').data('nodeindex', 0);
     node = nodeList[0];
