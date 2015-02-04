@@ -548,6 +548,7 @@ var updateLogs = function(){
           $.each($.observable(view.data.watch).data(), function(i,x){
             if(x.alias == value.alias) {
               $.observable(view.data.watch).remove(i,1);
+              return false;
             }
           });
           $.observable(view.data.watch).insert(0, obj);
