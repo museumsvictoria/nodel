@@ -16,6 +16,33 @@ import org.nodel.Threads;
  * Used as a singleton to recycle memory hungry UDP packets / buffers
  */
 public class UDPPacketRecycleQueue {
+    
+    /**
+     * The entries in the queue itself.
+     */
+    public class Packet {
+        
+        public Object tag;
+        
+        public DatagramPacket datagramPacket;
+        
+        public Packet(DatagramPacket packet) {
+            this.datagramPacket = packet;
+        }
+        
+        public Object getTag() {
+            return this.tag;
+        }
+        
+        public void setTag(Object value) {
+            this.tag = value;
+        }
+        
+        public DatagramPacket getDatagramPacket() {
+            return this.datagramPacket;
+        }
+        
+    }
 	
 	private final static int PACKET_LENGTH = 65536;
 
@@ -35,7 +62,7 @@ public class UDPPacketRecycleQueue {
 	/**
 	 * A fast lock-less queue
 	 */
-	private ConcurrentLinkedQueue<DatagramPacket> _queue = new ConcurrentLinkedQueue<DatagramPacket>();
+	private ConcurrentLinkedQueue<Packet> _queue = new ConcurrentLinkedQueue<Packet>();
 
 	/**
 	 * See 'instance()'
@@ -46,9 +73,9 @@ public class UDPPacketRecycleQueue {
 	/**
 	 * Returns a ready-to-use packet.
 	 */
-	public DatagramPacket getReadyToUsePacket() {
+	public Packet getReadyToUsePacket() {
 		// 'poll' actually removes a packet or returns null if none available
-		DatagramPacket packet = _queue.poll();
+	    Packet packet = _queue.poll();
 
 		if (packet == null) {
 			int count = _packetsCounter.incrementAndGet();
@@ -68,14 +95,14 @@ public class UDPPacketRecycleQueue {
 			} else {
 				// create a new one and return it
 				byte[] buffer = new byte[PACKET_LENGTH];
-				packet = new DatagramPacket(buffer, PACKET_LENGTH);
+				packet = new Packet(new DatagramPacket(buffer, PACKET_LENGTH));
 
 				return packet;
 			}
 		}
 		
 		// reset the packet length field of a pre-created packet
-		packet.setLength(PACKET_LENGTH);
+		packet.getDatagramPacket().setLength(PACKET_LENGTH);
 
 		return packet;
 	}
@@ -83,7 +110,7 @@ public class UDPPacketRecycleQueue {
 	/**
 	 * Releases a packet back into the recycle queue.
 	 */
-	public void returnPacket(DatagramPacket packet) {
+	public void returnPacket(Packet packet) {
 		_queue.offer(packet);
 	}
 
