@@ -295,5 +295,42 @@ public class Nodel {
         onNameRegistrationFault.removeHandler(handler);
     } // (method)
     
+    /**
+     * See 'getAgent()'
+     */
+    private static String s_agent = formatAgent();
+    
+    private static String formatAgent() {
+        StringBuilder sb = new StringBuilder();
+
+        sb.append("nodel/").append(VERSION);
+
+        String javaRuntime = System.getProperty("java.runtime.version");
+        if (!Strings.isNullOrEmpty(javaRuntime))
+            sb.append(" java/").append(javaRuntime.replace(' ', '_'));
+        
+        String vendor = System.getProperty("java.vm.vendor");
+        if (!Strings.isNullOrEmpty(vendor))
+            sb.append(' ').append(vendor.replace(' ', '_'));        
+
+        String os = System.getProperty("os.name");
+        if (!Strings.isNullOrEmpty(os))
+            sb.append(' ').append(os.replace(' ', '_'));
+
+        String arch = System.getProperty("sun.arch.data.model");
+        if (!Strings.isNullOrEmpty(arch))
+            sb.append(" arch").append(arch.replace(' ', '_'));
+
+        return sb.toString();
+    }
+    
+    /**
+     * Returns a Browser "user-agent" like string. Something like:
+     * nodel/2.0.5 java/1.7.0_71-b14_Oracle_Corporation arch64 Windows/8.1
+     */
+    public static String getAgent() {
+        return s_agent;
+    }
+    
     
 } // (class)

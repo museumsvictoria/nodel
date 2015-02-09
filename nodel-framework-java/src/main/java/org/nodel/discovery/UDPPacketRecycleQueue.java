@@ -17,117 +17,90 @@ import org.nodel.Threads;
  */
 public class UDPPacketRecycleQueue {
     
+    private final static int PACKET_LENGTH = 65536;
+
     /**
-     * The entries in the queue itself.
+     * The maximum number of packets to keep in this queue to avoid large memory
+     * allocation that cannot be garbage collected.
+     * 
+     * (roughly equals number of threads that'd be using the queue)
      */
-    public class Packet {
-        
-        public Object tag;
-        
-        public DatagramPacket datagramPacket;
-        
-        public Packet(DatagramPacket packet) {
-            this.datagramPacket = packet;
-        }
-        
-        public Object getTag() {
-            return this.tag;
-        }
-        
-        public void setTag(Object value) {
-            this.tag = value;
-        }
-        
-        public DatagramPacket getDatagramPacket() {
-            return this.datagramPacket;
-        }
-        
+    private final static int MAX_PACKETS = 64;
+
+    /**
+     * Keeps track of the number of packets created (without using locks);
+     */
+    private AtomicInteger _packetsCounter = new AtomicInteger();
+
+    /**
+     * A fast lock-less queue
+     */
+    private ConcurrentLinkedQueue<DatagramPacket> _queue = new ConcurrentLinkedQueue<DatagramPacket>();
+
+    /**
+     * See 'instance()'
+     */
+    private UDPPacketRecycleQueue() {
     }
-	
-	private final static int PACKET_LENGTH = 65536;
 
-	/**
-	 * The maximum number of packets to keep in this queue to avoid large memory
-	 * allocation that cannot be garbage collected.
-	 * 
-	 * (roughly equals number of threads that'd be using the queue)
-	 */
-	private final static int MAX_PACKETS = 64;
+    /**
+     * Returns a ready-to-use packet.
+     */
+    public DatagramPacket getReadyToUsePacket() {
+        // 'poll' actually removes a packet or returns null if none available
+        DatagramPacket packet = _queue.poll();
 
-	/**
-	 * Keeps track of the number of packets created (without using locks);
-	 */
-	private AtomicInteger _packetsCounter = new AtomicInteger();
+        if (packet == null) {
+            int count = _packetsCounter.incrementAndGet();
 
-	/**
-	 * A fast lock-less queue
-	 */
-	private ConcurrentLinkedQueue<Packet> _queue = new ConcurrentLinkedQueue<Packet>();
+            // make sure we haven't created too many packets
+            // (lock-less)
+            if (count > MAX_PACKETS) {
+                _packetsCounter.decrementAndGet();
 
-	/**
-	 * See 'instance()'
-	 */
-	private UDPPacketRecycleQueue() {
-	}
+                while (packet == null) {
+                    // highly unexpected situation so just
+                    // spin while we wait for packets to come back
+                    Threads.sleep(200);
 
-	/**
-	 * Returns a ready-to-use packet.
-	 */
-	public Packet getReadyToUsePacket() {
-		// 'poll' actually removes a packet or returns null if none available
-	    Packet packet = _queue.poll();
+                    packet = _queue.poll();
+                }
+            } else {
+                // create a new one and return it
+                byte[] buffer = new byte[PACKET_LENGTH];
+                packet = new DatagramPacket(buffer, PACKET_LENGTH);
 
-		if (packet == null) {
-			int count = _packetsCounter.incrementAndGet();
+                return packet;
+            }
+        }
+        
+        // reset the packet length field of a pre-created packet
+        packet.setLength(PACKET_LENGTH);
 
-			// make sure we haven't created too many packets
-			// (lock-less)
-			if (count > MAX_PACKETS) {
-				_packetsCounter.decrementAndGet();
+        return packet;
+    }
 
-				while (packet == null) {
-					// highly unexpected situation so just
-					// spin while we wait for packets to come back
-					Threads.sleep(200);
+    /**
+     * Releases a packet back into the recycle queue.
+     */
+    public void returnPacket(DatagramPacket packet) {
+        _queue.offer(packet);
+    }
 
-					packet = _queue.poll();
-				}
-			} else {
-				// create a new one and return it
-				byte[] buffer = new byte[PACKET_LENGTH];
-				packet = new Packet(new DatagramPacket(buffer, PACKET_LENGTH));
+    /**
+     * (singleton, thread-safe, non-blocking)
+     */
+    private static class Instance {
 
-				return packet;
-			}
-		}
-		
-		// reset the packet length field of a pre-created packet
-		packet.getDatagramPacket().setLength(PACKET_LENGTH);
+        private static final UDPPacketRecycleQueue INSTANCE = new UDPPacketRecycleQueue();
 
-		return packet;
-	}
+    }
 
-	/**
-	 * Releases a packet back into the recycle queue.
-	 */
-	public void returnPacket(Packet packet) {
-		_queue.offer(packet);
-	}
-
-	/**
-	 * (singleton, thread-safe, non-blocking)
-	 */
-	private static class Instance {
-
-		private static final UDPPacketRecycleQueue INSTANCE = new UDPPacketRecycleQueue();
-
-	}
-
-	/**
-	 * Returns the singleton instance of this class.
-	 */
-	public static UDPPacketRecycleQueue instance() {
-		return Instance.INSTANCE;
-	}
+    /**
+     * Returns the singleton instance of this class.
+     */
+    public static UDPPacketRecycleQueue instance() {
+        return Instance.INSTANCE;
+    }
 
 } // (class)

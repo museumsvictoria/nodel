@@ -29,11 +29,11 @@ import java.util.concurrent.atomic.AtomicLong;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.nodel.DateTimes;
+import org.nodel.Exceptions;
 import org.nodel.SimpleName;
 import org.nodel.Threads;
 import org.nodel.core.NodeAddress;
 import org.nodel.core.Nodel;
-import org.nodel.discovery.UDPPacketRecycleQueue.Packet;
 import org.nodel.io.Stream;
 import org.nodel.io.UTF8Charset;
 import org.nodel.logging.AtomicLongMeasurementProvider;
@@ -271,12 +271,28 @@ public class NodelAutoDNS extends AutoDNS {
      * (permanently latches false)
      */
     private volatile boolean _enabled = true;
+
+    /**
+     * (used in 'incomingQueue')
+     */
+    private class QueueEntry {
+        
+        public final String source;
+        
+        public final DatagramPacket packet;
+        
+        public QueueEntry(String source, DatagramPacket packet) {
+            this.source = source;
+            this.packet = packet;
+        }
+        
+    }
     
     /**
      * The incoming queue.
      * (self locked)
      */
-    private Queue<Packet>_incomingQueue = new LinkedList<Packet>();
+    private Queue<QueueEntry>_incomingQueue = new LinkedList<QueueEntry>();
     
     /**
      * Used to avoid unnecessary thread overlapping.
@@ -508,7 +524,7 @@ public class NodelAutoDNS extends AutoDNS {
                 socket = createMulticastSocket(s_receiveSocketlabel, s_interface, MDNS_PORT);
                 
                 synchronized(_lock) {
-                    // make sure flag hasn't since been reset
+                    // make sure not flagged since reset
                     if (_recycleReceiver) {
                         Stream.safeClose(socket);
                         continue;
@@ -518,9 +534,7 @@ public class NodelAutoDNS extends AutoDNS {
                 }
 
                 while (_enabled) {
-                    Packet packet = UDPPacketRecycleQueue.instance().getReadyToUsePacket();
-                    packet.setTag(s_receiveSocketlabel);
-                    DatagramPacket dp =  packet.getDatagramPacket();
+                    DatagramPacket dp = UDPPacketRecycleQueue.instance().getReadyToUsePacket();
 
                     // ('returnPacket' will be called in 'catch' or later after use in thread-pool)
 
@@ -528,13 +542,12 @@ public class NodelAutoDNS extends AutoDNS {
                         socket.receive(dp);
 
                     } catch (Exception exc) {
-                        UDPPacketRecycleQueue.instance().returnPacket(packet);
+                        UDPPacketRecycleQueue.instance().returnPacket(dp);
 
                         throw exc;
                     }
                     
                     InetAddress recvAddr = dp.getAddress();
-                    int port = dp.getPort();
 
                     if (recvAddr.isMulticastAddress()) {
                         s_multicastInData.addAndGet(dp.getLength());
@@ -544,25 +557,22 @@ public class NodelAutoDNS extends AutoDNS {
                         s_unicastInOps.incrementAndGet();
                     }
                     
-                    // check whether it's external
+                    // check whether it's external i.e. completely different IP address
+                    // (local multicasting would almost always be reliable)
+                    
                     MulticastSocket otherLocal = _sendSocket;
-                    
-                    boolean isLocal = (otherLocal != null && recvAddr.equals(otherLocal.getLocalAddress()) && port == otherLocal.getLocalPort());
-                    
-                    if (isLocal) {
-                        // ignore the packet and continue receiving
-                        UDPPacketRecycleQueue.instance().returnPacket(packet);
-                        continue;
-                    }
-                    
-                    // is external, so just update field and continue;
-                    _lastExternalMulticastPacket = System.nanoTime();
+                    boolean isLocal = (otherLocal != null && recvAddr.equals(otherLocal.getLocalAddress()));
+
+                    // update counter which is used to detect silence
+                    if (!isLocal)
+                        _lastExternalMulticastPacket = System.nanoTime();
 
                     // place it in the queue and make it process if necessary
                     synchronized (_incomingQueue) {
-                        _incomingQueue.add(packet);
+                        QueueEntry qe = new QueueEntry(s_receiveSocketlabel, dp);
+                        _incomingQueue.add(qe);
 
-                        // kick off the on another thread to process the queue
+                        // kick off the other thread to process the queue
                         // (otherwise the thread will already be processing the queue)
                         if (!_isProcessingIncomingQueue) {
                             _isProcessingIncomingQueue = true;
@@ -582,7 +592,7 @@ public class NodelAutoDNS extends AutoDNS {
                         break;
 
                     if (_recycleReceiver)
-                        _logger.info(s_receiveSocketlabel + " was gracefully closed. Will reinitialise for good measure.");
+                        _logger.info(s_receiveSocketlabel + " was gracefully closed. Will reinitialise...");
                     else
                         _logger.warn(s_receiveSocketlabel + " receive failed; will reinitialise...", exc);
                     
@@ -626,15 +636,13 @@ public class NodelAutoDNS extends AutoDNS {
                 }
 
                 while (_enabled) {
-                    Packet packet = UDPPacketRecycleQueue.instance().getReadyToUsePacket();
-                    packet.setTag(s_sendSocketLabel);
-                    DatagramPacket dp = packet.getDatagramPacket();
+                    DatagramPacket dp = UDPPacketRecycleQueue.instance().getReadyToUsePacket();
 
                     try {
                         socket.receive(dp);
 
                     } catch (Exception exc) {
-                        UDPPacketRecycleQueue.instance().returnPacket(packet);
+                        UDPPacketRecycleQueue.instance().returnPacket(dp);
 
                         throw exc;
                     }
@@ -649,7 +657,8 @@ public class NodelAutoDNS extends AutoDNS {
 
                     // place it in the queue and make it process if necessary
                     synchronized (_incomingQueue) {
-                        _incomingQueue.add(packet);
+                        QueueEntry entry = new QueueEntry(s_sendSocketLabel, dp);
+                        _incomingQueue.add(entry);
 
                         // kick off the on another thread to process the queue
                         // (otherwise the thread will already be processing the queue)
@@ -690,36 +699,39 @@ public class NodelAutoDNS extends AutoDNS {
      */
     private void processIncomingPacketQueue() {
         while(_enabled) {
-            Packet packet;
+            QueueEntry entry;
             
             synchronized(_incomingQueue) {
                 if (_incomingQueue.size() <= 0) {
                     // nothing left, so clear flag and return
                     _isProcessingIncomingQueue = false;
-                    
+
                     return;
                 }
-                
-                packet = _incomingQueue.remove();
+
+                entry = _incomingQueue.remove();
             }
+            
+            DatagramPacket dp = entry.packet;
+            String source = entry.source;
 
             try {
-                DatagramPacket dp = packet.getDatagramPacket();
-                
                 // parse packet
                 NameServicesChannelMessage message = this.parsePacket(dp);
 
                 // handle message
-                this.handleIncomingMessage((String) packet.getTag(), (InetSocketAddress) dp.getSocketAddress(), message);
+                this.handleIncomingMessage(source, (InetSocketAddress) dp.getSocketAddress(), message);
                 
             } catch (Exception exc) {
                 if (!_enabled)
                     break;
 
-                _logger.warn("Exception occurred while handling received packet.", exc);
+                // log nested exception summary instead of stack-trace dump
+                _logger.warn("[] while handling received packet from {}: {}", source, dp.getSocketAddress(), Exceptions.formatExceptionGraph(exc));
+                
             } finally {
                 // make sure the packet is returned
-            	UDPPacketRecycleQueue.instance().returnPacket(packet);
+            	UDPPacketRecycleQueue.instance().returnPacket(entry.packet);
             }
         } // (while) 
     }
@@ -766,6 +778,8 @@ public class NodelAutoDNS extends AutoDNS {
 	 */
     private void sendProbe() {
 		final NameServicesChannelMessage message = new NameServicesChannelMessage();
+		
+		message.agent = Nodel.getAgent();
 
 		List<String> discoveryList = new ArrayList<String>(1);
 		discoveryList.add("*");
@@ -838,17 +852,19 @@ public class NodelAutoDNS extends AutoDNS {
     
     /**
      * Check if the main receiver has been silent for some time so
-     * recycle the socket for good measure.
+     * recycle the socket for best resilience.
      */
     private void recycleReceiverIfNecessary(long currentTime) {
         long timeDiff = (currentTime - _lastExternalMulticastPacket) / 1000000;
         
         if (timeDiff > SILENCE_TOLERANCE) {
+            _logger.info("There appears to be external silence on the multicast receiver (this may or may not be expected); the socket will be recycled to ensure resilience.");
+            
             synchronized(_lock) {
                 // recycle receiver which will in turn recycle sender
                 _recycleReceiver = true;
                 
-                // "signal" thread
+                // "signal" the other thread
                 Stream.safeClose(_receiveSocket);
             }
         }
@@ -986,7 +1002,10 @@ public class NodelAutoDNS extends AutoDNS {
      * Sends the message to a recipient 
      */
     private void sendMessage(InetSocketAddress to, NameServicesChannelMessage message) {
-        _logger.info("{} sending message. to={}, message={}", s_sendSocketLabel, to, message);
+        if (isSameSocketAddress(_sendSocket, to))
+            _logger.info("{} sending message. to=self, message={}", s_sendSocketLabel, message);
+        else
+            _logger.info("{} sending message. to={}, message={}", s_sendSocketLabel, to, message);
         
         MulticastSocket socket = _sendSocket;
         
@@ -1030,7 +1049,10 @@ public class NodelAutoDNS extends AutoDNS {
      * Handles a complete packet from the socket.
      */
     private void handleIncomingMessage(String label, InetSocketAddress from, NameServicesChannelMessage message) {
-        _logger.info("{} message arrived. from={}, message={}", label, from, message);
+        if (isSameSocketAddress(_sendSocket, from))
+            _logger.info("{} message arrived. from=self, message={}", label, message);
+        else
+            _logger.info("{} message arrived. from={}, message={}", label, from, message);
         
         // discovery request?
         if (message.discovery != null) {
@@ -1203,7 +1225,7 @@ public class NodelAutoDNS extends AutoDNS {
         // release timers
         for (TimerTask timer : _timers)
             timer.cancel();
-        
+
         Stream.safeClose(_sendSocket, _receiveSocket);
     }
     
@@ -1266,6 +1288,18 @@ public class NodelAutoDNS extends AutoDNS {
         } catch (Exception exc) {
             throw new Error("Failed to resolve dotted numerical address - " + dottedNumerical);
         }
+    }
+    
+    /**
+     * Safely returns true if a packet has the same address and a socket. Used to determine its own socket.
+     */
+    private static boolean isSameSocketAddress(MulticastSocket socket, InetSocketAddress addr) {
+        if (socket == null || addr == null)
+            return false;
+        
+        SocketAddress socketAddr = socket.getLocalSocketAddress();
+        
+        return socketAddr.equals(addr);
     }
 
 } // (class)
