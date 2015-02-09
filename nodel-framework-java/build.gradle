@@ -6,7 +6,7 @@ repositories {
     mavenCentral()
 }
 
-version =  '2.0.6-rc1'
+version =  '2.0.7-rc1'
 
 dependencies {
     project(':nodel-webui-js')

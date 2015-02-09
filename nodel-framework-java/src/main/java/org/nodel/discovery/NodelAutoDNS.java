@@ -318,8 +318,6 @@ public class NodelAutoDNS extends AutoDNS {
         
         SimpleName _name;
         
-        List<String> addresses = new ArrayList<String>();
-        
         public ServiceItem(SimpleName name) {
             _name = name;
         }
@@ -405,9 +403,15 @@ public class NodelAutoDNS extends AutoDNS {
      */
     private boolean _recycleReceiver;
     
+    /**
+     * (will never be null after being set)
+     */
     private String _nodelAddress;
 
-    private String _httpAddress;
+    /**
+     * Will be a valid address.
+     */
+    private String _httpAddress = "http://" + getLocalIPv4Address().getHostAddress() + ":" + Nodel.getHTTPPort() + Nodel.getHTTPSuffix();
     
     /**
      * Returns immediately.
@@ -462,7 +466,7 @@ public class NodelAutoDNS extends AutoDNS {
 
         }, 60000, 60000));;
 
-        // monitor interface changes
+        // monitor interface changes after 10s delay, then every 2 mins
         _timers.add(_timerThread.schedule(new TimerTask() {
 
             @Override
@@ -470,7 +474,7 @@ public class NodelAutoDNS extends AutoDNS {
                 handleInterfaceCheck();
             }
 
-        }, 120000, 120000));
+        }, 10000, 120000));
 
         _logger.info("Auto discovery threads and timers started. probePeriod:{}, stalePeriodAllowed:{}",
                 DateTimes.formatShortDuration(PROBE_PERIOD), DateTimes.formatShortDuration(STALE_TIME));
@@ -1057,6 +1061,12 @@ public class NodelAutoDNS extends AutoDNS {
         // discovery request?
         if (message.discovery != null) {
             // create a responder if one isn't already active
+            
+            if (_nodelAddress == null) {
+                _logger.info("(will not respond; nodel server port still not available)");
+                
+                return;
+            }
 
             synchronized (_responders) {
                 if (!_responders.containsKey(from)) {
@@ -1131,20 +1141,11 @@ public class NodelAutoDNS extends AutoDNS {
 
     @Override
     public void registerService(SimpleName node) {
-        if (_nodelAddress == null) {
-        	InetAddress localIPv4Address = getLocalIPv4Address();
-            _nodelAddress = "tcp://" + localIPv4Address.getHostAddress() + ":" + super.getAdvertisementPort();
-            _httpAddress = "http://" + localIPv4Address.getHostAddress() + ":" + Nodel.getHTTPPort() + Nodel.getHTTPSuffix();
-        }
-
         synchronized (_serverLock) {
             if (_services.containsKey(node))
                 throw new IllegalStateException(node + " is already being advertised.");
 
             ServiceItem si = new ServiceItem(node);
-
-            si.addresses.add(_nodelAddress);
-            si.addresses.add(_httpAddress);
 
             _services.put(node, si);
         }
@@ -1155,8 +1156,16 @@ public class NodelAutoDNS extends AutoDNS {
      */
     private void handleInterfaceCheck() {
         try {
+            int port = super.getAdvertisementPort();
+            if (port < 0) {
+                // can't compose a nodel address yet
+                _logger.info("(nodel server port still not available; will wait.)");
+                
+                return;
+            }
+            
             InetAddress localIPv4Address = getLocalIPv4Address();
-            String nodelAddress = "tcp://" + localIPv4Address.getHostAddress() + ":" + super.getAdvertisementPort();
+            String nodelAddress = "tcp://" + localIPv4Address.getHostAddress() + ":" + port;
 
             if (nodelAddress.equals(_nodelAddress))
                 // nothing to do
@@ -1165,18 +1174,9 @@ public class NodelAutoDNS extends AutoDNS {
             // the address has changed so should update advertisements
             _logger.info("An address change has been detected. previous={}, current={}", _nodelAddress, nodelAddress);
 
-            _nodelAddress = "tcp://" + localIPv4Address.getHostAddress() + ":" + super.getAdvertisementPort();
+            _nodelAddress = "tcp://" + localIPv4Address.getHostAddress() + ":" + port;
             _httpAddress = "http://" + localIPv4Address.getHostAddress() + ":" + Nodel.getHTTPPort() + Nodel.getHTTPSuffix();
 
-            synchronized (_serverLock) {
-                for (ServiceItem si : _services.values()) {
-                    si.addresses.clear();
-
-                    si.addresses.add(_nodelAddress);
-                    si.addresses.add(_httpAddress);
-                }
-            }
-            
             synchronized(_lock) {
                 // recycle receiver which will in turn recycle sender
                 _recycleReceiver = true;
