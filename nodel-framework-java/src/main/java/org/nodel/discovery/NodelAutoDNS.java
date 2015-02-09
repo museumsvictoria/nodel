@@ -277,8 +277,14 @@ public class NodelAutoDNS extends AutoDNS {
      */
     private class QueueEntry {
         
+        /**
+         * For logging purposes
+         */
         public final String source;
         
+        /**
+         * The packet
+         */
         public final DatagramPacket packet;
         
         public QueueEntry(String source, DatagramPacket packet) {
@@ -1006,15 +1012,15 @@ public class NodelAutoDNS extends AutoDNS {
      * Sends the message to a recipient 
      */
     private void sendMessage(InetSocketAddress to, NameServicesChannelMessage message) {
-        if (isSameSocketAddress(_sendSocket, to))
+        MulticastSocket socket = _sendSocket;
+
+        if (isSameSocketAddress(socket, to))
             _logger.info("{} sending message. to=self, message={}", s_sendSocketLabel, message);
         else
             _logger.info("{} sending message. to={}, message={}", s_sendSocketLabel, to, message);
         
-        MulticastSocket socket = _sendSocket;
-        
         if (socket == null) {
-        	_logger.info("{} is not available yet; ignoring send request.", s_sendSocketLabel);
+        	_logger.info("({} is not available yet; ignoring send request.)", s_sendSocketLabel);
         	return;
         }
         
@@ -1307,7 +1313,7 @@ public class NodelAutoDNS extends AutoDNS {
         
         SocketAddress socketAddr = socket.getLocalSocketAddress();
         
-        return socketAddr.equals(addr);
+        return socketAddr != null && socketAddr.equals(addr);
     }
 
 } // (class)
