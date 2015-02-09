@@ -1099,22 +1099,30 @@ public class NodelAutoDNS extends AutoDNS {
         if(adInfo != null) {
             Collection<String> addresses = adInfo.addresses;
             
-            for(String address : addresses) {
-                if (!address.startsWith("tcp://"))
-                    continue;
-                
-                int indexOfPort = address.lastIndexOf(':');
-                if (indexOfPort < 0 || indexOfPort >= address.length() - 2)
-                    continue;
-                
-                String addressPart = address.substring(6, indexOfPort);
-                
-                String portStr = address.substring(indexOfPort + 1);
-                int port = Integer.parseInt(portStr);
-                
-                NodeAddress nodeAddress = NodeAddress.create(addressPart, port);
-                
-                return nodeAddress;
+            for (String address : addresses) {
+                try {
+                    if (address == null || !address.startsWith("tcp://"))
+                        continue;
+
+                    int indexOfPort = address.lastIndexOf(':');
+                    if (indexOfPort < 0 || indexOfPort >= address.length() - 2)
+                        continue;
+
+                    String addressPart = address.substring(6, indexOfPort);
+
+                    String portStr = address.substring(indexOfPort + 1);
+
+                    int port = Integer.parseInt(portStr);
+
+                    NodeAddress nodeAddress = NodeAddress.create(addressPart, port);
+
+                    return nodeAddress;
+
+                } catch (Exception exc) {
+                    _logger.info("'{}' node resolved to a bad address - '{}'; ignoring.", node, address);
+
+                    return null;
+                }
             }
         }
         
