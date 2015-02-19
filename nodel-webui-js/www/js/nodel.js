@@ -179,8 +179,9 @@ var init = function() {
           cls.push('caution');
           $('#action_'+form.name).data('caution',form.caution);
         }
+        var name = (typeof form.title !== 'undefined') ? form.title: form.name;
         // add a submit button to the template
-        template = template+'<button title="'+form.desc+'" class="'+cls.join(' ')+'"><span>'+opts.local.action.icon+'</span>'+form.name+'</button>';
+        template = template+'<button title="'+form.desc+'" class="'+cls.join(' ')+'"><span>'+opts.local.action.icon+'</span>'+name+'</button>';
         // add the template to jsviews
         eval('$.templates({action_'+form.name+'Template: template})');
         // fill the template with data
@@ -234,8 +235,9 @@ var init = function() {
           cls.push('caution');          
           $('#event_'+form.name).data('caution',form.caution);
         }
+        var name = (typeof form.title !== 'undefined') ? form.title: form.name;
         // add a submit button to the template
-        template = template+'<button title="'+form.desc+'" class="'+cls.join(' ')+'"><span>'+opts.local.event.icon+'</span>'+form.name+'</button>';
+        template = template+'<button title="'+form.desc+'" class="'+cls.join(' ')+'"><span>'+opts.local.event.icon+'</span>'+name+'</button>';
         // add the template to jsviews
         eval('$.templates({event_'+form.name+'Template: template})');
         // fill the template with data and attach UI events
