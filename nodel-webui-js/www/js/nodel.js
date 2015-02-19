@@ -577,8 +577,8 @@ var updateConsoleForm = function(){
   var url;
   // if the last sequence number is not set, set the filter to retrieve the last 100 entries
   if(typeof $('#console').data('seq') === "undefined") url = 'http://'+host+'/REST/nodes/'+node+'/console?from=-1&max=100';
-  // otherwise, set the filter to retrieve only the next 10 changes
-  else url = 'http://'+host+'/REST/nodes/'+node+'/console?from='+$('#console').data('seq')+'&max=10';
+  // otherwise, set the filter to retrieve the next 100 changes
+  else url = 'http://'+host+'/REST/nodes/'+node+'/console?from='+$('#console').data('seq')+'&max=100';
   // call the function
   $.getJSON(url, {timeout:tim}, function(data) {
     // disable animation unless there is new data
