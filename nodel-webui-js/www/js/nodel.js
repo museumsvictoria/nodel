@@ -530,8 +530,8 @@ var updateLogs = function(){
   var url;
   // if the last sequence number is not set, set the filter to retrieve the last 100 entries
   if(typeof $('#activity').data('seq') === "undefined") url = 'http://'+host+'/REST/nodes/'+node+'/logs?from=-1&max=100';
-  // otherwise, set the filter to retrieve only the next 10 changes
-  else url = 'http://'+host+'/REST/nodes/'+node+'/logs?from='+$('#activity').data('seq')+'&max=10';
+  // otherwise, set the filter to retrieve the next 100 changes
+  else url = 'http://'+host+'/REST/nodes/'+node+'/logs?from='+$('#activity').data('seq')+'&max=100';
   // call the function
   $.getJSON(url, {timeout:tim}, function(data) {
     // if the last sequence number is not set, set it and flag that the display should not be animated
@@ -980,10 +980,15 @@ var buildFormEvents = function(name, action, data){
   });
   $('#'+name).on('focusout', 'input.date', function() {
     var ele = this;
-    if(!moment($(this).val(),'YYYY-MM-DD').isValid()) {
-      $(this).addClass('highlight').focus();
+    if(!moment($(ele).val(),'YYYY-MM-DD').isValid()) {
+      $(ele).addClass('highlight').focus();
       dialog('Date is invalid', 'error');
-    } else $(this).removeClass('highlight');
+    } else $(ele).removeClass('highlight');
+  });
+  $('#'+name).on('change', 'input.range', function() {
+    var ele = this;
+    $(ele).siblings('label').children('span').text($(ele).val());
+    $(ele).parents('form').children('button').click();
   });
 };
 
@@ -1006,6 +1011,8 @@ var buildFormSchema = function(data, key, parent) {
   if(data.required) xtr.push('required');
   if(data.format) xtr.push(data.format);
   if(xtr.length!==0) cls = ' class="'+xtr.join(' ')+'"';
+  // determine placeholder value
+  var placeholder = data.hint ? data.hint : '';
   // format according to the field type
   switch(data.type) {
     // format an object
@@ -1083,7 +1090,7 @@ var buildFormSchema = function(data, key, parent) {
         switch(data.format){
           // long fields are rendered as a textarea element
           case 'long':
-            set = '<div class="field"><label for="field_'+parent+'{{:#index}}"'+cls+'>'+data.title+'</label><textarea id="field_'+parent+'{{:#index}}" title="'+data.description+'" data-link="'+parent+'"'+cls+'></textarea></div>';
+            set = '<div class="field"><label for="field_'+parent+'{{:#index}}"'+cls+'>'+data.title+'</label><textarea placeholder="'+placeholder+'" id="field_'+parent+'{{:#index}}" title="'+data.description+'" data-link="'+parent+'"'+cls+'></textarea></div>';
             break;
           // node, action and event fields render with an additional group attribute
           case 'node':
@@ -1112,7 +1119,7 @@ var buildFormSchema = function(data, key, parent) {
             break;
           // basic renderer for any other elements
           default:
-            set = '<div class="field"><label for="field_'+parent+'{{:#index}}"'+cls+'>'+data.title+'</label><input id="field_'+parent+'{{:#index}}" title="'+data.description+'" type="text" data-link="'+parent+'"'+cls+' /></div>';
+            set = '<div class="field"><label for="field_'+parent+'{{:#index}}"'+cls+'>'+data.title+'</label><input placeholder="'+placeholder+'" id="field_'+parent+'{{:#index}}" title="'+data.description+'" type="text" data-link="'+parent+'"'+cls+' /></div>';
             break;
         }
       }
@@ -1120,12 +1127,16 @@ var buildFormSchema = function(data, key, parent) {
     // format an integer
     case 'integer':
       // integers are forced to whole numbers
-      set = '<div class="field"><label for="field_'+parent+'{{:#index}}"'+cls+'>'+data.title+'</label><input id="field_'+parent+'{{:#index}}" title="'+data.description+'" type="number" step="1" data-link="{numToStr:'+parent+':strToInt}"'+cls+' /></div>';
+      if(data.format == "range" && (typeof data.min !== "undefined") && (typeof data.max !== "undefined")) {
+        set = '<div class="field"><label for="field_'+parent+'{{:#index}}"'+cls+'>'+data.title+'<span class="labelvalue">'+data.min+'</span></label><input id="field_'+parent+'{{:#index}}" title="'+data.description+'" type="range" step="1" min="'+data.min+'" max="'+data.max+'" data-link="{numToStr:'+parent+'||\''+data.min+'\':strToInt}"'+cls+' /></div>';
+      } else {
+        set = '<div class="field"><label for="field_'+parent+'{{:#index}}"'+cls+'>'+data.title+'</label><input placeholder="'+placeholder+'" id="field_'+parent+'{{:#index}}" title="'+data.description+'" type="number" step="1" data-link="{numToStr:'+parent+':strToInt}"'+cls+' /></div>';
+      }
       break;
     // format a number
     case 'number':
       // numbers can be floating point
-      set = '<div class="field"><label for="field_'+parent+'{{:#index}}"'+cls+'>'+data.title+'</label><input id="field_'+parent+'{{:#index}}" title="'+data.description+'" type="number" step="any" data-link="{numToStr:'+parent+':strToFloat}"'+cls+' /></div>';
+      set = '<div class="field"><label for="field_'+parent+'{{:#index}}"'+cls+'>'+data.title+'</label><input placeholder="'+placeholder+'" id="field_'+parent+'{{:#index}}" title="'+data.description+'" type="number" step="any" data-link="{numToStr:'+parent+':strToFloat}"'+cls+' /></div>';
       break;
     // format a boolean
     case 'boolean':
