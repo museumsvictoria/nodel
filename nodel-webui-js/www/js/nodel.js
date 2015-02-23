@@ -54,6 +54,11 @@ function removeNulls(obj){
   }
 }
 
+// html special character encoder
+function htmlEncode(value) {
+  return $('<div/>').text(value).html();
+}
+
 // customised jquery ajax function for posting JSON
 $.postJSON = function(url, data, callback) {
   return jQuery.ajax({
@@ -79,7 +84,7 @@ $(function() {
     if (window.location.pathname.split( '/' )[1]=="nodes") node = decodeURIComponent(window.location.pathname.split( '/' )[2].replace(/\+/g, '%20'));
     if(node){
       // if a node name is found, retrieve node configuration
-      $.getJSON('http://'+host+'/REST/nodes/'+node+'/', "",
+      $.getJSON('http://'+host+'/REST/nodes/'+encodeURIComponent(node)+'/', "",
       function(data) {
         // set page details
         document.title = 'Nodel - '+node;
@@ -120,7 +125,7 @@ var init = function() {
   execindex = -1;
   // retrieve the node parameters and bindings schema
   $.each(['params','remote'], function(key, form) {
-    $.getJSON('http://'+host+'/REST/nodes/'+node+'/'+form+'/schema',"",
+    $.getJSON('http://'+host+'/REST/nodes/'+encodeURIComponent(node)+'/'+form+'/schema',"",
     function(data) {
       // build the form template from the schema
       var get = buildFormSchema(data);
@@ -136,13 +141,13 @@ var init = function() {
     });
   });
   // retrieve the node actions
-  $.getJSON('http://'+host+'/REST/nodes/'+node+'/actions',"",
+  $.getJSON('http://'+host+'/REST/nodes/'+encodeURIComponent(node)+'/actions',"",
   function(data) {
     var actionsRequests = [];
     var actionsData = [];
     // for each action, retrieve its schema
     $.each(data, function(key, form) {
-      actionsRequests.push($.getJSON('http://'+host+'/REST/nodes/'+node+'/actions/'+key+'/schema',"",
+      actionsRequests.push($.getJSON('http://'+host+'/REST/nodes/'+encodeURIComponent(node)+'/actions/'+key+'/schema',"",
         function(data) {
           actionsData.push({form:form,data:data});
       }));
@@ -173,17 +178,17 @@ var init = function() {
         // if the action is part of a group, add the form to the group, otherwise add it ungrouped
         if(form.group) {
           // if the group exists, add the form to the group, otherwise add the new group
-          if($('#actiongroup_'+form.group.replace(/\s/g, "")).length) $('#actiongroup_'+form.group.replace(/\s/g, "")).append(newform);
-          else $('#actions').append('<div class="unfloat block"><h6>'+form.group+'</h6><div id="actiongroup_'+form.group.replace(/\s/g, "")+'">'+newform+'</div></div>');
+          if($('#actiongroup_'+form.group.replace(/[^0-9a-zA-Z]/g, "")).length) $('#actiongroup_'+form.group.replace(/[^0-9a-zA-Z]/g, "")).append(newform);
+          else $('#actions').append('<div class="unfloat block"><h6>'+htmlEncode(form.group)+'</h6><div id="actiongroup_'+form.group.replace(/[^0-9a-zA-Z]/g, "")+'">'+newform+'</div></div>');
         } else $('#actions').append(newform);
         // if a warning is required before submit, add an extra class to the submit handler and add a caution variable to the form data
         if(form.caution) {
           cls.push('caution');
           $('#action_'+form.name).data('caution',form.caution);
         }
-        var name = (typeof form.title !== 'undefined') ? form.title: form.name;
+        var name = (typeof form.title !== 'undefined') ? htmlEncode(form.title): form.name;
         // add a submit button to the template
-        template = template+'<button title="'+form.desc+'" class="'+cls.join(' ')+'"><span>'+opts.local.action.icon+'</span>'+name+'</button>';
+        template = template+'<button title="'+htmlEncode(form.desc)+'" class="'+cls.join(' ')+'"><span>'+opts.local.action.icon+'</span>'+name+'</button>';
         // add the template to jsviews
         eval('$.templates({action_'+form.name+'Template: template})');
         // fill the template with data
@@ -194,13 +199,13 @@ var init = function() {
     if($.isEmptyObject(data)) $('#actions').append('<h5 class="pad">None</h5>');
   });
   // retrieve the node events
-  $.getJSON('http://'+host+'/REST/nodes/'+node+'/events',"",
+  $.getJSON('http://'+host+'/REST/nodes/'+encodeURIComponent(node)+'/events',"",
   function(data) {
     var eventsRequests = [];
     var eventsData = [];
     // for each event, retrieve its schema
     $.each(data, function(key, form) {
-      eventsRequests.push($.getJSON('http://'+host+'/REST/nodes/'+node+'/events/'+key+'/schema',"",
+      eventsRequests.push($.getJSON('http://'+host+'/REST/nodes/'+encodeURIComponent(node)+'/events/'+key+'/schema',"",
         function(data) {
           eventsData.push({form:form,data:data});
       }));
@@ -231,17 +236,17 @@ var init = function() {
         // if the event is part of a group, add the form to the group, otherwise add it ungrouped
         if(form.group) {
           // if the group exists, add the form to the group, otherwise add the new group
-          if($('#eventgroup_'+form.group.replace(/\s/g, "")).length) $('#eventgroup_'+form.group.replace(/\s/g, "")).append(newform);
-          else $('#events').append('<div class="unfloat block"><h6>'+form.group+'</h6><div id="eventgroup_'+form.group.replace(/\s/g, "")+'">'+newform+'</div></div>');
+          if($('#eventgroup_'+form.group.replace(/[^0-9a-zA-Z]/g, "")).length) $('#eventgroup_'+form.group.replace(/[^0-9a-zA-Z]/g, "")).append(newform);
+          else $('#events').append('<div class="unfloat block"><h6>'+htmlEncode(form.group)+'</h6><div id="eventgroup_'+form.group.replace(/[^0-9a-zA-Z]/g, "")+'">'+newform+'</div></div>');
         } else $('#events').append(newform);
         // if a warning is required before submit, add an extra class to the submit handler and add a caution variable to the form data
         if(form.caution) {
           cls.push('caution');          
           $('#event_'+form.name).data('caution',form.caution);
         }
-        var name = (typeof form.title !== 'undefined') ? form.title: form.name;
+        var name = (typeof form.title !== 'undefined') ? htmlEncode(form.title): form.name;
         // add a submit button to the template
-        template = template+'<button title="'+form.desc+'" class="'+cls.join(' ')+'"><span>'+opts.local.event.icon+'</span>'+name+'</button>';
+        template = template+'<button title="'+htmlEncode(form.desc)+'" class="'+cls.join(' ')+'"><span>'+opts.local.event.icon+'</span>'+name+'</button>';
         // add the template to jsviews
         eval('$.templates({event_'+form.name+'Template: template})');
         // fill the template with data and attach UI events
@@ -267,7 +272,7 @@ var init = function() {
   // check if reload has not been disabled (via query string) then begin checking if the page should be refreshed (node has restarted)
   if(!rld || rld!="false") checkReload();
   // set the target for the console form (if it exists)
-  if($('#consoleform').get(0)) $('#consoleform').get(0).setAttribute('action', '/REST/nodes/'+node+'/exec');
+  if($('#consoleform').get(0)) $('#consoleform').get(0).setAttribute('action', '/REST/nodes/'+encodeURIComponent(node)+'/exec');
   // when the console form submit button is pressed, send the command
   $('#consoleform').on('submit', '', function() {
     $.get($('#consoleform').get(0).getAttribute('action'), { code: $('#exec').val()}, function(data){
@@ -513,7 +518,7 @@ var checkReload = function(){
   // otherwise, set the filter to the current timestamp
   else params = {timeout:tim, timestamp:$('body').data('timestamp')};
   // call the function
-  $.getJSON('http://'+host+'/REST/nodes/'+node+'/hasRestarted', params,
+  $.getJSON('http://'+host+'/REST/nodes/'+encodeURIComponent(node)+'/hasRestarted', params,
   function(data) {
     // set the current timestamp if it is not known
     if(typeof $('body').data('timestamp') === "undefined"){
@@ -533,9 +538,9 @@ var checkReload = function(){
 var updateLogs = function(){
   var url;
   // if the last sequence number is not set, set the filter to retrieve the last 100 entries
-  if(typeof $('#activity').data('seq') === "undefined") url = 'http://'+host+'/REST/nodes/'+node+'/logs?from=-1&max=100';
+  if(typeof $('#activity').data('seq') === "undefined") url = 'http://'+host+'/REST/nodes/'+encodeURIComponent(node)+'/logs?from=-1&max=100';
   // otherwise, set the filter to retrieve the next 100 changes
-  else url = 'http://'+host+'/REST/nodes/'+node+'/logs?from='+$('#activity').data('seq')+'&max=100';
+  else url = 'http://'+host+'/REST/nodes/'+encodeURIComponent(node)+'/logs?from='+$('#activity').data('seq')+'&max=100';
   // call the function
   $.getJSON(url, {timeout:tim}, function(data) {
     // if the last sequence number is not set, set it and flag that the display should not be animated
@@ -580,9 +585,9 @@ var updateLogs = function(){
 var updateConsoleForm = function(){
   var url;
   // if the last sequence number is not set, set the filter to retrieve the last 100 entries
-  if(typeof $('#console').data('seq') === "undefined") url = 'http://'+host+'/REST/nodes/'+node+'/console?from=-1&max=100';
+  if(typeof $('#console').data('seq') === "undefined") url = 'http://'+host+'/REST/nodes/'+encodeURIComponent(node)+'/console?from=-1&max=100';
   // otherwise, set the filter to retrieve the next 100 changes
-  else url = 'http://'+host+'/REST/nodes/'+node+'/console?from='+$('#console').data('seq')+'&max=100';
+  else url = 'http://'+host+'/REST/nodes/'+encodeURIComponent(node)+'/console?from='+$('#console').data('seq')+'&max=100';
   // call the function
   $.getJSON(url, {timeout:tim}, function(data) {
     // disable animation unless there is new data
@@ -627,12 +632,12 @@ var buildForm = function(name, formname, path, action, link){
   // if this form should be linked to data
   if(link) {
     // get the data
-    $.getJSON('http://'+host+'/REST/nodes/'+node+'/'+(path.length!==0?(path.join('/')+'/'+name):name),"",
+    $.getJSON('http://'+host+'/REST/nodes/'+encodeURIComponent(node)+'/'+(path.length!==0?(path.join('/')+'/'+name):name),"",
     function(data) {
       // if there is no data for this form, set the data to an empty object
       if($.isEmptyObject(data)) data = {};
       // set the form action (if it exsits)
-      if($('#'+formname).get(0)) $('#'+formname).get(0).setAttribute('action', '/REST/nodes/'+node+'/'+(path.length!==0?(path.join('/')+'/'+name):name)+'/'+action);
+      if($('#'+formname).get(0)) $('#'+formname).get(0).setAttribute('action', '/REST/nodes/'+encodeURIComponent(node)+'/'+(path.length!==0?(path.join('/')+'/'+name):name)+'/'+action);
       // link the form to the data (this renders the form)
       eval('$.link.'+formname+'Template("#"+formname, data)');
       // attach UI events
@@ -645,7 +650,7 @@ var buildForm = function(name, formname, path, action, link){
     // set the data to an empty object
     data = {};
     // set the form action (if it exsits)
-    if($('#'+formname).get(0)) $('#'+formname).get(0).setAttribute('action', '/REST/nodes/'+node+'/'+(path.length!==0?(path.join('/')+'/'+name):name)+'/'+action);
+    if($('#'+formname).get(0)) $('#'+formname).get(0).setAttribute('action', '/REST/nodes/'+encodeURIComponent(node)+'/'+(path.length!==0?(path.join('/')+'/'+name):name)+'/'+action);
     // link the form to the data (this renders the form)
     eval('$.link.'+formname+'Template("#"+formname, data)');
     // attach UI events
@@ -877,7 +882,7 @@ var buildFormEvents = function(name, action, data){
             $(parser).remove();
             var lnode = value.node;
             // get the list of actions/events from the host
-            reqs.push($.getJSON('http://'+host+'/REST/nodes/'+lnode+'/'+type,"", function(data) {
+            reqs.push($.getJSON('http://'+host+'/REST/nodes/'+encodeURIComponent(lnode)+'/'+type,"", function(data) {
               // for every action
               $.each(data, function(key, value) {
                 // if there is a value
