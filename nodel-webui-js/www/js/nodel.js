@@ -160,7 +160,7 @@ var init = function() {
         var bName = b.form.name.toLowerCase();
         var aOrder = a.form.order ? a.form.order : 0;
         var bOrder = b.form.order ? b.form.order : 0;
-        return aName < bName ? -1 : aName > bName ? 1 : aOrder < bOrder ? -1 : aOrder > bOrder ? 1 : 0;
+        return aOrder < bOrder ? -1 : aOrder > bOrder ? 1 : aName < bName ? -1 : aName > bName ? 1 : 0;
       });
       // build
       $.each(actionsData, function(key, val) {
@@ -218,7 +218,7 @@ var init = function() {
         var bName = b.form.name.toLowerCase();
         var aOrder = a.form.order ? a.form.order : 0;
         var bOrder = b.form.order ? b.form.order : 0;
-        return aName < bName ? -1 : aName > bName ? 1 : aOrder < bOrder ? -1 : aOrder > bOrder ? 1 : 0;
+        return aOrder < bOrder ? -1 : aOrder > bOrder ? 1 : aName < bName ? -1 : aName > bName ? 1 : 0;
       });
       // build
       $.each(eventsData, function(key, val) {
