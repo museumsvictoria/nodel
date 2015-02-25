@@ -222,10 +222,14 @@ label.required:after, button.caution:after {
 	max-width: 100%;
 }
 
-.CodeMirror-scrollbar-filler{
+.CodeMirror-scrollbar-filler {
   display: block !important;
   cursor: s-resize;
   background: #fff url(data:image/gif;base64,R0lGODlhEQARAKIAAP///9fX13x8fH19fdvb29bW1vX19QAAACH5BAAAAAAALAAAAAARABEAAAMvCLrcEC4uKCOt7eK5c2daF1bD85XmJizFhiojsyprTC+oPQO7LRGBYLAgLAYJhgQAOw==);
+}
+.CodeMirror-dialog input {
+  margin-bottom: 0;
+  display: inline;
 }
 
 * {
