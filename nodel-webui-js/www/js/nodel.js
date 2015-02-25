@@ -482,6 +482,7 @@ var listNodes = function(){
       }
     });
   });
+  setInterval(function(){ $('#nodefilter').keyup(); }, 3000);
 };
 
 // function to retrieve the value of a query string parameter by name
@@ -1137,7 +1138,7 @@ var buildFormSchema = function(data, key, parent) {
     case 'integer':
       // integers are forced to whole numbers
       if(data.format == "range" && (typeof data.min !== "undefined") && (typeof data.max !== "undefined")) {
-        set = '<div class="field"><label for="field_'+parent+'{{:#index}}"'+cls+'>'+data.title+'<span class="labelvalue">'+data.min+'</span></label><input id="field_'+parent+'{{:#index}}" title="'+data.desc+'" type="range" step="1" min="'+data.min+'" max="'+data.max+'" data-link="{numToStr:'+parent+'||\''+data.min+'\':strToInt}"'+cls+' /></div>';
+        set = '<div class="field"><label for="field_'+parent+'{{:#index}}"'+cls+'>'+data.title+'<span class="labelvalue">'+data.min+'</span></label><input id="field_'+parent+'{{:#index}}" title="'+data.desc+'" type="range" step="1" min="'+data.min+'" max="'+data.max+'" data-link="{numToStr:'+parent+'||\''+data.min+'\' trigger=\'input\':strToInt}"'+cls+' /></div>';
       } else {
         set = '<div class="field"><label for="field_'+parent+'{{:#index}}"'+cls+'>'+data.title+'</label><input placeholder="'+placeholder+'" id="field_'+parent+'{{:#index}}" title="'+data.desc+'" type="number" step="1" data-link="{numToStr:'+parent+':strToInt}"'+cls+' /></div>';
       }
