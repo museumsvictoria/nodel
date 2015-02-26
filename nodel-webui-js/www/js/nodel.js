@@ -430,8 +430,8 @@ var listNodes = function(){
     });
     // if the list goes over the display limit, add a 'more' link
     if(data.length > $('#nodefilter').data('num')) $('#nodelist ul').append('<li><strong><a id="listmore" href="#">'+(data.length-$('#nodefilter').data('num'))+' more</a>...</strong></li>');
-    // if there are no nodes, display 'no results'
-    if(data.length == 0) $('#nodelist ul').append('<li>no results</li>');
+    // if there are no nodes, display a message
+    if(data.length == 0) $('#nodelist ul').append('<li>searching...</li>');
   // if there is an error retrieving the list of nodes, display an error message
   }).error(function(){
     $('#nodelist ul').empty();
