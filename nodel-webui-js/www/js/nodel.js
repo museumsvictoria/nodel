@@ -417,7 +417,6 @@ var reload = function() {
 var listNodes = function(){
   // show the list
   $('#nodelist').show();
-  $('.logo a').attr('href','/diagnostics.htm');
   // set the initial display limit to 50
   $('#nodefilter').data('num', 50);
   // get the list of nodes from the host
