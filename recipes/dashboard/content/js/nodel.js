@@ -5,7 +5,7 @@ $.ajaxSetup({timeout: 30000, cache: false});
 $.views.converters({
   // convert number to string
   numToStr: function (value) {
-    if(typeof value === "undefined") return ""; 
+    if(typeof value === "undefined") return "";
     else return "" + value;
   },
   // convert string to integer
@@ -114,20 +114,20 @@ $(function() {
     if(node){
       // if a node name is found, retrieve node configuration
       $.getJSON('http://'+host+'/REST/nodes/'+node+'/', "",
-      function(data) {
-        // set page details
-        document.title = 'Nodel - '+node;
-        $('#nodename').text(node);
-        if(data.desc) $('#nodename').after('<p>'+data.desc+'</p>');
-        $('.logo img').attr('title', 'Nodel '+data.nodelVersion);
-        if((typeof preinit !== "undefined") && ($.isFunction(preinit))){ preinit(data); }
-        // begin node UI initialisation
-        init();
-      }).error(function(){
-        // if the node configuration cannot be retrieved, display an error
-        document.title = 'Nodel - Error';
-        $('#nodename').text("node not available");
-      });
+        function(data) {
+          // set page details
+          document.title = 'Nodel - '+node;
+          $('#nodename').text(node);
+          if(data.desc) $('#nodename').after('<p>'+data.desc+'</p>');
+          $('.logo img').attr('title', 'Nodel '+data.nodelVersion);
+          if((typeof preinit !== "undefined") && ($.isFunction(preinit))){ preinit(data); }
+          // begin node UI initialisation
+          init();
+        }).error(function(){
+          // if the node configuration cannot be retrieved, display an error
+          document.title = 'Nodel - Error';
+          $('#nodename').text("node not available");
+        });
     } else {
       // if a node name is not found, show the list of nodes instead
       document.title = 'Nodel - Network';
@@ -154,19 +154,19 @@ var init = function() {
   execindex = -1;
   // retrieve the node parameters schema
   $.getJSON('http://'+host+'/REST/nodes/'+node+'/params/schema',"",
-  function(data) {
-    // build the form template from the schema
-    var get = buildFormSchema(data);
-    if(get){
-      // add a save button to the template
-      var template = get;
-      template += '<button class="save">Save</button>';
-      // add the template to jsviews
-      eval('$.templates({paramsTemplate: template})');
-      // fill the template with data 
-      buildForm('params', 'params', [],'save', true);
-    } else $('#params').replaceWith('<h5 class="pad">None</h5>');
-  });
+    function(data) {
+      // build the form template from the schema
+      var get = buildFormSchema(data);
+      if(get){
+        // add a save button to the template
+        var template = get;
+        template += '<button class="save">Save</button>';
+        // add the template to jsviews
+        eval('$.templates({paramsTemplate: template})');
+        // fill the template with data
+        buildForm('params', 'params', [],'save', true);
+      } else $('#params').replaceWith('<h5 class="pad">None</h5>');
+    });
   // define the script form schema
   var scriptSchema = JSON.parse('{"type":"object","required":false,"properties":{ "script": { "type":"string", "title":"Script", "required":false, "format":"long" }}}');
   // build the form template
@@ -214,7 +214,7 @@ var init = function() {
     if(keyCode == 38) {
       if(execindex>0) execindex--;
       $('#exec').val(execs[execindex]);
-    // if the key is a 'down arrow', display the next stored command, or blank if it is the end of the list
+      // if the key is a 'down arrow', display the next stored command, or blank if it is the end of the list
     } else if(keyCode == 40) {
       if(execindex<execs.length) {
         execindex++;
@@ -232,11 +232,11 @@ var init = function() {
       $('.advanced').slideDown();
       // if 'display editor' is checked, show and load the editor as well
       if($('#showeditor').prop('checked')) {
-       $('.advancededitor').slideDown();
-       loadEditor();
+        $('.advancededitor').slideDown();
+        loadEditor();
       }
       window.history.replaceState('','','http://'+host+'/nodes/'+node+'/?advanced=true');
-    // if it is 'disabled', hide the advanced section
+      // if it is 'disabled', hide the advanced section
     } else {
       window.history.replaceState('','','http://'+host+'/nodes/'+node+'/');
       $('.advanced, .advancededitor').slideUp();
@@ -255,7 +255,7 @@ var init = function() {
     if($(this).prop('checked')) {
       $('.advancededitor').slideDown();
       loadEditor();
-    // if it is 'disabled', hide the editor
+      // if it is 'disabled', hide the editor
     } else $('.advancededitor').slideUp();
   });
   // watch for clicks on all group or object block titles
@@ -291,11 +291,11 @@ var loadEditor = function() {
       mode: {name: "python",
         version: 2,
         singleLineStringErrors: false},
-        lineNumbers: true,
-        indentUnit: 2,
-        tabMode: "shift",
-        matchBrackets: true
-      });
+      lineNumbers: true,
+      indentUnit: 2,
+      tabMode: "shift",
+      matchBrackets: true
+    });
     // ensure the editor form is updated as changes are made
     editor.on("change", function() {
       editor.save();
@@ -343,7 +343,7 @@ var listNodes = function(){
     if(data.length > $('#nodefilter').data('num')) $('#nodelist ul').append('<li><strong><a id="listmore" href="#">'+(data.length-$('#nodefilter').data('num'))+' more</a>...</strong></li>');
     // if there are no nodes, display 'no results'
     if(data.length == 0) $('#nodelist ul').append('<li>no results</li>');
-  // if there is an error retrieving the list of nodes, display an error message
+    // if there is an error retrieving the list of nodes, display an error message
   }).error(function(){
     $('#nodelist ul').empty();
     $('#nodelist ul').append('<li>error retrieving results</li>');
@@ -387,7 +387,7 @@ var listNodes = function(){
       if(data.length > $('#nodefilter').data('num')) $('#nodelist ul').append('<li><strong><a id="listmore" href="#">'+(data.length-$('#nodefilter').data('num'))+' more</a>...</strong></li>');
       // if there are no nodes, display 'no results'
       if(data.length == 0) $('#nodelist ul').append('<li>no results</li>');
-    // if there is an error retrieving the list of nodes (and it was not because it was aborted), display an error message
+      // if there is an error retrieving the list of nodes (and it was not because it was aborted), display an error message
     }).error(function(req){
       if(req.statusText!="abort"){
         $('#nodelist ul').empty();
@@ -432,19 +432,19 @@ var checkReload = function(){
   else params = {timeout:tim, timestamp:$('body').data('timestamp')};
   // call the function
   $.getJSON('http://'+host+'/REST/nodes/'+node+'/hasRestarted', params,
-  function(data) {
-    // set the current timestamp if it is not known
-    if(typeof $('body').data('timestamp') === "undefined"){
-      $('body').data('timestamp', data.timestamp);
-    // otherwise, reload the UI if the timestamps do not match
-    } else if ($('body').data('timestamp')!=data.timestamp) {
-      $('body').data('timestamp', data.timestamp);
-      reload();
-    }
-  }).always(function() {
-    // check again in one second
-    $('body').data('timer', setTimeout(function() { checkReload(); }, 1000));
-  });
+    function(data) {
+      // set the current timestamp if it is not known
+      if(typeof $('body').data('timestamp') === "undefined"){
+        $('body').data('timestamp', data.timestamp);
+        // otherwise, reload the UI if the timestamps do not match
+      } else if ($('body').data('timestamp')!=data.timestamp) {
+        $('body').data('timestamp', data.timestamp);
+        reload();
+      }
+    }).always(function() {
+      // check again in one second
+      $('body').data('timer', setTimeout(function() { checkReload(); }, 1000));
+    });
 };
 
 var fetchHost = function(value){
@@ -460,28 +460,41 @@ var fetchHost = function(value){
   return srchost;
 }
 
+var viewData = {"nodes":[{"title":"Initialising","alert":[],"watch":[]}]};
+
+var updateNodes = function(){
+  $.getJSON('http://'+host+'/REST/nodeURLs').done(
+    function(data) {
+      var re = new RegExp("^"+$('#activity').data('filter'),"g");
+      var nodes = [];
+      $.each(data, function() {
+        if(this.node.match(re)){
+          this.title = this.node;
+          this.node = this.node.replace(/[^a-zA-Z0-9]+/g,'');
+          this.alert = $.jStorage.get(this.node+'alert', []);
+          this.watch = $.jStorage.get(this.node+'watch', []);
+          if(this.alert.length) this.alerted = true;
+          if(this.watch.length) this.watched = true;
+          nodes.push(this);
+        }
+      });
+      $.observable(viewData).setProperty("nodes",nodes);
+    }).always(function() {
+      $('#activity').data('nodelistrefresh', setTimeout(function() { updateNodes(); }, 60000));
+    });
+}
+
 var createView = function(){
-  viewData = {"nodes":[{"title":"Initialising","alert":[],"watch":[]}]};
   viewTemplate = '{^{forsorttime nodes}} <div class="block" data-link="class{:~getClass(alerted, watched)}"> <a class="nodelink" target="_blank" href="#" data-link="href{:nodelink}">&#x2197;</a> <h6 data-link="text{:title} id{:node}"></h6> {^{for alert}} {^{if #getIndex()==0}}<div class="info"><button class="clearallinfo">Clear All</button></div>{{/if}} <div class="info"> <div class="alertblock"> <button class="clearinfo">Clear</button> <p><strong>Timestamp</strong>: <span data-link="timestamp"></span></p> <p><strong>Source</strong>: <span data-link="source"></span></p> <p><strong>Type</strong>: <span data-link="type"></span></p> <p><strong>Alias</strong>: <span data-link="alias"></span></p> <p><strong>Message</strong>: <span data-link="arg"></span></p> </div> </div> {{/for}} {^{for watch}} <div class="info"> <div class="watchblock"> <p><strong data-link="alias"></strong>: <span data-link="arg"></span></p> </div> </div> {{/for}} </div> {{/forsorttime}}';
   $.templates({viewTemplate: viewTemplate})
   $.link.viewTemplate("#activity", viewData);
   $.getJSON('http://'+host+'/REST/nodes/'+node+'/params',"",
-  function(data) {
-    $('#activity').data('watchlist', typeof data.watch!=='undefined' ? $.map(data.watch, function(data) { return data.alias; }) : []);
-    $('#activity').data('alertlist', typeof data.alert!=='undefined' ? $.map(data.alert, function(data) { return data.alias; }) : []);
-    $.getJSON('http://'+host+'/REST/nodeURLs').done(
     function(data) {
-      $.each(data, function() {
-        this.title = this.node;
-        this.node = this.node.replace(/[^a-zA-Z0-9]+/g,'');
-        this.alert = $.jStorage.get(this.node+'alert', []);
-        this.watch = $.jStorage.get(this.node+'watch', []);
-        if(this.alert.length) this.alerted = true;
-        if(this.watch.length) this.watched = true; 
-      });
-      $.observable(viewData).setProperty("nodes",data);
+      $('#activity').data('watchlist', typeof data.watch!=='undefined' ? $.map(data.watch, function(data) { return data.alias; }) : []);
+      $('#activity').data('alertlist', typeof data.alert!=='undefined' ? $.map(data.alert, function(data) { return data.alias; }) : []);
+      $('#activity').data('filter', typeof data.filter!=='undefined' ? data.filter : ".*");
+      updateNodes();
     });
-  });
   $('body').on('click touchstart', 'button.clearinfo', function() {
     var node = $(this).closest('.block').children('h6').attr('id');
     var view = $.view(this);
@@ -552,7 +565,7 @@ var updateLogs = function(){
             }
           });
           $.observable(view.data.watch).insert(0, obj);
-          ele.siblings('div').show();
+          if(ele.parent('div').children('div').filter(':visible').length) ele.siblings().show();
           $.observable(view.data).setProperty('watched',true);
         }
         $(ele).data('seq', value.seq+1);
@@ -562,13 +575,13 @@ var updateLogs = function(){
       $.jStorage.set(node+'watch', $.observable(view.data.watch).data());
     }).error(function() {
       /*var obj = {'timestamp':moment().format(),'source':'Dashboard','type':'','alias':'','arg':'Error reading node logs'};
-      $.observable(view.data.alert).insert(0, obj);
-      ele.siblings('div').show();
-      $.observable(view.data).setProperty('alerted',true);
-      ele.parents('div:hidden').each(function(){
-        $(this).slideDown('slow');
-        $(this).siblings('div').slideDown('slow');
-      });*/
+       $.observable(view.data.alert).insert(0, obj);
+       ele.siblings('div').show();
+       $.observable(view.data).setProperty('alerted',true);
+       ele.parents('div:hidden').each(function(){
+       $(this).slideDown('slow');
+       $(this).siblings('div').slideDown('slow');
+       });*/
     }).always(function() {
       $('#activity').data('timer', setTimeout(function() { updateLogs(); }, retry));
     });
@@ -626,19 +639,19 @@ var buildForm = function(name, formname, path, action, link){
   if(link) {
     // get the data
     $.getJSON('http://'+host+'/REST/nodes/'+node+'/'+(path.length!==0?(path.join('/')+'/'+name):name),"",
-    function(data) {
-      // if there is no data for this form, set the data to an empty object
-      if($.isEmptyObject(data)) data = {};
-      // set the form action (if it exsits)
-      if($('#'+formname).get(0)) $('#'+formname).get(0).setAttribute('action', '/REST/nodes/'+node+'/'+(path.length!==0?(path.join('/')+'/'+name):name)+'/'+action);
-      // link the form to the data (this renders the form)
-      eval('$.link.'+formname+'Template("#"+formname, data)');
-      // attach UI events      
-      buildFormEvents(formname, action, data);
-      // indicate that the form is ready
-      $('#'+formname).trigger('ready');
-    });
-  // if the form does not need to link to exist data
+      function(data) {
+        // if there is no data for this form, set the data to an empty object
+        if($.isEmptyObject(data)) data = {};
+        // set the form action (if it exsits)
+        if($('#'+formname).get(0)) $('#'+formname).get(0).setAttribute('action', '/REST/nodes/'+node+'/'+(path.length!==0?(path.join('/')+'/'+name):name)+'/'+action);
+        // link the form to the data (this renders the form)
+        eval('$.link.'+formname+'Template("#"+formname, data)');
+        // attach UI events
+        buildFormEvents(formname, action, data);
+        // indicate that the form is ready
+        $('#'+formname).trigger('ready');
+      });
+    // if the form does not need to link to exist data
   } else {
     // set the data to an empty object
     data = {};
@@ -662,7 +675,7 @@ var buildFormEvents = function(name, action, data){
     var proceed = true;
     // remove any previous validation error highlighting
     $('.highlight').each(function(){
-      $(this).removeClass('highlight'); 
+      $(this).removeClass('highlight');
     });
     // check if an input is required
     $('#'+name+' input.required, #'+name+' select.required').each(function(){
@@ -683,7 +696,7 @@ var buildFormEvents = function(name, action, data){
             }
           });
         }
-      // if this is not a child of a required object
+        // if this is not a child of a required object
       } else {
         // if it doesn't have a value, highlight it and prevent the form from being submitted
         if(!$(this).val()) {
@@ -829,11 +842,11 @@ var buildFormEvents = function(name, action, data){
         });
         // if there are no results, remove the popup
         if(data.length == 0) $(ele).siblings('div.autocomplete[data-target="'+$(ele).attr('id')+'"]').remove();
-      // if there is an error, remove the popup
+        // if there is an error, remove the popup
       }).error(function(req){
         if(req.statusText!="abort") $(this).siblings('div.autocomplete[data-target="'+$(ele).attr('id')+'"]').remove();
       });
-    // if there is nothing to look up, remove the popup
+      // if there is nothing to look up, remove the popup
     } else {
       $(this).siblings('div.autocomplete[data-target="'+$(ele).attr('id')+'"]').remove();
     }
@@ -847,7 +860,7 @@ var buildFormEvents = function(name, action, data){
     // find the nearest node field and retrieve its value
     if($(this).closest('div.object').children('div.field').children('input.node[data-group="'+$(this).data('group')+'"]').length > 0) {
       lnode = $(this).closest('div.object').children('div.field').children('input.node[data-group="'+$(this).data('group')+'"]').val();
-    // if no node field is found, use the local node
+      // if no node field is found, use the local node
     } else lnode = node;
     // check if this this is an action or event
     var type = $(this).hasClass("event") ? 'events' : 'actions';
@@ -869,7 +882,7 @@ var buildFormEvents = function(name, action, data){
           $.each(data, function(key, value) {
             // use an anchor element to parse url for each node
             var parser = document.createElement('a');
-            parser.href = value.address;            
+            parser.href = value.address;
             var host = parser.host;
             $(parser).remove();
             var lnode = value.node;
@@ -898,12 +911,12 @@ var buildFormEvents = function(name, action, data){
               if(!$(ele).siblings('div.autocomplete[data-target="'+$(ele).attr('id')+'"]').length) $(ele).after('<div class="autocomplete" data-target="'+$(ele).attr('id')+'"><ul></ul></div>');
               // replace the current list with the new one
               $(ele).siblings('div.autocomplete[data-target="'+$(ele).attr('id')+'"]').children('ul').replaceWith(items);
-            // if there are no results, remove the popup
+              // if there are no results, remove the popup
             } else $(ele).siblings('div.autocomplete[data-target="'+$(ele).attr('id')+'"]').remove();
           });
         }
       })
-    // if the field has no value, remove the popup
+      // if the field has no value, remove the popup
     } else {
       $(this).siblings('div.autocomplete[data-target="'+$(ele).attr('id')+'"]').remove();
     }
@@ -934,7 +947,7 @@ var buildFormEvents = function(name, action, data){
         myXhr = $.ajaxSettings.xhr();
         if(myXhr.upload){
           // update the progress indicator
-          myXhr.upload.addEventListener('progress',function(data){ 
+          myXhr.upload.addEventListener('progress',function(data){
             $(_this).siblings('progress').val(Math.floor((data.loaded/data.total)*100));
           }, false);
         }
@@ -1006,7 +1019,7 @@ var buildFormSchema = function(data, key, parent) {
     case 'object':
       // render each object item
       $.each(data.properties, function(lkey, lvalue) {
-        get=buildFormSchema(lvalue, lkey, parent);       
+        get=buildFormSchema(lvalue, lkey, parent);
         // if the item rendered is an object, append a conditionally displayed 'add' div for jsviews to initialise
         if(lvalue.type=="object") {
           get='{^{if ~isSet('+lkey+')}}'+get+'{{else}}<div class="addobj" id="'+lkey+'"></div>{{/if}}';
@@ -1017,7 +1030,7 @@ var buildFormSchema = function(data, key, parent) {
       // if this isn't a root object, add a block element wrapper
       if(key){
         xtr.push('object');
-        set = '<div class="block"><h6>'+data.title+'</h6><div class="'+xtr.join(' ')+'">'+set+'</div></div>';      
+        set = '<div class="block"><h6>'+data.title+'</h6><div class="'+xtr.join(' ')+'">'+set+'</div></div>';
       }
       break;
     // format an array
@@ -1042,12 +1055,12 @@ var buildFormSchema = function(data, key, parent) {
           buttons+= '<input type="button" class="add" id="'+parent.replace(/\./g, '_')+'" data-seed="'+i.join(',')+'" value="Add '+e+'" />';
         });
         // add conditionally displayed add buttons (accounting for a maximm number of items)
-        if(data.maxItems) set+= '{^{if '+parent+'}}{^{if '+parent+'.length < '+data.maxItems+'}}{^{if '+parent+'.length != 0}}<hr/>{{/if}}'+buttons+'{{/if}}{{/if}}'; 
+        if(data.maxItems) set+= '{^{if '+parent+'}}{^{if '+parent+'.length < '+data.maxItems+'}}{^{if '+parent+'.length != 0}}<hr/>{{/if}}'+buttons+'{{/if}}{{/if}}';
         else set+= '{^{if '+parent+'}}{^{if '+parent+'.length > 0}}<hr/>{{/if}}'+buttons+'{{/if}}';
         console.log(set);
         // if this isn't a root object, add a block element wrapper
         if(key) set = '<div class="block"><h6>'+data.title+'</h6><div>'+set+'</div></div>';
-      // if the array can contain only one object
+        // if the array can contain only one object
       } else if(data.items.type == 'object') {
         // render the object
         get=buildFormSchema(data.items, null, null);
@@ -1055,7 +1068,7 @@ var buildFormSchema = function(data, key, parent) {
         if(data.minItems) set= '{^{for '+parent+'}}<span>'+get+'{^{if #parent.data.length > '+data.minItems+'}}<input type="button" class="delete" id="'+parent.replace(/\./g, '_')+'{{:#index}}" value="Delete" />{{/if}}{^{if #index > 0}}<input type="button" class="up" id="up_'+parent.replace(/\./g, '_')+'{{:#index}}" value="&#x25b2;" />{{/if}}{^{if #index < #parent.data.length-1}}<input type="button" class="down" id="down_'+parent.replace(/\./g, '_')+'{{:#index}}" value="&#x25bc;" /><hr/>{{/if}}</span>{{/for}}';
         else set= '{^{for '+parent+'}}<span>'+get+'<input type="button" class="delete" id="'+parent.replace(/\./g, '_')+'{{:#index}}" value="Delete" />{^{if #index > 0}}<input type="button" class="up" id="up_'+parent.replace(/\./g, '_')+'{{:#index}}" value="&#x25b2;" />{{/if}}{^{if #index < #parent.data.length-1}}<input type="button" class="down" id="down_'+parent.replace(/\./g, '_')+'{{:#index}}" value="&#x25bc;" /><hr/>{{/if}}</span>{{/for}}';
         // add conditionally displayed add button (accounting for a maximm number of items)
-        if(data.maxItems) set+= '{^{if '+parent+'}}{^{if '+parent+'.length < '+data.maxItems+'}}{^{if '+parent+'.length != 0}}<hr/>{{/if}}<input type="button" class="add" id="'+parent.replace(/\./g, '_')+'" value="Add" />{{/if}}{{/if}}'; 
+        if(data.maxItems) set+= '{^{if '+parent+'}}{^{if '+parent+'.length < '+data.maxItems+'}}{^{if '+parent+'.length != 0}}<hr/>{{/if}}<input type="button" class="add" id="'+parent.replace(/\./g, '_')+'" value="Add" />{{/if}}{{/if}}';
         else set+= '{^{if '+parent+'}}{^{if '+parent+'.length > 0}}<hr/>{{/if}}{{/if}}<input type="button" class="add" id="'+parent.replace(/\./g, '_')+'" value="Add" />';
         // if this isn't a root object, add a block element wrapper
         if(key) set = '<div class="block"><h6>'+data.title+'</h6><div>'+set+'</div></div>';
@@ -1066,7 +1079,7 @@ var buildFormSchema = function(data, key, parent) {
       // if the string has a fixed set of options, render as a select list
       if(data['enum']){
         set = '<div class="field"><label for="field_'+parent+'{{:#index}}"'+cls+'>'+data.title+'</label><select id="field_'+parent.replace(/\./g, '_')+'{{:#index}}" title="'+data.description+'" data-link="'+parent+'"'+cls+'>';
-          set+= '<option value=""></option>';
+        set+= '<option value=""></option>';
         for (var i=0;i<data['enum'].length;i++) {
           set+= '<option value="'+data['enum'][i]+'">'+data['enum'][i]+'</option>';
         }

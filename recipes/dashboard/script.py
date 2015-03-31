@@ -4,6 +4,7 @@
 # Parameters used by this Node
 param_alert = Parameter('{"title": "Actions/events to be alerted to", "schema":{"type":"array","items":{"type":"object","properties":{"alias":{"title":"Alias","type":"string","required":true,"description":"The error actions/events to watch for"}}}}}')
 param_watch = Parameter('{"title": "Actions/events to watch", "schema":{"type":"array","items":{"type":"object","properties":{"alias":{"title":"Alias","type":"string","required":true,"description":"The conditions to report on"}}}}}')
+param_filter = Parameter('{"title": "Node Filter", "schema":{"title":"Node Filter","type":"string","required":false,"description":"Filter nodes which begin with this value"}}')
 
 def main(arg = None):
   # Start your script here.
