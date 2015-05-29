@@ -25,10 +25,31 @@ $.views.helpers({
     if (typeof value !== "undefined") return true;
     else return false;
   },
-  getClass: function (alerted, watched) {
-    if (alerted) return 'node error block';
+  getClass: function (alerted, watched, missing) {
+    if (alerted && missing) return 'node error missing block';
+    else if (missing) return 'node missing block';
+    else if (alerted) return 'node error block';
     else if (watched) return 'node block';
     else return 'node hidden';
+  },
+  getGrpClass: function (nodes) {
+    if(!nodes.length) return 'group empty';
+    var alerted = missing = false;
+    $.each(nodes, function() {
+      if(this.alerted) alerted = true;
+      if(this.missing) missing = true;
+    });
+    if (alerted && missing) return 'group error missing';
+    else if (missing) return 'group missing';
+    else if (alerted) return 'group error';
+    else return 'group';
+  },
+  dummy: function(nodes, trigger) {
+    return nodes;
+  },
+  getTitle: function(title, error) {
+    if(error) return title + ' - ' + error;
+    else return title;
   },
   // is a value contained within an array
   isIn: function () {
@@ -59,8 +80,11 @@ $.views.tags({
           hb = xt;
         }
       });
-      if(b.alerted && !a.alerted) return true;
-      else return ha > hb;
+      if(a.alerted && !b.alerted) return -1;
+      else if(!a.alerted && b.alerted) return 1;
+      else if(a.missing && !b.missing) return -1;
+      else if(!a.missing && b.missing) return 1;
+      else return (ha < hb) ? -1 : (ha > hb) ? 1 : 0;
     });
     for (var index = 0; index < array.length; ++index) {
       // Render tag content, for this data item
@@ -264,6 +288,12 @@ var init = function() {
     $(this).siblings('div').slideToggle('slow');
     return false;
   });
+  // watch for clicks on all group or object block titles
+  $('body').on('click touchstart', '.group h6', function() {
+    // show or hide the contents
+    $(this).siblings('div.grpdata').slideToggle('slow');
+    return false;
+  });
   // watch for clicks on all section titles set to expand
   $('body').on('click touchstart', 'h4.expand', function() {
     // show the contents of every group or object
@@ -449,50 +479,100 @@ var checkReload = function(){
 
 var fetchHost = function(value){
   var srchost = false;
-  $.each(viewData.nodes, function() {
-    var node = this.node;
-    if(value == node) {
-      var a = document.createElement('a');
-      a.href = this.address;
-      return srchost = a.host;
-    }
+  $.each(viewData.groups, function() {
+    $.each(this.nodes, function() {
+      var node = this.node;
+      if(value == node) {
+        var a = document.createElement('a');
+        a.href = this.address;
+        return srchost = a.host;
+      }
+    });
   });
   return srchost;
 }
 
-var viewData = {"nodes":[{"title":"Initialising","alert":[],"watch":[]}]};
+var viewData = {"groups":[{"title":"Initialising","nodes":[{"title":"Initialising","alert":[],"watch":[]}]}]};
+
+function changeHandler(ev, eventArgs) {
+  if($.inArray(eventArgs.path, ['alerted','missing']) > -1) {
+    var path = ev.data.observeAll.path();
+    var reg1 = path.match(/groups\[(\d+)\]/m);
+    var reg2 = path.match(/nodes\[(\d+)\]/m);
+    var index1 = parseInt(reg1[1]);
+    var index2 = parseInt(reg2[1]);
+    var x = typeof viewData.groups[index1].trigger !== 'undefined' ? viewData.groups[index1].trigger + 1 : 0;
+    $.observable(viewData.groups[index1]).setProperty('trigger',x);
+    var y = typeof viewData.groups[index1].nodes[index2].trigger !== 'undefined' ? viewData.groups[index1].nodes[index2].trigger + 1 : 0;
+    $.observable(viewData.groups[index1].nodes[index2]).setProperty('trigger',y);
+  }
+};
+$.observable(viewData).observeAll(changeHandler);
 
 var updateNodes = function(){
   $.getJSON('http://'+host+'/REST/nodeURLs').done(
     function(data) {
-      var re = new RegExp("^"+$('#activity').data('filter'),"g");
-      var nodes = [];
-      $.each(data, function() {
-        if(this.node.match(re)){
-          this.title = this.node;
-          this.node = this.node.replace(/[^a-zA-Z0-9]+/g,'');
-          this.alert = $.jStorage.get(this.node+'alert', []);
-          this.watch = $.jStorage.get(this.node+'watch', []);
-          if(this.alert.length) this.alerted = true;
-          if(this.watch.length) this.watched = true;
-          nodes.push(this);
+      var groups = $('#activity').data('filter');
+      var list = [];
+      $.each(groups, function() {
+        var re = new RegExp("^"+this.filter,"g");
+        var nodes = []; 
+        var title = this.title;
+        $.each(data, function() {
+          if(this.node.match(re)){
+            this.title = this.node;
+            this.node = this.node.replace(/[^a-zA-Z0-9]+/g,'');
+            this.alert = $.jStorage.get(this.node+'alert', []);
+            this.watch = $.jStorage.get(this.node+'watch', []);
+            this.alerted = this.alert.length ? true : false;
+            this.watched = this.watch.length ? true : false;
+            this.missing = false;
+            nodes.push(this);
+          }
+        });
+        if($.isEmptyObject($.grep(viewData.groups, function(n) { return n.title == title; }))) {
+          list.push({'title':this.title,'nodes':nodes});
+        } else {
+          $.each(viewData.groups, function(i,x) {
+            if(x.title == title) {
+              var missing = false;
+              $.each(viewData.groups[i].nodes, function(y,z) {
+                if($.isEmptyObject($.grep(nodes, function(n) { return n.title == z.title; }))) {
+                  console.log('node dissapeared');
+                  $.observable(viewData.groups[i].nodes[y]).setProperty('missing',true);
+                  nodes.push(viewData.groups[i].nodes[y]);
+                }
+                if(z.missing) {
+                  $.each(nodes, function(s,t) {
+                    if(z.title == t.title) {
+                      nodes[s].missing = true;
+                      nodes[s].error = z.error;
+                    }
+                  });
+                }
+              });
+              $.observable(viewData.groups[i]).setProperty('nodes',nodes);
+            }
+          });
         }
       });
-      $.observable(viewData).setProperty("nodes",nodes);
+      if(!$.isEmptyObject(list)) {
+        $.observable(viewData).setProperty("groups",list);
+      }
     }).always(function() {
-      $('#activity').data('nodelistrefresh', setTimeout(function() { updateNodes(); }, 60000));
+      $('#activity').data('nodelistrefresh', setTimeout(function() { updateNodes(); }, 60000*5));
     });
 }
 
 var createView = function(){
-  viewTemplate = '{^{forsorttime nodes}} <div class="block" data-link="class{:~getClass(alerted, watched)}"> <a class="nodelink" target="_blank" href="#" data-link="href{:nodelink}">&#x2197;</a> <h6 data-link="text{:title} id{:node}"></h6> {^{for alert}} {^{if #getIndex()==0}}<div class="info"><button class="clearallinfo">Clear All</button></div>{{/if}} <div class="info"> <div class="alertblock"> <button class="clearinfo">Clear</button> <p><strong>Timestamp</strong>: <span data-link="timestamp"></span></p> <p><strong>Source</strong>: <span data-link="source"></span></p> <p><strong>Type</strong>: <span data-link="type"></span></p> <p><strong>Alias</strong>: <span data-link="alias"></span></p> <p><strong>Message</strong>: <span data-link="arg"></span></p> </div> </div> {{/for}} {^{for watch}} <div class="info"> <div class="watchblock"> <p><strong data-link="alias"></strong>: <span data-link="arg"></span></p> </div> </div> {{/for}} </div> {{/forsorttime}}';
+  viewTemplate = '{^{for groups}}<div class="group" data-link="class{:~getGrpClass(nodes, trigger)}"><span><svg width="18" height="18"><circle cx="9" cy="9" r="9"></circle></svg></span><h6 data-link="text{:title} id{:\'grp_\'+title}"></h6><div class="grpdata">{^{forsorttime ~dummy(nodes, trigger)}}<div class="block" data-link="class{:~getClass(alerted, watched, missing)}"><span><svg width="18" height="18"><circle cx="9" cy="9" r="9"></circle></svg></span><a class="nodelink" target="_blank" href="#" data-link="href{:nodelink}">&#x2197;</a><h6 data-link="text{:~getTitle(title, error)} id{:node}"></h6> {^{for alert}} {^{if #getIndex()==0}}<div class="info"><button class="clearallinfo">Clear All</button></div>{{/if}} <div class="info"> <div class="alertblock"> <button class="clearinfo">Clear</button> <p><strong>Timestamp</strong>: <span data-link="timestamp"></span></p> <p><strong>Source</strong>: <span data-link="source"></span></p> <p><strong>Type</strong>: <span data-link="type"></span></p> <p><strong>Alias</strong>: <span data-link="alias"></span></p> <p><strong>Message</strong>: <span data-link="arg"></span></p> </div> </div> {{/for}} {^{for watch}} <div class="info"> <div class="watchblock"> <p><strong data-link="alias"></strong>: <span data-link="arg"></span></p> </div> </div> {{/for}} </div> {{/forsorttime}}</div></div>{{/for}}';
   $.templates({viewTemplate: viewTemplate})
   $.link.viewTemplate("#activity", viewData);
   $.getJSON('http://'+host+'/REST/nodes/'+node+'/params',"",
     function(data) {
       $('#activity').data('watchlist', typeof data.watch!=='undefined' ? $.map(data.watch, function(data) { return data.alias; }) : []);
       $('#activity').data('alertlist', typeof data.alert!=='undefined' ? $.map(data.alert, function(data) { return data.alias; }) : []);
-      $('#activity').data('filter', typeof data.filter!=='undefined' ? data.filter : ".*");
+      $('#activity').data('filter', typeof data.filter!=='undefined' ? data.filter : []);
       updateNodes();
     });
   $('body').on('click touchstart', 'button.clearinfo', function() {
@@ -501,7 +581,9 @@ var createView = function(){
     while(view.data==view.parent.data) view=view.parent;
     $.observable(view.parent.data).remove(view.index,1);
     $.jStorage.set(node+'alert', $.observable(view.parent.data).data());
-    if($.observable(view.parent.data).data().length<1) $.observable(view.parent.parent.data).setProperty('alerted',false);
+    if($.observable(view.parent.data).data().length<1) {
+      $.observable(view.parent.parent.data).setProperty('alerted',false);
+    }
     return false;
   });
   $('body').on('click touchstart', 'button.clearallinfo', function() {
@@ -538,10 +620,10 @@ var updateLogs = function(){
     var ele = $('#'+node);
     if(typeof $(ele).data('seq') === "undefined") {
       if($.jStorage.get(node)) {
-        url = 'http://'+nodehost+'/REST/nodes/'+node+'/logs?from='+$.jStorage.get(node)+'&max=10';
+        url = 'http://'+nodehost+'/REST/nodes/'+node+'/logs?from='+$.jStorage.get(node)+'&max=999';
         $(ele).data('seq', $.jStorage.get(node));
       } else url = 'http://'+nodehost+'/REST/nodes/'+node+'/logs?from=-1&max=100';
-    } else url = 'http://'+nodehost+'/REST/nodes/'+node+'/logs?from='+$(ele).data('seq')+'&max=10';
+    } else url = 'http://'+nodehost+'/REST/nodes/'+node+'/logs?from='+$(ele).data('seq')+'&max=999';
     var view = $.view(ele);
     $.observable(view.data).setProperty('nodelink','http://'+nodehost+'/nodes/'+node+'/');
     $.getJSON(url, {timeout:tim}, function(data) {
@@ -549,9 +631,9 @@ var updateLogs = function(){
         if(($.inArray(value.alias,$('#activity').data('alertlist'))>=0) || ((value.type=='eventBinding') && value.arg!="Wired")) {
           var obj = {'timestamp':value.timestamp,'source':value.source,'type':value.type,'alias':value.alias,'arg':value.arg};
           $.observable(view.data.alert).insert(0, obj);
-          ele.siblings('div').show();
           $.observable(view.data).setProperty('alerted',true);
-          ele.parents('div:hidden').each(function(){
+          ele.siblings('div').show();
+          ele.parents('div.block:hidden').each(function(){
             $(this).slideDown('slow');
             $(this).siblings('div').slideDown('slow');
           });
@@ -570,18 +652,16 @@ var updateLogs = function(){
         }
         $(ele).data('seq', value.seq+1);
       });
+      $.observable(view.data).setProperty('missing',false);
+      $.observable(view.data).setProperty('error','');
       $.jStorage.set(node, $(ele).data('seq'));
       $.jStorage.set(node+'alert', $.observable(view.data.alert).data());
       $.jStorage.set(node+'watch', $.observable(view.data.watch).data());
-    }).error(function() {
-      /*var obj = {'timestamp':moment().format(),'source':'Dashboard','type':'','alias':'','arg':'Error reading node logs'};
-       $.observable(view.data.alert).insert(0, obj);
-       ele.siblings('div').show();
-       $.observable(view.data).setProperty('alerted',true);
-       ele.parents('div:hidden').each(function(){
-       $(this).slideDown('slow');
-       $(this).siblings('div').slideDown('slow');
-       });*/
+    }).fail(function(j,t,e) {
+       $.observable(view.data).setProperty('missing',true);
+       if(e) var status = j.status + ':' + e;
+       else var status = j.status + ':' + t;
+       $.observable(view.data).setProperty('error', status);
     }).always(function() {
       $('#activity').data('timer', setTimeout(function() { updateLogs(); }, retry));
     });

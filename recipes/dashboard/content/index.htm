@@ -27,6 +27,7 @@
   <link rel="apple-touch-icon" href="images/nodel-icon.png">
   <link rel="apple-touch-icon" sizes="72x72" href="images/nodel-icon-72x72.png">
   <link rel="apple-touch-icon" sizes="114x114" href="images/nodel-icon-114x114.png">
+  <script src="js/jquery-1.11.2.min.js"></script>
   <script src="js/jquery-1.9.1.min.js"></script>
   <script src="js/json2.js"></script>
   <script src="js/jquery.color.js"></script>
@@ -44,7 +45,8 @@
 <div class="container">
   <div class="sixteen columns">
     <h1 class="logo"><a href="/"><img src="images/nodel.png" alt="Nodel" title="Nodel" /></a></h1>
-    <h3 id="nodename"></h3>
+    <h3 style="float:right">Dashboard</h3>
+    <!--<h3 id="nodename"></h3>-->
     <form class="init" id="advanced" action="#">
       <fieldset>
         <legend>Advanced mode</legend>
@@ -52,10 +54,10 @@
           <input type="checkbox" id="advancedmode" value="enable">
           <span>Enabled</span>
         </label>
-        <label for="showeditor" class="advanced">
+        <!--<label for="showeditor" class="advanced">
           <input type="checkbox" id="showeditor" value="enable">
           <span>Display Editor</span>
-        </label>
+        </label>-->
       </fieldset>
     </form>
     <div id="nodelist">
@@ -97,8 +99,8 @@
 </div>
 <div class="init container">
   <div class="sixteen columns">
-    <h4>Activity</h4>
-    <hr/>
+    <!--<h4>Activity</h4>
+    <hr/>-->
     <div id="activity">
     </div>
   </div>

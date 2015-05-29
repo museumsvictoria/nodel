@@ -47,11 +47,21 @@ div.block, div.inactblock {
 }
 
 #activity div.block {
-  background: #efe;
+  background: #eee;
 }
 
 #activity div.block.error {
-  background: #fee;
+  background: #fff;
+}
+
+#activity div.group {
+  background-color: #666;
+  padding: 0 15px 5px;
+  margin-bottom: 15px;
+}
+
+#activity div.grpdata {
+  display: none;
 }
 
 div.info:last-of-type {
@@ -62,14 +72,20 @@ div.block form {
   margin-bottom: 0;
 }
 
-div.block h6 {
+div.block  > h6 {
   padding: 10px 15px;
   cursor: pointer;
 }
 
-div.inactblock h6 {
+div.inactblock  > h6 {
   padding: 10px 15px;
   font-style: italic;
+}
+
+div.group > h6 {
+  padding: 10px 15px;
+  color: white;
+  cursor: pointer;
 }
 
 div.block > div {
@@ -116,11 +132,43 @@ button.call, button.emit {
   margin-right: 5px;
 }
 
-a.nodelink {
+a.nodelink, .group > span {
   float: right;
   padding: 10px 15px;
   cursor: pointer;
   text-decoration: none;
+}
+
+a.nodelink {
+  padding-right: 0;
+}
+
+.node > span, .group > span { 
+  float: right;
+  padding: 12px 15px 5px;
+  color: #0f0;
+  fill: #0f0;
+}
+
+.node.error > span, .group.error > span {
+  color: #f00;
+  fill: #f00;
+}
+
+.node.missing > span, .group.empty > span, .group.missing > span {
+  color: #ff0;
+  fill: #ff0;
+}
+
+@keyframes errormissing {
+  0% { color: #f00; fill: #f00; }
+  50% { color: #ff0; fill: #ff0; }
+}
+
+.node.missing.error > span, .group.missing.error > span {
+  animation-name: errormissing;
+  animation-duration: 1s;
+  animation-iteration-count: infinite;
 }
 
 .noderecursive {
