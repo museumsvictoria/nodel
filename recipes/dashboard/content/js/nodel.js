@@ -628,7 +628,7 @@ var updateLogs = function(){
     $.observable(view.data).setProperty('nodelink','http://'+nodehost+'/nodes/'+node+'/');
     $.getJSON(url, {timeout:tim}, function(data) {
       $.each(data.reverse(), function(key, value) {
-        if(($.inArray(value.alias,$('#activity').data('alertlist'))>=0) || ((value.type=='eventBinding') && value.arg!="Wired")) {
+        if($.inArray(value.alias,$('#activity').data('alertlist'))>=0) {
           var obj = {'timestamp':value.timestamp,'source':value.source,'type':value.type,'alias':value.alias,'arg':value.arg};
           $.observable(view.data.alert).insert(0, obj);
           $.observable(view.data).setProperty('alerted',true);
