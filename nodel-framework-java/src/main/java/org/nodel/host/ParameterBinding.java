@@ -43,6 +43,9 @@ public class ParameterBinding {
     @Value(name = "title", order = 6)
     public String title;
 
+    @Value(name = "order", title = "Order", order = 7, required = false)
+    public double order;
+
     public String toString() {  
         return Serialisation.serialise(this);
     }

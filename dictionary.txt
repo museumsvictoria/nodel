@@ -18,3 +18,4 @@ downtime
 spamming
 proxies
 deactivation
+embeddable

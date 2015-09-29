@@ -189,6 +189,17 @@ public class Threads {
         } // (method)
         
         /**
+         * Waits for the operation to complete (through result or exception) or returns after a timeout.
+         */
+        public void waitForCompleteOrTimeout(long timeout) {
+            synchronized (this.signal) {
+                if (!this.complete) {
+                    Threads.waitOnSync(signal, timeout);
+                }
+            }
+        }
+        
+        /**
          * Waits for a result or throws the exception that occurred.
          */
         public T waitForResultOrThrowException() throws Exception {
@@ -268,21 +279,25 @@ public class Threads {
             }
         }
 
+        // a note on synchronization:
+        // 'success' and 'failure' handlers will be called before
+        // 'waitForXXXX' methods return.
         synchronized (op.signal) {
             executor.handle(new Runnable() {
 
                 @Override
                 public void run() {
-                    synchronized (op.signal) {
-                        try {
-                            T result = callable.call();
+                    try {
+                        T result = callable.call();
 
+                        synchronized (op.signal) {
                             op.setResult(result, null);
 
                             if (success != null)
                                 success.handle(result);
-
-                        } catch (Exception exc) {
+                        }
+                    } catch (Exception exc) {
+                        synchronized (op.signal) {
                             op.setResult(null, exc);
 
                             if (failure != null)

@@ -13,12 +13,12 @@ import org.nodel.reflection.Value;
  * Console logs.
  */
 public class ConsoleLogEntry {
-    
+
     /**
      * Console types: standard out, or standard error.
      */
     public enum Console {
-        out, err
+        out, err, warn, info
     }
 
     @Value(name = "seq", title = "Sequence", desc = "A sequence number.")

@@ -26,21 +26,21 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicLong;
 
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.nodel.DateTimes;
 import org.nodel.Exceptions;
 import org.nodel.SimpleName;
 import org.nodel.Threads;
 import org.nodel.core.NodeAddress;
 import org.nodel.core.Nodel;
+import org.nodel.diagnostics.AtomicLongMeasurementProvider;
 import org.nodel.io.Stream;
 import org.nodel.io.UTF8Charset;
-import org.nodel.logging.AtomicLongMeasurementProvider;
 import org.nodel.reflection.Serialisation;
 import org.nodel.threading.ThreadPool;
 import org.nodel.threading.TimerTask;
 import org.nodel.threading.Timers;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Used for registering / unregistering nodes for discovery / lookup purposes. 
@@ -225,7 +225,7 @@ public class NodelAutoDNS extends AutoDNS {
     /**
      * (logging)
      */
-    private Logger _logger = LogManager.getLogger(NodelAutoDNS.class);
+    private Logger _logger = LoggerFactory.getLogger(NodelAutoDNS.class);
     
     /**
      * General purpose lock / signal.
@@ -245,12 +245,12 @@ public class NodelAutoDNS extends AutoDNS {
     /**
      * Thread-pool for IO operations.
      */
-    private ThreadPool _threadPool = new ThreadPool("automatic_dns", 24);
+    private ThreadPool _threadPool = new ThreadPool("Discovery", 24);
     
     /**
      * This class' timer thread.
      */
-    private Timers _timerThread = new Timers("automatic_dns");    
+    private Timers _timerThread = new Timers("Discovery");    
     
     /**
      * The thread to receive the multicast data.
@@ -604,7 +604,7 @@ public class NodelAutoDNS extends AutoDNS {
                     if (_recycleReceiver)
                         _logger.info(s_receiveSocketlabel + " was gracefully closed. Will reinitialise...");
                     else
-                        _logger.warn(s_receiveSocketlabel + " receive failed; will reinitialise...", exc);
+                        _logger.warn(s_receiveSocketlabel + " receive failed; this may be a transitional condition. Will reinitialise... message was '" + exc.toString() + "'");
                     
                     // set flag
                     _recycleSender = true;
@@ -737,7 +737,7 @@ public class NodelAutoDNS extends AutoDNS {
                     break;
 
                 // log nested exception summary instead of stack-trace dump
-                _logger.warn("[] while handling received packet from {}: {}", source, dp.getSocketAddress(), Exceptions.formatExceptionGraph(exc));
+                _logger.warn("{} while handling received packet from {}: {}", source, dp.getSocketAddress(), Exceptions.formatExceptionGraph(exc));
                 
             } finally {
                 // make sure the packet is returned
@@ -1020,7 +1020,7 @@ public class NodelAutoDNS extends AutoDNS {
             _logger.info("{} sending message. to={}, message={}", s_sendSocketLabel, to, message);
         
         if (socket == null) {
-        	_logger.info("({} is not available yet; ignoring send request.)", s_sendSocketLabel);
+        	_logger.info("{} is not available yet; ignoring send request.", s_sendSocketLabel);
         	return;
         }
         
@@ -1045,8 +1045,11 @@ public class NodelAutoDNS extends AutoDNS {
         } catch (IOException exc) {
             if (!_enabled)
                 return;
-
-            _logger.warn(s_sendSocketLabel + " send() failed. ", exc);
+            
+            if (socket.isClosed())
+                _logger.info(s_sendSocketLabel + " send() ignored as socket is being recycled.");
+            else
+                _logger.warn(s_sendSocketLabel + " send() failed. ", exc);
         }
     } // (method)
     
@@ -1182,6 +1185,8 @@ public class NodelAutoDNS extends AutoDNS {
 
             _nodelAddress = "tcp://" + localIPv4Address.getHostAddress() + ":" + port;
             _httpAddress = "http://" + localIPv4Address.getHostAddress() + ":" + Nodel.getHTTPPort() + Nodel.getHTTPSuffix();
+            
+            Nodel.updateHTTPAddress(_httpAddress);
 
             synchronized(_lock) {
                 // recycle receiver which will in turn recycle sender
@@ -1227,6 +1232,14 @@ public class NodelAutoDNS extends AutoDNS {
         
         return ads;
     }
+    
+    @Override
+    public AdvertisementInfo resolve(SimpleName node) {
+        // indicate client resolution is being used
+        _usingResolution = true;
+        
+        return _advertisements.get(node);
+    }
 
     /**
      * Permanently shuts down all related resources.
@@ -1270,6 +1283,11 @@ public class NodelAutoDNS extends AutoDNS {
      * Returns the first "sensible" IPv4 address.
      */
     public static InetAddress getLocalIPv4Address() {
+        InetAddress selectedInterface = s_interface;
+        
+        // if an interface is being used and IP addresses don't necessarily match, use this candidate anyway
+        InetAddress candidate = null;
+
         try {
             Enumeration<NetworkInterface> en = NetworkInterface.getNetworkInterfaces();
             if (en == null)
@@ -1280,13 +1298,32 @@ public class NodelAutoDNS extends AutoDNS {
                 for (Enumeration<InetAddress> enumIpAddr = intf.getInetAddresses(); enumIpAddr.hasMoreElements();) {
                     InetAddress inetAddress = enumIpAddr.nextElement();
                     if (!inetAddress.isLoopbackAddress() && inetAddress instanceof Inet4Address) {
-                        return inetAddress;
+                        
+                        // is an IPv4 address that is not a loopback address
+                        
+                        // if interface binding isn't being used, return the found address
+                        if (selectedInterface == null) {
+                            return inetAddress;
+                        
+                        } else {
+                            // make first one candidate
+                            if (candidate != null)
+                                candidate = inetAddress;
+                            
+                            if (selectedInterface.equals(inetAddress))
+                                return inetAddress;
+                            
+                            // otherwise keep iterating, will return the candidate at the end
+                        }
                     }
                 }
             }
         } catch (IOException exc) {
             // ignore
         }
+        
+        if (candidate != null)
+            return candidate;
         
         return s_dummyInetAddress;
     }

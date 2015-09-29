@@ -8,6 +8,7 @@ package org.nodel.io;
 
 import java.io.ByteArrayOutputStream;
 import java.io.Closeable;
+import java.io.EOFException;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
@@ -16,6 +17,9 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
+import java.net.DatagramSocket;
+import java.net.Socket;
+import java.util.Collection;
 
 public class Stream {
 
@@ -109,6 +113,25 @@ public class Stream {
                 isr.close();
         }
     } // (method)
+    
+    /**
+     * Reads a file into a string (no exceptions thrown)
+     * TODO: sort this method out
+     */
+    public static String tryReadFully(File file) {
+        InputStreamReader isr = null;
+        
+        try {
+            isr = new InputStreamReader(new FileInputStream(file), "UTF8");
+            return readFully(isr);
+            
+        } catch (IOException exc) {
+            throw new UnexpectedIOException(exc);
+            
+        } finally {
+            Stream.safeClose(isr);
+        }
+    } // (method)    
 
     /**
      * Write an entire string out to a file.
@@ -153,26 +176,141 @@ public class Stream {
     /**
      * Closes an object without throwing any exceptions.
      */
-    public static void safeClose(Closeable closable) {
-        if (closable == null)
+    public static void safeClose(Closeable closeable) {
+        if (closeable == null)
             return;
             
         try {
-            closable.close();
+            closeable.close();
         } catch (Exception ignore) {
-            // (consume)
+            // ignore
+        }
+    }
+
+    /**
+     * (workaround for Android bug:
+     * https://code.google.com/p/android/issues/detail?id=62909)
+     */
+    public static void safeClose(DatagramSocket datagramSocket) {
+        if (datagramSocket == null)
+            return;
+
+        try {
+            datagramSocket.close();
+        } catch (Exception ignore) {
+            // ignore
+        }
+    }
+
+    /**
+     * (workaround for Android bug:
+     * https://code.google.com/p/android/issues/detail?id=62909)
+     */
+    public static void safeClose(Socket socket) {
+        if (socket == null)
+            return;
+
+        try {
+            socket.close();
+        } catch (Exception ignore) {
+            // ignore
         }
     }
     
     /**
      * Closes all objects without ever throwing any exceptions.
      */
-    public static void safeClose(Closeable... closables) {
-        if (closables == null)
+    public static void safeClose(Closeable... closeables) {
+        if (closeables == null)
             return;
 
-        for (Closeable closable : closables)
-            safeClose(closable);
+        for (Closeable closeable : closeables)
+            safeClose(closeable);
     }
 
-} // (class)
+    /**
+     * (workaround for Android bug:
+     * https://code.google.com/p/android/issues/detail?id=62909)
+     */
+    public static void safeClose(DatagramSocket... datagramSockets) {
+        if (datagramSockets == null)
+            return;
+
+        for (DatagramSocket datagramSocket : datagramSockets)
+            safeClose(datagramSocket);
+    }
+
+    public static void safeClose(Socket... sockets) {
+        if (sockets == null)
+            return;
+
+        for (Socket socket : sockets)
+            safeClose(socket);
+    }
+
+    /**
+     * Closes all objects without ever throwing any exceptions.
+     */    
+    public static <T extends Closeable> void safeCloseCloseables(Collection<T> closeables) {
+        if (closeables == null)
+            return;
+        
+        for (Closeable closeable : closeables)
+            safeClose(closeable);
+    }
+
+    /**
+     * (workaround for Android bug:
+     * https://code.google.com/p/android/issues/detail?id=62909)
+     */
+    public static void safeCloseDatagramSockets(Collection<DatagramSocket> datagramSockets) {
+        if (datagramSockets == null)
+            return;
+
+        for (DatagramSocket datagramSocket : datagramSockets)
+            safeClose(datagramSocket);
+    }
+
+    /**
+     * (workaround for Android bug:
+     * https://code.google.com/p/android/issues/detail?id=62909)
+     */
+    public static void safeCloseSockets(Collection<Socket> sockets) {
+        if (sockets == null)
+            return;
+
+        for (Socket socket : sockets)
+            safeClose(socket);
+    }
+    
+    /**
+     * Used as light-weight way to read unsigned short from a stream. 
+     */
+    public static int readUnsignedShort(InputStream in) throws IOException {
+        int ch1 = in.read();
+        int ch2 = in.read();
+        
+        if ((ch1 | ch2) < 0)
+            throw new EOFException();
+
+        return (ch1 << 8) + (ch2 << 0);
+    }
+    
+    /**
+     * (convenience function)
+     */
+    public static int readUnsignedShort(int b0, int b1) throws IOException {
+        return (b0 << 8) + (b1 << 0);
+    }    
+
+    /**
+     * Used as light-weight way to read unsigned byte from a stream.
+     */
+    public static int readUnsignedByte(InputStream in) throws IOException {
+        int ch = in.read();
+        if (ch < 0)
+            throw new EOFException();
+        return ch;
+    }
+
+}

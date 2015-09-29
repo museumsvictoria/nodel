@@ -14,12 +14,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
 
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.nodel.Handler;
 import org.nodel.Handlers;
 import org.nodel.SimpleName;
 import org.nodel.discovery.AutoDNS;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Provides Nodel server-specific services to the platform.
@@ -34,7 +34,7 @@ public class NodelServers {
     /**
      * (logging related)
      */
-    private Logger logger = LogManager.getLogger(String.format("%s.instance%d", NodelServers.class.getName(), s_instanceCounter.getAndIncrement()));
+    private Logger logger = LoggerFactory.getLogger(String.format("%s.instance%d", NodelServers.class.getName(), s_instanceCounter.getAndIncrement()));
     
     /**
      * Instance signal / lock.
@@ -130,6 +130,7 @@ public class NodelServers {
      * (private constructor)
      */
     private NodelServers() {
+        _instance = this;
     }
     
     /**
@@ -561,7 +562,7 @@ public class NodelServers {
     private void handleChannelServerFailure(ChannelServer channelServer, Throwable value) {
         // remove this from the list of channel servers
         synchronized (_signal) {
-            this.logger.warn("Failure on a channel server, removing. Error was '{}'", value);
+            this.logger.warn("Failure on a channel server; this may be natural. Removing it. (Error was " + value.toString() + ")");
 
             _channelServers.remove(channelServer);
             

@@ -8,6 +8,7 @@ package org.nodel.reflection;
 
 import java.lang.reflect.Array;
 import java.lang.reflect.Field;
+import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.text.DateFormat;
@@ -17,6 +18,7 @@ import java.util.Collection;
 import java.util.Date;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -40,213 +42,299 @@ public class Serialisation {
     /**
      * Convenience method: coerces from a JSON.
      */
-    public static Object coerceFromJSON(Class<?> klass, String json) {
-        return coerceFromJSON(klass, json, null, null);
-    } // (method)
+    public static Object coerceFromJSON(Object dstObjOrClass, String json) {
+        return coerceFromJSON(dstObjOrClass, json, null, null, false);
+    }
     
     /**
-     * Convenience method: coerces from a JSON (giving 'generic class' hints)
+     * Coerces a JSON string into a destination class (providing generics hints and other serialisation rules).
+     */    
+    public static Object coerceFromJSON(Object dstObjOrClass, String json, Class<?> genericClassA, Class<?> genericClassB) {
+        return coerceFromJSON(dstObjOrClass, json, genericClassA, genericClassB, false);
+    }
+    
+    /**
+     * Coerces a JSON string into a destination class (providing generics hints and other serialisation rules).
      */
-    public static Object coerceFromJSON(Class<?> klass, String json, Class<?> genericClassA, Class<?> genericClassB) {
+    public static Object coerceFromJSON(Object dstObjOrClass, String json, Class<?> genericClassA, Class<?> genericClassB, boolean treatEmptyStringsAsNull) {
         try {
             JSONObject jsonObject = new JSONObject(json);
 
-            return coerce(klass, jsonObject, null, genericClassA, genericClassB);
+            return coerce(dstObjOrClass, jsonObject, null, genericClassA, genericClassB, treatEmptyStringsAsNull);
         } catch (JSONException exc) {
             throw new SerialisationException("JSON not formatted correctly.", exc);
         }
-    } // (method)    
+    }
 
     /**
      * Coerces an object (native or from 'json.org') package into a destination class.
      */
-    public static Object coerce(Class<?> klass, Object obj) {
-        return coerce(klass, obj, null, null, null);
+    public static Object coerce(Object dstObjOrClass, Object srcObj) {
+        return coerce(dstObjOrClass, srcObj, null, null, null, false);
+    }
+    
+    /**
+     * Coerces an object into a destination class (providing generics hints).
+     */    
+    public static Object coerce(Object dstObjOrClass, Object srcObj, Class<?> genericClassA, Class<?> genericClassB) {
+        return coerce(dstObjOrClass, srcObj, null, genericClassA, genericClassB, false);
+    }    
+    
+    /**
+     * Coerces an object into a destination class (providing generics hints and other serialisation rules).
+     */    
+    public static Object coerce(Object dstObjOrClass, Object srcObj, Class<?> genericClassA, Class<?> genericClassB, boolean treatEmptyStringsAsNull) {
+        return coerce(dstObjOrClass, srcObj, null, genericClassA, genericClassB, treatEmptyStringsAsNull);
     }
     
     /**
      * @param valueInfo used if generics are involved.
      */
-    private static Object coerce(Class<?> klass, Object obj, ValueInfo valueInfo, Class<?> genericClassA, Class<?> genericClassB) {
+    private static Object coerce(Object dstObjOrClass, Object srcObj, ValueInfo valueInfo, Class<?> genericClassA, Class<?> genericClassB, boolean treatEmptyStringsAsNull) {
+        // The order that the following tests are performed relates to the likelihood 
+        // of each test being required, hopefully leading to faster 
+        // typical runtime operation; readability could otherwise be improved.
+        
+        Class<?> klass;
+        
+        if (dstObjOrClass instanceof Class<?>) {
+            klass = (Class<?>) dstObjOrClass;
+        } else {
+            klass = (dstObjOrClass != null ? dstObjOrClass.getClass() : null);
+        }
+        
         if (klass == null || klass.equals(Object.class)) {
-            // we have no idea what class so just return the object itself
-            // which may include primitive data types, JSONArrays of JSONObjects
-            return obj;
+            // we have no idea what specific class so just return the object itself
+            // but normalise to standard maps and lists if needed (instead of 
+            // JSONArrays of JSONObjects)
+            if (srcObj instanceof JSONObject) {
+                return coerce(Map.class, srcObj, null, null, treatEmptyStringsAsNull);
+                
+            } else if (srcObj instanceof JSONArray) {
+                return coerce(List.class, srcObj, null, null, treatEmptyStringsAsNull);
+                
+            } else if (srcObj == JSONObject.NULL){
+                return null;
+                
+            } else {
+                // return the objects as they are
+                
+                
+                // (treat empty strings as nulls?)
+                if (treatEmptyStringsAsNull && srcObj instanceof String && ((String)srcObj).length() == 0)
+                    return null;
+                else
+                    return srcObj;
+            }
         }
         
         // test string at the top because it's most commonly used
+        
         if (klass == String.class) {
-            if (obj == null)
+            if (srcObj == null)
                 return null;
-            
-            else if (obj instanceof String) {
-                return obj;
-                
-            } else if (obj instanceof JSONObject || obj instanceof JSONArray) {
+            else if (srcObj instanceof String) {
+                if (treatEmptyStringsAsNull && ((String)srcObj).length() == 0)
+                    return null;
+                else
+                    return srcObj;
+            } else if (srcObj instanceof JSONObject || srcObj instanceof JSONArray)
                 throw new SerialisationException("Could not coerce into a string.");
-                
-            } else {
+            else if (srcObj.equals(JSONObject.NULL))
+                return null;
+            else
                 // the rest should be value types (boolean, int, float, etc.)
-                return obj.toString();
-            }
+                return srcObj.toString();
         }
 
         // test all the primitive types first
         else if (klass == Integer.class || klass == int.class) {
-            if (obj == null)
+            if (srcObj == null)
                 return 0;
-            else if (obj instanceof Number)
-                return ((Number) obj).intValue();
-            else if (obj instanceof String)
-                return Integer.parseInt((String)obj);
+            else if (srcObj instanceof Number)
+                return ((Number) srcObj).intValue();
+            else if (srcObj instanceof String)
+                return Integer.parseInt((String)srcObj);
+            else if (srcObj.equals(JSONObject.NULL))
+                return null;
             else
-                return (Integer)obj;
+                return (Integer)srcObj;
         }
 
         else if (klass == Long.class || klass == long.class) {
-            if (obj == null)
+            if (srcObj == null)
                 return 0;
-            else if (obj instanceof Number)
-                return ((Number) obj).longValue();
-            else if (obj instanceof String)
-                return Long.parseLong((String)obj);
+            else if (srcObj instanceof Number)
+                return ((Number) srcObj).longValue();
+            else if (srcObj instanceof String)
+                return Long.parseLong((String)srcObj);
+            else if (srcObj.equals(JSONObject.NULL))
+                return null;            
             else
-                return (Long)obj;
+                return (Long)srcObj;
         }
         
         else if (klass == Double.class || klass == double.class) {
-            if (obj == null)
+            if (srcObj == null)
                 return 0;
-            else if (obj instanceof Number)
-                return ((Number) obj).doubleValue();
-            else if (obj instanceof String)
-                return Double.parseDouble((String) obj);
+            else if (srcObj instanceof Number)
+                return ((Number) srcObj).doubleValue();
+            else if (srcObj instanceof String)
+                return Double.parseDouble((String) srcObj);
+            else if (srcObj.equals(JSONObject.NULL))
+                return null;            
             else
-                return (Double) obj;
+                return (Double) srcObj;
         }
 
         else if (klass == Float.class || klass == float.class) {
-            if (obj == null)
+            if (srcObj == null)
                 return 0;
-            else if (obj instanceof Number)
-                return ((Number) obj).floatValue();
-            else if (obj instanceof String)
-                return Float.parseFloat((String) obj);
+            else if (srcObj instanceof Number)
+                return ((Number) srcObj).floatValue();
+            else if (srcObj instanceof String)
+                return Float.parseFloat((String) srcObj);
+            else if (srcObj.equals(JSONObject.NULL))
+                return null;            
             else
-                return (Float)obj;
+                return (Float)srcObj;
         }
 
         else if (klass == Byte.class || klass == byte.class) {
-            if (obj == null)
+            if (srcObj == null)
                 return 0;
-            else if (obj instanceof Number)
-                return ((Number) obj).byteValue();
-            else if (obj instanceof String)
-                return Byte.parseByte((String) obj);
+            else if (srcObj instanceof Number)
+                return ((Number) srcObj).byteValue();
+            else if (srcObj instanceof String)
+                return Byte.parseByte((String) srcObj);
+            else if (srcObj.equals(JSONObject.NULL))
+                return null;            
             else
-                return (Byte) obj;
+                return (Byte) srcObj;
         }
 
         else if (klass == Boolean.class || klass == boolean.class) {
-            if (obj == null)
+            if (srcObj == null)
                 return false;
-            else if (obj instanceof String)
-                return Boolean.parseBoolean((String) obj);
+            else if (srcObj instanceof String)
+                return Boolean.parseBoolean((String) srcObj);
+            else if (srcObj.equals(JSONObject.NULL))
+                return null;            
             else
-                return (Boolean) obj;
+                return (Boolean) srcObj;
             
         } else if (klass == Byte[].class || klass == byte[].class) {
-            if (obj == null)
+            if (srcObj == null)
                 return null;
-            else if (obj instanceof String)
-                return Base64.decode((String) obj);
+            else if (srcObj instanceof String)
+                return Base64.decode((String) srcObj);
+            else if (srcObj.equals(JSONObject.NULL))
+                return null;            
             else
-                return (Byte[])obj;
+                return (Byte[])srcObj;
         }
 
         // Test non-primitives now
         
-        else if (obj == null) {
+        else if (srcObj == null) {
             // will be null regardless
             return null;
         }
         
         // test object types now
 
-        else if (obj.equals(JSONObject.NULL)) {
+        else if (srcObj.equals(JSONObject.NULL)) {
             return null;
         }
 
         else if (klass == DateTime.class) {
-            return tryParseDate(obj);
+            return tryParseDate(srcObj);
         }
         
         else if (klass == Date.class) {
             try {
-                return DateFormat.getDateInstance().parse(obj.toString());
+                return DateFormat.getDateInstance().parse(srcObj.toString());
             } catch (ParseException e) {
                 throw new SerialisationException(e);
             }
         }
         
         else if (klass == UUID.class) {
-            return UUIDs.fromString(obj.toString());
+            return UUIDs.fromString(srcObj.toString());
         }
 
         else if (klass.isEnum()) {
-            return Reflection.getEnumConstantInfo(klass, obj.toString()).constant;
+            return Reflection.getEnumConstantInfo(klass, srcObj.toString()).constant;
         }
 
         // pure arrays
         else if (klass.isArray()) {
-            return coerceIntoArray(klass, obj);
+            return coerceIntoArray(dstObjOrClass, srcObj, treatEmptyStringsAsNull);
         }
         
         // collections (*)
         else if (Collection.class.isAssignableFrom(klass)) {
             if (valueInfo == null)
-                return coerceIntoCollection(klass, obj, genericClassA);
+                return coerceIntoCollection(dstObjOrClass, srcObj, genericClassA, treatEmptyStringsAsNull);
             else
-                return coerceIntoCollection(klass, obj, valueInfo.annotation.genericClassA());
+                return coerceIntoCollection(dstObjOrClass, srcObj, valueInfo.genericClassA, treatEmptyStringsAsNull);
         }
         
         // maps (*)
         else if (Map.class.isAssignableFrom(klass)) {
             if (valueInfo == null)
-                return coerceIntoMap(klass, obj, genericClassA, genericClassB);
+                return coerceIntoMap(dstObjOrClass, srcObj, genericClassA, genericClassB, treatEmptyStringsAsNull);
             else
-                return coerceIntoMap(klass, obj, valueInfo.annotation.genericClassA(), valueInfo.annotation.genericClassB());
+                return coerceIntoMap(dstObjOrClass, srcObj, valueInfo.genericClassA, valueInfo.genericClassB, treatEmptyStringsAsNull);
         }
         
         // plain object
         else {
-            return coerceIntoPlainObject(klass, obj);
+            return coerceIntoPlainObject(dstObjOrClass, srcObj, treatEmptyStringsAsNull);
         }
         
     } // (method)
-
+    
 	/**
      * All other objects
      * 
      * (prechecked args)
      */
-    private static Object coerceIntoPlainObject(Class<?> klass, Object obj) {
-        if (obj instanceof String) {
-            // try create an instance of it using String arg constructor or other standard methods
-            return Reflection.createInstanceFromString(klass, (String) obj);
+    private static Object coerceIntoPlainObject(Object dstObjOrClass, Object srcObj, boolean treatEmptyStringsAsNull) {
+        Class<?> klass;
+        Object dstObj;
+        
+        if (dstObjOrClass instanceof Class<?>) {
+            klass = (Class<?>) dstObjOrClass;
+            dstObj = null;
+        } else {
+            klass = (dstObjOrClass != null ? dstObjOrClass.getClass() : null);
+            dstObj = dstObjOrClass;
         }
         
-        if (!(obj instanceof JSONObject)) {
-            // leave it in its 'wrapped' form
-            return obj;
+        if (srcObj instanceof String) {
+            // try create an instance of it using String arg constructor or other standard methods
+            return Reflection.createInstanceFromString(klass, (String) srcObj);
+        }
+        
+        // common currency
+        JSONObject jsonObject;
+        
+        if (srcObj instanceof JSONObject) {
+            jsonObject = (JSONObject) srcObj;
+        } else {
+            Object wrapped = wrap(srcObj);
+            
+            if (wrapped instanceof JSONObject)
+                jsonObject = (JSONObject)wrapped;
+            else
+                throw new SerialisationException("The provided object could not be wrapped into a usable form (special object).");
         }
         
         // if it's just a general 'Object', no point in doing anything else but using the 'wrapped' form
         if (klass == Object.class) {
-            return obj;
+            return srcObj;
         }
-        
-        JSONObject jsonObject = (JSONObject) obj;
         
         // check whether to choose one of allowable instances
         AllowedInstanceInfo[] allowedInstanceInfos = Reflection.getAllowedInstances(klass);
@@ -284,12 +372,19 @@ public class Serialisation {
                 klass = selectedClass;
         }
         
-        // create a new instance of the object
+        // create a new instance of the object if required
         Object object;
-        try {
-            object = klass.newInstance();
-        } catch (Exception exc) {
-            throw new SerialisationException("Could not create instance of requested type plain object, " + klass.getName(), exc);
+        
+        // create a new instance or ...
+        if (dstObj == null) {
+            try {
+                object = klass.newInstance();
+            } catch (Exception exc) {
+                throw new SerialisationException("Could not create instance of requested type plain object, " + klass.getName(), exc);
+            }
+        } else {
+            // ... use provided object
+            object = dstObj;
         }
         
         // go through each listed field info and deserialise
@@ -312,15 +407,51 @@ public class Serialisation {
             } catch (JSONException exc) {
                 throw new SerialisationException("Could not get entry '" + key + "' out of the object.");
             }
-            Object objValue = coerce(valueClass, jsonValue, fieldInfo, null, null);
 
-            field.setAccessible(true);
+            // choose when set the field or use a designated 'setter'
+            SetterInfo setterInfo = fieldInfo.setter;
+            if (setterInfo == null) {
+                Object objValue = coerce(valueClass, jsonValue, fieldInfo, null, null, treatEmptyStringsAsNull);
+                
+                try {
+                    // set field directly
+                    field.setAccessible(true);
 
-            try {
-                if (objValue != null)
-                    field.set(object, objValue);
-            } catch (Exception e) {
-                throw new SerialisationException("Could not set field '" + field.getName() + "'.");
+                    if (objValue != null) {
+                        field.set(object, objValue);
+                    }
+                    
+                } catch (Exception e) {
+                    throw new SerialisationException("Could not set field '" + field.getName() + "'.");
+                }
+
+            } else {
+                // set indirectly using a 'setter' method
+                Method setterMethod = setterInfo.method;
+                
+                Class<?>[] paramClasses = setterMethod.getParameterTypes();
+                
+                Object objValue = coerce(paramClasses[0], jsonValue, fieldInfo, null, null, treatEmptyStringsAsNull);
+
+                Exception exception = null;
+                
+                try {
+                    if (objValue != null)
+                        setterMethod.invoke(object, objValue);
+                    
+                } catch (InvocationTargetException exc) {
+                    Throwable actualException = exc.getTargetException();
+                    throw new RuntimeException(actualException);
+                    
+                } catch (IllegalAccessException e) {
+                    exception = e;
+                    
+                } catch (IllegalArgumentException e) {
+                    exception = e;
+                }
+                
+                if (exception != null)
+                    throw new SerialisationException("Could not set field '" + field.getName() + "'.", exception);
             }
         } // (while)
 
@@ -330,15 +461,33 @@ public class Serialisation {
         
     /**
      * (args all prechecked) 
+     * @param treatEmptyStringsAsNull 
      */
-    private static Object coerceIntoArray(Class<?> klass, Object jsonObject) {
+    private static Object coerceIntoArray(Object dstObjOrClass, Object srcObj, boolean treatEmptyStringsAsNull) {
+        Class<?> klass;
+        Object dstObj;
+        
+        if (dstObjOrClass instanceof Class<?>) {
+            klass = (Class<?>) dstObjOrClass;
+            dstObj = null;
+        } else {
+            klass = (dstObjOrClass != null ? dstObjOrClass.getClass() : null);
+            dstObj = dstObjOrClass;
+        }
+        
         JSONArray jsonArray;
-        if (jsonObject instanceof JSONArray) {
-            jsonArray = (JSONArray) jsonObject;
+        if (srcObj instanceof JSONArray) {
+            jsonArray = (JSONArray) srcObj;
         } else {
             // not an array, convert it into one
-            jsonArray = new JSONArray();
-            jsonArray.put(jsonObject);
+            Object wrapped = wrap(srcObj);
+            if (wrapped instanceof JSONArray)
+                jsonArray = (JSONArray) wrapped;
+            else {
+                // convert whatever object it is into a single-element array
+                jsonArray = new JSONArray();
+                jsonArray.put(wrapped);
+            }
         }
         
         // get the class of the items in the array
@@ -347,8 +496,12 @@ public class Serialisation {
         // get the length of the array
         int length = jsonArray.length();
 
-        // create the array instance
-        Object array = Array.newInstance(componentType, length);
+        // create the array instance or use the provided object
+        Object array;
+        if (dstObj == null)
+            array = Array.newInstance(componentType, length);
+        else
+            array = dstObj;
 
         for (int index = 0; index < length; index++) {
             Object jsonValue;
@@ -357,7 +510,7 @@ public class Serialisation {
             } catch (JSONException e) {
                 throw new SerialisationException("Could not retrieve an item out of the array.");
             }
-            Object objValue = coerce(componentType, jsonValue, null, null, null);
+            Object objValue = coerce(componentType, jsonValue, null, null, null, treatEmptyStringsAsNull);
 
             if (objValue != null)
                 Array.set(array, index, objValue);
@@ -368,31 +521,56 @@ public class Serialisation {
     
     /**
      * (args all prechecked) 
+     * @param treatEmptyStringsAsNull 
      */
     @SuppressWarnings("unchecked")
-    private static Object coerceIntoCollection(Class<?> klass, Object jsonObject, Class<?> componentType) {
-        JSONArray jsonArray;
-        if (jsonObject instanceof JSONArray) {
-            jsonArray = (JSONArray) jsonObject;
+    private static Object coerceIntoCollection(Object dstObjOrClass, Object srcObj, Class<?> componentType, boolean treatEmptyStringsAsNull) {
+        Class<?> klass;
+        Object dstObj;
+        
+        if (dstObjOrClass instanceof Class<?>) {
+            klass = (Class<?>) dstObjOrClass;
+            dstObj = null;
         } else {
-            // not an array, convert it into one
-            jsonArray = new JSONArray();
-            jsonArray.put(jsonObject);
+            klass = (dstObjOrClass != null ? dstObjOrClass.getClass() : null);
+            dstObj = dstObjOrClass;
         }
         
-        Collection<Object> instance;
-        if (klass.isInterface() || Modifier.isAbstract(klass.getModifiers())) {
-            // cannot create instance of interface or abstract classes, so use
-            // a well new 'Collection' class, ArrayList
-            instance = new ArrayList<Object>();
+        JSONArray jsonArray;
+        if (srcObj instanceof JSONArray) {
+            jsonArray = (JSONArray) srcObj;
         } else {
-            try {
-                instance = (Collection<Object>) klass.newInstance();
-            } catch (Exception exc) {
-                throw new SerialisationException("Could not create instance of requested type, Collection.", exc);
+            // not an array, convert it into one
+            Object wrapped = wrap(srcObj);
+            if (wrapped instanceof JSONArray)
+                jsonArray = (JSONArray) wrapped;
+            else {
+                // convert whatever object it is into a single-element array
+                jsonArray = new JSONArray();
+                jsonArray.put(wrapped);
             }
         }
         
+        Collection<Object> instance;
+        
+        // create own instance or...
+        if (dstObj == null) {
+            if (klass.isInterface() || Modifier.isAbstract(klass.getModifiers())) {
+                // cannot create instance of interface or abstract classes, so use
+                // a well new 'Collection' class, ArrayList
+                instance = new ArrayList<Object>();
+            } else {
+                try {
+                    instance = (Collection<Object>) klass.newInstance();
+                } catch (Exception exc) {
+                    throw new SerialisationException("Could not create instance of requested type, Collection.", exc);
+                }
+            }
+        } else {
+            // ...use provided one
+            instance = (Collection<Object>) dstObj;
+        }
+
         // get the length of the array
         int length = jsonArray.length();
 
@@ -403,7 +581,7 @@ public class Serialisation {
             } catch (JSONException exc) {
                 throw new SerialisationException("Could not get an item out of an array - index " + index, exc);
             }
-            Object objValue = coerce(componentType, jsonValue, null, null, null);
+            Object objValue = coerce(componentType, jsonValue, null, null, null, treatEmptyStringsAsNull);
             
             instance.add(objValue);
         } // (for)
@@ -413,28 +591,52 @@ public class Serialisation {
     
     /**
      * (args all prechecked) 
+     * @param treatEmptyStringsAsNull 
      */
     @SuppressWarnings("unchecked")
-    private static Object coerceIntoMap(Class<?> klass, Object obj, Class<?> keyType, Class<?> valueType) {
-        JSONObject jsonMap;
-        if (obj instanceof JSONObject) {
-            jsonMap = (JSONObject) obj;
+    private static Object coerceIntoMap(Object dstObjOrClass, Object srcObj, Class<?> keyType, Class<?> valueType, boolean treatEmptyStringsAsNull) {
+        Class<?> klass;
+        Object dstObj;
+        
+        if (dstObjOrClass instanceof Class<?>) {
+            klass = (Class<?>) dstObjOrClass;
+            dstObj = null;
         } else {
-            throw new SerialisationException("The object is not a map");
+            klass = (dstObjOrClass != null ? dstObjOrClass.getClass() : null);
+            dstObj = dstObjOrClass;
+        }     
+        
+        JSONObject jsonMap;
+        if (srcObj instanceof JSONObject) {
+            jsonMap = (JSONObject) srcObj;
+        } else {
+            Object wrappedObject = wrap(srcObj);
+            
+            if (!(wrappedObject instanceof JSONObject))
+                throw new SerialisationException("The provided object could not be wrapped into a usable form (special map).");
+            
+            jsonMap = (JSONObject) wrappedObject;
         }
         
-        Map<Object,Object> instance;
-        if (klass.isInterface() || Modifier.isAbstract(klass.getModifiers())) {
-            // cannot create instance of interface or abstract classes, so use
-            // a well new 'Map' class, LinkedHashMap which preservers order
-            instance = new LinkedHashMap<Object, Object>();
-        } else {
-            // use the klass that was specified
-            try {
-                instance = (Map<Object, Object>) klass.newInstance();
-            } catch (Exception exc) {
-                throw new SerialisationException("Could not create an instance of a requested type, Map.", exc);
+        Map<Object, Object> instance;
+
+        // create a fresh instance or...
+        if (dstObj == null) {
+            if (klass.isInterface() || Modifier.isAbstract(klass.getModifiers())) {
+                // cannot create instance of interface or abstract classes, so use
+                // a well new 'Map' class, LinkedHashMap which preservers order
+                instance = new LinkedHashMap<Object, Object>();
+            } else {
+                // use the klass that was specified
+                try {
+                    instance = (Map<Object, Object>) klass.newInstance();
+                } catch (Exception exc) {
+                    throw new SerialisationException("Could not create an instance of a requested type, Map.", exc);
+                }
             }
+        } else {
+            // ... use the provided object
+            instance = (Map<Object, Object>) dstObj;
         }
         
         Iterator<String> keys = jsonMap.keys();
@@ -443,7 +645,7 @@ public class Serialisation {
             
             Object objKey;
             if (keyType != String.class && keyType != Object.class) {
-                objKey = coerce(keyType, jsonKey, null, null, null);
+                objKey = coerce(keyType, jsonKey, null, null, null, treatEmptyStringsAsNull);
             } else {
                 objKey = jsonKey;
             }
@@ -451,10 +653,11 @@ public class Serialisation {
             Object jsonValue;
             try {
                 jsonValue = jsonMap.get(jsonKey);
+                
             } catch (JSONException exc) {
                 throw new SerialisationException("Could not retrieve entry '" + jsonKey + "' out of map.");
             }
-            Object objValue = coerce(valueType, jsonValue, null, null, null);
+            Object objValue = coerce(valueType, jsonValue, null, null, null, treatEmptyStringsAsNull);
             
             instance.put(objKey, objValue);
 
@@ -474,8 +677,15 @@ public class Serialisation {
      * Performs serialisation of an object.
      */
     public static String serialise(Object object, int indent) {
+        return serialise(object, indent, false);
+    }
+    
+    /**
+     * (optionally exclude passwords)
+     */
+    public static String serialise(Object object, int indent, boolean excludePasswords) {
         try {
-            Object wrappedObject = wrap(object);
+            Object wrappedObject = wrap(object, excludePasswords);
 
             if (wrappedObject instanceof JSONObject)
                 return ((JSONObject) wrappedObject).toString(indent);
@@ -492,13 +702,27 @@ public class Serialisation {
     } // (method)
     
     /**
+     * Deserialises an object from JSON text.
+     */
+    public static Object deserialise(Class<?> klass, String json) {
+        return coerceFromJSON(klass, json);
+    }
+    
+    /**
      * Wraps a object into a JSONObject-supported type.
      * 
      * NOTE: This is different from JSONObject.wrap(...) in that it
      *       handles specially "annotated" classes correctly instead of
      *       Java Bean objects. 
      */
-    private static Object wrap(Object object) {
+    public static Object wrap(Object object) {
+        return wrap(object, false);
+    }
+    
+    /**
+     * (optionally exclude passwords for annotated classes)
+     */
+    public static Object wrap(Object object, boolean excludePasswords) {
         try {
             if (object == null) {
                 return JSONObject.NULL;
@@ -523,7 +747,7 @@ public class Serialisation {
 
                 Iterator<?> iter = ((Collection<?>) object).iterator();
                 while (iter.hasNext())
-                    jsonArray.put(wrap(iter.next()));
+                    jsonArray.put(wrap(iter.next(), excludePasswords));
 
                 return jsonArray;
             }
@@ -533,7 +757,7 @@ public class Serialisation {
                 
                 int length = Array.getLength(object);
                 for (int i = 0; i < length; i++)
-                    jsonArray.put(wrap(Array.get(object, i)));
+                    jsonArray.put(wrap(Array.get(object, i), excludePasswords));
                 
                 return jsonArray;
             }
@@ -546,7 +770,7 @@ public class Serialisation {
                     Map.Entry<?, ?> e = (Map.Entry<?, ?>)i.next();
                     Object value = e.getValue();
                     if (value != null) {
-                        jsonObject.put(e.getKey().toString(), wrap(value));
+                        jsonObject.put(e.getKey().toString(), wrap(value, excludePasswords));
                     }
                 }                
                 
@@ -567,10 +791,17 @@ public class Serialisation {
 
                 for (ValueInfo fieldInfo : fieldInfos) {
                     try {
-                    	String key = fieldInfo.annotation.name();
+                    	String key = fieldInfo.name;
                         if (Strings.isNullOrEmpty(key))
                             key = fieldInfo.member.getName();
 
+                        if (excludePasswords) {
+                            // if directed to, skip the format if it's 'password'
+                            String format = fieldInfo.format;
+                            if ("password".equalsIgnoreCase(format))
+                                continue;
+                        }
+                        
                         Object result = null;
                         
                         if (fieldInfo.member instanceof Field) {
@@ -583,13 +814,15 @@ public class Serialisation {
                             // treat as method
                             Method method = (Method) fieldInfo.member;
                             
-                            result = method.invoke(object, new Object[] {});
+                            result = method.invoke(object);
                         }
+
                         if (result != null) {
                             // jsonObject()
-                            jsonObject.put(key, wrap(result));
+                            jsonObject.put(key, wrap(result, excludePasswords));
                         }
                     } catch (Exception ignore) {
+                        System.out.println(ignore);
                         // ignore any reflection related issues
                     }
                 } // (for)

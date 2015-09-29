@@ -17,6 +17,7 @@ import java.io.OutputStream;
 import java.io.PrintStream;
 import java.io.PrintWriter;
 import java.io.UnsupportedEncodingException;
+import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.URLEncoder;
@@ -31,13 +32,17 @@ import java.util.TimeZone;
 import java.io.ByteArrayOutputStream;
 import java.io.FileOutputStream;
 
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.nodel.Base64;
 import org.nodel.DateTimes;
+import org.nodel.diagnostics.CountableInputStream;
+import org.nodel.diagnostics.CountableOutputStream;
+import org.nodel.diagnostics.Diagnostics;
+import org.nodel.diagnostics.SharableMeasurementProvider;
 import org.nodel.io.UTF8Charset;
 import org.nodel.net.Credentials;
 import org.nodel.threading.ThreadPool;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * A simple, tiny, nicely embeddable HTTP 1.0 (partially 1.1) server in Java
@@ -100,12 +105,16 @@ public class NanoHTTPD {
         if (s_threadPool == null) {
             synchronized(s_lock) {
                 if (s_threadPool == null)
-                    s_threadPool = new ThreadPool("nano_http", 128);
+                    s_threadPool = new ThreadPool("Nano HTTP", 128);
             }
         }
         
         return s_threadPool;
     }
+    
+    private static SharableMeasurementProvider s_dataRecvRate = Diagnostics.shared().registerSharableCounter("Nano HTTP.Receive rate", true); 
+    
+    private static SharableMeasurementProvider s_dataSendRate = Diagnostics.shared().registerSharableCounter("Nano HTTP.Send rate", true);
     
     // ==================================================
     // API parts
@@ -130,7 +139,14 @@ public class NanoHTTPD {
      * @return HTTP response, see class Response for details
      */
     public Response serve(String uri, File customRoot, String method, Properties parms, Request request) {
-        Properties header = request.header;
+        return serve(uri, customRoot, method, parms, request, false);
+    }
+    
+    /**
+     * @param noFallback Ignores 'etag', partial responses and directory browsing. (None-standard NanoHTTP)
+     */
+    public Response serve(String uri, File customRoot, String method, Properties parms, Request request, boolean noFallback) {
+        Properties header = request.headers;
         Properties files = request.files;
 
         myOut.println(method + " '" + uri + "' ");
@@ -152,29 +168,50 @@ public class NanoHTTPD {
         }
 
         // try custom root first (can be null)
-        Response response = tryServeFromFolder(customRoot, uri, header);
+        Response response = tryServeFromFolder(customRoot, uri, header, noFallback);
         
         if (response == null)
-        	response = tryServeFromFolder(this.firstChoiceDir, uri, header);
+        	response = tryServeFromFolder(this.firstChoiceDir, uri, header, noFallback);
 
         if (response == null)
-            response = serveFile(uri, header, this.myRootDir, this.allowBrowsing);
+            response = serveFile(uri, header, this.myRootDir, this.allowBrowsing, noFallback);
 
         return response;
+    }
+    
+    /**
+     * Resolves a URI into the target file given the resolution order.
+     */
+    public File resolveFile(String uri, File customRoot) {
+        String relPath = uriIntoPath(uri);
+        
+        File file = new File(customRoot, relPath);
+        if (file.exists() && file.isFile())
+            return file;
+        
+        file = new File(this.firstChoiceDir, relPath);
+        if (file.exists() && file.isFile())
+            return file;
+        
+        file = new File(this.myRootDir, relPath);
+        if (file.exists() && file.isFile())
+            return file;
+        
+        return null;
     }
     
     /**
      * Try to serve from a custom directory. Returns null if the attempt fails for
      * any reason.
      */
-    private Response tryServeFromFolder(File dir, String uri, Properties header) {
+    private Response tryServeFromFolder(File dir, String uri, Properties header, boolean noFallback) {
     	if (dir == null)
     		return null;
     	
 		Response response;
 
 		try {
-			response = serveFile(uri, header, dir, this.allowBrowsing);
+			response = serveFile(uri, header, dir, this.allowBrowsing, noFallback);
 
 			if (HTTP_NOTFOUND.equalsIgnoreCase(response.status))
 				response = null;
@@ -219,11 +256,7 @@ public class NanoHTTPD {
         public Response(String status, String mimeType, String txt) {
             this.status = status;
             this.mimeType = mimeType;
-            try {
-                this.data = new ByteArrayInputStream(txt.getBytes("UTF-8"));
-            } catch (java.io.UnsupportedEncodingException uee) {
-                uee.printStackTrace();
-            }
+            this.data = new ByteArrayInputStream(txt.getBytes(UTF8Charset.instance()));
         }
 
         /**
@@ -259,28 +292,41 @@ public class NanoHTTPD {
      */
     public class Request {
 
-        public String uri;
+        public final String uri;
 
-        public String method;
+        public final String method;
 
-        public Properties parms;
+        public final Properties params;
 
-        public Properties header;
+        public final Properties headers;
 
-        public Properties files;
+        public final Properties files;
 
-        public byte[] raw;
+        public final byte[] raw;
 
-        public Socket peer;
+        public final String remoteHost;
+        
+        public final int remotePort;
+        
+        public final String localHost;
 
-        public Request(String uri, String method, Properties parms, Properties header, Properties files, byte[] raw, Socket peer) {
+        public final int localPort;        
+
+        public Request(String uri, String method, Properties parms, Properties headers, Properties files, byte[] raw, Socket peer) {
             this.uri = uri;
             this.method = method;
-            this.parms = parms;
-            this.header = header;
+            this.params = parms;
+            this.headers = headers;
             this.files = files;
             this.raw = raw;
-            this.peer = peer;
+            
+            InetSocketAddress remoteSocketAddr = (InetSocketAddress) peer.getRemoteSocketAddress();
+            this.remoteHost = remoteSocketAddr.getHostString();
+            this.remotePort = remoteSocketAddr.getPort();
+            
+            InetSocketAddress localSocketAddr = (InetSocketAddress) peer.getLocalSocketAddress();
+            this.localHost = localSocketAddr.getHostString();
+            this.localPort = localSocketAddr.getPort();
         }
 
     } // (class)
@@ -291,14 +337,16 @@ public class NanoHTTPD {
     public static final String HTTP_OK = "200 OK", 
         HTTP_PARTIALCONTENT = "206 Partial Content",
         HTTP_RANGE_NOT_SATISFIABLE = "416 Requested Range Not Satisfiable", 
-        HTTP_REDIRECT = "301 Moved Permanently", 
+        HTTP_REDIRECT = "301 Moved Permanently",
+        HTTP_FOUND = "302 Found",
         HTTP_NOTMODIFIED = "304 Not Modified",
         HTTP_FORBIDDEN = "403 Forbidden", 
         HTTP_NOTFOUND = "404 Not Found", 
         HTTP_BADREQUEST = "400 Bad Request",
         HTTP_AUTHORIZATION = "401 Authorization Required",
         HTTP_INTERNALERROR = "500 Internal Server Error", 
-        HTTP_NOTIMPLEMENTED = "501 Not Implemented";
+        HTTP_NOTIMPLEMENTED = "501 Not Implemented",
+        HTTP_SERVICEUNAVAILABLE = "503 Service Unavailable";
 
     /**
      * Common mime types for dynamic content
@@ -445,8 +493,11 @@ public class NanoHTTPD {
             String uri = null;
             
             try {
-                InputStream is = this.mySocket.getInputStream();
-                if (is == null)
+                InputStream is = null;
+                InputStream stream = this.mySocket.getInputStream();
+                
+                is = (stream == null ? null : new CountableInputStream(stream, SharableMeasurementProvider.Null.INSTANCE, s_dataRecvRate));
+                if (stream == null)
                     return;
 
                 // Read the first 8192 bytes.
@@ -623,20 +674,30 @@ public class NanoHTTPD {
                     uri = decodePercent(uri.substring(0, qmi));
                 } else
                     uri = decodePercent(uri);
+                
+                // (NODEL) safely skip next token which should be the AUTHORITY field
+                if (st.hasMoreTokens())
+                    st.nextToken();
+                
+                // (NODEL there should be no more tokens otherwise it's a bad URI containing spaces)
+                if (st.hasMoreTokens())
+                    sendError(HTTP_BADREQUEST, "BAD REQUEST: expected METHOD URI AUTHORITY.");
 
+                // (NODEL) this comment is not valid after change:
                 // If there's another token, it's protocol version,
                 // followed by HTTP headers. Ignore version but parse headers.
+                
                 // NOTE: this now forces header names lowercase since they are
                 // case insensitive and vary by client.
-                if (st.hasMoreTokens()) {
-                    String line = in.readLine();
-                    while (line != null && line.trim().length() > 0) {
-                        int p = line.indexOf(':');
-                        if (p >= 0)
-                            header.put(line.substring(0, p).trim().toLowerCase(), line.substring(p + 1).trim());
-                        line = in.readLine();
-                    }
+                
+                String line = in.readLine();
+                while (line != null && line.trim().length() > 0) {
+                    int p = line.indexOf(':');
+                    if (p >= 0)
+                        header.put(line.substring(0, p).trim().toLowerCase(), line.substring(p + 1).trim());
+                    line = in.readLine();
                 }
+                
 
                 pre.put("uri", uri);
             } catch (IOException ioe) {
@@ -861,7 +922,7 @@ public class NanoHTTPD {
                 if (status == null)
                     throw new Error("sendResponse(): Status can't be null.");
 
-                OutputStream out = this.mySocket.getOutputStream();
+                OutputStream out = new CountableOutputStream(this.mySocket.getOutputStream(), SharableMeasurementProvider.Null.INSTANCE, s_dataSendRate);
                 PrintWriter pw = new PrintWriter(out);
                 pw.print("HTTP/1.0 " + status + " \r\n");
 
@@ -978,6 +1039,13 @@ public class NanoHTTPD {
      * ignores all headers and HTTP parameters.
      */
     public Response serveFile(String uri, Properties header, File homeDir, boolean allowDirectoryListing) {
+        return serveFile(uri, header, homeDir, allowDirectoryListing, false);
+    }
+    
+    /**
+     * @param noFallback Ignores 'etag', partial responses and directory browsing. (None-standard NanoHTTP)
+     */
+    public Response serveFile(String uri, Properties header, File homeDir, boolean allowDirectoryListing, boolean noFallback) {
         Response res = null;
 
         // Make sure we won't die of an exception later
@@ -1000,7 +1068,7 @@ public class NanoHTTPD {
             res = new Response(HTTP_NOTFOUND, MIME_PLAINTEXT, "Error 404, file not found.");
 
         // List the directory, if necessary
-        if (res == null && f.isDirectory()) {
+        if (!noFallback && res == null && f.isDirectory()) {
             // Browsers get confused without '/' after the
             // directory, send a redirect.
             if (!uri.endsWith("/")) {
@@ -1081,6 +1149,9 @@ public class NanoHTTPD {
                 long endAt = -1;
                 String range = header.getProperty("range");
                 if (range != null) {
+                    if (!noFallback)
+                        return new Response(HTTP_INTERNALERROR, MIME_PLAINTEXT, "INTERNAL ERROR: 'range' not supported in this context.");
+                    
                     if (range.startsWith("bytes=")) {
                         range = range.substring("bytes=".length());
                         int minus = range.indexOf('-');
@@ -1111,9 +1182,11 @@ public class NanoHTTPD {
 
                         final long dataLen = newLen;
                         FileInputStream fis = new FileInputStream(f) {
+                            
                             public int available() throws IOException {
                                 return (int) dataLen;
                             }
+                            
                         };
                         fis.skip(startFrom);
 
@@ -1123,7 +1196,7 @@ public class NanoHTTPD {
                         res.addHeader("ETag", etag);
                     }
                 } else {
-                    if (etag.equals(header.getProperty("if-none-match")))
+                    if (!noFallback && etag.equals(header.getProperty("if-none-match")))
                         res = new Response(HTTP_NOTMODIFIED, mime, "");
                     else {
                         res = new Response(HTTP_OK, mime, new FileInputStream(f));
@@ -1136,9 +1209,9 @@ public class NanoHTTPD {
             res = new Response(HTTP_FORBIDDEN, MIME_PLAINTEXT, "FORBIDDEN: Reading file failed.");
         }
 
-        res.addHeader("Accept-Ranges", "bytes"); // Announce that the file
-        // server accepts partial
-        // content requestes
+        if (!noFallback)
+            res.addHeader("Accept-Ranges", "bytes"); // Announce that the file server accepts partial content requestes
+        
         return res;
     }
 
@@ -1151,6 +1224,13 @@ public class NanoHTTPD {
         
         return res;
     }
+    
+    protected Response prepareFoundResponse(String uri) {
+        Response res = new Response(HTTP_FOUND, MIME_HTML, "<html><body>Redirected: <a href=\"" + uri + "\">" + uri + "</a></body></html>");
+        res.addHeader("Location", uri);
+        
+        return res;
+    }    
 
     /**
      * (Overloaded)
@@ -1313,6 +1393,22 @@ public class NanoHTTPD {
         + "(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE\n"
         + "OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.";
     
+    /**
+     * Convenience method to turn a URI into a platform-specific usable path.
+     */
+    public static String uriIntoPath(String uri) {
+        // Remove URL arguments
+        uri = uri.trim().replace(File.separatorChar, '/');
+        if (uri.indexOf('?') >= 0)
+            uri = uri.substring(0, uri.indexOf('?'));
+
+        // Prohibit getting out of current directory
+        if (uri.startsWith("..") || uri.endsWith("..") || uri.indexOf("../") >= 0)
+            return null;
+        
+        return uri;
+    }    
+    
     private static long staticInstanceCounter = 0;
 
     private long instance;
@@ -1324,7 +1420,7 @@ public class NanoHTTPD {
             this.instance = staticInstanceCounter++;
         }
 
-        this.logger = LogManager.getLogger(NanoHTTPD.class.getName() + "_" + instance);
+        this.logger = LoggerFactory.getLogger(NanoHTTPD.class.getName() + "_" + instance);
     }
 
 } // (class)

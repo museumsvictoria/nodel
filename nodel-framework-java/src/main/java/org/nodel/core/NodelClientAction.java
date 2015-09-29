@@ -8,6 +8,7 @@ package org.nodel.core;
 
 import java.util.concurrent.atomic.AtomicReference;
 
+import org.joda.time.DateTime;
 import org.nodel.Handler;
 import org.nodel.SimpleName;
 import org.nodel.Strings;
@@ -18,6 +19,12 @@ import org.nodel.reflection.Value;
  * Represents a Nodel client action dependency.
  */
 public class NodelClientAction {
+    
+    /**
+     * The name of this client action
+     */
+    private SimpleName _name;
+    
     
     /**
      * Released or not.
@@ -47,13 +54,11 @@ public class NodelClientAction {
     /**
      * The node event
      */
-    @Value(name = "action")
     protected SimpleName _action;
 
     /**
      * The composite nodel action point
      */
-    @Value(name = "nodelPoint")
     protected NodelPoint _nodelPoint;
 
     /**
@@ -67,28 +72,60 @@ public class NodelClientAction {
     private Handler.H1<BindingState> wiredStatusHandler;
     
     /**
-     * The last status.
+     * The argument sequence
      */
-    @Value(name = "lastStatus")
-    private AtomicReference<BindingState> _lastStatus = new AtomicReference<BindingState>(BindingState.Empty);    
-    
+    private long _argSeqNum;
+
+    /**
+     * The argument timestamp
+     */
+    private DateTime _argTimestamp;
+
+    /**
+     * The argument value
+     */
+    private AtomicReference<Object> _arg = new AtomicReference<>();
+
+    /**
+     * The status sequence
+     */
+    private long _bindingStateSeq;
+
+    /**
+     * The status timestamp
+     */
+    private DateTime _bindingStateTimestamp;
+
+    /**
+     * The binding status
+     */
+    private AtomicReference<BindingState> _bindingState = new AtomicReference<BindingState>(BindingState.Empty);
+
     /**
      * Constructs a new Nodel Client to manage a single remote node.
      * (allows name and action to be null or empty)
      */
-    public NodelClientAction(String name, String action) {
-        if (Strings.isNullOrEmpty(name) || Strings.isNullOrEmpty(action))
+    public NodelClientAction(SimpleName name, String node, String action) {
+        _name = name;
+        
+        if (Strings.isNullOrEmpty(node) || Strings.isNullOrEmpty(action))
             _isUnbound = true;
 
-        if (Strings.isNullOrEmpty(name))
-            name = "unbound";
-        _node = new SimpleName(name);
+        if (Strings.isNullOrEmpty(node))
+            node = "unbound";
+        
+        _node = new SimpleName(node);
         
         if (Strings.isNullOrEmpty(action))
             action = "unbound";
         _action = new SimpleName(action);
         
         _nodelPoint = NodelPoint.create(_node, _action);
+    }
+
+    @Value(name = "name")
+    public SimpleName getName() {
+        return _name;
     }
 
     /**
@@ -101,6 +138,7 @@ public class NodelClientAction {
     /**
      * Returns the Node action being managed.
      */
+    @Value(name = "action")
     public SimpleName getAction() {
         return _action;
     }
@@ -108,8 +146,39 @@ public class NodelClientAction {
     /**
      * Returns the composite Nodel point.
      */
+    @Value(name = "nodelPoint")
     public NodelPoint getNodelPoint() {
         return _nodelPoint;
+    }
+    
+    @Value(name = "arg", title = "Argument")
+    public Object getArg() {
+        return _arg.get();
+    }
+    
+    @Value(name = "argSeqNum", title = "Argument sequence number")
+    public long getArgSeqNum() {
+        return _argSeqNum;
+    }
+
+    @Value(name = "argTimestamp", title = "Argument timestamp")
+    public DateTime getArgTimestamp() {
+        return _argTimestamp;
+    }
+    
+    @Value(name = "bindingState", title = "Binding state")
+    public BindingState getBindingState() {
+        return _bindingState.get();
+    }      
+
+    @Value(name = "bindingStateSeqNum", title = "Binding state sequence number")
+    public long getBindingStateSeqNum() {
+        return _bindingStateSeq;
+    }
+
+    @Value(name = "bindingStateTimestamp", title = "Binding state timestamp")
+    public DateTime getBindingStateTimestamp() {
+        return _bindingStateTimestamp;
     }
 
     /**
@@ -141,9 +210,15 @@ public class NodelClientAction {
      * (internal use)
      */
     private void call0(Object arg) {
+        _arg.set(arg);
+        _argTimestamp = DateTime.now();
+        
+        // must set sequence number last
+        _argSeqNum = Nodel.getNextSeq();
+
         if (_monitor != null)
             _monitor.handle(arg);
-
+        
         if (_isUnbound)
             return;
 
@@ -155,7 +230,7 @@ public class NodelClientAction {
      */
     public void attachMonitor(Handler.H1<Object> monitor) {
         if (monitor == null)
-            throw new IllegalArgumentException("Cannot detach null monitor.");
+            throw new IllegalArgumentException("Monitor was null.");
 
         _monitor = monitor;
     }
@@ -183,9 +258,14 @@ public class NodelClientAction {
     } // (method)
     
     void setWiredStatus(BindingState status) {
-        BindingState last = _lastStatus.getAndSet(status);
+        BindingState last = _bindingState.getAndSet(status);
         
         if (last != status && this.wiredStatusHandler != null) {
+            _bindingStateTimestamp = DateTime.now();
+            
+            // set sequence number last
+            _bindingStateSeq = Nodel.getNextSeq();
+            
             this.wiredStatusHandler.handle(status);
         }
     }
@@ -193,6 +273,6 @@ public class NodelClientAction {
     @Override
     public String toString() {
         return Serialisation.serialise(this);
-    }    
+    }
 
 } // (class)

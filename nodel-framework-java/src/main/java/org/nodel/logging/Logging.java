@@ -10,8 +10,6 @@ import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 
-import org.apache.logging.log4j.Level;
-
 /**
  * A class designed to be used as a singleton to publish logs at run-time.
  */

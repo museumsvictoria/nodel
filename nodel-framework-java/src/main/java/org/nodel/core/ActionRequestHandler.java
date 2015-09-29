@@ -11,6 +11,6 @@ package org.nodel.core;
  */
 public interface ActionRequestHandler {
     
-    public Object handleActionRequest(Object arg);
+    public void handleActionRequest(Object arg);
 
 } // (class)

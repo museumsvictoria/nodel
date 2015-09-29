@@ -21,8 +21,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.nodel.DateTimes;
 import org.nodel.Handler;
 import org.nodel.Handlers;
@@ -34,6 +32,8 @@ import org.nodel.reflection.Value;
 import org.nodel.threading.ThreadPool;
 import org.nodel.threading.TimerTask;
 import org.nodel.threading.Timers;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Provides Nodel client-specific services to the platform.
@@ -62,17 +62,17 @@ public class NodelClients {
     /**
      * (logging related)
      */
-    private Logger _logger = LogManager.getLogger(String.format("%s", this.getClass().getName()));
+    private Logger _logger = LoggerFactory.getLogger(String.format("%s", this.getClass().getName()));
     
     /**
      * (threading)
      */
-    private ThreadPool _threadPool = new ThreadPool("nodel_clients", 128);
+    private ThreadPool _threadPool = new ThreadPool("Nodel client", 128);
     
     /**
      * Thread pool for the handlers themselves.
      */
-    private ThreadPool _threadPoolHandlers = new ThreadPool("nodel_clients_handlers", 256); 
+    private ThreadPool _threadPoolHandlers = new ThreadPool("Nodel client handlers", 256); 
     
     /**
      * (threading)
@@ -254,8 +254,6 @@ public class NodelClients {
      */
     public boolean attachFailureHandler(Handler.H1<Throwable> handler) {
         synchronized (_signal) {
-            _logger.entry();
-            
             if (handler == null)
                 throw new IllegalArgumentException("Handler cannot be null.");
 
@@ -268,8 +266,6 @@ public class NodelClients {
      */
     public boolean detachFailureHandler(Handler.H1<Throwable> handler) {
         synchronized (_signal) {
-            _logger.entry();
-            
             if (handler == null)
                 throw new IllegalArgumentException("Handler cannot be null.");
 
@@ -283,8 +279,6 @@ public class NodelClients {
      */
     public boolean attachWiringFaultHandler(Handler.H1<Throwable> handler) {
         synchronized (_signal) {
-            _logger.entry();            
-            
             if (handler == null)
                 throw new IllegalArgumentException("Handler cannot be null.");
 
@@ -297,8 +291,6 @@ public class NodelClients {
      */
     public boolean detachWiringFaultHandler(Handler.H1<Throwable> handler) {
         synchronized (_signal) {
-            _logger.entry();
-            
             if (handler == null)
                 throw new IllegalArgumentException("Handler cannot be null.");
 
@@ -342,8 +334,6 @@ public class NodelClients {
      */
     protected void release(NodelClientEvent event) {
         synchronized (_signal) {
-            _logger.entry();
-            
             NodeEntry nodeEntry = this.nodeEntriesByNodeName.get(event._node);
             if (nodeEntry == null) {
                 // can safely ignore
@@ -394,8 +384,6 @@ public class NodelClients {
      */
     private void doMaintainNode(final NodeEntry nodeEntry, boolean isSchedule) {
         synchronized (_signal) {
-            _logger.entry();
-            
             if (_closed || nodeEntry.disposed)
                 return;
             
@@ -461,8 +449,6 @@ public class NodelClients {
      */
     protected void release(NodelClientAction action) {
         synchronized (_signal) {
-            _logger.entry();
-            
             NodeEntry nodeEntry = this.nodeEntriesByNodeName.get(action._node);
             if (nodeEntry == null) {
                 // can safely ignore
@@ -523,7 +509,6 @@ public class NodelClients {
 
     private void handleResolutionComplete(final NodeEntry nodeEntry, NodeAddress address) {
         synchronized (_signal) {
-            _logger.entry();
             // (also check for any recent connection errors to avoid)
 
             if (address == null || nodeEntry.recentConnectionError) {
@@ -656,8 +641,6 @@ public class NodelClients {
                 // channel is either existing or new
                 completeHandlerRegistration(nodeEntry, channel);
             }
-            
-            _logger.exit();
         }
     } // (method)
     
@@ -686,8 +669,6 @@ public class NodelClients {
      * (assumes locked)
      */
     private void completeHandlerRegistration(final NodeEntry nodeEntry, ChannelClient channel) {
-        _logger.entry();
-        
         // go through each handler entry, registering if necessary
         for (final NodeEntry.EventHandlerEntry eventHandlerEntry : nodeEntry.eventHandlerEntries.values()) {
             if (eventHandlerEntry.isRegistered) {
@@ -722,8 +703,6 @@ public class NodelClients {
         
         // finally clear the busy flag
         nodeEntry.isBusy = false;
-        
-        _logger.exit();
     } // (method)
     
     /**
@@ -733,8 +712,6 @@ public class NodelClients {
         _logger.info("Received channel event {}", eventHandlerEntry.eventPoint);
         
         synchronized (_signal) {
-            _logger.entry();
-            
             // go through all the registered handlers
             for (final NodelClientEvent handler : eventHandlerEntry.bindings) {
 
@@ -762,8 +739,6 @@ public class NodelClients {
      */
     public void call(NodelClientAction action, Object arg) {
         synchronized (_signal) {
-            _logger.entry();
-            
             NodeEntry nodeEntry = this.nodeEntriesByNodeName.get(action._node);
             if (nodeEntry == null)
                 // have never even registered for any events or actions
@@ -784,8 +759,6 @@ public class NodelClients {
      */
     private void handleChannelConnectionFault(ChannelEntry channelEntry, Exception value) {
         synchronized (_signal) {
-            _logger.entry();
-            
             // got a connection fault so need to reset the channel-related data-structures
             
             // unwire the channel if necessary
@@ -822,8 +795,6 @@ public class NodelClients {
     
     protected void handleWiringSuccess(SimpleName relatedNode, Set<SimpleName> presentActions, Set<SimpleName> presentEvents) {
         synchronized (_signal) {
-            _logger.entry();
-
             _logger.info("Wiring confirmed for node {}. events:{}, actions:{}", relatedNode, presentActions, presentEvents);
 
             for (NodeEntry nodeEntry : this.nodeEntriesByNodeName.values()) {
@@ -861,8 +832,6 @@ public class NodelClients {
      */
     private void handleWiringFault(ChannelEntry channelEntry, SimpleName relatedNode, Set<SimpleName> missingActions, Set<SimpleName> missingEvents) {
         synchronized (_signal) {
-            _logger.entry();
-            
             // check whether the node has move or was never there
             if (missingActions.isEmpty() && missingEvents.isEmpty()) {
                 _logger.info("Have been told a node has moved or no longer exists '{}'", relatedNode);
@@ -907,7 +876,6 @@ public class NodelClients {
     } // (class)
     
     protected List<NodeURL> getNodeURLs() throws IOException {
-        //ServiceInfo[] jmDNS.li
         Collection<AdvertisementInfo> list = AutoDNS.instance().list();
         List<NodeURL> nodeURLs = new ArrayList<NodeURL>();
         
@@ -935,8 +903,8 @@ public class NodelClients {
         });
         
         return nodeURLs;
-    } // (method)
-
+    }
+    
     /**
      * Permanently shuts down all resources related to 
      */

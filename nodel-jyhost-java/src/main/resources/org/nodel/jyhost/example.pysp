@@ -1,0 +1,84 @@
+<%
+# Nodel auto-generated example PySp (server-side script) that applies to Nodel $VERSION or compatible versions.
+%><html>
+<head>
+<title><%! _node.getName() %> Python server page</title>
+</head>
+<body>
+<h1>PySP - Nodel's server-side Python pages</h1>
+
+<p><small>(To use this example, place it in a 'content' folder)</small>
+
+<p><a href='?_raw'>(click here for pre- and post-Python rendered pages)</a>
+
+<p>Raw node name is <%= _node.getName() %>.
+
+<p>HTML friendly node description which may have HTML tags is <strong><%! _node.getDesc() %></strong>.
+
+<p>ipAddress parameter is <%! param_ipAddress %>.
+
+<h2>Useful server-side Python</h2>
+
+<p>URI is <strong><%! req.uri %></strong>.
+
+<p>local host is <%! req.localHost %>, local port is <%! req.localPort %>. 
+
+<p>local host is <%! req.remoteHost %>, remote port is <%! req.remotePort %>.
+
+<h3>Request headers</h3>
+<ul>
+<%
+for x in req.headers:
+   %><li><%! x %> is <strong><%! req.headers[x] %></strong></li>
+<%
+
+%>
+</ul>
+
+<h3><code>req</code> attributes</h3>
+<ul>
+<%
+for x in dir(req):
+   if '__' not in x: %><li><%! x %></li>
+<%
+
+%>
+</ul>
+
+<h3><code>resp</code> attributes</h3>
+<ul>
+<%
+for x in dir(resp):
+   if '__' not in x: %><li><%! x %></li>
+<%
+%>
+</ul>
+<h3><code>locals()</code> items</h3>
+<ul>
+<%
+loc = locals()
+for x in loc:
+   %><li><%! x %> is <strong><%! loc[x] %></strong></li>
+<%
+%>
+</ul>
+<h3><code>globals()</code> items</h3>
+<ul>
+<%
+glob = globals()
+for x in glob:
+   %><li><%! x %> is <strong><%! glob[x] %></strong></li>
+<%
+%>
+</ul>
+<h3><code>_node</code> attributes</h3>
+<ul>
+<%
+for x in dir(_node):
+   if '__' not in x: %><li><%! x %></li>
+<%
+%>
+</ul>
+
+</body>
+</html>

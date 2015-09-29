@@ -19,17 +19,20 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.concurrent.Callable;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReentrantLock;
 
 import org.joda.time.DateTime;
 import org.nodel.DateTimes;
 import org.nodel.Handler;
+import org.nodel.Handler.H0;
 import org.nodel.SimpleName;
 import org.nodel.Strings;
 import org.nodel.Threads;
 import org.nodel.core.ActionRequestHandler;
 import org.nodel.core.BindingState;
+import org.nodel.core.Nodel;
 import org.nodel.core.NodelClientAction;
 import org.nodel.core.NodelClientEvent;
 import org.nodel.core.NodelEventHandler;
@@ -57,7 +60,12 @@ import org.nodel.reflection.Serialisation;
 import org.nodel.reflection.Service;
 import org.nodel.reflection.Value;
 import org.nodel.threading.TimerTask;
+import org.nodel.toolkit.Console;
+import org.nodel.toolkit.ManagedToolkit;
+import org.python.core.Py;
 import org.python.core.PyDictionary;
+import org.python.core.PyException;
+import org.python.core.PyFunction;
 import org.python.core.PyObject;
 import org.python.core.PyString;
 import org.python.core.PySystemState;
@@ -97,15 +105,40 @@ public class PyNode extends BaseDynamicNode {
     private PythonInterpreter _python;
     
     /**
+     * This ensures 'exec' and 'main()' calls on the Jython are executed serially.
+     * Lock instance can change if deadlocks occur.
+     * (WORKAROUND for a Jython loading bug related to the XML parser)
+     * (synced on 's_globalLock')
+     */
+    private static ReentrantLock s_currentGlobalRentrantLock = new ReentrantLock();
+    
+    /**
+     * Used to synchronise 's_globalReentrantLock'. Never changes.
+     */
+    private static Object s_globalLock = new Object();
+    
+    /**
      * Used when calling functions in a multithreaded Python environment.
      */
     private AtomicLong _funcSeqNumber = new AtomicLong();
     
     /**
+     * For detecting never-ending functions. 
      * Stores the time-in by function name.
      */
     private Map<String, Long> _activeFunctions = new HashMap<String, Long>();
-            
+    
+    /**
+     * The general purpose toolkit related to this node.
+     */
+    protected ManagedToolkit _toolkit;
+    
+    /**
+     * Holds the web-socket port
+     */
+    @Value(name = "webSocketPort", title = "WebSocket port", order = 10000)
+    private int webSocketPort = Nodel.getWebSocketPort();
+    
     /**
      * Create a new pyNode.
      */
@@ -114,6 +147,13 @@ public class PyNode extends BaseDynamicNode {
 
         init();
     } // (constructor)
+    
+    /**
+     * Returns the Python interpreter related to this node.
+     */
+    protected PythonInterpreter getPython() {
+        return _python;
+    }
     
     public void saveConfig(NodeConfig config) throws Exception {
         if (!_busy.tryLock())
@@ -230,6 +270,25 @@ public class PyNode extends BaseDynamicNode {
      * The script end-point.
      */
     private Script _script = new Script();
+
+    /**
+     * The Python "globals"
+     * (never null, initialised every new 'python' instance)
+     */
+    private PyDictionary _globals = new PyDictionary();
+
+    /**
+     * Holds the "system state" for this interpreter.
+     * (required because of threading)
+     */
+    private PySystemState _pySystemState;
+    
+    /**
+     * The Python "globals"
+     */
+    public PyDictionary getPyGlobals() {
+        return _globals;
+    }
     
     @Service(name = "script", title = "Script", desc = "The .py script itself and meta-data.")
     public Script getScript() {
@@ -319,7 +378,7 @@ public class PyNode extends BaseDynamicNode {
                     long timeIn = entry.getValue();
                     
                     // check if it's been stuck for more than 2 minutes
-                    long stuckMillis = (System.nanoTime() - timeIn) / 1000000; 
+                    long stuckMillis = (System.nanoTime() - timeIn) / 1000000;
                     if (stuckMillis > 2 * 60000) {
                         if (sb == null)
                             sb = new StringBuilder();
@@ -435,21 +494,32 @@ public class PyNode extends BaseDynamicNode {
         
         // append the Node's root directory to the path
         pySystemState.path.append(new PyString(_root.getAbsolutePath()));
+        Py.setSystemState(pySystemState);
         
-        PyDictionary locals = new PyDictionary();
+        _globals = new PyDictionary();
         
-        _python = new PythonInterpreter(locals, pySystemState);
+        ReentrantLock lock = null;
         
+        try {
+            lock = getAReentrantLock();
+            
+            trackFunction("(instance creation)");
+
+            // _python = new PythonInterpreter(globals, pySystemState);
+            _python = PythonInterpreter.threadLocalStateInterpreter(_globals);
+
+        } finally {
+            untrackFunction("(instance creation)");
+            
+            if (lock != null)
+                lock.unlock();
+        }
+
         _logger.info("Interpreter initialised (took {}).", DateTimes.formatPeriod(startTime)); 
         
         // redirect 
         _python.setErr(_errReader);
-        _python.setOut(_outReader);       
-        
-        // apply monkey patching
-        try(InputStream moneyPatchStream = PyNode.class.getResourceAsStream("monkeyPatch.py")) {
-            _python.execfile(moneyPatchStream);
-        }
+        _python.setOut(_outReader);
         
         // dump a new example script if necessary
         String exampleScript = ExampleScript.generateExampleScript();
@@ -460,13 +530,67 @@ public class PyNode extends BaseDynamicNode {
         if (exampleStringFileStr == null || !exampleScript.equals(exampleStringFileStr))
             Stream.writeFully(exampleScriptFile, exampleScript);
         
+        // TODO: extract stream only once
+        
+        // dump a new example PySp page if necessary
+        try (InputStream exampleStream = PyNode.class.getResourceAsStream("example.pysp")) {
+            String examplePySp = Stream.readFully(exampleStream);
+            examplePySp = examplePySp.replace("$VERSION", Launch.VERSION);
+            File examplePySpFile = new File(_root, "_example.pysp");
+            String examplePySpFileStr = null;
+            if (examplePySpFile.exists())
+                examplePySpFileStr = Stream.readFully(examplePySpFile);
+            if (examplePySpFileStr == null || !examplePySp.equals(examplePySpFileStr))
+                Stream.writeFully(examplePySpFile, examplePySp);
+        }
+        
         Bindings bindings = Bindings.Empty;
         
         try {
             if (!_scriptFile.exists())
                 throw new FileNotFoundException("No script file exists.");
             
-            _python.execfile(_scriptFile.getAbsolutePath());
+            cleanupBindings();
+            
+            // inject "self" as '_node'
+            _python.set("_node", this);
+            
+            // inject toolkit before script is called... 
+            injectToolkit();
+            
+            lock = null;
+            try {
+                lock = getAReentrantLock();
+                
+                trackFunction("(monkey patching)");
+
+                // ...and apply monkey patching
+                try (InputStream moneyPatchStream = PyNode.class.getResourceAsStream("monkeyPatch.py")) {
+                    _python.execfile(moneyPatchStream);
+                }
+                
+            } finally {
+                untrackFunction("(monkey patching)");
+                
+                if (lock != null)
+                    lock.unlock();
+            }
+            
+            lock = null;
+            try {
+                lock = getAReentrantLock();
+                
+                trackFunction("(script loading)");
+
+                // execute the script
+                _python.execfile(_scriptFile.getAbsolutePath());
+                
+            } finally {
+                untrackFunction("(script loading)");
+                
+                if (lock != null)
+                    lock.unlock();
+            }
             
             List<String> warnings = new ArrayList<String>();
             
@@ -490,7 +614,11 @@ public class PyNode extends BaseDynamicNode {
             // inject into the error
             _errReader.inject(exc.toString());
             
-            _logger.warn("The bindings could not be applied to the Python instance.", exc);
+            // log cleaner Python exception trace if possible 
+            if (exc instanceof PyException)
+                _logger.warn("The bindings could not be applied to the Python instance. {}", exc.toString());
+            else
+                _logger.warn("The bindings could not be applied to the Python instance.", exc);
         }
         
         applyBindings(bindings);
@@ -511,14 +639,27 @@ public class PyNode extends BaseDynamicNode {
             }
             
             try {
+                _toolkit.enable();
                 
                 if (_python.get("main") == null) {
                     msg = "(no 'main' method to call)";
-                    
+
                 } else {
-                    _python.exec("main()");
-                
-                    msg = "'main' completed cleanly.";
+                    lock = null;
+                    try {
+                    	lock = getAReentrantLock();
+                    	
+                        trackFunction("main()");
+
+                        _python.exec("main()");
+
+                        msg = "'main' completed cleanly.";
+                    } finally {
+                        untrackFunction("main()");
+                        
+                        if (lock != null)
+                            lock.unlock();
+                    }
                 }
                 
                 _logger.info(msg);
@@ -544,9 +685,67 @@ public class PyNode extends BaseDynamicNode {
             _config = config;
         }        
     }
-    
+
     /**
-     * Cleans up the interpreter.
+     * Injects the toolkit.
+     * (assumes locked)
+     * 
+     * (suppressed 'resource' because it gets cleaned up using 'Stream.safeClose' in this method.
+     */
+    private void injectToolkit() {
+        // toolkit is cleaned up by 'cleanupInterpreter'
+
+        _pySystemState = Py.getSystemState();
+        
+        _toolkit = new ManagedToolkit(this)
+            .setExceptionHandler(new Handler.H1<Exception>() {
+
+                @Override
+                public void handle(Exception th) {
+                    String message = "toolkit - " + th.toString();
+                    _logger.info(message);
+                    _errReader.inject(message);
+                }
+
+            })
+            .setThreadStateHandler(new H0() {
+
+                @Override
+                public void handle() {
+                    Py.setSystemState(_pySystemState);
+                }
+                
+            })
+            .attachConsole(new Console.Interface() {
+                
+                @Override
+                public void warn(Object obj) {
+                    logWarning(String.valueOf(obj));
+                }
+                
+                @Override
+                public void log(Object obj) {
+                    PyNode.this.log(String.valueOf(obj));
+                }
+                
+                @Override
+                public void info(Object obj) {
+                    logInfo(String.valueOf(obj));
+                }
+                
+                @Override
+                public void error(Object obj) {
+                    logError(String.valueOf(obj));
+                }
+                
+            });
+
+        // inject the toolkit
+        _python.set("_toolkit", _toolkit);
+    }
+
+    /**
+     * Cleans up the interpreter and the toolkit
      */
     private void cleanupInterpreter() {
         if (_python != null) {
@@ -559,6 +758,10 @@ public class PyNode extends BaseDynamicNode {
             _logger.info(message);
             _outReader.inject(message);
         }
+        
+        if (_toolkit != null) {
+            _toolkit.shutdown();
+        }
     } // (method)
     
     /**
@@ -570,21 +773,18 @@ public class PyNode extends BaseDynamicNode {
             return;
         }
         
-        cleanupBindings();
-        
         // deal with the local bindings
         int count = bindLocalBindings(bindings.local);
         
         // check if we need to use a 'dummy' binding
         if (count == 0) {
             // bind 'dummy' so advertisement still takes place
-            _dummyBinding = new NodelServerAction(_name.getOriginalName(), "Dummy");
+            _dummyBinding = new NodelServerAction(_name.getOriginalName(), "Dummy", null);
             _dummyBinding.registerAction(new ActionRequestHandler() {
 
                 @Override
-                public Object handleActionRequest(Object arg) {
+                public void handleActionRequest(Object arg) {
                     // no-op
-                    return null;
                 }
 
             });
@@ -592,7 +792,7 @@ public class PyNode extends BaseDynamicNode {
 
         // deal with the remote bindings
         bindRemoteBindings(bindings.remote);
-        
+
         // deals with the parameters
         bindParams(bindings.params);
     } // (method)    
@@ -628,19 +828,22 @@ public class PyNode extends BaseDynamicNode {
         StringBuilder sb = new StringBuilder();
 
         for (final Entry<SimpleName, Binding> entry : actions.entrySet()) {
+            Binding binding = entry.getValue();
             // (Nodel layer)
-            NodelServerAction serverAction = new NodelServerAction(_name.getOriginalName(), entry.getKey().getReducedName());
+            //String title, String desc, String group, String caution, Map<String, Object> argSchema
+            NodelServerAction serverAction = new NodelServerAction(_name.getOriginalName(), entry.getKey().getReducedName(), binding);
+            
             serverAction.registerAction(new ActionRequestHandler() {
-                
+
                 @Override
-                public Object handleActionRequest(Object arg) {
-                    addLog(DateTime.now(), LogEntry.Source.local, LogEntry.Type.action, entry.getKey().getReducedName(), arg);
-                    return PyNode.this.handleActionRequest(entry.getKey().getReducedName(), arg);
+                public void handleActionRequest(Object arg) {
+                    addLog(DateTime.now(), LogEntry.Source.local, LogEntry.Type.action, entry.getKey(), arg);
+                    PyNode.this.handleActionRequest(entry.getKey(), arg);
                 }
-                
+
             });
             
-            _localActions.put(entry.getKey(), new ServerActionEntry(entry.getValue(), serverAction));
+            super.addLocalAction(serverAction);
             
             if (sb.length() > 0)
                 sb.append(", ");
@@ -660,7 +863,7 @@ public class PyNode extends BaseDynamicNode {
      * When an action request arrives via Nodel layer.
      * @throws Exception 
      */
-    protected Object handleActionRequest(String action, Object arg) {
+    protected Object handleActionRequest(SimpleName action, Object arg) {
         _logger.info("Action requested - {}", action);
         
         // is a threaded environment so need sequence numbering
@@ -669,38 +872,43 @@ public class PyNode extends BaseDynamicNode {
         String functionName = "local_action_" + action;
         
         String functionKey = functionName + "_" + num;
-        
-        String functionArgName = functionName + "_arg_" + num;
-        
+
         try {
             synchronized (_activeFunctions) {
                 _activeFunctions.put(functionKey, System.nanoTime());
             }
-
-            // create temporary argument
-            _python.set(functionArgName, arg);
-
-            // evaluate the function
-            PyObject pyObject = _python.eval(functionName + "(" + functionArgName + ")");
             
-            return pyObject;
+            PySystemState systemState = _pySystemState;
+            if (systemState == null)
+                throw new IllegalStateException("Python interpreter not ready.");
             
+            Py.setSystemState(systemState);
+            
+            PyObject pyObject = _globals.get(Py.java2py(functionName));
+            if (!(pyObject instanceof PyFunction)) {
+                _logger.warn("Python interpreter function resolution failed when it should not have. name:'{}', class:{} value:{}", 
+                        functionName, pyObject == null? null: pyObject.getClass(), pyObject);
+                
+                throw new IllegalStateException("Action call failure (internal server error) - '" + functionName + "'");
+            }
+            
+            PyFunction pyFunction = (PyFunction) pyObject;
+
+            PyObject pyResult = pyFunction.__call__(Py.java2py(arg));
+            
+            return pyResult;
+
         } catch (Exception exc) {
             String message = "Action call failed - " + exc;
             _logger.info(message);
             _errReader.inject(message);
-            
+
             throw new RuntimeException(exc);
+            
         } finally {
             // clean up the active function map and temporary argument
             synchronized(_activeFunctions) {
                 _activeFunctions.remove(functionKey);
-            }
-            
-            //   ( .set(...) uses .getLocals().__setitem__
-            try {
-                _python.getLocals().__delitem__(functionArgName.intern());
-            } catch (Exception ignore) {
             }
         }
     } // (method)
@@ -716,19 +924,24 @@ public class PyNode extends BaseDynamicNode {
 
         for(final Entry<SimpleName, Binding> eventBinding : events.entrySet()) {
             // (Nodel layer and Python)
-            NodelServerEvent nodelServerEvent = new NodelServerEvent(_name.getOriginalName(), eventBinding.getKey().getReducedName());
+            Binding binding = eventBinding.getValue();
+            
+            NodelServerEvent nodelServerEvent = new NodelServerEvent(_name.getOriginalName(), eventBinding.getKey().getReducedName(), binding);
+            
             nodelServerEvent.attachMonitor(new Handler.H1<Object>() {
+                
                 @Override
                 public void handle(Object arg) {
-                    addLog(DateTime.now(), LogEntry.Source.local, LogEntry.Type.event, eventBinding.getKey().getReducedName(), arg);
+                    addLog(DateTime.now(), LogEntry.Source.local, LogEntry.Type.event, eventBinding.getKey(), arg);
                 }
+                
             });
             nodelServerEvent.registerEvent();
             
             String varName = "local_event_" + eventBinding.getKey().getReducedName();
             _python.set(varName, nodelServerEvent);
             
-            _localEvents.put(eventBinding.getKey(), new ServerEventEntry(eventBinding.getValue(), nodelServerEvent));
+            _localEvents.put(eventBinding.getKey(), nodelServerEvent);
             
             if (sb.length() > 0)
                 sb.append(", ");
@@ -796,8 +1009,8 @@ public class PyNode extends BaseDynamicNode {
     @Service(name = "remote", title = "Remote", desc = "The remote bindings.")
     public Remote getRemote() {
         return _remote;
-    }
-
+    }    
+        
     private void bindRemoteActions(Map<SimpleName, NodelActionInfo> actions) {
         if (actions == null) {
             _logger.info("This node does not require any actions.");
@@ -815,15 +1028,15 @@ public class PyNode extends BaseDynamicNode {
             // empty bindings are allowed and will show up as "unbound" sources
             
             // (Nodel layer)
-            final NodelClientAction nodelAction = new NodelClientAction(nodeName, actionName);
+            final NodelClientAction nodelAction = new NodelClientAction(action.getKey(), nodeName, actionName);
             nodelAction.attachMonitor(new Handler.H1<Object>() {
                 
                 @Override
                 public void handle(Object arg) {
                     if (nodelAction.isUnbound())
-                        addLog(DateTime.now(), LogEntry.Source.unbound, LogEntry.Type.action, action.getKey().getReducedName(), arg);                    
+                        addLog(DateTime.now(), LogEntry.Source.unbound, LogEntry.Type.action, action.getKey(), arg);                    
                     else
-                        addLog(DateTime.now(), LogEntry.Source.remote, LogEntry.Type.action, action.getKey().getReducedName(), arg);
+                        addLog(DateTime.now(), LogEntry.Source.remote, LogEntry.Type.action, action.getKey(), arg);
                 }
                 
             });
@@ -833,7 +1046,7 @@ public class PyNode extends BaseDynamicNode {
                 public void handle(BindingState status) {
                     _logger.info("Action binding status: {} - '{}'", action.getKey().getReducedName(), status);
                     
-                    addLog(DateTime.now(), LogEntry.Source.remote, LogEntry.Type.actionBinding, action.getKey().getReducedName(), status);
+                    addLog(DateTime.now(), LogEntry.Source.remote, LogEntry.Type.actionBinding, action.getKey(), status);
                 }
                 
             });
@@ -842,13 +1055,13 @@ public class PyNode extends BaseDynamicNode {
             // (Python)
             _python.set(varName, nodelAction);
 
-            _clientActions.add(new RemoteActionEntry(nodelAction));
+            _remoteActions.add(nodelAction);
             
             _logger.info("Mapped peer action to Python variable '{}'", varName);
         } // (for)
         
     } // (method)
-
+        
     private void bindRemoteEvents(Map<SimpleName, NodelEventInfo> events) {
         if (events == null) {
             _logger.info("This node does not require any events.");
@@ -871,12 +1084,12 @@ public class PyNode extends BaseDynamicNode {
                 // skip for now
                 continue;
 
-            final NodelClientEvent nodelClientEvent = new NodelClientEvent(nodeName, eventName);
+            final NodelClientEvent nodelClientEvent = new NodelClientEvent(alias, nodeName, eventName);
             nodelClientEvent.setHandler(new NodelEventHandler() {
                 
                 @Override
                 public void handleEvent(SimpleName node, SimpleName event, Object arg) {
-                    handleEventArrival(alias, nodelClientEvent, pythonEvent, arg);
+                    handleRemoteEventArrival(alias, nodelClientEvent, pythonEvent, arg);
                 }
                 
             });
@@ -885,14 +1098,14 @@ public class PyNode extends BaseDynamicNode {
                 
                 @Override
                 public void handle(BindingState status) {
-                    addLog(DateTime.now(), LogEntry.Source.remote, LogEntry.Type.eventBinding, alias.getReducedName(), status);
+                    addLog(DateTime.now(), LogEntry.Source.remote, LogEntry.Type.eventBinding, alias, status);
                     
                     _logger.info("Event binding status: {} - '{}'", alias.getReducedName(), status);
                 }
                 
             });            
             
-            _remoteEvents.add(new RemoteEventEntry(nodelClientEvent));
+            _remoteEvents.add(nodelClientEvent);
             
             if (sb.length() > 0)
                 sb.append(", ");
@@ -906,47 +1119,52 @@ public class PyNode extends BaseDynamicNode {
     } // (method)
     
     /**
-     * When an action request arrives via Nodel layer.
-     * @param alias 
-     * @param nodelClientEvent 
+     * When an event arrives via Nodel layer.
      */
-    private void handleEventArrival(SimpleName alias, NodelClientEvent nodelClientEvent, String functionName, Object arg) {
+    private void handleRemoteEventArrival(SimpleName alias, NodelClientEvent nodelClientEvent, String functionName, Object arg) {
         _logger.info("Event arrived - {}", nodelClientEvent.getNodelPoint());
         
-        addLog(DateTime.now(), LogEntry.Source.remote, LogEntry.Type.event, alias.getReducedName(), arg);
+        addLog(DateTime.now(), LogEntry.Source.remote, LogEntry.Type.event, alias, arg);
         
         // is a threaded environment so need sequence numbering
         long num = _funcSeqNumber.getAndIncrement();
         
         String functionKey = functionName + "_" + num;
-
-        // create temporary argument
-        String functionArgName = functionName + "_arg_" + num;
         
         synchronized (_activeFunctions) {
             _activeFunctions.put(functionKey, System.nanoTime());
         }
 
         try {
-            _python.set(functionArgName, arg);
+            PySystemState systemState = _pySystemState;
+            if (systemState == null)
+                throw new IllegalStateException("Python interpreter not ready.");
+            
+            Py.setSystemState(systemState);
+            
+            PyObject pyObject = _globals.get(Py.java2py(functionName));
+            if (!(pyObject instanceof PyFunction)) {
+                _logger.warn("Python interpreter function resolution failed when it should not have. name:'{}', class:{} value:{}", 
+                        functionName, pyObject == null? null: pyObject.getClass(), pyObject);
+                
+                throw new IllegalStateException("Event handling failure (internal server error) - '" + functionName + "'");
+            }
+            
+            PyFunction pyFunction = (PyFunction) pyObject;
 
-            // evaluate the function
-            _python.exec(functionName + "(" + functionArgName + ")");
+            pyFunction.__call__(Py.java2py(arg));            
 
         } catch (Exception exc) {
-            _logger.info("Script threw an exception while handling an event '" + alias + "'", exc);
+            String message = "Remote event handling failed - " + exc;
+            _logger.info(message);
+            _errReader.inject(message);
 
-            _errReader.inject("Exception occurred while handling an event '" + functionName + "' - " + exc);
+            throw new RuntimeException(exc);
+            
         } finally {
             // clean up the and active function map temporary argument
             synchronized (_activeFunctions) {
                 _activeFunctions.remove(functionKey);
-            }
-
-            // ( .set(...) uses .getLocals().__setitem__
-            try {
-                _python.getLocals().__delitem__(functionArgName.intern());
-            } catch (Exception ignore) {
             }
         }
 
@@ -978,7 +1196,7 @@ public class PyNode extends BaseDynamicNode {
         } // (for)
 
     } // (method)
-    
+
     public class Params {
 
         /**
@@ -1026,27 +1244,43 @@ public class PyNode extends BaseDynamicNode {
      * Evaluates a Python expression related to the current interpreter instance.
      */
     @Service(name = "eval", title = "Evaluate", desc = "Evaluates a Python expression.")
-    public Object eval(@Param(name = "expr", title = "Expression", desc = "A Python expression.") final String expr) throws Exception {
+    public Object eval(@Param(name = "expr", title = "Expression", desc = "A Python expression.") final String expr, String source) throws Exception {
         final PythonInterpreter python = _python;
         
         if (python == null)
             throw new RuntimeException("The interpreter has not been initialised yet.");
         
-        Threads.AsyncResult<Object> op = Threads.executeAsync(new Callable<Object>() {
-            @Override
-            public Object call() throws Exception {
-                return python.eval(expr);
-            }
-        });
+        // for keeping track of stuck threads
+        String functionKey = "eval" + (!Strings.isNullOrEmpty(source) ? "_" + source : "") + "_" + _funcSeqNumber.getAndIncrement();
         
-        return op.waitForResultOrThrowException();
+        try {
+            trackFunction(functionKey);
+
+            Threads.AsyncResult<Object> op = Threads.executeAsync(new Callable<Object>() {
+
+                @Override
+                public Object call() throws Exception {
+                    return python.eval(expr);
+                }
+
+            });
+
+            return op.waitForResultOrThrowException();
+            
+        } finally {
+            // clean up
+            untrackFunction(functionKey);
+        }
     } // (method)
-    
+
     /**
      * Evaluates a Python expression related to the current interpreter instance.
+     * 
+     * @param source The caller source (for logging, etc.)
+     * @param onThread Code that should be run on the thread (normally used when threadlocal used)
      */
     @Service(name = "exec", title = "Execute", desc = "Execute Python code fragment.")
-    public void exec(@Param(name = "code", title = "Code", desc = "A Python expression.") final String code) throws Exception {
+    public void exec(@Param(name = "code", title = "Code", desc = "A Python expression.") final String code, String source, final Runnable onThread) throws Exception {
         if (code == null)
             throw new IllegalArgumentException("'code' argument cannot be missing.");
         
@@ -1054,18 +1288,45 @@ public class PyNode extends BaseDynamicNode {
         
         if (python == null)
             throw new RuntimeException("The interpreter has not been initialised yet.");
-        
-        Threads.AsyncResult<Object> op = Threads.executeAsync(new Callable<Object>() {
-            @Override
-            public Object call() throws Exception {
-                python.exec(code);
-                
-                return null;
-            }
-        });
-        
-        op.waitForResultOrThrowException();
+
+        String functionKey = "exec" + (!Strings.isNullOrEmpty(source) ? "_" + source : "") + "_" + _funcSeqNumber.getAndIncrement();
+
+        try {
+            trackFunction(functionKey);
+            
+            Threads.AsyncResult<Object> op = Threads.executeAsync(new Callable<Object>() {
+
+                @Override
+                public Object call() throws Exception {
+                    if (onThread != null)
+                        onThread.run();
+                    
+                    python.exec(code);
+
+                    return null;
+                }
+
+            });
+
+            op.waitForResultOrThrowException();
+        } catch (Exception exc) {
+            String message = "exec " + (!Strings.isNullOrEmpty(source) ? "_" + source : "") + "- " + exc;
+            _logger.info(message);
+            _errReader.inject(message);
+            
+            throw exc;
+            
+        } finally {
+            // clean up
+            untrackFunction(functionKey);
+        }
     } // (method)
+    
+    protected void injectError(String source, Throwable th) {
+        String excValue = th.toString(); 
+        _logger.info(source + " - " + excValue);
+        _errReader.inject(source + " - " + excValue);
+    }
     
     /**
      * Outside callers can inject error messages related to this node.
@@ -1082,16 +1343,72 @@ public class PyNode extends BaseDynamicNode {
             if (_closed)
                 return;
             
+            _closed = true;
+            
             _logger.info("Closing node...");
             
             cleanupBindings();
             
             cleanupInterpreter();
             
-            _closed = true;
+            super.close();
             
             // stuff
         }
     } // (method)
+    
+    /**
+     * Tracks dead (never-ending) functions.
+     * Done just after 'try' section.
+     */
+    private void trackFunction(String functionKey) {
+        synchronized (_activeFunctions) {
+            _activeFunctions.put(functionKey, System.nanoTime());
+        }
+    }
+
+    /**
+     * (opposite of 'trackFunction')
+     * Done within 'finally' section.
+     */
+    private void untrackFunction(String functionKey) {
+        synchronized (_activeFunctions) {
+            _activeFunctions.remove(functionKey);
+        }
+    }
+    
+    /**
+     * Waits no longer than 10s to try and get a reentrant lock.
+     * Starts off sharing one lock, but may need more if nodes lock up or take too long to initialise.
+     */
+    private ReentrantLock getAReentrantLock() throws InterruptedException {
+        ReentrantLock lock = null;
+        
+        for (;;) {
+            if (lock != null && lock.tryLock(10, TimeUnit.SECONDS)) {
+                return lock;
+                
+            } else {
+                // refresh the lock if its the same one
+                synchronized (s_globalLock) {
+                    if (lock == null)
+                        // should get here first iteration
+                        lock = s_currentGlobalRentrantLock;
+                    
+                    else if (lock == s_currentGlobalRentrantLock) {
+                        // won't get here the first iteration
+                        s_currentGlobalRentrantLock = new ReentrantLock();
+
+                        _logger.warn("The interlocked initialisation sequence of the scripting engines is slow or dead-locked. A new lock has been created to hopefully release any potential dead-lock.");
+
+                        lock = s_currentGlobalRentrantLock;
+                    }
+                    
+                    // otherwise the lock is different to what was previously used,
+                    // so try lock on that one
+                }
+            }
+        }
+    }    
 
 } // (class)

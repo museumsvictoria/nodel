@@ -1,4 +1,4 @@
-package org.nodel.logging;
+package org.nodel.diagnostics;
 
 /* 
  * This Source Code Form is subject to the terms of the Mozilla Public
@@ -13,7 +13,7 @@ import java.util.concurrent.atomic.AtomicLong;
  */
 public class AtomicLongMeasurementProvider implements MeasurementProvider {
 
-    private AtomicLong atomicLong;
+    protected AtomicLong atomicLong;
     
     public AtomicLongMeasurementProvider(AtomicLong atomicLong) {
         this.atomicLong = atomicLong;

@@ -19,8 +19,8 @@ import java.util.Map;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class Packages {
     
@@ -245,6 +245,6 @@ public class Packages {
         }
     } // (method)
     
-    private static Logger logger = LogManager.getLogger(Packages.class.getName());
+    private static Logger logger = LoggerFactory.getLogger(Packages.class.getName());
 
 } // (class)

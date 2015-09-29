@@ -8,12 +8,18 @@ package org.nodel.core;
 
 import java.util.concurrent.atomic.AtomicReference;
 
+import org.joda.time.DateTime;
 import org.nodel.Handler;
 import org.nodel.SimpleName;
 import org.nodel.reflection.Serialisation;
 import org.nodel.reflection.Value;
 
 public class NodelClientEvent {
+    
+    /**
+     * The name (or alias) of this client event.
+     */
+    private SimpleName _name;
     
     /**
      * Released or not.
@@ -25,7 +31,6 @@ public class NodelClientEvent {
      * The node name.
      * (will never be null)
      */
-    @Value(name = "node")
     protected SimpleName _node;
     
     /**
@@ -39,7 +44,6 @@ public class NodelClientEvent {
      * The composite name and event.
      * (will never be null) 
      */
-    @Value(name = "eventPoint")
     protected NodelPoint _eventPoint;
     
     /**
@@ -56,24 +60,57 @@ public class NodelClientEvent {
     /**
      * The last status.
      */
-    @Value(name = "lastStatus")
-    private AtomicReference<BindingState> _lastStatus = new AtomicReference<BindingState>(BindingState.Empty);
+    private AtomicReference<BindingState> _statusValue = new AtomicReference<BindingState>(BindingState.Empty);
     
+    /**
+     * Binding status sequence number
+     */
+    private long _statusSeq;
+    
+    /**
+     * Time binding status was set
+     */
+    private DateTime _statusTimestamp;
+
+    /**
+     * The last value (linked to 'seqNum')
+     */
+    private AtomicReference<Object> _argValue = new AtomicReference<Object>();
+    
+    /**
+     * Holds an safely incrementing sequence number relating to the 
+     * value of the argument (state)
+     */
+    private long _argSeq = 0;
+
+    /**
+     * Time argument was set.
+     */
+    protected DateTime _argTimestamp;
+
     /**
      * Constructs a new Nodel Client to manage a single remote node.
      */
-    public NodelClientEvent(String name, String event) {
-        if (name == null || event == null)
-            throw new IllegalArgumentException("Arguments cannot be null.");        
+    public NodelClientEvent(SimpleName name, String node, String event) {
+        if (name == null || node == null || event == null)
+            throw new IllegalArgumentException("Arguments cannot be null.");
         
-        _node = new SimpleName(name);
+        _name = name;
+        
+        _node = new SimpleName(node);
         _event = new SimpleName(event);
         _eventPoint = NodelPoint.create(_node, _event);
+    }
+    
+    @Value(name = "name", title = "Name")
+    public SimpleName getName() {
+        return _name;
     }
     
     /**
      * Returns the name object of the node being managed by this nodel client.
      */
+    @Value(name = "node")
     public SimpleName getNode() {
         return _node;
     }
@@ -81,6 +118,7 @@ public class NodelClientEvent {
     /**
      * The Nodel event.
      */
+    @Value(name = "eventPoint")
     public SimpleName getEvent() {
         return _event;
     }
@@ -90,17 +128,62 @@ public class NodelClientEvent {
      */
     public NodelPoint getNodelPoint() {
         return _eventPoint;
-    }       
+    }
+    
+    @Value(name = "arg", title = "Argument")
+    public Object getArg() {
+        return _argValue.get();
+    }    
+
+    @Value(name = "argSeq", title = "Argument sequence")
+    public long getArgSeqNum() {
+        return _argSeq;
+    }
+    
+    @Value(name = "argTimestamp", title = "Argument timestamp")
+    public DateTime getArgTimestamp() {
+        return _argTimestamp;
+    }
+    
+    @Value(name = "status", title = "Status")
+    public BindingState getStatus() {
+        return _statusValue.get();
+    }
+    
+
+    @Value(name = "statusSeq", title = "Status sequence")
+    public long getStatusSeqNum() {
+        return _statusSeq;
+    }
+    
+    @Value(name = "statusTimestamp", title = "Status timestamp")
+    public DateTime getStatusTimestamp() {
+        return _statusTimestamp;
+    }    
     
     /**
      * Registers interest in a Node's events. 
      */
-    public void setHandler(NodelEventHandler handler) {
-        if  (handler == null)
+    public void setHandler(final NodelEventHandler handler) {
+        if (handler == null)
             throw new IllegalArgumentException();
-        
-        _handler = handler;
-        
+
+        // intercept callback
+        _handler = new NodelEventHandler() {
+
+            @Override
+            public void handleEvent(SimpleName node, SimpleName event, Object arg) {
+                _argValue.set(arg);
+                _argTimestamp = DateTime.now();
+                
+                // must set sequence number last
+                _argSeq = Nodel.getNextSeq();
+
+                handler.handleEvent(node, event, arg);
+            }
+
+        };
+
         NodelClients.instance().registerEventInterest(this);
     }
     
@@ -119,14 +202,19 @@ public class NodelClientEvent {
     public void attachWiredStatusChanged(Handler.H1<BindingState> handler) {
         if (handler == null)
             throw new IllegalArgumentException("Handler cannot be null.");
-        
-        _wiredStatusHandler = handler; 
-    } // (method)    
+
+        _wiredStatusHandler = handler;
+    }
 
     void setWiredStatus(BindingState status) {
-        BindingState last = _lastStatus.getAndSet(status);
-        
+        BindingState last = _statusValue.getAndSet(status);
+
         if (last != status && _wiredStatusHandler != null) {
+            _statusTimestamp = DateTime.now();
+
+            // must set sequence number last
+            _statusSeq = Nodel.getNextSeq();
+
             _wiredStatusHandler.handle(status);
         }
     }
@@ -136,4 +224,4 @@ public class NodelClientEvent {
         return Serialisation.serialise(this);
     }
 
-} // (class)
+}

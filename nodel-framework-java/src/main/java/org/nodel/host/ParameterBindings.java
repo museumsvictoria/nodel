@@ -51,6 +51,8 @@ public class ParameterBindings extends HashMap<SimpleName, ParameterBinding> {
             
             paramSchema.put("title", paramBinding.title);
             paramSchema.put("desc", paramBinding.desc);
+            paramSchema.put("group", paramBinding.group);
+            paramSchema.put("order", paramBinding.order);
             properties.put(paramName, paramSchema);
         } // (for)
 

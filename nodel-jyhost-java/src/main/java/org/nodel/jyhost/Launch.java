@@ -7,7 +7,6 @@ package org.nodel.jyhost;
  */
 
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.Inet4Address;
@@ -19,11 +18,8 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
-import org.apache.logging.log4j.core.config.ConfigurationSource;
-import org.apache.logging.log4j.core.config.Configurator;
 import org.nodel.StartupException;
+import org.nodel.Version;
 import org.nodel.core.Nodel;
 import org.nodel.host.BootstrapConfig;
 import org.nodel.host.NanoHTTPD;
@@ -35,6 +31,7 @@ import org.nodel.json.JSONException;
 import org.nodel.json.JSONObject;
 import org.nodel.jyhost.NodelHost;
 import org.nodel.jyhost.NodelHostHTTPD;
+import org.nodel.logging.slf4j.SimpleLogger;
 import org.nodel.reflection.Schema;
 import org.nodel.reflection.Serialisation;
 import org.nodel.reflection.Value;
@@ -45,6 +42,8 @@ import org.python.core.PyNone;
 import org.python.core.PyObject;
 import org.python.core.adapter.PyObjectAdapter;
 import org.python.util.PythonInterpreter;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Main program entry-point.
@@ -54,7 +53,7 @@ public class Launch {
     /**
      * Program version.
      */
-    public final static String VERSION = "2.0.7";
+    public final static String VERSION = Version.shared().version;
     
     /**
      * (initialised late in 'initLogging' depending on config)
@@ -138,7 +137,7 @@ public class Launch {
         }
         
         // dump the example config schema if it hasn't already been dumped
-        String exampleBootstrapString = Serialisation.serialise(BootstrapConfig.Default, 4);
+        String exampleBootstrapString = Serialisation.serialise(BootstrapConfig.Example, 4);
         
         // load for the bootstrap config schema file    
         File exampleBootstrapFile = new File(_root, "_" + bootStrapPrefix + "_example.json");
@@ -159,6 +158,14 @@ public class Launch {
         } else {
             _bootstrapConfig = new BootstrapConfig();
         }
+        
+        // provide the REST API schema too
+        String apiSchema = Serialisation.serialise(Schema.getSchemaObject(NodelHostHTTPD.RESTModel.class), 4);
+        File apiSchemaFile = new File(_root, "_API" + "_schema.json");
+        String existing = apiSchemaFile.exists() ? Stream.readFully(apiSchemaFile) : null;
+        if (!apiSchema.equals(existing))
+            // update the file
+            Stream.writeFully(apiSchemaFile, apiSchema);
 
         initLogging();
     } // (method)
@@ -196,6 +203,12 @@ public class Launch {
         NodelHostHTTPD nodelHostHTTPD = new NodelHostHTTPD(_bootstrapConfig.getNodelHostPort(), contentDirectory);
         nodelHostHTTPD.setFirstChoiceDir(customContentDirectory);
         _logger.info("Started HTTP interface on port " + _bootstrapConfig.getNodelHostPort());
+        
+        // start the WebSocket server
+        NodelHostWebSocketServer nodelHostWSServer = new NodelHostWebSocketServer(0);
+        nodelHostWSServer.start(90000);
+        _logger.info("Started WebSocket server on port " + nodelHostWSServer.getListeningPort());
+        Nodel.setWebSocketPort(nodelHostWSServer.getListeningPort());
         
         // retrieve '.version' file to determine whether embedded packages need to be extracted
         String version = null;
@@ -238,7 +251,7 @@ public class Launch {
         // fire up pyNode console
         File nodelRoot = prepareDirectory("nodelRoot", _root, _bootstrapConfig.getNodelRoot());
 
-        _nodelHost = new NodelHost(nodelRoot);
+        _nodelHost = new NodelHost(nodelRoot, _bootstrapConfig.getInclFilters(), _bootstrapConfig.getExclFilters());
 
         nodelHostHTTPD.setNodeHost(_nodelHost);
 
@@ -259,7 +272,6 @@ public class Launch {
     /**
      * Checks for a multihomed environment.
      */
-    
     private Inet4Address checkForMultihoming(byte[] find) throws SocketException {
         List<NetworkInterface> raw = Collections.list(NetworkInterface.getNetworkInterfaces());
         List<NetworkInterface> filtered = new ArrayList<NetworkInterface>();
@@ -365,7 +377,10 @@ public class Launch {
      * to create one.
      */
     private static File prepareDirectory(String type, File root, String dirString) throws IOException {
-        File dir = new File(root, dirString);
+        File dir = new File(dirString);
+        if (!dir.isAbsolute())
+            dir = new File(root, dirString);
+        
         if (dir.exists() && !dir.isDirectory())
             throw new IOException("'" + type + "' directory exists but is not a directory.");
 
@@ -498,62 +513,24 @@ public class Launch {
      * Logging related initialisation.
      */
     private void initLogging() {
-        boolean usingConfig = false;
-        Exception exc = null;
+        try {
+            File loggingDir = null;
 
-        if (_bootstrapConfig.getEnableProgramLogging()) {
-            InputStream is = null;
+            if (_bootstrapConfig.getEnableProgramLogging()) {
+                loggingDir = prepareDirectory("logs", _root, _bootstrapConfig.getLogsDirectory());
 
-            try {
-                // look for the logging properties file
-                File file = new File(_root, "loggingConfig.xml");
-                if (file.exists()) {
-                    usingConfig = true;
-                    is = new FileInputStream(file);
-                } else {
-                    // try embedded one
-                    is = Launch.class.getResourceAsStream("log4j2.xml");
-
-                    if (is != null)
-                        usingConfig = true;
-                }
-
-                if (is != null) {
-                    Configurator.initialize(null, new ConfigurationSource(is));
-                }
-
-            } catch (IOException ioExc) {
-                exc = ioExc;
-            } finally {
-                if (is != null) {
-                    try {
-                        is.close();
-                    } catch (IOException e) {
-                        // ignore
-                    }
-                }
+                SimpleLogger.setFolderOut(loggingDir);
             }
-        } else {
-            try (InputStream is = Launch.class.getResourceAsStream("log4j2_default.xml")) {
-                Configurator.initialize(null, new ConfigurationSource(is));
-                
-            } catch (Exception e) {
-                // logging related exception, so can't do much else but dump it
-                e.printStackTrace();
-            }
+            
+            _logger = LoggerFactory.getLogger(Launch.class.getName());
+
+            if (loggingDir != null)
+                System.out.println("    (file logging is enabled [" + loggingDir.getAbsolutePath() + "])\n");
+            
+        } catch (Exception exc) {
+            System.err.println("Logging configuration failure; logging may or may not be functional.");
+            exc.printStackTrace();
         }
-        
-        _logger = LogManager.getLogger(Launch.class.getName());
-        
-        if (_bootstrapConfig.getEnableProgramLogging()) {
-            if (usingConfig) {
-                if (exc != null)
-                    _logger.warn("Dynamic logging configuration failed.", exc);
-                else
-                    _logger.info("Dynamic logging configuration successfully loaded.");
-            }
-        }
-        
-    } // (method)
+    }
 
-} // (class)
+}

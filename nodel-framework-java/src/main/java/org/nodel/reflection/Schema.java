@@ -28,27 +28,26 @@ import org.nodel.reflection.Reflection.AllowedInstanceInfo;
  */
 public class Schema {
 
-    /**
-     * Class thread lock.
-     */
-    private static Object s_staticLock = new Object();
-
     public static Map<String, Object> getSchemaObject(Object object) {
-        synchronized (s_staticLock) {
-            if (object == null)
-                throw new NullPointerException("Object");
+        if (object == null)
+            throw new NullPointerException("Object");
 
-            return getSchemaObject(0, object.getClass(), null, null);
-        }
-    } // (method)
-
-    public static Map<String, Object> getSchemaObject(Class<?> klass) {
-        synchronized (s_staticLock) {
-            return getSchemaObject(0, klass, null, null);
-        }
+        return getSchemaObject(null, 0, object.getClass(), null, null);
     }
 
-    private static Map<String, Object> getSchemaObject(int level, Class<?> klass, ValueInfo classFieldInfo, ServiceInfo classServiceInfo) {
+    public static Map<String, Object> getSchemaObject(Class<?> klass) {
+        return getSchemaObject(null, 0, klass, null, null);
+    }
+    
+    public static Map<String, Object> getSchemaObject(String name, Class<?> klass) {
+        return getSchemaObject(name, 0, klass, null, null);
+    }
+    
+    public static Map<String, Object> getSchemaObject(String name, Class<?> klass, ValueInfo valueInfo) {
+        return getSchemaObject(name, 0, klass, valueInfo, null);
+    }    
+
+    private static Map<String, Object> getSchemaObject(String title, int level, Class<?> klass, ValueInfo classFieldInfo, ServiceInfo classServiceInfo) {
         level++;
         
         // holds any allowed instances (normally sub-classes)
@@ -64,29 +63,47 @@ public class Schema {
         if (klass == int.class || klass == short.class || klass == long.class ||
                 klass == Integer.class || klass == Long.class || klass == Short.class) {
             updateSchema("integer", schema, classFieldInfo, classServiceInfo);
+            
+            tryTitle(title, schema);
+            
             return schema;
 
         } else if (klass == Float.class || klass == Double.class || klass == float.class || klass == double.class) {
             updateSchema("number", schema, classFieldInfo, classServiceInfo);
+            
+            tryTitle(title, schema);
+            
             return schema;
 
         } else if (klass == String.class) {
             updateSchema("string", schema, classFieldInfo, classServiceInfo);
+            
+            tryTitle(title, schema);
+            
             return schema;
 
         } else if (klass == Boolean.class || klass == boolean.class) {
             updateSchema("boolean", schema, classFieldInfo, classServiceInfo);
+            
+            tryTitle(title, schema);
+            
             return schema;
 
         } else if (klass == DateTime.class || klass == Date.class) {
             updateSchema("string", schema, classFieldInfo, classServiceInfo);
             schema.put("format", "date-time");
+            
+            tryTitle(title, schema);
+            
             return schema;
 
         } else if (klass == UUID.class) {
             updateSchema("string", schema, classFieldInfo, classServiceInfo);
             // this is not necessarily a standard JSON format
             schema.put("format", "uuid");
+            
+            tryTitle(title, schema);
+            
             return schema;
             
         } else if (klass.isEnum()) {
@@ -109,17 +126,22 @@ public class Schema {
             if (desc.length() > 0) {
                 desc.append(")");
                 
-                Object currentDesc = schema.get("description");
+                Object currentDesc = schema.get("desc");
 
                 // add it to the current description if one already exists (using 'desc' annotation)
-                schema.put("description", currentDesc != null ? currentDesc + " " + desc.toString() : desc);
+                schema.put("desc", currentDesc != null ? currentDesc + " " + desc.toString() : desc);
             }
+            
+            tryTitle(title, schema);
             
             return schema;
             
         } else if (klass == byte[].class) {
             updateSchema("string", schema, classFieldInfo, classServiceInfo);
             schema.put("format", "base64");
+            
+            tryTitle(title, schema);
+            
             return schema;
 
         } else if (klass.isArray() || klass == List.class || Collection.class.isAssignableFrom(klass)) {
@@ -133,14 +155,16 @@ public class Schema {
             else {
                 if (classServiceInfo != null && classServiceInfo.annotation != null)
                     itemClass = classServiceInfo.annotation.genericClassA();
-                else if (classFieldInfo != null && classFieldInfo.annotation != null)
-                    itemClass = classFieldInfo.annotation.genericClassA();
+                else if (classFieldInfo != null)
+                    itemClass = classFieldInfo.genericClassA;
                 else
                     itemClass = Object.class;
             }
 
-            Object itemClassSchema = getSchemaObject(level, itemClass, null, null);
+            Object itemClassSchema = getSchemaObject(null, level, itemClass, null, null);
             schema.put("items", itemClassSchema);
+            
+            tryTitle(title, schema);
 
             return schema;
 
@@ -152,14 +176,16 @@ public class Schema {
             Class<?> valueClass;
             if (classServiceInfo != null && classServiceInfo.annotation != null) {
                 valueClass = classServiceInfo.annotation.genericClassB();
-            } else if (classFieldInfo != null && classFieldInfo.annotation != null) {
-                valueClass = classFieldInfo.annotation.genericClassB();
+            } else if (classFieldInfo != null) {
+                valueClass = classFieldInfo.genericClassB;
             } else {
                 valueClass = Object.class;
             }
             
-            Object valueSchema = getSchemaObject(level, valueClass, null, null);
+            Object valueSchema = getSchemaObject(null, level, valueClass, null, null);
             schema.put("items", valueSchema);
+            
+            tryTitle(title, schema);
 
             return schema;
 
@@ -177,7 +203,7 @@ public class Schema {
 
                     Class<?> subClass = info.clazz;
 
-                    Map<String, Object> subClassSchema = getSchemaObject(level, subClass, null, null);
+                    Map<String, Object> subClassSchema = getSchemaObject(null, level, subClass, null, null);
 
                     // give it its title
                     subClassSchema.put("title", info.title);
@@ -197,7 +223,7 @@ public class Schema {
             ValueInfo[] valueInfos = Reflection.getValueInfos(klass);
             for (ValueInfo valueInfo : valueInfos) {
                 try {
-                    String name = valueInfo.annotation.name();
+                    String name = valueInfo.name;
                     if (name == null || name.equals(""))
                         name = valueInfo.member.getName();
 
@@ -217,7 +243,7 @@ public class Schema {
                     }
 
                     // retrieve the field value
-                    Object propSchema = getSchemaObject(level, memberClass, valueInfo, null);
+                    Object propSchema = getSchemaObject(null, level, memberClass, valueInfo, null);
                     propertiesSchema.put(name, propSchema);
                 } catch (Exception ignore) {
                     // ignore
@@ -257,7 +283,7 @@ public class Schema {
                         // get the type of the field
                         Field field = (Field) member;
                         serviceSchemaType = field.getType();
-                        Object serviceSchema = getSchemaObject(level, serviceSchemaType, null, serviceInfo);
+                        Object serviceSchema = getSchemaObject(null, level, serviceSchemaType, null, serviceInfo);
                         servicesSchema.put(name, serviceSchema);
 
                     } else if (member instanceof Method) {
@@ -269,7 +295,7 @@ public class Schema {
                             serviceSchemaType = boolean.class;
                         }
 
-                        Object serviceSchema = getSchemaObject(level, serviceSchemaType, null, serviceInfo);
+                        Object serviceSchema = getSchemaObject(null, level, serviceSchemaType, null, serviceInfo);
                         servicesSchema.put(name, serviceSchema);
 
                     } else {
@@ -286,10 +312,17 @@ public class Schema {
             if (servicesSchema.size() > 0)
                 schema.put("services", servicesSchema);
             
+            tryTitle(title, schema);
+            
             return schema;
         } // (if)
 
     } // (static method)
+
+    private static void tryTitle(String title, Map<String, Object> schema) {
+        if (title != null)
+            schema.put("title", title);
+    }
 
     private static void updateSchema(String type, Map<String, Object> schema, ValueInfo classFieldInfo, ServiceInfo serviceInfo) {
         updateSchema(type, null, schema, classFieldInfo, serviceInfo);
@@ -309,34 +342,38 @@ public class Schema {
         }
             
         if (classFieldInfo != null) {
-            Value value = classFieldInfo.annotation;
+            ValueInfo value = classFieldInfo;
 
-            schema.put("required", value.required());
+            schema.put("required", value.required);
             
-            if (value.order() > 0)
-            	schema.put("order",  value.order());
+            if (value.order > 0)
+            	schema.put("order",  value.order);
 
-            String title = value.title();
+            String title = value.title;
             if (title != null && !title.equals(""))
                 schema.put("title", title);
 
-            String[] suggestions = value.suggestions();
+            String[] suggestions = value.suggestions;
             if (suggestions != null && suggestions.length > 0)
                 schema.put("enum", suggestions);
 
-            String desc = value.desc();
+            String desc = value.desc;
             if (!Strings.isNullOrEmpty(desc))
-                schema.put("description", desc);
+                schema.put("desc", desc);
             
-            String format = value.format();
+            boolean advanced = value.advanced;
+            if (advanced)
+                schema.put("advanced", advanced);
+            
+            String format = value.format;
             if (!Strings.isNullOrEmpty(format))
                 schema.put("format", format);
             
-            int minItems = value.minItems();
+            int minItems = value.minItems;
             if (minItems >= 0)
                 schema.put("minItems", minItems);
             
-            int maxItems = value.maxItems();
+            int maxItems = value.maxItems;
             if (maxItems >= 0)
                 schema.put("maxItems", maxItems);            
 
@@ -352,7 +389,7 @@ public class Schema {
             
             String desc = service.desc();
             if (!Strings.isNullOrEmpty(desc))
-                schema.put("description", desc);
+                schema.put("desc", desc);
 
             if (serviceInfo.member instanceof Method) {
                 // for the 'takes' (parameters) section if 1 or more parameters
@@ -363,13 +400,13 @@ public class Schema {
                     for (Entry<String, ParameterInfo> entry : serviceInfo.parameterMap.entrySet()) {
                         ParameterInfo paramInfo = entry.getValue();
 
-						Map<String, Object> paramSchema = getSchemaObject(0, paramInfo.klass, null, null);
+						Map<String, Object> paramSchema = getSchemaObject(title, 0, paramInfo.klass, null, null);
 
 						if (paramInfo.annotation != null) {
 							if (!Strings.isNullOrEmpty(paramInfo.annotation.title()))
 								paramSchema.put("title", paramInfo.annotation.title());
 							if (!Strings.isNullOrEmpty(paramInfo.annotation.desc()))
-								paramSchema.put("description", paramInfo.annotation.desc());
+								paramSchema.put("desc", paramInfo.annotation.desc());
 						}
 
 						paramSchema.put("order", counter);

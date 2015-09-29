@@ -14,6 +14,7 @@ import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -30,18 +31,29 @@ import org.nodel.reflection.ValueInfo;
 public class REST {
     
     public static Object resolveRESTcall(Object graph, String[] parts, Map<?, ?> props, byte[] buffer) throws Exception {
-        return resolveRESTcall(graph, parts, props, buffer, true);
+        return resolveRESTcall(graph, parts, props, buffer, true, false);
     }
     
     /**
      * Handles a REST call.
+     * 
      * NOTE: the props value part is an array
      * 
      * @param strict 'true' if must respect service and value attributes.
      */
     public static Object resolveRESTcall(Object graph, String[] parts, Map<?, ?> props, byte[] buffer, boolean strict) throws Exception {
+        return resolveRESTcall(graph, parts, props, buffer, strict, false);
+    }
+    
+    /**
+     * (optional 'treatEmptyStringAsNull')
+     */
+    public static Object resolveRESTcall(Object graph, String[] parts, Map<?, ?> props, byte[] buffer, boolean strict, boolean treatEmptyStringAsNull) throws Exception {
         // the cursor, starting at the root of the graph
         Object object = graph;
+        
+        // check for default services
+        object = Reflection.getDefaultService(object);
         
         // works alongside the cursor, using any class hints
         // because of Java type erasure
@@ -55,8 +67,13 @@ public class REST {
         for (int partNum = 0; partNum < parts.length; partNum++) {
             String part = parts[partNum];
             boolean lastPart = partNum == parts.length - 1;
-
+            
             restPath.append("/" + part);
+            
+            // check for default services except for first time
+            // because it has already been done
+            if (partNum > 0)
+                object = Reflection.getDefaultService(object);            
 
             if (object == null)
                 throw new FileNotFoundException(restPath.toString());
@@ -71,7 +88,7 @@ public class REST {
                 if (classHint != String.class && classHint != Object.class) {
                      // coerce the string into the key
                     //key = Reflection.createInstanceFromString(classHintA, part);
-                    key = Serialisation.coerce(classHint, part);
+                    key = Serialisation.coerce(classHint, part, null, null, treatEmptyStringAsNull);
                     
                     // conversion failed, so just use it as the string
                     if (key == null)
@@ -185,7 +202,7 @@ public class REST {
                         // dealing with a field
                         Field field = (Field) serviceInfo.member;
 
-                     // set the class hint
+                        // set the class hint
                         classHint = serviceInfo.annotation.genericClassA();
                         serviceInfoHint = serviceInfo;
                         
@@ -225,7 +242,7 @@ public class REST {
                                     // key =
                                     // Reflection.createInstanceFromString(classHintA,
                                     // part);
-                                    firstArg = Serialisation.coerce(classHint, part);
+                                    firstArg = Serialisation.coerce(classHint, part, null, null, treatEmptyStringAsNull);
 
                                     // conversion failed, so just use it as the
                                     // string
@@ -260,7 +277,7 @@ public class REST {
                                             value = Array.get(value, 0);
 
                                         String paramValueStr = (String) value;
-                                        Object paramValueObj = Serialisation.coerce(paramInfo.klass, paramValueStr);
+                                        Object paramValueObj = Serialisation.coerce(paramInfo.klass, paramValueStr, null, null, treatEmptyStringAsNull);
                                         args[paramInfo.index] = paramValueObj;
                                         argSet[paramInfo.index] = true;
                                     } // (while)
@@ -279,18 +296,32 @@ public class REST {
                                         // deal with the POST data as a string
                                         String data = new String(buffer, "UTF8");
                                         
-                                        ParameterInfo firstParamInfo = getFirstEntry(paramMap);
+                                        ParameterInfo[] paramInfos = new ParameterInfo[paramMap.size()];
                                         
-                                        if (paramMap.size() == 1 && firstParamInfo.annotation.isMajor()) {
+                                        int a=0;
+                                        for (ParameterInfo item : paramMap.values())
+                                            paramInfos[a++] = item;
+                                        
+                                         if (paramMap.size() == 1 && paramInfos[0].annotation != null && paramInfos[0].annotation.isMajor()) {
                                             // treat as complete argument (not argument map)
-                                            Object argValue = Serialisation.coerceFromJSON(firstParamInfo.klass, data, firstParamInfo.annotation.genericClassA(), firstParamInfo.annotation.genericClassB());
+                                            ParameterInfo firstParamInfo = paramInfos[0];
+                                            Object argValue = Serialisation.coerceFromJSON(firstParamInfo.klass, data, firstParamInfo.annotation.genericClassA(), firstParamInfo.annotation.genericClassB(), treatEmptyStringAsNull);
                                             
                                             args[0] = argValue;
                                             argSet[0] = true;
+                                            
+                                        } else if (paramMap.size() == 2 && paramInfos[1].annotation != null && paramInfos[1].annotation.isMajor()) {
+                                            // treat as complete argument (not argument map)
+                                            ParameterInfo secondParamInfo = paramInfos[1];
+                                            Object argValue = Serialisation.coerceFromJSON(secondParamInfo.klass, data, secondParamInfo.annotation.genericClassA(), secondParamInfo.annotation.genericClassB(), treatEmptyStringAsNull);
+                                            
+                                            args[1] = argValue;
+                                            argSet[1] = true;
+                                            
                                         } else {
                                             // treat it as an argument map
                                             @SuppressWarnings("unchecked")
-                                            HashMap<String, Object> argumentMap = (HashMap<String, Object>) Serialisation.coerceFromJSON(HashMap.class, data);
+                                            HashMap<String, Object> argumentMap = (HashMap<String, Object>) Serialisation.coerceFromJSON(HashMap.class, data, null, null, treatEmptyStringAsNull);
 
                                             for (Entry<String, Object> entry : argumentMap.entrySet()) {
                                                 String argument = entry.getKey();
@@ -301,7 +332,7 @@ public class REST {
                                                 if (paramInfo == null)
                                                     continue;
 
-                                                Object argValue = Serialisation.coerce(paramInfo.klass, entry.getValue());
+                                                Object argValue = Serialisation.coerce(paramInfo.klass, entry.getValue(), null, null, treatEmptyStringAsNull);
 
                                                 args[paramInfo.index] = argValue;
                                                 argSet[paramInfo.index] = true;
@@ -317,7 +348,7 @@ public class REST {
                                 if (argSet[paramInfo.index])
                                     continue;
                                 
-                                Object argValue = Serialisation.coerce(paramInfo.klass, null);
+                                Object argValue = Serialisation.coerce(paramInfo.klass, null, null, null, treatEmptyStringAsNull);
                                 
                                 args[paramInfo.index] = argValue;
 
@@ -368,23 +399,13 @@ public class REST {
         Object result = Reflection.getDefaultValue(object);
         
         if (serviceInfoHint != null && !Strings.isNullOrEmpty(serviceInfoHint.annotation.embeddedFieldName())) {
-            Map<String,Object> wrappedResult = new HashMap<String,Object>();  
+            Map<String,Object> wrappedResult = new LinkedHashMap<String,Object>();  
             wrappedResult.put(serviceInfoHint.annotation.embeddedFieldName(), result);
             
             return wrappedResult;
         }
         
         return result;
-    } // (method)
-    
-    /**
-     * Returns the first item in the map.
-     */
-    private static <X, Y> Y getFirstEntry(Map<X, Y> map) {
-        for (Y item : map.values())
-            return item;
-        
-        return null;
     } // (method)
     
     /**

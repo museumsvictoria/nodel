@@ -27,7 +27,7 @@ public class Handlers {
         /**
          * The list of handlers.
          */
-        private List<Handler.H0> handlers = new ArrayList<Handler.H0>();
+        private List<Handler.H0> handlers = new ArrayList<Handler.H0>(4);
 
         /**
          * Adds a handler. The handler must not block or throw exceptions.
@@ -76,7 +76,7 @@ public class Handlers {
         /**
          * The list of handlers.
          */
-        private List<Handler.H1<T>> handlers = new ArrayList<Handler.H1<T>>();
+        private List<Handler.H1<T>> handlers = new ArrayList<Handler.H1<T>>(4);
 
         /**
          * Adds a handler. The handler must not block or throw exceptions.
@@ -99,7 +99,16 @@ public class Handlers {
                     handler.handle(value);
                 } // (for)
             }
-        } // (method)
+        }
+        
+        /**
+         * Updates all handlers without using any thread-synchronization.
+         */
+        public void updateAllUnsynchronized(T value) {
+            for (Handler.H1<T> handler : handlers) {
+                handler.handle(value);
+            } // (for)
+        }        
         
         /**
          * Removes a handler.
@@ -125,7 +134,7 @@ public class Handlers {
         /**
          * The list of handlers.
          */
-        private List<Handler.H2<T0, T1>> handlers = new ArrayList<Handler.H2<T0, T1>>();
+        private List<Handler.H2<T0, T1>> handlers = new ArrayList<Handler.H2<T0, T1>>(4);
 
         /**
          * Adds a handler. The handler must not block or throw exceptions.
@@ -174,7 +183,7 @@ public class Handlers {
         /**
          * The list of handlers.
          */
-        private List<Handler.H3<T0, T1, T2>> handlers = new ArrayList<Handler.H3<T0, T1, T2>>();
+        private List<Handler.H3<T0, T1, T2>> handlers = new ArrayList<Handler.H3<T0, T1, T2>>(4);
 
         /**
          * Adds a handler. The handler must not block or throw exceptions.

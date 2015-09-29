@@ -9,6 +9,8 @@ package org.nodel.reflection;
 import java.lang.reflect.Member;
 import java.util.Map;
 
+import org.nodel.Strings;
+
 /**
  * Holds quick lookup info when Service attributes are specified.
  */
@@ -37,14 +39,14 @@ public class ServiceInfo implements Comparable<ServiceInfo> {
     public Map<String, ParameterInfo> parameterMap;
 
     /**
-     * Compares by 'order' field.
+     * Compares by 'order' field, then by name
      */
     @Override
     public int compareTo(ServiceInfo o) {
         double x = annotation.order();
         double y = o.annotation.order();
 
-        return (x < y) ? -1 : ((x == y) ? 0 : 1);
+        return (x < y) ? -1 : ((x == y) ? Strings.compare(this.name, o.name) : 1);
     } // (method)
 
 } // (class)

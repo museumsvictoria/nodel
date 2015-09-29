@@ -1,4 +1,4 @@
-package org.nodel.logging;
+package org.nodel.diagnostics;
 
 /* 
  * This Source Code Form is subject to the terms of the Mozilla Public
@@ -8,20 +8,21 @@ package org.nodel.logging;
 
 import java.io.IOException;
 import java.io.OutputStream;
-import java.util.concurrent.atomic.AtomicLong;
+
+import org.nodel.io.Stream;
 
 /**
  * Allows for data counting of underlying stream.
  */
 public class CountableOutputStream extends OutputStream {
 
-    private AtomicLong total;
+    private SharableMeasurementProvider total;
 
-    private AtomicLong ops;
+    private SharableMeasurementProvider ops;
     
     private OutputStream base;
     
-    public CountableOutputStream(OutputStream base, AtomicLong ops, AtomicLong total) {
+    public CountableOutputStream(OutputStream base, SharableMeasurementProvider ops, SharableMeasurementProvider total) {
         this.base = base;
         this.ops = ops;
         this.total = total;
@@ -31,14 +32,14 @@ public class CountableOutputStream extends OutputStream {
      * The total amount of data written.
      */    
     public long getTotal() {
-        return this.total.get();
+        return this.total.getMeasurement();
     }
     
     /**
      * Records the number of write operations
      */
     public long getOps() {
-        return this.ops.get();
+        return this.ops.getMeasurement();
     }
     
     /**
@@ -53,8 +54,8 @@ public class CountableOutputStream extends OutputStream {
      */
     @Override
     public void write(int b) throws IOException {
-        this.ops.incrementAndGet();
-        this.total.incrementAndGet();
+        this.ops.incr();
+        this.total.add(8);
         
         this.base.write(b);
     }
@@ -64,8 +65,8 @@ public class CountableOutputStream extends OutputStream {
      */
     @Override
     public void write(byte b[]) throws IOException {
-        this.ops.incrementAndGet();
-        this.total.addAndGet(b.length);
+        this.ops.incr();
+        this.total.add(b.length * 8);
         
         this.base.write(b);
     }
@@ -76,10 +77,18 @@ public class CountableOutputStream extends OutputStream {
      */
     @Override
     public void write(byte b[], int off, int len) throws IOException {
-        this.ops.incrementAndGet();
-        this.total.addAndGet(len);
+        this.ops.incr();
+        this.total.add(len * 8);
 
         this.base.write(b, off, len);
+    }
+    
+    /**
+     * {@inheritDoc}
+     */    
+    @Override
+    public void close() throws IOException {
+        Stream.safeClose(base);
     }
 
 } // (class)

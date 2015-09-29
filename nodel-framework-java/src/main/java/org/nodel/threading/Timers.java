@@ -11,10 +11,11 @@ import java.util.Timer;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
-import org.nodel.core.Framework;
-import org.nodel.logging.AtomicLongMeasurementProvider;
+import org.nodel.Strings;
+import org.nodel.diagnostics.AtomicLongMeasurementProvider;
+import org.nodel.diagnostics.Diagnostics;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * A specialised timer class that efficient use of the package's thread-pooling, minimising the number of
@@ -47,7 +48,7 @@ public class Timers {
     /**
      * (logging)
      */
-    private Logger logger = LogManager.getLogger(Timers.class);
+    private Logger logger = LoggerFactory.getLogger(Timers.class);
     
     /**
      * The name of this timer thread category.
@@ -63,11 +64,14 @@ public class Timers {
      * Constructs a new timer thread.
      */
     public Timers(String name) {
+        if (Strings.isNullOrEmpty(name))
+            throw new IllegalArgumentException("The timer name cannot be empty; prefix with '_' to avoid registering with diagnostics framework.");
+
         this.name = name;
         
-        // to avoid an class loading stack overflow, ignore call from Framework class.
-        if (Framework.shared() != null)
-            Framework.shared().registerCounter(name + "_timer", new AtomicLongMeasurementProvider(this.operations), true);
+        // to avoid a class loading stack overflow, ignore call from Framework class.
+        if (name != null && !name.startsWith("_") && Diagnostics.shared() != null)
+            Diagnostics.shared().registerCounter(name + " timer.Ops", new AtomicLongMeasurementProvider(this.operations), true);
     } // (init)
     
     /**
@@ -97,8 +101,8 @@ public class Timers {
     /**
      * A one-off timer whose task could be blocking so thread-pool can be used.
      */
-    public TimerTask schedule(ThreadPool threadPool, TimerTask task, int delay) {
-        sharedTimer().schedule(createWrapper(task, null), delay);
+    public TimerTask schedule(ThreadPool threadPool, TimerTask task, long delay) {
+        sharedTimer().schedule(createWrapper(task, threadPool), delay);
         
         return task;        
     } // (method)
@@ -119,7 +123,16 @@ public class Timers {
         sharedTimer().schedule(createWrapper(task, null), delay, period);
         
         return task;
-    } // (method)
+    }
+    
+    /**
+     * Use for a repeating timer.
+     */
+    public TimerTask schedule(ThreadPool threadPool, TimerTask task, long delay, long period) {
+        sharedTimer().schedule(createWrapper(task, threadPool), delay, period);
+        
+        return task;
+    }    
     
     /**
      * Use for a repeating timer.

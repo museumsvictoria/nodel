@@ -12,13 +12,13 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReentrantLock;
 
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.nodel.Threads;
-import org.nodel.core.Framework;
-import org.nodel.logging.AtomicIntegerMeasurementProvider;
-import org.nodel.logging.AtomicLongMeasurementProvider;
-import org.nodel.logging.MeasurementProvider;
+import org.nodel.diagnostics.AtomicIntegerMeasurementProvider;
+import org.nodel.diagnostics.AtomicLongMeasurementProvider;
+import org.nodel.diagnostics.Diagnostics;
+import org.nodel.diagnostics.MeasurementProvider;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Contains thread-pool related utilities for the Nodel environment.
@@ -31,6 +31,11 @@ public class ThreadPool {
     private final static int DEFAULT_MAXTHREADS = 128;
     
     /**
+     * (class-level lock)
+     */
+    private final static Object s_lock = new Object();
+    
+    /**
      * (See related methods)
      */
     public static int staticMaxThreads = DEFAULT_MAXTHREADS;
@@ -38,7 +43,7 @@ public class ThreadPool {
     /**
      * (logging)
      */
-    private Logger logger = LogManager.getLogger(this.getClass().getName());
+    private Logger logger = LoggerFactory.getLogger(this.getClass().getName());
     
     /**
      * The name of this thread-pool.
@@ -131,8 +136,8 @@ public class ThreadPool {
         
         this.timeout = timeout;
         
-        Framework.shared().registerCounter(this.name + "_threadpool", this.readOnlyOperations, true);
-        Framework.shared().registerCounter(this.name + "_threadpool_inuse", this.readOnlyInUse, false);
+        Diagnostics.shared().registerCounter(this.name + " thread-pool.Ops", this.readOnlyOperations, true);
+        Diagnostics.shared().registerCounter(this.name + " thread-pool.Active threads", this.readOnlyInUse, false);
     }
     
     /**
@@ -316,21 +321,22 @@ public class ThreadPool {
     } // (method)
     
     /**
-     * (singleton)
-     * (thread-safe)
-     * (lazy init)
+     * Holds the back-ground thread-pool.
      */
-    private static class Instance {
-        
-        private static final ThreadPool INSTANCE = new ThreadPool("shared", staticMaxThreads);
-        
-    } // (class)
-    
-    /**
-     * Returns an instance which can be shared. This method is likely to block.
-     */
-    public static ThreadPool instance() {
-        return Instance.INSTANCE;
-    } // (method)
+    private static ThreadPool s_background;
 
-} // (class)
+    /**
+     * Background thread-pool for low-priority tasks.
+     * (singleton) 
+     */
+    public static ThreadPool background() {
+        if (s_background == null) {
+            synchronized(s_lock) {
+                if (s_background == null)
+                    s_background = new ThreadPool("Background", staticMaxThreads);
+            }
+        }
+        return s_background;
+    }
+
+}

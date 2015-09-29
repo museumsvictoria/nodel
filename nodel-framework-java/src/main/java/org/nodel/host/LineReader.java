@@ -42,7 +42,39 @@ public class LineReader extends Writer {
      * Manually injects a line into this 'stream'
      */
     public void inject(String line) {
-        _handler.handle(line);
+        if (line == null)
+            return;
+
+        int len = line.length();
+
+        // lazily construct if '\r' or '\n' is encountered
+        StringBuilder sb = null;
+
+        // need to synchronize to prevent fragmentation
+        synchronized (_lock) {
+            for (int a = 0; a < len; a++) {
+                char c = line.charAt(a);
+                if (c == '\r' || c == '\n') {
+                    if (sb == null) {
+                        // construct and fill up with what's been missed
+                        sb = new StringBuilder(line.subSequence(0, a));
+                    }
+
+                    if (sb.length() > 0)
+                        _handler.handle(sb.toString());
+
+                    sb.setLength(0);
+                } else {
+                    if (sb != null)
+                        sb.append(c);
+                }
+            } // (for)
+
+            if (sb == null)
+                _handler.handle(line);
+            else
+                _handler.handle(sb.toString());
+        }
     }
 
     @Override

@@ -1,0 +1,1337 @@
+{
+    "type": "object",
+    "properties": {
+        "started": {
+            "type": "string",
+            "required": true,
+            "title": "Started",
+            "desc": "When the host started.",
+            "format": "date-time"
+        },
+        "nodes": {
+            "type": "object",
+            "required": true,
+            "order": 1,
+            "title": "Nodes",
+            "desc": "All the managed nodes.",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "name": {
+                        "type": "string",
+                        "required": true,
+                        "order": 10,
+                        "title": "Name",
+                        "desc": "The name of the node.",
+                        "format": "SimpleName"
+                    },
+                    "desc": {
+                        "type": "string",
+                        "required": true,
+                        "order": 20,
+                        "title": "Description",
+                        "desc": "The description of the Node using docstring on the 'main' function."
+                    },
+                    "started": {
+                        "type": "string",
+                        "required": true,
+                        "order": 20,
+                        "title": "Started",
+                        "desc": "The time this node instance was started.",
+                        "format": "date-time"
+                    },
+                    "nodelVersion": {
+                        "type": "string",
+                        "required": true,
+                        "order": 21,
+                        "title": "Nodel version",
+                        "desc": "The Nodel environment version."
+                    }
+                },
+                "services": {
+                    "actions": {
+                        "type": "object",
+                        "title": "Actions",
+                        "desc": "The local actions.",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "arg": {
+                                    "type": "object",
+                                    "required": true,
+                                    "title": "Argument value"
+                                },
+                                "caution": {
+                                    "type": "string",
+                                    "required": true,
+                                    "title": "Caution",
+                                    "desc": "A caution message associated with this action."
+                                },
+                                "desc": {
+                                    "type": "string",
+                                    "required": true,
+                                    "title": "Description",
+                                    "desc": "A short description."
+                                },
+                                "group": {
+                                    "type": "string",
+                                    "required": true,
+                                    "title": "Group",
+                                    "desc": "A group name."
+                                },
+                                "name": {
+                                    "type": "string",
+                                    "required": true,
+                                    "title": "Name",
+                                    "desc": "A simple name, alias or ID.",
+                                    "format": "SimpleName"
+                                },
+                                "order": {
+                                    "type": "number",
+                                    "required": true,
+                                    "title": "Order",
+                                    "desc": "Relative order."
+                                },
+                                "schema": {
+                                    "type": "object",
+                                    "required": true,
+                                    "title": "Schema",
+                                    "desc": "The raw stand-alone schema.",
+                                    "items": {"type": "object"}
+                                },
+                                "seq": {
+                                    "type": "integer",
+                                    "required": true,
+                                    "title": "Sequence number"
+                                },
+                                "title": {
+                                    "type": "string",
+                                    "required": true,
+                                    "title": "Title",
+                                    "desc": "A short title."
+                                }
+                            },
+                            "services": {
+                                "call": {
+                                    "type": "boolean",
+                                    "title": "Call",
+                                    "desc": "Invokes this action.",
+                                    "takes": {"arg": {
+                                        "type": "object",
+                                        "title": "Argument",
+                                        "order": 0
+                                    }}
+                                },
+                                "schema": {
+                                    "type": "object",
+                                    "title": "Schema",
+                                    "desc": "Prepares a filtered schema for this action.",
+                                    "items": {"type": "object"}
+                                }
+                            }
+                        }
+                    },
+                    "activity": {
+                        "type": "array",
+                        "title": "Activity",
+                        "desc": "Retrieves a syncable state of node's general event/action activity.",
+                        "takes": {"from": {
+                            "type": "integer",
+                            "title": "From",
+                            "desc": "The minimum sequence number.",
+                            "order": 0
+                        }},
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "seq": {
+                                    "type": "integer",
+                                    "required": true,
+                                    "order": 1,
+                                    "title": "Sequence",
+                                    "desc": "The sequence number."
+                                },
+                                "timestamp": {
+                                    "type": "string",
+                                    "required": true,
+                                    "order": 2,
+                                    "title": "Timestamp",
+                                    "desc": "A universal timestamp.",
+                                    "format": "date-time"
+                                },
+                                "source": {
+                                    "type": "string",
+                                    "required": true,
+                                    "order": 3,
+                                    "title": "Source",
+                                    "desc": "The source of this event.",
+                                    "enum": [
+                                        "local",
+                                        "remote",
+                                        "unbound"
+                                    ]
+                                },
+                                "type": {
+                                    "type": "string",
+                                    "required": true,
+                                    "order": 4,
+                                    "title": "Type",
+                                    "desc": "The event type.",
+                                    "enum": [
+                                        "action",
+                                        "event",
+                                        "actionBinding",
+                                        "eventBinding"
+                                    ]
+                                },
+                                "alias": {
+                                    "type": "string",
+                                    "required": true,
+                                    "order": 5,
+                                    "title": "Alias",
+                                    "desc": "The related event/action alias.",
+                                    "format": "SimpleName"
+                                },
+                                "arg": {
+                                    "type": "object",
+                                    "required": false,
+                                    "order": 6,
+                                    "title": "Argument",
+                                    "desc": "An argument."
+                                }
+                            }
+                        }
+                    },
+                    "console": {
+                        "type": "array",
+                        "title": "Console",
+                        "desc": "The script console.",
+                        "takes": {
+                            "from": {
+                                "type": "integer",
+                                "title": "From",
+                                "desc": "The minimum sequence number.",
+                                "order": 0
+                            },
+                            "max": {
+                                "type": "integer",
+                                "title": "Max",
+                                "desc": "The maximum number of rows to return.",
+                                "order": 1
+                            },
+                            "timeout": {
+                                "type": "integer",
+                                "title": "Timeout",
+                                "desc": "How long to wait for new items in ms (default 0)",
+                                "order": 2
+                            }
+                        },
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "comment": {
+                                    "type": "string",
+                                    "required": true,
+                                    "title": "Comment",
+                                    "desc": "Short commentary."
+                                },
+                                "console": {
+                                    "type": "string",
+                                    "required": true,
+                                    "title": "Console",
+                                    "desc": "The console type.",
+                                    "enum": [
+                                        "out",
+                                        "err",
+                                        "warn",
+                                        "info"
+                                    ]
+                                },
+                                "seq": {
+                                    "type": "integer",
+                                    "required": true,
+                                    "title": "Sequence",
+                                    "desc": "A sequence number."
+                                },
+                                "timestamp": {
+                                    "type": "string",
+                                    "required": true,
+                                    "title": "Timestamp",
+                                    "desc": "A universal timestamp.",
+                                    "format": "date-time"
+                                }
+                            }
+                        }
+                    },
+                    "events": {
+                        "type": "object",
+                        "title": "Events",
+                        "desc": "The local events.",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "arg": {
+                                    "type": "object",
+                                    "required": true,
+                                    "title": "Argument value"
+                                },
+                                "schema": {
+                                    "type": "object",
+                                    "required": true,
+                                    "title": "Schema",
+                                    "desc": "The raw stand-alone schema.",
+                                    "items": {"type": "object"}
+                                },
+                                "seq": {
+                                    "type": "integer",
+                                    "required": true,
+                                    "title": "Sequence number"
+                                },
+                                "timestamp": {
+                                    "type": "string",
+                                    "required": true,
+                                    "title": "Timestamp",
+                                    "format": "date-time"
+                                },
+                                "name": {
+                                    "type": "string",
+                                    "required": true,
+                                    "order": 1,
+                                    "title": "Name",
+                                    "desc": "The name.",
+                                    "format": "SimpleName"
+                                },
+                                "title": {
+                                    "type": "string",
+                                    "required": true,
+                                    "order": 2,
+                                    "title": "Title",
+                                    "desc": "A title."
+                                },
+                                "desc": {
+                                    "type": "string",
+                                    "required": true,
+                                    "order": 3,
+                                    "title": "Description",
+                                    "desc": "A short description."
+                                },
+                                "group": {
+                                    "type": "string",
+                                    "required": true,
+                                    "order": 4,
+                                    "title": "Group",
+                                    "desc": "A group."
+                                },
+                                "caution": {
+                                    "type": "string",
+                                    "required": true,
+                                    "order": 5,
+                                    "title": "Caution",
+                                    "desc": "A caution message associated with the generation of this event."
+                                },
+                                "order": {
+                                    "type": "number",
+                                    "required": true,
+                                    "order": 6,
+                                    "title": "Order",
+                                    "desc": "Relative order."
+                                }
+                            },
+                            "services": {
+                                "emit": {
+                                    "type": "boolean",
+                                    "title": "Emit",
+                                    "desc": "Emits this event.",
+                                    "takes": {"arg": {
+                                        "type": "object",
+                                        "title": "Argument",
+                                        "order": 0
+                                    }}
+                                },
+                                "schema": {
+                                    "type": "object",
+                                    "title": "Schema",
+                                    "desc": "Prepares a filtered schema for this action.",
+                                    "items": {"type": "object"}
+                                }
+                            }
+                        }
+                    },
+                    "local": {
+                        "type": "object",
+                        "title": "Local",
+                        "desc": "Holds the local live parameters.",
+                        "properties": {"value": {
+                            "type": "object",
+                            "required": true,
+                            "title": "Value",
+                            "desc": "The parameters value object.",
+                            "items": {"type": "object"}
+                        }},
+                        "services": {"schema": {
+                            "type": "object",
+                            "title": "Schema",
+                            "desc": "Returns the processed schema that produced data that can be used by 'save'.",
+                            "items": {"type": "object"}
+                        }}
+                    },
+                    "logs": {
+                        "type": "array",
+                        "title": "Logs",
+                        "desc": "Retrieves this node's general event/action log.",
+                        "takes": {
+                            "from": {
+                                "type": "integer",
+                                "title": "From",
+                                "desc": "The minimum sequence number.",
+                                "order": 0
+                            },
+                            "max": {
+                                "type": "integer",
+                                "title": "Max",
+                                "desc": "The maximum number of rows to return.",
+                                "order": 1
+                            },
+                            "timeout": {
+                                "type": "integer",
+                                "title": "Timeout",
+                                "desc": "How long to wait for new items in ms (default 0)",
+                                "order": 2
+                            }
+                        },
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "seq": {
+                                    "type": "integer",
+                                    "required": true,
+                                    "order": 1,
+                                    "title": "Sequence",
+                                    "desc": "The sequence number."
+                                },
+                                "timestamp": {
+                                    "type": "string",
+                                    "required": true,
+                                    "order": 2,
+                                    "title": "Timestamp",
+                                    "desc": "A universal timestamp.",
+                                    "format": "date-time"
+                                },
+                                "source": {
+                                    "type": "string",
+                                    "required": true,
+                                    "order": 3,
+                                    "title": "Source",
+                                    "desc": "The source of this event.",
+                                    "enum": [
+                                        "local",
+                                        "remote",
+                                        "unbound"
+                                    ]
+                                },
+                                "type": {
+                                    "type": "string",
+                                    "required": true,
+                                    "order": 4,
+                                    "title": "Type",
+                                    "desc": "The event type.",
+                                    "enum": [
+                                        "action",
+                                        "event",
+                                        "actionBinding",
+                                        "eventBinding"
+                                    ]
+                                },
+                                "alias": {
+                                    "type": "string",
+                                    "required": true,
+                                    "order": 5,
+                                    "title": "Alias",
+                                    "desc": "The related event/action alias.",
+                                    "format": "SimpleName"
+                                },
+                                "arg": {
+                                    "type": "object",
+                                    "required": false,
+                                    "order": 6,
+                                    "title": "Argument",
+                                    "desc": "An argument."
+                                }
+                            }
+                        }
+                    },
+                    "allNodes": {
+                        "type": "array",
+                        "order": 5,
+                        "title": "All nodes",
+                        "desc": "Returns all the advertised nodes.",
+                        "items": {"type": "object"}
+                    },
+                    "autoDNS": {
+                        "type": "object",
+                        "order": 6,
+                        "title": "Auto DNS",
+                        "desc": "The service providing multicast DNS services.",
+                        "services": {"list": {
+                            "type": "array",
+                            "title": "List",
+                            "desc": "Retrieves the list of Node advertiseds.",
+                            "items": {"type": "object"}
+                        }}
+                    },
+                    "nodeURLs": {
+                        "type": "array",
+                        "order": 6,
+                        "title": "Node URLs",
+                        "desc": "Returns the addresses of the advertised nodes.",
+                        "takes": {"filter": {
+                            "type": "string",
+                            "title": "Filter",
+                            "desc": "Optional string filter.",
+                            "order": 0
+                        }},
+                        "items": {"type": "object"}
+                    },
+                    "hasRestarted": {
+                        "type": "string",
+                        "order": 20,
+                        "title": "Has restarted",
+                        "desc": "Compares the start time given, waits if necessary, returning a new time or the previous one. Allows caller to throttle efficiently.",
+                        "takes": {
+                            "timestamp": {
+                                "type": "string",
+                                "format": "date-time",
+                                "title": "Timestamp",
+                                "desc": "Timestamp to compare against.",
+                                "order": 0
+                            },
+                            "timeout": {
+                                "type": "integer",
+                                "title": "Timeout",
+                                "desc": "Timeout before returning.",
+                                "order": 1
+                            }
+                        },
+                        "format": "date-time"
+                    }
+                }
+            }
+        }
+    },
+    "services": {
+        "logs": {
+            "type": "array",
+            "title": "Logs",
+            "desc": "Detailed program logs.",
+            "takes": {
+                "from": {
+                    "type": "integer",
+                    "title": "From",
+                    "desc": "Start inclusion point.",
+                    "order": 0
+                },
+                "max": {
+                    "type": "integer",
+                    "title": "Max",
+                    "desc": "Results count limit.",
+                    "order": 1
+                }
+            },
+            "items": {
+                "type": "object",
+                "properties": {
+                    "seq": {
+                        "type": "integer",
+                        "required": true,
+                        "order": 1,
+                        "title": "Sequence",
+                        "desc": "A sequence number."
+                    },
+                    "timestamp": {
+                        "type": "string",
+                        "required": true,
+                        "order": 2,
+                        "title": "Timestamp",
+                        "desc": "A universal timestamp.",
+                        "format": "date-time"
+                    },
+                    "level": {
+                        "type": "string",
+                        "required": true,
+                        "order": 3,
+                        "title": "Level",
+                        "desc": "A standard log level.",
+                        "enum": [
+                            "trace",
+                            "debug",
+                            "info",
+                            "warn",
+                            "error"
+                        ]
+                    },
+                    "thread": {
+                        "type": "string",
+                        "required": true,
+                        "order": 4,
+                        "title": "Thread",
+                        "desc": "The thread name (if available) or thread ID."
+                    },
+                    "tag": {
+                        "type": "string",
+                        "required": true,
+                        "order": 5,
+                        "title": "Tag",
+                        "desc": "A general purpose tag which may improve context."
+                    },
+                    "message": {
+                        "type": "string",
+                        "required": true,
+                        "order": 6,
+                        "title": "Message",
+                        "desc": "Short commentary or message relating to this log event."
+                    },
+                    "error": {
+                        "type": "string",
+                        "required": true,
+                        "order": 7,
+                        "title": "Error",
+                        "desc": "Specific error information."
+                    }
+                }
+            }
+        },
+        "warningLogs": {
+            "type": "array",
+            "title": "Warning logs",
+            "desc": "Same as 'logs' except filtered by warning-level.",
+            "takes": {
+                "from": {
+                    "type": "integer",
+                    "title": "From",
+                    "desc": "Start inclusion point.",
+                    "order": 0
+                },
+                "max": {
+                    "type": "integer",
+                    "title": "Max",
+                    "desc": "Results count limit.",
+                    "order": 1
+                }
+            },
+            "items": {
+                "type": "object",
+                "properties": {
+                    "seq": {
+                        "type": "integer",
+                        "required": true,
+                        "order": 1,
+                        "title": "Sequence",
+                        "desc": "A sequence number."
+                    },
+                    "timestamp": {
+                        "type": "string",
+                        "required": true,
+                        "order": 2,
+                        "title": "Timestamp",
+                        "desc": "A universal timestamp.",
+                        "format": "date-time"
+                    },
+                    "level": {
+                        "type": "string",
+                        "required": true,
+                        "order": 3,
+                        "title": "Level",
+                        "desc": "A standard log level.",
+                        "enum": [
+                            "trace",
+                            "debug",
+                            "info",
+                            "warn",
+                            "error"
+                        ]
+                    },
+                    "thread": {
+                        "type": "string",
+                        "required": true,
+                        "order": 4,
+                        "title": "Thread",
+                        "desc": "The thread name (if available) or thread ID."
+                    },
+                    "tag": {
+                        "type": "string",
+                        "required": true,
+                        "order": 5,
+                        "title": "Tag",
+                        "desc": "A general purpose tag which may improve context."
+                    },
+                    "message": {
+                        "type": "string",
+                        "required": true,
+                        "order": 6,
+                        "title": "Message",
+                        "desc": "Short commentary or message relating to this log event."
+                    },
+                    "error": {
+                        "type": "string",
+                        "required": true,
+                        "order": 7,
+                        "title": "Error",
+                        "desc": "Specific error information."
+                    }
+                }
+            }
+        },
+        "nodes": {
+            "type": "object",
+            "order": 1,
+            "title": "Nodes",
+            "desc": "Node lookup by Node name.",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "name": {
+                        "type": "string",
+                        "required": true,
+                        "order": 10,
+                        "title": "Name",
+                        "desc": "The name of the node.",
+                        "format": "SimpleName"
+                    },
+                    "desc": {
+                        "type": "string",
+                        "required": true,
+                        "order": 20,
+                        "title": "Description",
+                        "desc": "The description of the Node using docstring on the 'main' function."
+                    },
+                    "started": {
+                        "type": "string",
+                        "required": true,
+                        "order": 20,
+                        "title": "Started",
+                        "desc": "The time this node instance was started.",
+                        "format": "date-time"
+                    },
+                    "nodelVersion": {
+                        "type": "string",
+                        "required": true,
+                        "order": 21,
+                        "title": "Nodel version",
+                        "desc": "The Nodel environment version."
+                    }
+                },
+                "services": {
+                    "actions": {
+                        "type": "object",
+                        "title": "Actions",
+                        "desc": "The local actions.",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "arg": {
+                                    "type": "object",
+                                    "required": true,
+                                    "title": "Argument value"
+                                },
+                                "caution": {
+                                    "type": "string",
+                                    "required": true,
+                                    "title": "Caution",
+                                    "desc": "A caution message associated with this action."
+                                },
+                                "desc": {
+                                    "type": "string",
+                                    "required": true,
+                                    "title": "Description",
+                                    "desc": "A short description."
+                                },
+                                "group": {
+                                    "type": "string",
+                                    "required": true,
+                                    "title": "Group",
+                                    "desc": "A group name."
+                                },
+                                "name": {
+                                    "type": "string",
+                                    "required": true,
+                                    "title": "Name",
+                                    "desc": "A simple name, alias or ID.",
+                                    "format": "SimpleName"
+                                },
+                                "order": {
+                                    "type": "number",
+                                    "required": true,
+                                    "title": "Order",
+                                    "desc": "Relative order."
+                                },
+                                "schema": {
+                                    "type": "object",
+                                    "required": true,
+                                    "title": "Schema",
+                                    "desc": "The raw stand-alone schema.",
+                                    "items": {"type": "object"}
+                                },
+                                "seq": {
+                                    "type": "integer",
+                                    "required": true,
+                                    "title": "Sequence number"
+                                },
+                                "title": {
+                                    "type": "string",
+                                    "required": true,
+                                    "title": "Title",
+                                    "desc": "A short title."
+                                }
+                            },
+                            "services": {
+                                "call": {
+                                    "type": "boolean",
+                                    "title": "Call",
+                                    "desc": "Invokes this action.",
+                                    "takes": {"arg": {
+                                        "type": "object",
+                                        "title": "Argument",
+                                        "order": 0
+                                    }}
+                                },
+                                "schema": {
+                                    "type": "object",
+                                    "title": "Schema",
+                                    "desc": "Prepares a filtered schema for this action.",
+                                    "items": {"type": "object"}
+                                }
+                            }
+                        }
+                    },
+                    "activity": {
+                        "type": "array",
+                        "title": "Activity",
+                        "desc": "Retrieves a syncable state of node's general event/action activity.",
+                        "takes": {"from": {
+                            "type": "integer",
+                            "title": "From",
+                            "desc": "The minimum sequence number.",
+                            "order": 0
+                        }},
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "seq": {
+                                    "type": "integer",
+                                    "required": true,
+                                    "order": 1,
+                                    "title": "Sequence",
+                                    "desc": "The sequence number."
+                                },
+                                "timestamp": {
+                                    "type": "string",
+                                    "required": true,
+                                    "order": 2,
+                                    "title": "Timestamp",
+                                    "desc": "A universal timestamp.",
+                                    "format": "date-time"
+                                },
+                                "source": {
+                                    "type": "string",
+                                    "required": true,
+                                    "order": 3,
+                                    "title": "Source",
+                                    "desc": "The source of this event.",
+                                    "enum": [
+                                        "local",
+                                        "remote",
+                                        "unbound"
+                                    ]
+                                },
+                                "type": {
+                                    "type": "string",
+                                    "required": true,
+                                    "order": 4,
+                                    "title": "Type",
+                                    "desc": "The event type.",
+                                    "enum": [
+                                        "action",
+                                        "event",
+                                        "actionBinding",
+                                        "eventBinding"
+                                    ]
+                                },
+                                "alias": {
+                                    "type": "string",
+                                    "required": true,
+                                    "order": 5,
+                                    "title": "Alias",
+                                    "desc": "The related event/action alias.",
+                                    "format": "SimpleName"
+                                },
+                                "arg": {
+                                    "type": "object",
+                                    "required": false,
+                                    "order": 6,
+                                    "title": "Argument",
+                                    "desc": "An argument."
+                                }
+                            }
+                        }
+                    },
+                    "console": {
+                        "type": "array",
+                        "title": "Console",
+                        "desc": "The script console.",
+                        "takes": {
+                            "from": {
+                                "type": "integer",
+                                "title": "From",
+                                "desc": "The minimum sequence number.",
+                                "order": 0
+                            },
+                            "max": {
+                                "type": "integer",
+                                "title": "Max",
+                                "desc": "The maximum number of rows to return.",
+                                "order": 1
+                            },
+                            "timeout": {
+                                "type": "integer",
+                                "title": "Timeout",
+                                "desc": "How long to wait for new items in ms (default 0)",
+                                "order": 2
+                            }
+                        },
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "comment": {
+                                    "type": "string",
+                                    "required": true,
+                                    "title": "Comment",
+                                    "desc": "Short commentary."
+                                },
+                                "console": {
+                                    "type": "string",
+                                    "required": true,
+                                    "title": "Console",
+                                    "desc": "The console type.",
+                                    "enum": [
+                                        "out",
+                                        "err",
+                                        "warn",
+                                        "info"
+                                    ]
+                                },
+                                "seq": {
+                                    "type": "integer",
+                                    "required": true,
+                                    "title": "Sequence",
+                                    "desc": "A sequence number."
+                                },
+                                "timestamp": {
+                                    "type": "string",
+                                    "required": true,
+                                    "title": "Timestamp",
+                                    "desc": "A universal timestamp.",
+                                    "format": "date-time"
+                                }
+                            }
+                        }
+                    },
+                    "events": {
+                        "type": "object",
+                        "title": "Events",
+                        "desc": "The local events.",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "arg": {
+                                    "type": "object",
+                                    "required": true,
+                                    "title": "Argument value"
+                                },
+                                "schema": {
+                                    "type": "object",
+                                    "required": true,
+                                    "title": "Schema",
+                                    "desc": "The raw stand-alone schema.",
+                                    "items": {"type": "object"}
+                                },
+                                "seq": {
+                                    "type": "integer",
+                                    "required": true,
+                                    "title": "Sequence number"
+                                },
+                                "timestamp": {
+                                    "type": "string",
+                                    "required": true,
+                                    "title": "Timestamp",
+                                    "format": "date-time"
+                                },
+                                "name": {
+                                    "type": "string",
+                                    "required": true,
+                                    "order": 1,
+                                    "title": "Name",
+                                    "desc": "The name.",
+                                    "format": "SimpleName"
+                                },
+                                "title": {
+                                    "type": "string",
+                                    "required": true,
+                                    "order": 2,
+                                    "title": "Title",
+                                    "desc": "A title."
+                                },
+                                "desc": {
+                                    "type": "string",
+                                    "required": true,
+                                    "order": 3,
+                                    "title": "Description",
+                                    "desc": "A short description."
+                                },
+                                "group": {
+                                    "type": "string",
+                                    "required": true,
+                                    "order": 4,
+                                    "title": "Group",
+                                    "desc": "A group."
+                                },
+                                "caution": {
+                                    "type": "string",
+                                    "required": true,
+                                    "order": 5,
+                                    "title": "Caution",
+                                    "desc": "A caution message associated with the generation of this event."
+                                },
+                                "order": {
+                                    "type": "number",
+                                    "required": true,
+                                    "order": 6,
+                                    "title": "Order",
+                                    "desc": "Relative order."
+                                }
+                            },
+                            "services": {
+                                "emit": {
+                                    "type": "boolean",
+                                    "title": "Emit",
+                                    "desc": "Emits this event.",
+                                    "takes": {"arg": {
+                                        "type": "object",
+                                        "title": "Argument",
+                                        "order": 0
+                                    }}
+                                },
+                                "schema": {
+                                    "type": "object",
+                                    "title": "Schema",
+                                    "desc": "Prepares a filtered schema for this action.",
+                                    "items": {"type": "object"}
+                                }
+                            }
+                        }
+                    },
+                    "local": {
+                        "type": "object",
+                        "title": "Local",
+                        "desc": "Holds the local live parameters.",
+                        "properties": {"value": {
+                            "type": "object",
+                            "required": true,
+                            "title": "Value",
+                            "desc": "The parameters value object.",
+                            "items": {"type": "object"}
+                        }},
+                        "services": {"schema": {
+                            "type": "object",
+                            "title": "Schema",
+                            "desc": "Returns the processed schema that produced data that can be used by 'save'.",
+                            "items": {"type": "object"}
+                        }}
+                    },
+                    "logs": {
+                        "type": "array",
+                        "title": "Logs",
+                        "desc": "Retrieves this node's general event/action log.",
+                        "takes": {
+                            "from": {
+                                "type": "integer",
+                                "title": "From",
+                                "desc": "The minimum sequence number.",
+                                "order": 0
+                            },
+                            "max": {
+                                "type": "integer",
+                                "title": "Max",
+                                "desc": "The maximum number of rows to return.",
+                                "order": 1
+                            },
+                            "timeout": {
+                                "type": "integer",
+                                "title": "Timeout",
+                                "desc": "How long to wait for new items in ms (default 0)",
+                                "order": 2
+                            }
+                        },
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "seq": {
+                                    "type": "integer",
+                                    "required": true,
+                                    "order": 1,
+                                    "title": "Sequence",
+                                    "desc": "The sequence number."
+                                },
+                                "timestamp": {
+                                    "type": "string",
+                                    "required": true,
+                                    "order": 2,
+                                    "title": "Timestamp",
+                                    "desc": "A universal timestamp.",
+                                    "format": "date-time"
+                                },
+                                "source": {
+                                    "type": "string",
+                                    "required": true,
+                                    "order": 3,
+                                    "title": "Source",
+                                    "desc": "The source of this event.",
+                                    "enum": [
+                                        "local",
+                                        "remote",
+                                        "unbound"
+                                    ]
+                                },
+                                "type": {
+                                    "type": "string",
+                                    "required": true,
+                                    "order": 4,
+                                    "title": "Type",
+                                    "desc": "The event type.",
+                                    "enum": [
+                                        "action",
+                                        "event",
+                                        "actionBinding",
+                                        "eventBinding"
+                                    ]
+                                },
+                                "alias": {
+                                    "type": "string",
+                                    "required": true,
+                                    "order": 5,
+                                    "title": "Alias",
+                                    "desc": "The related event/action alias.",
+                                    "format": "SimpleName"
+                                },
+                                "arg": {
+                                    "type": "object",
+                                    "required": false,
+                                    "order": 6,
+                                    "title": "Argument",
+                                    "desc": "An argument."
+                                }
+                            }
+                        }
+                    },
+                    "allNodes": {
+                        "type": "array",
+                        "order": 5,
+                        "title": "All nodes",
+                        "desc": "Returns all the advertised nodes.",
+                        "items": {"type": "object"}
+                    },
+                    "autoDNS": {
+                        "type": "object",
+                        "order": 6,
+                        "title": "Auto DNS",
+                        "desc": "The service providing multicast DNS services.",
+                        "services": {"list": {
+                            "type": "array",
+                            "title": "List",
+                            "desc": "Retrieves the list of Node advertiseds.",
+                            "items": {"type": "object"}
+                        }}
+                    },
+                    "nodeURLs": {
+                        "type": "array",
+                        "order": 6,
+                        "title": "Node URLs",
+                        "desc": "Returns the addresses of the advertised nodes.",
+                        "takes": {"filter": {
+                            "type": "string",
+                            "title": "Filter",
+                            "desc": "Optional string filter.",
+                            "order": 0
+                        }},
+                        "items": {"type": "object"}
+                    },
+                    "hasRestarted": {
+                        "type": "string",
+                        "order": 20,
+                        "title": "Has restarted",
+                        "desc": "Compares the start time given, waits if necessary, returning a new time or the previous one. Allows caller to throttle efficiently.",
+                        "takes": {
+                            "timestamp": {
+                                "type": "string",
+                                "format": "date-time",
+                                "title": "Timestamp",
+                                "desc": "Timestamp to compare against.",
+                                "order": 0
+                            },
+                            "timeout": {
+                                "type": "integer",
+                                "title": "Timeout",
+                                "desc": "Timeout before returning.",
+                                "order": 1
+                            }
+                        },
+                        "format": "date-time"
+                    }
+                }
+            }
+        },
+        "allNodes": {
+            "type": "array",
+            "order": 5,
+            "title": "All nodes",
+            "desc": "Returns all the advertised nodes.",
+            "items": {"type": "object"}
+        },
+        "diagnostics": {
+            "type": "object",
+            "order": 6,
+            "title": "Diagnostics",
+            "desc": "Diagnostics related to the entire framework.",
+            "properties": {
+                "agent": {
+                    "type": "string",
+                    "required": true,
+                    "title": "Agent",
+                    "desc": "The nodel agent."
+                },
+                "availableProcessors": {
+                    "type": "integer",
+                    "required": true,
+                    "title": "Available processors",
+                    "desc": "The number of available processors."
+                },
+                "freeMemory": {
+                    "type": "integer",
+                    "required": true,
+                    "title": "Free memory",
+                    "desc": "Free memory (in bytes) as reported by Java; not necessarily stable."
+                },
+                "hostname": {
+                    "type": "string",
+                    "required": true,
+                    "title": "Hostname",
+                    "desc": "The name of the host."
+                },
+                "httpAddress": {
+                    "type": "string",
+                    "required": true,
+                    "title": "HTTP address",
+                    "desc": "The address of the HTTP server."
+                },
+                "maxMemory": {
+                    "type": "integer",
+                    "required": true,
+                    "title": "Maximum memory",
+                    "desc": "Maximum memory (in bytes) as reported by Java; not necessarily stable."
+                },
+                "startTime": {
+                    "type": "string",
+                    "required": true,
+                    "title": "Start time",
+                    "desc": "When this service was started.",
+                    "format": "date-time"
+                },
+                "systemProperties": {
+                    "type": "object",
+                    "required": true,
+                    "title": "System properties",
+                    "desc": "The list of built-in system properties.",
+                    "items": {"type": "object"}
+                },
+                "totalMemory": {
+                    "type": "integer",
+                    "required": true,
+                    "title": "Total memory",
+                    "desc": "Total memory (in bytes) as reported by Java; not necessarily stable."
+                },
+                "vmArgs": {
+                    "type": "array",
+                    "required": true,
+                    "title": "VM arguments",
+                    "desc": "The arguments supplied to this instance of the VM.",
+                    "items": {"type": "object"}
+                }
+            },
+            "services": {
+                "gc": {
+                    "type": "boolean",
+                    "title": "Garbage collect",
+                    "desc": "Perform a 'garbage collect' operation; not necessarily stable."
+                },
+                "measurements": {
+                    "type": "array",
+                    "title": "Measurements",
+                    "desc": "The list of performance measurement data.",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "capacity": {
+                                "type": "integer",
+                                "required": true,
+                                "title": "Capacity",
+                                "desc": "Measurement data capacity."
+                            },
+                            "isRate": {
+                                "type": "boolean",
+                                "required": true,
+                                "title": "Is rate?",
+                                "desc": "If this measurement represents a rate (delta) or just an absolute value."
+                            },
+                            "name": {
+                                "type": "string",
+                                "required": true,
+                                "title": "Name",
+                                "desc": "Short name, alias, code for this measurement."
+                            },
+                            "values": {
+                                "type": "object",
+                                "required": true,
+                                "title": "Values",
+                                "desc": "The measurement values."
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "discovery": {
+            "type": "object",
+            "order": 6,
+            "title": "Discovery service",
+            "desc": "Multicast discovery services.",
+            "services": {"list": {
+                "type": "array",
+                "title": "List",
+                "desc": "Retrieves the list of Node advertiseds.",
+                "items": {"type": "object"}
+            }}
+        },
+        "nodeURLs": {
+            "type": "array",
+            "order": 6,
+            "title": "Node URLs",
+            "desc": "Returns the addresses of all advertised nodes.",
+            "takes": {"filter": {
+                "type": "string",
+                "title": "Filter",
+                "desc": "Optional string filter.",
+                "order": 0
+            }},
+            "items": {"type": "object"}
+        }
+    }
+}

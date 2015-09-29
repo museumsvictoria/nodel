@@ -8,26 +8,32 @@ package org.nodel.jyhost;
 
 import java.io.File;
 import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.net.UnknownServiceException;
+import java.util.AbstractMap;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
 
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.joda.time.DateTime;
 import org.nodel.SimpleName;
 import org.nodel.Strings;
-import org.nodel.core.Framework;
 import org.nodel.core.NodelClients.NodeURL;
+import org.nodel.diagnostics.Diagnostics;
 import org.nodel.discovery.AdvertisementInfo;
 import org.nodel.discovery.AutoDNS;
+import org.nodel.host.BaseNode;
 import org.nodel.host.NanoHTTPD;
+import org.nodel.io.Stream;
+import org.nodel.io.UTF8Charset;
+import org.nodel.json.XML;
 import org.nodel.logging.LogEntry;
 import org.nodel.logging.Logging;
 import org.nodel.reflection.Param;
@@ -37,6 +43,13 @@ import org.nodel.reflection.Service;
 import org.nodel.reflection.Value;
 import org.nodel.rest.EndpointNotFoundException;
 import org.nodel.rest.REST;
+import org.python.core.Py;
+import org.python.core.PyCode;
+import org.python.core.PyException;
+import org.python.core.PyStringMap;
+import org.python.util.PythonInterpreter;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class NodelHostHTTPD extends NanoHTTPD {
 
@@ -53,22 +66,37 @@ public class NodelHostHTTPD extends NanoHTTPD {
     /**
      * (logging related)
      */
-    protected Logger _logger = LogManager.getLogger(this.getClass().getName() + "_" + _instance);
+    protected Logger _logger = LoggerFactory.getLogger(this.getClass().getName() + "_" + _instance);
     
     /**
      * The last user agent being used.
      */
     private String _userAgent;
-
+    
     /**
      * Represents the model exposed to the REST services.
      */
     public class RESTModel {
+        
+        @Service(name = "nodes", order = 1, title = "Nodes", desc = "Node lookup by Node name.", genericClassA = SimpleName.class, genericClassB = BaseNode.class)
+        public AbstractMap<SimpleName, BaseNode> nodes = new AbstractMap<SimpleName, BaseNode>() {
 
-        @Service(name = "nodes", order = 1, title = "Nodes", desc = "Node lookup by Node name.", genericClassA = SimpleName.class, genericClassB = PyNode.class)
-        public Map<SimpleName, PyNode> nodes() {
-            return _nodelHost.getNodeMap();
-        }
+            @Override
+            public Set<Map.Entry<SimpleName, BaseNode>> entrySet() {
+                return BaseNode.getNodes().entrySet();
+            }
+            
+            @Override
+            public BaseNode get(Object key) {
+                return BaseNode.getNode((SimpleName) key);
+            }
+            
+        };
+        
+        @Value(name = "nodes", order = 1, title = "Nodes", desc = "All the managed nodes.", genericClassA = SimpleName.class, genericClassB = BaseNode.class)
+        public Map<SimpleName, BaseNode> getNodes() {
+            return BaseNode.getNodes();
+        }        
         
         @Value(name = "started", title = "Started", desc = "When the host started.")
         public DateTime __started = DateTime.now();
@@ -86,8 +114,8 @@ public class NodelHostHTTPD extends NanoHTTPD {
         @Service(name = "nodeURLs", order = 6, title = "Node URLs", desc = "Returns the addresses of all advertised nodes.")
         public List<NodeURL> nodeURLs(@Param(name = "filter", title = "Filter", desc = "Optional string filter.") String filter) throws IOException {
             return _nodelHost.getNodeURLs(filter);
-            }
-            
+        }
+
         @Service(name = "logs", title = "Logs", desc = "Detailed program logs.")
         public LogEntry[] getLogs(
                 @Param(name = "from", title = "From", desc = "Start inclusion point.") long from, 
@@ -106,9 +134,9 @@ public class NodelHostHTTPD extends NanoHTTPD {
             return result.toArray(new LogEntry[result.size()]);
         } // (method)
         
-        @Service(name = "framework", order = 6, title = "Framework", desc = "Instrumentation services related to the entire framework.")
-        public Framework framework() {
-            return Framework.shared();
+        @Service(name = "diagnostics", order = 6, title = "Diagnostics", desc = "Diagnostics related to the entire framework.")
+        public Diagnostics framework() {
+            return Diagnostics.shared();
         }           
 
     } // (inner class)
@@ -119,7 +147,7 @@ public class NodelHostHTTPD extends NanoHTTPD {
      * Holds the object bound to the REST layer
      */
     private RESTModel _restModel = new RESTModel();
-
+    
     public NodelHostHTTPD(int port, File directory) throws IOException {
         super(port, directory, false);
     }
@@ -140,131 +168,193 @@ public class NodelHostHTTPD extends NanoHTTPD {
 
         // if REST being used, the target object
         Object restTarget = _restModel;
-        
+
         // get the user-agent
-        String userAgent = request.header.getProperty("user-agent");
+        String userAgent = request.headers.getProperty("user-agent");
         if (userAgent != null)
             _userAgent = userAgent;
-        
-		// get the parts (avoiding blank first part if necessary)
+
+        // get the parts (avoiding blank first part if necessary)
         String[] parts = (uri.startsWith("/") ? uri.substring(1) : uri).split("/");
-        
+
         // check if we're serving up from a node root
         // 'http://example/nodes/index.htm'
         if (parts.length >= 2 && parts[0].equalsIgnoreCase("nodes")) {
-        	// the second part will be the node name
-        	SimpleName nodeName = new SimpleName(parts[1]);
-        	
-        	PyNode node = _nodelHost.getNodeMap().get(nodeName);
-        	
-        	if (node == null)
-        		return prepareNotFoundResponse(uri, "Node");
-        	
-        	// check if properly formed URI is being used i.e. ends with slash
-        	if (parts.length == 2 && !uri.endsWith("/"))
-        	    return prepareRedirectResponse(uri + "/");
-        	
-    		root = new File(node.getRoot(), "content");
-    		restTarget = node;
-    		
-    		// rebuild the 'uri' and 'parts'
-    		int OFFSET = 2;
-    		
-			StringBuilder sb = new StringBuilder();
-			String[] newParts = new String[parts.length - OFFSET];
+            // the second part will be the node name
+            SimpleName nodeName = new SimpleName(parts[1]);
 
-			for (int a = OFFSET; a < parts.length; a++) {
-				String path = parts[a];
+            BaseNode node = BaseNode.getNode(nodeName);
 
-				sb.append('/');
-				sb.append(path);
+            if (node == null)
+                return prepareNotFoundResponse(uri, "Node");
 
-				newParts[a - OFFSET] = path;
-			}
+            // check if properly formed URI is being used i.e. ends with slash
+            if (parts.length == 2 && !uri.endsWith("/"))
+                return prepareRedirectResponse(uri + "/");
 
-			if (sb.length() == 0)
-				sb.append('/');
+            File nodeRoot = node.getRoot();
+            root = new File(nodeRoot, "content");
 
-			uri = sb.toString();
-			parts = newParts;
+            restTarget = node;
+
+            // rebuild the 'uri' and 'parts'
+            int OFFSET = 2;
+
+            StringBuilder sb = new StringBuilder();
+            String[] newParts = new String[parts.length - OFFSET];
+
+            for (int a = OFFSET; a < parts.length; a++) {
+                String path = parts[a];
+
+                sb.append('/');
+                sb.append(path);
+
+                newParts[a - OFFSET] = path;
+            }
+
+            if (sb.length() == 0)
+                sb.append('/');
+
+            uri = sb.toString();
+            parts = newParts;
         }
 
         // check if REST is being used
-		if (parts.length > 0 && parts[0].equals("REST")) {
-			// drop 'REST' part
-			int OFFSET = 1;
-			String[] newParts = new String[parts.length - OFFSET];
-			for (int a = OFFSET; a < parts.length; a++)
-				newParts[a - OFFSET] = parts[a];
-			
-			parts = newParts;
+        if (parts.length > 0 && parts[0].equals("REST")) {
+            // drop 'REST' part
+            int OFFSET = 1;
+            String[] newParts = new String[parts.length - OFFSET];
+            for (int a = OFFSET; a < parts.length; a++)
+                newParts[a - OFFSET] = parts[a];
 
-			try {
-				Object target;
+            parts = newParts;
 
-				if (method.equalsIgnoreCase("GET"))
-					target = REST.resolveRESTcall(restTarget, parts, params, null);
+            try {
+                Object target;
 
-				else if (method.equalsIgnoreCase("POST"))
-					target = REST.resolveRESTcall(restTarget, parts, params, request.raw);
+                if (method.equalsIgnoreCase("GET"))
+                    target = REST.resolveRESTcall(restTarget, parts, params, null);
 
-				else
-					throw new UnknownServiceException("Unexpected method - '" + method + "'");
+                else if (method.equalsIgnoreCase("POST"))
+                    target = REST.resolveRESTcall(restTarget, parts, params, request.raw);
 
-				String targetAsJSON = Serialisation.serialise(target);
+                else
+                    throw new UnknownServiceException("Unexpected method - '" + method + "'");
 
-				// adjust the response headers for script compatibility
+                String targetAsJSON = Serialisation.serialise(target);
 
-				Response resp = new Response(HTTP_OK, "application/json; charset=utf-8", targetAsJSON);
-				resp.addHeader("Access-Control-Allow-Origin", "*");
+                // adjust the response headers for script compatibility
 
-				return resp;
-				
-			} catch (EndpointNotFoundException exc) {
-				return prepareExceptionMessageResponse(HTTP_NOTFOUND, exc, false);
+                Response resp = new Response(HTTP_OK, "application/json; charset=utf-8", targetAsJSON);
+                resp.addHeader("Access-Control-Allow-Origin", "*");
 
-			} catch (FileNotFoundException exc) {
-				return prepareExceptionMessageResponse(HTTP_NOTFOUND, exc, false);
+                return resp;
 
-			} catch (SerialisationException exc) {
-				return prepareExceptionMessageResponse(HTTP_INTERNALERROR, exc, params.containsKey("trace"));
+            } catch (EndpointNotFoundException exc) {
+                return prepareExceptionMessageResponse(HTTP_NOTFOUND, exc, false);
 
-			} catch (UnknownServiceException exc) {
-				return prepareExceptionMessageResponse(HTTP_INTERNALERROR, exc, false);
+            } catch (FileNotFoundException exc) {
+                return prepareExceptionMessageResponse(HTTP_NOTFOUND, exc, false);
 
-			} catch (Exception exc) {
-				_logger.warn("Unexpected exception during REST operation.", exc);
+            } catch (SerialisationException exc) {
+                return prepareExceptionMessageResponse(HTTP_INTERNALERROR, exc, params.containsKey("trace"));
 
-				return prepareExceptionMessageResponse(HTTP_INTERNALERROR, exc, params.contains("trace"));
-			}
-		} else {
-			// not a REST call, fall through to other handlers
-			return super.serve(uri, root, method, params, request);
-		}
+            } catch (UnknownServiceException exc) {
+                return prepareExceptionMessageResponse(HTTP_INTERNALERROR, exc, false);
+                
+            } catch (PyException exc) {
+                // use cleaner PyException stack trace
+                _logger.warn("Python script exception during REST operation. {}", exc.toString());
+
+                return prepareExceptionMessageResponse(HTTP_INTERNALERROR, exc, params.contains("trace"));
+
+            } catch (Exception exc) {
+                _logger.warn("Unexpected exception during REST operation.", exc);
+
+                return prepareExceptionMessageResponse(HTTP_INTERNALERROR, exc, params.contains("trace"));
+            }
+        } else {
+            // TODO: this could be done a lot better:
+            
+            Response response = null;
+            
+            if (params.containsKey("_edit")) {
+                return super.serve("/editor.htm", root, method, params, request);
+                
+            } else if (params.containsKey("_source")) {
+                
+                File target = resolveFile(uri, root);
+                if (target == null)
+                    return new Response(HTTP_NOTFOUND, "text/plain", "Not found - " + uri);
+                else
+                    return new Response(HTTP_OK, "text/plain; charset=utf-8", Stream.tryReadFully(target));
+                
+            } else if (params.containsKey("_write")) {
+                File target = resolveFile(uri, root);
+                if (target == null)
+                    return new Response(HTTP_NOTFOUND, "text/plain", "Not found - " + uri);
+
+                if (request.raw == null || request.raw.length == 0)
+                    return new Response(HTTP_FORBIDDEN, "text/plain", "No POST data provided.");
+
+                FileOutputStream fos = null;
+                
+                try {
+                    fos = new FileOutputStream(target);
+                    
+                    // TODO: should backup files here
+                    
+                    fos.write(request.raw);
+                    
+                    return new Response(HTTP_OK, "text/plain", request.raw.length + " bytes written.");
+                    
+                } catch (Exception exc) {
+                    return new Response(HTTP_INTERNALERROR, "text/plain", "Problem writing file.");
+
+                } finally {
+                    Stream.safeClose(fos);
+                }
+            } 
+
+            // not a REST call, py-server page page?
+            if (restTarget instanceof PyNode) {
+                if (uri.endsWith(".pysp"))
+                    // try actual page 
+                    response = handlePySp((PyNode) restTarget, uri, root, method, params, request);
+                else
+                    // try as '.pysp'
+                    response = handlePySp((PyNode) restTarget, uri + ".pysp", root, method, params, request);
+            }
+
+            if (response == null || HTTP_NOTFOUND.equals(response.status))
+                return super.serve(uri, root, method, params, request);
+
+            return response;
+        }
     } // (method)
-    
+
     /**
      * An exception message
      */
     public class ExceptionMessage {
-    	
-    	@Value(name = "code")
-    	public String code;
+
+        @Value(name = "code")
+        public String code;
 
         @Value(name = "error")
         public String error;
-        
+
         @Value(name = "message")
         public String message;
-        
+
         @Value(name = "cause")
         public ExceptionMessage cause;
-        
+
         @Value(name = "stackTrace")
-        public String stackTrace;        
-        
+        public String stackTrace;
+
     } // (class)
-    
+
     /**
      * Prepares a neat exception tree for returning back to the HTTP client.
      */
@@ -298,7 +388,7 @@ public class NodelHostHTTPD extends NanoHTTPD {
             currentMessage = currentMessage.cause;
         } // (while)
         
-        Response resp = new Response(httpCode, "application/json", Serialisation.serialise(message));
+        Response resp = new Response(httpCode, "application/json; charset=utf-8", Serialisation.serialise(message));
         resp.addHeader("Access-Control-Allow-Origin", "*");
         
         return resp;
@@ -318,7 +408,7 @@ public class NodelHostHTTPD extends NanoHTTPD {
 		errorResponse.message = type + " '" + path + "' was not found.";
 		errorResponse.code = "404";
 		
-		return new Response(HTTP_NOTFOUND, "application/json", Serialisation.serialise(errorResponse));
+		return new Response(HTTP_NOTFOUND, "application/json; charset=utf-8", Serialisation.serialise(errorResponse));
     }
     
     /**
@@ -341,4 +431,187 @@ public class NodelHostHTTPD extends NanoHTTPD {
         return _userAgent;
     }
     
+    /**
+     * ThreadLocal is used here so can be static.
+     */
+    private static ThreadLocal<PyStringMap> s_locals = new ThreadLocal<PyStringMap>() {
+        
+        /**
+         * Returns a string map when first used.
+         */
+        protected PyStringMap initialValue() {
+            return new PyStringMap();
+        }
+        
+    };
+    
+    public static class ServerPageResponse {
+        
+        public String status;
+        
+        public String mimeType;
+        
+        /**
+         * Headers for the HTTP response. Use addHeader() to add lines.
+         */
+        public Properties headers = new Properties();
+        
+        private StringBuilder _sb = new StringBuilder();
+        
+        /**
+         * Adds given line to the header.
+         */
+        public void addHeader(String name, String value) {
+            headers.put(name, value);
+        }
+
+        /**
+         * Convenience method that makes an InputStream out of given text.
+         */
+        public ServerPageResponse() {
+        }
+        
+        public void print(Object value) {
+            _sb.append(value);
+        }
+        
+        public void println() {
+            _sb.append(System.lineSeparator());
+        }
+        
+        public void println(Object value) {
+            _sb.append(value).append(System.lineSeparator());
+        }
+        
+        public void escape(Object value) {
+            String escaped = value != null ? XML.escape(value.toString()) : ""; 
+            _sb.append(escaped);
+        }
+        
+        public String getData() {
+            return _sb.toString();
+        }
+        
+    }
+    
+    /**
+     * @param node (pre-checked)
+     * @return 
+     */
+    private Response handlePySp(final PyNode node, String uri, File root, String method, Properties params, final Request request) {
+        // resolve the file
+        // Note: the response will be HTTP_OK or some other error (content unchanged, partial requests etc. will never occur).
+        Response originalResponse = super.serve(uri, root, method, params, request, true);
+        
+        // only deal with things if an HTTP_OK is received
+        if (!HTTP_OK.equalsIgnoreCase(originalResponse.status))
+                return originalResponse;
+        
+        final ServerPageResponse response = new ServerPageResponse();
+        response.status = HTTP_OK;
+        response.mimeType = "text/html";
+        
+        PythonInterpreter python = node.getPython();
+        
+        // this is safe because using thread-local storage
+        PyStringMap locals = s_locals.get();
+        
+        final String responseVariable = "resp";
+        
+        final StringBuilder scriptBuilder = new StringBuilder();
+        
+        try {
+            String template = Stream.readFully(new InputStreamReader(originalResponse.data, UTF8Charset.instance()));
+
+            final Throwable[] exceptionHolder = new Exception[1];
+            
+            ServerSideFilter filter = new ServerSideFilter(template) {
+                
+                char lastLine = ' ';
+                
+                @Override
+                public void resolveExpression(String expr) throws Throwable {
+                    if (lastLine == 'e' || lastLine == 'p')
+                        scriptBuilder.append("; \\\r\n");
+                    
+                    scriptBuilder.append(responseVariable).append(".print(").append(expr).append(")");
+                    lastLine = 'e';
+                }
+
+                @Override
+                public void evaluateBlock(String block) throws Throwable {
+                    scriptBuilder.append(block);
+                    lastLine = 'b';
+                }
+
+                @Override
+                public void passThrough(String data) throws Throwable {
+                    if (lastLine == 'e' || lastLine == 'p')
+                        scriptBuilder.append("; \\\r\n");
+                                
+                    scriptBuilder.append(responseVariable).append(".print('" + data + "')");
+                    lastLine = 'p';
+                }
+
+                @Override
+                public void handleError(Throwable th) {
+                    exceptionHolder[0] = th;
+                }
+
+                @Override
+                public void comment(String comment) throws Throwable {
+                }
+
+                @Override
+                public void resolveEscapedExpression(String expr) throws Throwable {
+                    if (lastLine == 'e' || lastLine == 'p')
+                        scriptBuilder.append("; \\\r\n");
+
+                    scriptBuilder.append(responseVariable).append(".escape(").append(expr).append(")");
+                    lastLine = 'e';
+                }
+
+            };
+            filter.process();
+            
+            String script = scriptBuilder.toString();
+            
+            // TODO: convert this to a class resource
+            
+            if (params.containsKey("_compiled"))
+                return new Response(HTTP_OK, "text/plain; charset=utf-8", script);
+            
+            locals.clear();
+            locals.__setitem__("req".intern(), Py.java2py(request));
+            locals.__setitem__(responseVariable.intern(), Py.java2py(response));
+            
+            if (exceptionHolder[0] != null) {
+                node.injectError("Ignoring PySp parse error", exceptionHolder[0]);
+            }
+            
+            python.setLocals(locals);
+            
+            // ('systemState' is set within 'compile'...)
+            PyCode pyCode = python.compile(script);
+            
+            Py.exec(pyCode, node.getPyGlobals(), locals);
+            
+            Response nanoResponse = new Response(response.status, response.mimeType, response.getData());
+            nanoResponse.header = response.headers;
+
+            return nanoResponse;
+            
+        } catch (Exception exc) {
+            _logger.warn("Unexpected exception during PySP filter.", exc);
+
+            return prepareExceptionMessageResponse(HTTP_INTERNALERROR, exc, params.contains("trace"));
+            
+        } finally {
+            try {
+                python.getLocals().__delitem__(responseVariable.intern());
+            } catch (Exception ignore) {
+            }         
+        }
+    }
+
 } // (class)

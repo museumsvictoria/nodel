@@ -14,8 +14,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.nodel.SimpleName;
 import org.nodel.Strings;
 import org.nodel.host.Binding;
@@ -27,17 +25,20 @@ import org.nodel.host.ParameterBinding;
 import org.nodel.host.ParameterBindings;
 import org.nodel.host.RemoteBindings;
 import org.nodel.reflection.Serialisation;
+import org.python.core.PyDictionary;
 import org.python.core.PyFunction;
 import org.python.core.PyNone;
 import org.python.core.PyObject;
 import org.python.util.PythonInterpreter;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class BindingsExtractor {
     
     /**
      * (logging related)
      */
-    private static Logger s_logger = LogManager.getLogger(BindingsExtractor.class.getName());
+    private static Logger s_logger = LoggerFactory.getLogger(BindingsExtractor.class.getName());
     
     /**
      * Examines the Python interpreter, extracting all the parts that form the bindings and returns
@@ -149,6 +150,7 @@ public class BindingsExtractor {
             action.title = binding.title;
             action.desc = binding.desc;
             action.caution = binding.caution;
+            action.order = binding.order;
             
             bindings.remote.actions.put(entry.getKey(), action);
         }
@@ -162,6 +164,7 @@ public class BindingsExtractor {
             event.title = binding.title;
             event.desc = binding.desc;
             event.caution = binding.caution;
+            event.order = binding.order;
             
             bindings.remote.events.put(entry.getKey(), event);
         }
@@ -174,6 +177,8 @@ public class BindingsExtractor {
             
             paramBinding.group =  binding.group;
             paramBinding.title = binding.title;
+            paramBinding.desc = binding.desc;
+            paramBinding.order = binding.order;
             paramBinding.schema = binding.schema;
              
             bindings.params.put(entry.getKey(), paramBinding);
@@ -186,29 +191,47 @@ public class BindingsExtractor {
      * Creates a binding from the function definition.
      */
     private static Binding createBinding(SimpleName bindingName, PyObject definition, List<String> outWarnings) {
-        String asJSON = null;
-        if (!definition.getType().equals(PyNone.TYPE))
-            asJSON = definition.toString();
-
+        Exception exc = null;
         Binding binding = null;
-        if (!Strings.isNullOrEmpty(asJSON)) {
-            try {
-                binding = (Binding) Serialisation.coerceFromJSON(Binding.class, asJSON);
-            } catch (Exception exc) {
-                // ignore binding exception but note warning
-                String warnMessage = "Binding '" + bindingName + "' had invalid meta-data; ignoring - " + compressedErrorMessage(exc);
-                
-                outWarnings.add(warnMessage);
-                s_logger.warn(warnMessage);
+
+        try {
+            if (definition.getType().equals(PyDictionary.TYPE)) {
+                binding = (Binding) Serialisation.coerce(Binding.class, definition, String.class, Object.class);
+
+            } else {
+                String asJSONorTitle = null;
+
+                if (!definition.getType().equals(PyNone.TYPE)) {
+                    asJSONorTitle = definition.toString();
+                }
+
+                if (!Strings.isNullOrEmpty(asJSONorTitle)) {
+                    if (asJSONorTitle.startsWith("{")) {
+                        binding = (Binding) Serialisation.coerceFromJSON(Binding.class, asJSONorTitle);
+                    } else {
+                        binding = new Binding();
+                        binding.title = asJSONorTitle;
+                    }
+                }
             }
+        } catch (Exception e) {
+            exc = e;
         }
-        
+
+        if (exc != null) {
+            // ignore binding exception but note warning
+            String warnMessage = "Binding '" + bindingName + "' had invalid meta-data; ignoring - " + compressedErrorMessage(exc);
+
+            outWarnings.add(warnMessage);
+            s_logger.warn(warnMessage);
+        }
+
         if (binding == null)
             binding = new Binding();
 
         if (Strings.isNullOrEmpty(binding.title))
             binding.title = bindingName.getReducedName();
-
+        
         return binding;
     } // (method)
 

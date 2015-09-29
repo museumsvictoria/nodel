@@ -1,4 +1,4 @@
-package org.nodel.logging;
+package org.nodel.diagnostics;
 
 /* 
  * This Source Code Form is subject to the terms of the Mozilla Public

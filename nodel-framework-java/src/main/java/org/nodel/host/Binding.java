@@ -10,7 +10,6 @@ import java.util.HashMap;
 import java.util.Map;
 
 import org.nodel.SimpleName;
-import org.nodel.reflection.Reflection;
 import org.nodel.reflection.Serialisation;
 import org.nodel.reflection.Value;
 
@@ -20,6 +19,8 @@ import org.nodel.reflection.Value;
 public class Binding {
 
     public final static Binding[] EmptyArray = new Binding[0];
+    
+    public final static Binding Blank = new Binding();
     
     public final static Binding LocalEventExample;
     
@@ -39,13 +40,15 @@ public class Binding {
         LocalEventExample = new Binding();
         LocalEventExample.schema = null;
         LocalEventExample.title = "Sensor is triggered";
-        LocalEventExample.desc = "When this sensor is triggered."; 
+        LocalEventExample.desc = "When this sensor is triggered.";
+        LocalEventExample.order = 1;
         LocalEventExample.group = "General";
         
         LocalActionExample1 = new Binding();
         LocalActionExample1.schema = null;
         LocalActionExample1.title = "Turns on";
-        LocalActionExample1.desc = "Turns this node on."; 
+        LocalActionExample1.desc = "Turns this node on.";
+        LocalActionExample1.order = 2;
         LocalActionExample1.caution = "Ensure hardware is in a state to be turned on.";
         LocalActionExample1.group = "Power";
         
@@ -54,7 +57,8 @@ public class Binding {
         LocalActionExample2.schema.put("type", "integer");
         LocalActionExample2.schema.put("title", "Level");
         LocalActionExample2.title = "Adjust level";
-        LocalActionExample2.desc = "Adjusts a level."; 
+        LocalActionExample2.desc = "Adjusts a level.";
+        LocalActionExample2.order = 3;
         LocalActionExample2.group = "General";
         
         RemoteActionExampleName = new SimpleName("TurnProjectorOn");
@@ -62,6 +66,7 @@ public class Binding {
         RemoteActionExample.title = "Turn on";
         RemoteActionExample.desc = "Turns on the device.";
         RemoteActionExample.group = "Power";
+        RemoteActionExample.order = 4;
         RemoteActionExample.schema = null;
         
         RemoteEventExampleName = new SimpleName("SensorTriggered");
@@ -69,21 +74,26 @@ public class Binding {
         RemoteEventExample.title = "Sensor triggered";
         RemoteEventExample.desc = "Occurs when the sensor is triggered.";
         RemoteEventExample.group = "Sensing";
+        RemoteEventExample.order = 5;
         RemoteEventExample.schema = null;
     } // (static)
     
     /**
-     * General constructor.
+     * (blank for deserialisation)
      */
     public Binding() {
     }
     
     /**
-     * Constructs given a Python definition string.
+     * Constructor
      */
-    public Binding(String jsonDefinitionStr) {
-        Binding binding = (Binding) Serialisation.coerceFromJSON(Binding.class, jsonDefinitionStr);
-        Reflection.shallowCopy(binding, this);
+    public Binding(String title, String desc, String group, String caution, double order, Map<String, Object> schema) {
+        this.title = title;
+        this.group = group;
+        this.desc = desc;
+        this.caution = caution;
+        this.order = order;
+        this.schema = schema;
     }
     
     @Value(name = "title", title = "Title", order = 2)
@@ -100,6 +110,9 @@ public class Binding {
     
     @Value(name = "caution", title = "Caution", order = 6)
     public String caution;
+    
+    @Value(name = "order", title = "order", order = 7)
+    public double order;
     
     public String toString() {
         return Serialisation.serialise(this); 

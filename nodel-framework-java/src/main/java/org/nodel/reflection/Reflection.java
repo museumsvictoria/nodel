@@ -259,7 +259,7 @@ public class Reflection {
         Member defaultServiceMember = null;
         
         for (ValueInfo value : valueInfos) {
-            if (value.annotation.treatAsDefaultValue())
+            if (value.treatAsDefaultValue)
                 defaultValueMember = value.member;
         } // (for)
         
@@ -409,16 +409,13 @@ public class Reflection {
         if (valueAnnotation == null)
             return false;
 
-        ValueInfo fieldInfo = new ValueInfo();
+        ValueInfo fieldInfo = new ValueInfo(valueAnnotation);
 
         // fallback to the field/method name if the annotated name is left unspecified.
-        fieldInfo.name = valueAnnotation.name();
         if (Strings.isNullOrEmpty(fieldInfo.name))
             fieldInfo.name = member.getName();
-
         
         fieldInfo.member = (actualMember == null ? member : actualMember);
-        fieldInfo.annotation = valueAnnotation;
 
         fieldInfos.add(fieldInfo);
 

@@ -14,11 +14,13 @@ import org.nodel.reflection.Value;
  */
 public class BootstrapConfig {
     
-    public final static BootstrapConfig Default;
+    public final static BootstrapConfig Example;
     
     static {
-        Default = new BootstrapConfig();
-        Default.networkInterface = Base64.decode("Enc3lXyJ");
+        Example = new BootstrapConfig();
+        Example.networkInterface = Base64.decode("Enc3lXyJ");
+        Example.inclFilters = new String[] { "Main Campus *", "Campus 2*" };
+        Example.exclFilters = new String[] { "Campus 3*" };
     }
     
     public final static int DEFAULT_NODELHOST_PORT = 8085;
@@ -144,6 +146,48 @@ public class BootstrapConfig {
     
     public void setEnableProgramLogging(boolean value) {
         this.enableProgramLogging = value;
+    }
+    
+
+    public final static String DEFAULT_LOG_DIRECTORY = "logs";
+
+    @Value(name = "logsDirectory", title = "Logs directory", order = 1050, required = false,
+            desc = "Can be relative or absolute path.")
+    private String logsDirectory = DEFAULT_LOG_DIRECTORY;
+
+    public String getLogsDirectory() {
+        return this.logsDirectory;
+    }
+
+    public void setLogsDirectory(String value) {
+        this.logsDirectory = value;
+    }    
+    
+
+    @Value(name = "inclFilters", title = "Node inclusions", order = 1100, required = false, 
+            desc = "If specified, exlusively hosts nodes (matched using simple glob-based pattern matching, e.g. 'Main Campus*'). " + 
+                   "Multiple patterns can be specified.")
+    private String[] inclFilters = null;
+
+    public String[] getInclFilters() {
+        return this.inclFilters;
+    }
+
+    public void setIncludes(String[] include) {
+        this.inclFilters = include;
+    }
+    
+    @Value(name = "exclFilters", title = "Node exclusions", order = 1200, required = false, 
+            desc = "If specified, opts-out node hosting (matched using simple glob-based pattern matching, e.g. 'Campus 2*'). " + 
+                   "Multiple patterns can be specified.")
+    private String[] exclFilters = null;
+
+    public String[] getExclFilters() {
+        return this.exclFilters;
+    }
+
+    public void setExclFilters(String[] exclude) {
+        this.exclFilters = exclude;
     }    
 
 } // (class)

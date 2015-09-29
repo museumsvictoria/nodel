@@ -54,6 +54,11 @@ public @interface Value {
     public boolean required() default true;
     
     /**
+     * Whether or not this is considered an advanced field. 
+     */
+    public boolean advanced() default false;
+    
+    /**
      * Holds if generics are being used.
      * 'Type A' would apply to Lists and Map keys.
      */

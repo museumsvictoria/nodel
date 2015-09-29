@@ -10,7 +10,6 @@ import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.util.concurrent.atomic.AtomicLong;
 
-import org.apache.logging.log4j.Level;
 import org.joda.time.DateTime;
 import org.nodel.Strings;
 import org.nodel.reflection.Value;
@@ -47,25 +46,42 @@ public class LogEntry {
      * Constructs a log entry from a basic set of logging info.
      */
     public LogEntry(DateTime timestamp, Level level, String tag, String msg, Throwable tr) {
+        init(timestamp, level, tag, msg);
+        
+        // capture stack trace
+        if (tr != null)
+            this.error = captureStackTrace(tr);
+    }    
+    
+    /**
+     * (when a captured stack trace is already available)
+     */
+    public LogEntry(DateTime timestamp, Level level, String tag, String msg, String capturedStackTrace) {
+        init(timestamp, level, tag, msg);
+
+        if (capturedStackTrace != null)
+            this.error = capturedStackTrace;
+    }
+    
+    /**
+     * (common initialisation)
+     */
+    private void init(DateTime timestamp, Level level, String tag, String msg) {
         this.timestamp = timestamp;
         this.level = level;
         this.tag = tag;
         this.message = msg;
 
-        // capture stack trace
-        if (tr != null)
-            this.error = captureStackTrace(tr);
-
         // capture thread info
         Thread currentThread = Thread.currentThread();
         String threadName = currentThread.getName();
-        this.thread = !Strings.isNullOrEmpty(threadName) ? threadName : String.valueOf(currentThread.getId());
+        this.thread = !Strings.isNullOrEmpty(threadName) ? threadName : String.valueOf(currentThread.getId());        
     }
 
     /**
      * Captures an exception's stack-trace.
      */
-    private static String captureStackTrace(Throwable currentExc) {
+    public static String captureStackTrace(Throwable currentExc) {
         StringWriter sw = new StringWriter();
         PrintWriter pw = new PrintWriter(sw);
 

@@ -6,6 +6,8 @@ package org.nodel.core;
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. 
  */
 
+import java.util.Map;
+
 import org.nodel.reflection.Serialisation;
 import org.nodel.reflection.Value;
 
@@ -34,6 +36,11 @@ public class ChannelMessage {
      */
     @Value(name = "actions", order = 3)    
     public String[] actions;
+    
+    /**
+     * Node's self, its actions' and events' schema
+     */    
+    public Map<String, Object> schema;    
     
     /**
      * The action to call.

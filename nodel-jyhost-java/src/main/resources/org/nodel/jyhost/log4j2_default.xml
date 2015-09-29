@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!-- see http://logging.apache.org/log4j/2.x/manual/layouts.html -->
-<configuration>
+<configuration packages="org.nodel.jyhost">
     <appenders>
         <Console name="Console" target="SYSTEM_OUT">
             <PatternLayout pattern="%d{yy-MM-dd HH:mm:ss.SSS} [%-20t] %-5level %-44logger{36} %-20method - %msg%n" />

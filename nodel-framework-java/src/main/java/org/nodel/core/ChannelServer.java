@@ -12,11 +12,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
 
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.nodel.Handler;
 import org.nodel.SimpleName;
 import org.nodel.threading.ThreadPool;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Base class for class acting as a Nodel channel server.
@@ -31,7 +31,7 @@ public abstract class ChannelServer {
     /**
      * (threading)
      */
-    private static ThreadPool s_threadPool = new ThreadPool("channel_server", 128);
+    private static ThreadPool s_threadPool = new ThreadPool("Nodel channel-servers", 128);
 
     /**
      * (logging)
@@ -41,7 +41,7 @@ public abstract class ChannelServer {
     /**
      * (logging)
      */
-    protected Logger _logger = LogManager.getLogger(String.format("%s.%s_%d", ChannelServer.class.getName(), this.getClass().getSimpleName(), _instance));
+    protected Logger _logger = LoggerFactory.getLogger(String.format("%s.%s_%d", ChannelServer.class.getName(), this.getClass().getSimpleName(), _instance));
 
     /**
      * Instance signal / lock.

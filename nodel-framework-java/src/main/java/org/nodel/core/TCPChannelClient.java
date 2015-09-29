@@ -13,14 +13,15 @@ import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.io.Writer;
 import java.net.Socket;
-import java.util.concurrent.atomic.AtomicLong;
 
 import javax.net.SocketFactory;
 
 import org.nodel.DateTimes;
-import org.nodel.logging.AtomicLongMeasurementProvider;
-import org.nodel.logging.CountableInputStream;
-import org.nodel.logging.CountableOutputStream;
+import org.nodel.diagnostics.CountableInputStream;
+import org.nodel.diagnostics.CountableOutputStream;
+import org.nodel.diagnostics.Diagnostics;
+import org.nodel.diagnostics.LongSharableMeasurementProvider;
+import org.nodel.diagnostics.SharableMeasurementProvider;
 import org.nodel.reflection.Serialisation;
 
 /**
@@ -31,30 +32,22 @@ public class TCPChannelClient extends ChannelClient {
     /**
      * (diagnostics)
      */
-    private static AtomicLong s_dataInCounter = new AtomicLong();
+    private static SharableMeasurementProvider s_dataInCounter = new LongSharableMeasurementProvider();
     
     /**
      * (diagnostics)
      */    
-    private static AtomicLong s_dataInOpsCounter = new AtomicLong();
-    
-    /**
-     * (diagnostics)
-     */    
-    private static AtomicLong s_dataOutCounter = new AtomicLong();
-    
-    /**
-     * (diagnostics)
-     */    
-    private static AtomicLong s_dataOutOpsCounter = new AtomicLong();
+    private static SharableMeasurementProvider s_dataOutCounter = new LongSharableMeasurementProvider();
     
     /**
      * (diagnostics)
      */
     static {
-        Framework.shared().registerCounter("tcp_client_in", new AtomicLongMeasurementProvider(s_dataInCounter), true);
-        Framework.shared().registerCounter("tcp_client_out", new AtomicLongMeasurementProvider(s_dataOutCounter), true);
-    }    
+        Diagnostics.shared().registerCounter("Nodel TCP client channels.Receive rate", s_dataInCounter, true);
+        Diagnostics.shared().registerCounter("Nodel TCP client channels.Send rate", s_dataOutCounter, true);
+        
+        // note: 'op' counts are selectively excluded for brevity
+    }
 
     /**
      * Started or not. 
@@ -106,8 +99,6 @@ public class TCPChannelClient extends ChannelClient {
     @Override
     protected void start() {
         synchronized(this._signal) {
-            _logger.entry();
-            
             if (_started)
                 throw new IllegalStateException("Already started.");
             
@@ -150,14 +141,12 @@ public class TCPChannelClient extends ChannelClient {
     
     private void processSocket(Socket socket) throws IOException {
         synchronized (this._signal) {
-            _logger.entry();
-            
             _socket = socket;
 
             // both 'input' and 'output' will be cleaned up via the
             // 'this.socket.close()'.
-            CountableInputStream input = new CountableInputStream(_socket.getInputStream(), s_dataInOpsCounter, s_dataInCounter);
-            CountableOutputStream output = new CountableOutputStream(_socket.getOutputStream(), s_dataOutOpsCounter, s_dataOutCounter);
+            CountableInputStream input = new CountableInputStream(_socket.getInputStream(), SharableMeasurementProvider.Null.INSTANCE, s_dataInCounter);
+            CountableOutputStream output = new CountableOutputStream(_socket.getOutputStream(), SharableMeasurementProvider.Null.INSTANCE, s_dataOutCounter);
 
             // need to buffer in the input since arriving via socket.
             _reader = new JSONStreamReader(new BufferedReader(new InputStreamReader(input)));
@@ -195,8 +184,6 @@ public class TCPChannelClient extends ChannelClient {
     @Override
     public boolean isConnected() {
         synchronized (this._signal) {
-            _logger.entry();
-            
             return _socket != null;
         }
     } // (method)
@@ -292,8 +279,6 @@ public class TCPChannelClient extends ChannelClient {
     @Override
     public void close() {
         synchronized (this._signal) {
-            _logger.entry();
-            
             _enabled = false;
             
             // clean up and back-off if still enabled

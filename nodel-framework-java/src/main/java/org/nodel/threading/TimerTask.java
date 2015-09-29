@@ -10,22 +10,29 @@ package org.nodel.threading;
  * The specialised timer task class for use with the Timers class in this package.
  */
 public abstract class TimerTask implements Runnable {
-    
+
+    private boolean _cancelled;
+
     /**
      * The native Java timer-task.
      */
     java.util.TimerTask nativeTimerTask;
-    
+
     /**
      * The timer callback.
      */
     public abstract void run();
-    
+
     /**
      * Cancels this timer.
      */
     public void cancel() {
+        _cancelled = true;
         this.nativeTimerTask.cancel();
     }
-    
+
+    public boolean isCancelled() {
+        return _cancelled;
+    }
+
 } // (method)

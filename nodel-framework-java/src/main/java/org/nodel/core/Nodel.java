@@ -12,6 +12,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicLong;
 
 import org.nodel.Handler;
 import org.nodel.Handlers;
@@ -21,13 +22,31 @@ import org.nodel.core.NodelClients.NodeURL;
 import org.nodel.discovery.AdvertisementInfo;
 import org.nodel.discovery.AutoDNS;
 
+// TODO: use one of these to implement character normalisation:
+// http://stackoverflow.com/questions/1008802/converting-symbols-accent-letters-to-english-alphabet
+
 public class Nodel {
 
-	private final static String VERSION = "2.0.7";
+	private final static String VERSION = "2.0.8-lumi";
 	
 	public static String getVersion() {
 		return VERSION;
 	}
+	
+    /**
+     * For sequence counting, starting at current time to get a unique, progressing sequence number every 
+     * time (regardless of restart).
+     */
+    private static AtomicLong s_seqCounter = new AtomicLong(System.currentTimeMillis());
+    
+    public static long getSeq() {
+        return s_seqCounter.get();
+    }
+    
+    public static long getNextSeq() {
+        return s_seqCounter.getAndIncrement();
+    }
+   
 
     /**
      * Performs string matching using Nodel reduction rules i.e. lower-case, no spaces, only letters and digits.
@@ -57,6 +76,12 @@ public class Nodel {
             
             if (Character.isLetterOrDigit(c))
                 sb.append(c);
+            
+            else if (c <= 32)
+                continue;
+            
+            else if (c > 127)
+                sb.append(c);            
         } // (for)
         
         return sb.toString();
@@ -66,18 +91,48 @@ public class Nodel {
      * Reduces a string into a simple comparable version i.e. lower-case, no spaces, only letters and digits. 
      */
     public static String reduceToLower(String name) {
+        return reduceToLower(name, null);
+    }    
+    
+    /**
+     * (overloaded)
+     * 'ignore' - A list of characters pass-through regardless.
+     */
+    public static String reduceToLower(String name, char[] passthrough) {
         int len = name.length();
         StringBuilder sb = new StringBuilder(len);
 
         for (int a = 0; a < len; a++) {
             char c = name.charAt(a);
             
-            if (Character.isLetterOrDigit(c))
+            if (passthrough != null && isPresent(c, passthrough))
+                sb.append(Character.toLowerCase(c));
+            
+            else if (Character.isLetterOrDigit(c))
+                sb.append(Character.toLowerCase(c));
+            
+            else if (c <= 32)
+                continue;
+            
+            else if (c > 127)
                 sb.append(Character.toLowerCase(c));
         } // (for)
         
         return sb.toString();
-    } // (method)    
+    } // (method)
+    
+    /**
+     * Returns true if a character is present in a list of them (held within a string)
+     * ('chars' must be pre-checked)
+     */
+    private static boolean isPresent(char c, char[] chars) {
+        int len = chars.length;
+        for (int a = 0; a < len; a++) {
+            if (chars[a] == c)
+                return true;
+        }
+        return false;
+    }
     
     /**
      * Reduces a string into a simple comparable version i.e. lower-case, no spaces, only letters and digits.
@@ -235,6 +290,45 @@ public class Nodel {
         httpPort = value;
     }
     
+    public static String s_httpAddress;
+
+    public static void updateHTTPAddress(String httpAddress) {
+        s_httpAddress = httpAddress;
+    }
+    
+    public static String getHTTPAddress() {
+        return s_httpAddress;
+    }
+    
+    /**
+     * (see public getter / setter)
+     */
+    private static int webSocketPort;
+
+    /**
+     * The WebSocket port for this environment.
+     */
+    public static int getWebSocketPort() {
+        return webSocketPort;
+    }
+    
+    /**
+     * Sets the WebSocket port for this environment.
+     */
+    public static void setWebSocketPort(int value) {
+        webSocketPort = value;
+    }
+    
+    public static String s_webSocketAddress;
+
+    public static void updateWebSocketAddress(String webSocketAddress) {
+        s_webSocketAddress = webSocketAddress;
+    }
+    
+    public static String getWebSocketAddress() {
+        return s_webSocketAddress;
+    }    
+    
     /**
      * The default HTTP suffix (e.g. '/nodes/%NODE%/')
      */
@@ -332,5 +426,4 @@ public class Nodel {
         return s_agent;
     }
     
-    
-} // (class)
+}

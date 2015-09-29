@@ -41,6 +41,9 @@ public class NodelEventInfo {
     @Value(name = "caution", title = "Caution", order = 7, required = false)
     public String caution;
     
+    @Value(name = "order", title = "Order", order = 8, required = false)
+    public double order;
+    
     public String toString() {
         return Serialisation.serialise(this); 
     }

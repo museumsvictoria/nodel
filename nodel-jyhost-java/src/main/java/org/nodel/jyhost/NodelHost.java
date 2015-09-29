@@ -8,6 +8,7 @@ package org.nodel.jyhost;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -18,18 +19,19 @@ import java.util.Map.Entry;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
 
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.nodel.Handler;
 import org.nodel.SimpleName;
-import org.nodel.core.Framework;
+import org.nodel.Strings;
 import org.nodel.core.Nodel;
 import org.nodel.core.NodelClients.NodeURL;
+import org.nodel.diagnostics.AtomicLongMeasurementProvider;
+import org.nodel.diagnostics.Diagnostics;
 import org.nodel.discovery.AdvertisementInfo;
-import org.nodel.logging.AtomicLongMeasurementProvider;
 import org.nodel.threading.ThreadPool;
 import org.nodel.threading.TimerTask;
 import org.nodel.threading.Timers;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * A nodel host is responsible for spawning and managing nodes. 
@@ -55,23 +57,23 @@ public class NodelHost {
      * (diagnostics)
      */
     static {
-        Framework.shared().registerCounter("nodel_host_nodecount", new AtomicLongMeasurementProvider(s_nodesCounter), false);
+        Diagnostics.shared().registerCounter("Nodel host.Node count", new AtomicLongMeasurementProvider(s_nodesCounter), false);
     }
 
     /**
      * (logging related)
      */
-    protected Logger _logger = LogManager.getLogger(this.getClass().getName() + "_" + s_instanceCounter.getAndIncrement());
+    protected Logger _logger = LoggerFactory.getLogger(this.getClass().getName() + "_" + s_instanceCounter.getAndIncrement());
     
     /**
      * (threading)
      */
-    private ThreadPool _threadPool = new ThreadPool("nodel_host", 128);
+    private ThreadPool _threadPool = new ThreadPool("Nodel host", 128);
     
     /**
      * (threading)
      */
-    private Timers _timerThread = new Timers("nodel_host");
+    private Timers _timerThread = new Timers("Nodel host");
     
     /**
      * General purpose lock / signal.
@@ -93,17 +95,31 @@ public class NodelHost {
      * Reflects the current running node configuration.
      */
     private Map<SimpleName, PyNode> _nodeMap = Collections.synchronizedMap(new HashMap<SimpleName, PyNode>());
+
+    /**
+     * (will/must never be null)
+     */
+    private List<String[]> _inclTokensFilters = Collections.emptyList();
+    
+    /**
+     * (will/must never be null)
+     */
+    private List<String[]> _exclTokensFilters = Collections.emptyList();
     
     /**
      * Constructs a new NodelHost and returns immediately.
      */
-    public NodelHost(File root) {
+    public NodelHost(File root, String[] inclFilters, String[] exclFilters) {
         if (root == null)
             _root = new File(".");
         else
             _root = root;
         
         _logger.info("NodelHost initialised. root='{}'", root.getAbsolutePath());
+        
+        // 'compile' the tokens list
+        _inclTokensFilters = intoTokensList(inclFilters);
+        _exclTokensFilters = intoTokensList(exclFilters);
         
         // attach to some error handlers
         Nodel.attachNameRegistrationFaultHandler(new Handler.H2<SimpleName, Exception>() {
@@ -159,13 +175,23 @@ public class NodelHost {
         // (do this outside synchronized loop because it is IO dependent)
         Map<SimpleName, File> currentFolders = new HashMap<SimpleName, File>();
         for (File file : _root.listFiles()) {
-            // (skip "_" prefixed and 'New folder' names)
-            if (file.isDirectory() && !file.getName().startsWith("_") && (!file.getName().equalsIgnoreCase("New folder"))) {
-                currentFolders.put(new SimpleName(file.getName()), file);
+            // only include directories
+            if (file.isDirectory()) {
+                String filename = file.getName();
+                
+                // skip '_*' nodes...
+                if (!filename.startsWith("_")
+                        // ... skip 'New folder' folders and
+                        && !filename.equalsIgnoreCase("New folder")
+
+                        // apply any applicable inclusion / exclusion filters
+                        && shouldBeIncluded(filename))
+                    
+                    currentFolders.put(new SimpleName(file.getName()), file);
             }
         } // (for)
-        
-        synchronized(_signal) {
+
+        synchronized (_signal) {
             // find all those that are not in current node map
             Map<SimpleName,File> newFolders = new HashMap<SimpleName,File>();
             
@@ -229,6 +255,63 @@ public class NodelHost {
         }
     } // (method)
     
+    /**
+     * Processes a name through inclusion and exclusion lists.
+     * (convenience instance function)
+     */
+    public boolean shouldBeIncluded(String name) {
+        SimpleName simpleName = new SimpleName(name);
+        
+        // using filtering? 
+        boolean filteringIn = false;
+
+        // by default, it's included
+        boolean include = true;
+
+        // check if any exclusive inclusion filters apply
+        if (_inclTokensFilters != null) {
+            int len = _inclTokensFilters.size();
+
+            for (int a = 0; a < len; a++) {
+                // got at least one inclusion filter, so flip the mode
+                // and wait for inclusion filter to match
+                if (!filteringIn) {
+                    filteringIn = true;
+                    include = false;
+                }
+
+                String[] inclTokens = _inclTokensFilters.get(a);
+
+                if (SimpleName.wildcardMatch(simpleName, inclTokens)) {
+                    // flag it can be included and...
+                    include = true;
+
+                    // ...can bail out after first match
+                    break;
+                }
+            }
+        }
+
+        // now check if there are any "opt-outs"
+        if (_exclTokensFilters != null) {
+            int len = _exclTokensFilters.size();
+
+            for (int a = 0; a < len; a++) {
+                String[] exclTokens = _exclTokensFilters.get(a);
+
+                if (SimpleName.wildcardMatch(simpleName, exclTokens)) {
+                    // flag it must be excluded
+                    include = false;
+
+                    // ... bail out
+                    break;
+                }
+            }
+        }
+
+        return include;
+    }
+    
     public Collection<AdvertisementInfo> getAdvertisedNodes() {
         return Nodel.getAllNodes();
     }
@@ -259,6 +342,27 @@ public class NodelHost {
         }
         
         Nodel.shutdown();
-    } // (method)
+    }
     
-} // (class)
+    /**
+     * Converts a list of simple filters into tokens that are used more efficiently later when matching.
+     */
+    private static List<String[]> intoTokensList(String[] filters) {
+        if (filters == null)
+            return Collections.emptyList();
+
+        List<String[]> list = new ArrayList<String[]>();
+
+        for (int a = 0; a < filters.length; a++) {
+            String filter = filters[a];
+            if (Strings.isNullOrEmpty(filter))
+                continue;
+
+            String[] tokens = SimpleName.wildcardMatchTokens(filter);
+            list.add(tokens);
+        }
+
+        return list;
+    }
+    
+}

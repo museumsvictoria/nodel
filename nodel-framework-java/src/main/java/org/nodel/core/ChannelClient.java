@@ -15,8 +15,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
 
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.nodel.Handler;
 import org.nodel.SimpleName;
 import org.nodel.Tuple;
@@ -25,6 +23,8 @@ import org.nodel.reflection.Value;
 import org.nodel.threading.ThreadPool;
 import org.nodel.threading.TimerTask;
 import org.nodel.threading.Timers;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Manages a channel client, including connection, etc.
@@ -36,9 +36,9 @@ public abstract class ChannelClient {
      */
     private static AtomicLong s_instance = new AtomicLong();
     
-    protected static ThreadPool s_threadPool = new ThreadPool("channel_client", 128);
+    protected static ThreadPool s_threadPool = new ThreadPool("Nodel channel-clients", 128);
     
-    protected static Timers s_timerThread = new Timers("channel_client");
+    protected static Timers s_timerThread = new Timers("Nodel channel-clients");
     
     /**
      * (logging related)
@@ -49,7 +49,7 @@ public abstract class ChannelClient {
     /**
      * (logging related)
      */
-    protected Logger _logger = LogManager.getLogger(String.format("%s.%s_%d", ChannelClient.class.getName(), this.getClass().getSimpleName(), _instance));
+    protected Logger _logger = LoggerFactory.getLogger(String.format("%s.%s_%d", ChannelClient.class.getName(), this.getClass().getSimpleName(), _instance));
     
     /**
      * Instance signal / lock.
@@ -253,8 +253,6 @@ public abstract class ChannelClient {
         List<Tuple.T3<SimpleName, Set<SimpleName>, Set<SimpleName>>> faultsToDealWith = new ArrayList<Tuple.T3<SimpleName, Set<SimpleName>, Set<SimpleName>>>();
         
         synchronized (_signal) {
-            _logger.entry();
-            
             for(SimpleName node : _wiringPointsByNode.keySet()) {
                 WiringPointEntry entry = _wiringPointsByNode.get(node);
                 
@@ -339,8 +337,6 @@ public abstract class ChannelClient {
      */
     public void registerActionInterest(NodelPoint actionPoint) {
         synchronized(_signal) {
-            _logger.entry();
-            
             if (_actionPoints.containsKey(actionPoint)) {
                 // only needs to have been registered once
                 return;
@@ -400,8 +396,6 @@ public abstract class ChannelClient {
      * When the channel first connects.
      */
     protected void onConnected() {
-        _logger.entry();
-        
         Handler.handle(_connectedHandler);
     } // (method)
     
@@ -409,8 +403,6 @@ public abstract class ChannelClient {
      * When a permanent channel fault occurs.
      */
     private void onWiringSuccess(final SimpleName node, final Set<SimpleName> actions, final Set<SimpleName> events) {
-        _logger.entry();
-        
         Handler.handle(_wiringSuccessHandler, node, actions, events);
     } // (method)    
     
@@ -419,8 +411,6 @@ public abstract class ChannelClient {
      * (assumes locked)
      */
     protected void onConnectionFault(final Exception exc) {
-        _logger.entry();
-        
         Handler.handle(_connectionFaultHandler, exc);
     } // (method)
     
@@ -428,8 +418,6 @@ public abstract class ChannelClient {
      * When a permanent channel fault occurs.
      */
     private void onWiringFault(final SimpleName node, final Set<SimpleName> missingActions, final Set<SimpleName> missingEvents) {
-        _logger.entry();
-        
         Handler.handle(_wiringFaultHandler, node, missingActions, missingEvents);
     } // (method)
     
@@ -517,8 +505,6 @@ public abstract class ChannelClient {
      */
     public void attachConnectedHandler(Handler.H0 handler) {
         synchronized (_signal) {
-            _logger.entry();
-            
             if (_connectedHandler != null && handler != null)
                 throw new IllegalArgumentException("Handler is already set; must be cleared first using 'null'.");
 
@@ -531,8 +517,6 @@ public abstract class ChannelClient {
      */
     public void attachWiringSuccessHandler(Handler.H3<SimpleName, Set<SimpleName>, Set<SimpleName>> handler) {
         synchronized (_signal) {
-            _logger.entry();
-            
             if (_wiringSuccessHandler != null && handler != null)
                 throw new IllegalArgumentException("Handler is already set; must be cleared first using 'null'.");
 
@@ -546,8 +530,6 @@ public abstract class ChannelClient {
      */
     public void attachConnectionFaultHandler(Handler.H1<Exception> handler) {
         synchronized (_signal) {
-            _logger.entry();
-            
             if (_connectionFaultHandler != null && handler != null)
                 throw new IllegalArgumentException("Handler is already set; must be cleared first using 'null'.");
 
@@ -561,8 +543,6 @@ public abstract class ChannelClient {
      */
     public void attachWiringFaultHandler(Handler.H3<SimpleName, Set<SimpleName>, Set<SimpleName>> handler) {
         synchronized (_signal) {
-            _logger.entry();
-            
             if (_wiringFaultHandler != null && handler != null)
                 throw new IllegalArgumentException("Handler is already set; must be cleared first using 'null'.");
 
@@ -574,8 +554,6 @@ public abstract class ChannelClient {
      * Handles in incoming Channel packet.
      */
     protected void handleMessage(final ChannelMessage message) {
-            _logger.entry();
-            
             _logger.info("Client: message arrived: " + message);
             
             // received an 'event'
@@ -708,8 +686,6 @@ public abstract class ChannelClient {
      */
     public void close() {
         synchronized (_signal) {
-            _logger.entry();
-            
             this._enabled = false;
         }        
     }

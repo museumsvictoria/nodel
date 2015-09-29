@@ -13,11 +13,12 @@ import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.net.Socket;
 import java.util.LinkedList;
-import java.util.concurrent.atomic.AtomicLong;
 
-import org.nodel.logging.AtomicLongMeasurementProvider;
-import org.nodel.logging.CountableInputStream;
-import org.nodel.logging.CountableOutputStream;
+import org.nodel.diagnostics.CountableInputStream;
+import org.nodel.diagnostics.CountableOutputStream;
+import org.nodel.diagnostics.Diagnostics;
+import org.nodel.diagnostics.LongSharableMeasurementProvider;
+import org.nodel.diagnostics.SharableMeasurementProvider;
 import org.nodel.reflection.Serialisation;
 
 /**
@@ -50,29 +51,29 @@ public class TCPChannelServer extends ChannelServer {
     /**
      * (diagnostics)
      */
-    private static AtomicLong s_dataInCounter = new AtomicLong();
+    private static SharableMeasurementProvider s_dataInCounter = new LongSharableMeasurementProvider();
     
     /**
      * (diagnostics)
      */    
-    private static AtomicLong s_dataInOpsCounter = new AtomicLong();
+    private static SharableMeasurementProvider s_dataInOpsCounter = new LongSharableMeasurementProvider();
     
     /**
      * (diagnostics)
      */    
-    private static AtomicLong s_dataOutCounter = new AtomicLong();
+    private static SharableMeasurementProvider s_dataOutCounter = new LongSharableMeasurementProvider();
     
     /**
      * (diagnostics)
      */    
-    private static AtomicLong s_dataOutOpsCounter = new AtomicLong();
+    private static SharableMeasurementProvider s_dataOutOpsCounter = new LongSharableMeasurementProvider();
     
     /**
      * (diagnostics)
      */
     static {
-        Framework.shared().registerCounter("tcp_server_in", new AtomicLongMeasurementProvider(s_dataInCounter), true);
-        Framework.shared().registerCounter("tcp_server_out", new AtomicLongMeasurementProvider(s_dataOutCounter), true);
+        Diagnostics.shared().registerCounter("Nodel TCP server channels.Receives", s_dataInCounter, true);
+        Diagnostics.shared().registerCounter("Nodel TCP server channels.Sends", s_dataOutCounter, true);
     }
     
     /**
@@ -248,7 +249,7 @@ public class TCPChannelServer extends ChannelServer {
                 if (this._enabled) {
                     wasEnabled = true;
                     
-                    this._logger.warn("Unexpected exception occurred, pulling down channel server.", exc);
+                    this._logger.info("Unexpected exception occurred; this may be natural. Pulling down channel server.", exc);
 
                     cleanup();
                 }

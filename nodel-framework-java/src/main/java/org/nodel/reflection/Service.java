@@ -21,7 +21,7 @@ public @interface Service {
 	/**
 	 * The strict name/id/alias to use for the value.
 	 */
-	public String name() default "";
+	public String name();
 
 	/**
 	 * A short title for the value.

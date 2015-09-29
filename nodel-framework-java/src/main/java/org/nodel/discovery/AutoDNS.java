@@ -12,12 +12,12 @@ import java.lang.reflect.Method;
 import java.net.InetAddress;
 import java.util.Collection;
 
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.nodel.SimpleName;
 import org.nodel.Strings;
 import org.nodel.core.NodeAddress;
 import org.nodel.reflection.Service;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * This class is used to provide the discovery services. By default, the NodelAutoDNS class is used
@@ -25,7 +25,7 @@ import org.nodel.reflection.Service;
  */
 public abstract class AutoDNS implements Closeable {
     
-    private static Logger s_logger = LogManager.getLogger(AutoDNS.class);
+    private static Logger s_logger = LoggerFactory.getLogger(AutoDNS.class);
     
     public final static String IMPL_SYSTEMPROP = "org.nodel.discovery.impl";
     
@@ -123,6 +123,11 @@ public abstract class AutoDNS implements Closeable {
      */
     @Service(name = "list", title = "List", desc = "Retrieves the list of Node advertiseds.")
     public abstract Collection<AdvertisementInfo> list();
+    
+    /**
+     * Resolves a node into full adverisement info.
+     */
+    public abstract AdvertisementInfo resolve(SimpleName node);
     
     /**
      * Ensures a advertisement is pulled down.

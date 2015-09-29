@@ -1,6 +1,59 @@
 // set global ajax timeout and disable cache
 $.ajaxSetup({timeout: 30000, cache: false});
 
+// set globals
+var adv = false;
+var rld = false;
+var tim = 0;
+var opts = {};
+
+// override json parse and stringify
+var json_parse = JSON.parse;
+var json_stringify = JSON.stringify;
+var encpattern = /(^[0-9]|[^0-9a-zA-Z])/g;
+var decpattern = /__([0-9]+)__/g;
+
+var encodr = function(str){
+  return str.replace(encpattern, function(match, char){
+    return '__'+char.charCodeAt(0)+'__';
+  });
+};
+
+var decodr = function(str){
+  return str.replace(decpattern, function(match, code){
+    return String.fromCharCode(code);
+  });
+};
+
+JSON.stringify = function(data) {
+  return json_stringify(data, function (key, value) {
+    if (value && Object.prototype.toString.call(value) === '[object Object]') {
+      var replacement = {};
+      for (var k in value) {
+        if (Object.hasOwnProperty.call(value, k)) {
+          replacement[decodr(k)] = value[k];
+        }
+      }
+      return replacement;
+    }
+    return value;
+  });
+};
+
+JSON.parse = function(data) {
+  return json_parse(data, function (key, value) {
+    if (value && Object.prototype.toString.call(value) === '[object Object]') {
+      for (var k in value) {
+        if (/\./.test(k) && Object.hasOwnProperty.call(value, k)) {
+          value[encodr(k)] = value[k];
+          delete value[k];
+        }
+      }
+    }
+    return value;
+  });
+};
+
 // jsviews custom converter functions
 $.views.converters({
   // convert number to string
@@ -12,8 +65,8 @@ $.views.converters({
   strToInt: function (value) {
     return parseInt(value);
   },
-  // convert float to integer 
-  floatToInt: function (value) {
+  // convert string to float
+  strToFloat: function (value) {
     return parseFloat(value);
   }
 });
@@ -22,8 +75,7 @@ $.views.converters({
 $.views.helpers({
   // is a value defined
   isSet: function (value) {
-    if (typeof value !== "undefined") return true;
-    else return false;
+    return typeof value !== "undefined";
   },
   // is a value contained within an array
   isIn: function () {
@@ -56,7 +108,13 @@ function removeNulls(obj){
 
 // html special character encoder
 function htmlEncode(value) {
-  return $('<div/>').text(value).html();
+  if(typeof value == "undefined") return '';
+  else {
+    var specialchr = {'"': '&quot;', '&': '&amp;', "'": '&#39;', '/': '&#47;', '<': '&lt;', '>': '&gt;'};
+    return value.replace(/[\"&'\/<>]/g, function (a) {
+      return specialchr[a];
+    });
+  }
 }
 
 // customised jquery ajax function for posting JSON
@@ -89,9 +147,10 @@ $(function() {
         // set page details
         document.title = 'Nodel - '+node;
         $('#nodename').text(node);
-        if(data.desc) $('#nodename').after('<p>'+data.desc+'</p>');
+        if(data.desc) $('#nodename').after('<p>'+htmlEncode(data.desc)+'</p>');
         $('.logo img').attr('title', 'Nodel '+data.nodelVersion);
         if((typeof preinit !== "undefined") && ($.isFunction(preinit))){ preinit(data); }
+        $('body').data('config',data);
         // begin node UI initialisation
         init();
       }).error(function(){
@@ -112,17 +171,16 @@ var init = function() {
   // show the init block
   $('.init').show();
   // get any extra parameters from the query string
-  adv = getParameterByName('advanced');
-  rld = getParameterByName('reload');
-  tim = getParameterByName('timeout');
+  adv = getParameterByName('advanced') == 'true';
+  rld = getParameterByName('reload') == 'true';
+  tim = parseInt(getParameterByName('timeout')) || 0;
   // if a timeout parameter is specified, configure the default ajax handler
-  if(tim) $.ajaxSetup({timeout: parseInt(tim)+1000, cache: false});
-  else tim = 0;
+  if(tim) $.ajaxSetup({timeout: tim*1000, cache: false});
   // define the colours and icons for the activity display
   opts = {"local": {"event": {"colour": "#ff6a00","icon":"&#x25b2;"},"action":{"colour":"#9bed00","icon":"&#x25ba;"}}, "remote": {"event": {"colour":"#ce0071","icon":"&#x25bc;"},"action":{"colour":"#00a08a","icon":"&#x25c4;"},"eventBinding": {"colour":"#ce0071","icon":"&#x2194;"},"actionBinding":{"colour":"#00a08a","icon":"&#x2194;"}}, "unbound": {"event": {"colour":"#ce0071","icon":"&#x25ac;"},"action":{"colour":"#00a08a","icon":"&#x25ac;"}}};
   // define the variables used for the console function
-  execs = [];
-  execindex = -1;
+  var execs = [];
+  var execindex = -1;
   // retrieve the node parameters and bindings schema
   $.each(['params','remote'], function(key, form) {
     $.getJSON('http://'+host+'/REST/nodes/'+encodeURIComponent(node)+'/'+form+'/schema',"",
@@ -140,6 +198,13 @@ var init = function() {
       } else $('#'+form).replaceWith('<h5 class="pad">None</h5>');
     });
   });
+  var actions_list = ['init'];
+  var events_list = ['init'];
+  $('#actions, #events').on('ready', function(evt){
+    actions_list = jQuery.grep(actions_list, function(value){return value != evt.target.id;});
+    events_list = jQuery.grep(events_list, function(value){return value != evt.target.id;});
+    if(actions_list.length == 0 && events_list.length == 0) updateLogs();
+  });
   // retrieve the node actions
   $.getJSON('http://'+host+'/REST/nodes/'+encodeURIComponent(node)+'/actions',"",
   function(data) {
@@ -154,6 +219,9 @@ var init = function() {
     });
     // when all schemas have been retrieved, sort the actions alphabetically, then build
     $.when.apply($, actionsRequests).then(function (){
+      actions_list = $.map(actionsData, function(val){
+        return 'action_'+val.form.name;
+      });
       // sort
       actionsData.sort(function(a, b){
         var aName = a.form.name.toLowerCase();
@@ -188,7 +256,7 @@ var init = function() {
         }
         var name = (typeof form.title !== 'undefined') ? htmlEncode(form.title): form.name;
         // add a submit button to the template
-        template = template+'<button title="'+htmlEncode(form.desc)+'" class="'+cls.join(' ')+'"><span>'+opts.local.action.icon+'</span>'+name+'</button>';
+        template = template+'<button title="'+form.name+': '+htmlEncode(form.desc)+'" class="'+cls.join(' ')+'"><span>'+opts.local.action.icon+'</span>'+name+'</button>';
         // add the template to jsviews
         eval('$.templates({action_'+form.name+'Template: template})');
         // fill the template with data
@@ -196,7 +264,10 @@ var init = function() {
       });
     });
     // if there are no actions, display 'none'
-    if($.isEmptyObject(data)) $('#actions').append('<h5 class="pad">None</h5>');
+    if($.isEmptyObject(data)) {
+      actions_list = [];
+      $('#actions').trigger('ready').append('<h5 class="pad">None</h5>');
+    }
   });
   // retrieve the node events
   $.getJSON('http://'+host+'/REST/nodes/'+encodeURIComponent(node)+'/events',"",
@@ -212,6 +283,9 @@ var init = function() {
     });
     // when all schemas have been retrieved, sort the actions alphabetically, then build
     $.when.apply($, eventsRequests).then(function (){
+      events_list = $.map(eventsData, function(val){
+        return 'event_'+val.form.name;
+      });
       // sort
       eventsData.sort(function(a, b){
         var aName = a.form.name.toLowerCase();
@@ -241,12 +315,12 @@ var init = function() {
         } else $('#events').append(newform);
         // if a warning is required before submit, add an extra class to the submit handler and add a caution variable to the form data
         if(form.caution) {
-          cls.push('caution');          
+          cls.push('caution');
           $('#event_'+form.name).data('caution',form.caution);
         }
         var name = (typeof form.title !== 'undefined') ? htmlEncode(form.title): form.name;
         // add a submit button to the template
-        template = template+'<button title="'+htmlEncode(form.desc)+'" class="'+cls.join(' ')+'"><span>'+opts.local.event.icon+'</span>'+name+'</button>';
+        template = template+'<button title="'+form.name+': '+htmlEncode(form.desc)+'" class="'+cls.join(' ')+'"><span>'+opts.local.event.icon+'</span>'+name+'</button>';
         // add the template to jsviews
         eval('$.templates({event_'+form.name+'Template: template})');
         // fill the template with data and attach UI events
@@ -254,7 +328,10 @@ var init = function() {
       });
     });
     // if there are no actions, display 'none'
-    if($.isEmptyObject(data)) $('#events').append('<h5 class="pad">None</h5>');
+    if($.isEmptyObject(data)) {
+      events_list = [];
+      $('#events').trigger('ready').append('<h5 class="pad">None</h5>');
+    }
   });
   // define the script form schema
   var scriptSchema = JSON.parse('{"type":"object","required":false,"properties":{ "script": { "type":"string", "title":"Script", "required":false, "format":"long" }}}');
@@ -267,10 +344,8 @@ var init = function() {
   $.templates({script_editorTemplate: template});
   // fill the template with data
   buildForm('script', 'script_editor', [],'save', true);
-  // update the activity list
-  updateLogs();
   // check if reload has not been disabled (via query string) then begin checking if the page should be refreshed (node has restarted)
-  if(!rld || rld!="false") checkReload();
+  if(!rld) checkReload();
   // set the target for the console form (if it exists)
   if($('#consoleform').get(0)) $('#consoleform').get(0).setAttribute('action', '/REST/nodes/'+encodeURIComponent(node)+'/exec');
   // when the console form submit button is pressed, send the command
@@ -322,15 +397,26 @@ var init = function() {
        $('.advancededitor').slideDown();
        loadEditor();
       }
+      $('#events input, #events button').prop('disabled', false);
+      $('#events .array').removeClass('disabled');
       window.history.replaceState('','','http://'+host+'/nodes/'+node+'/?advanced=true');
     // if it is 'disabled', hide the advanced section
     } else {
+      $('#events input, #events button').prop('disabled', true);
+      $('#events .array').addClass('disabled');
       window.history.replaceState('','','http://'+host+'/nodes/'+node+'/');
       $('.advanced, .advancededitor').slideUp();
     }
   });
   // if advanced mode is specified on the query string, open it by default
   if(adv) $('#advancedmode').prop('checked', true).trigger('change');
+  $('#events').on('ready', function() {
+    // if 'advanced mode' and 'display editor' are already enabled, load the editor
+    if(!$('#advancedmode').prop('checked')) {
+      $('#events input, #events button').prop('disabled',true);
+      $('#events .array').addClass('disabled');
+    }
+  });
   // watch for the editor form to be rendered
   $('#script_editor').on('ready', function() {
     // if 'advanced mode' and 'display editor' are already enabled, load the editor
@@ -346,13 +432,13 @@ var init = function() {
     } else $('.advancededitor').slideUp();
   });
   // watch for clicks on all group or object block titles
-  $('body').on('click touchstart', '.block h6', function() {
+  $('body').on('mousedown touchstart', '.block h6', function() {
     // show or hide the contents
     $(this).next('div').slideToggle('slow');
     return false;
   });
   // watch for clicks on all section titles set to expand
-  $('body').on('click touchstart', 'h4.expand', function() {
+  $('body').on('mousedown touchstart', 'h4.expand', function() {
     // show the contents of every group or object
     $(this).parent().find('.block h6').next('div').slideDown('slow');
     // set the section to contract on next click
@@ -360,11 +446,15 @@ var init = function() {
     return false;
   });
   // watch for clicks on all section titles set to contract
-  $('body').on('click touchstart', 'h4.contract', function() {
+  $('body').on('mousedown touchstart', 'h4.contract', function() {
     // hide the contents of every group or object
     $(this).parent().find('.block h6').next('div').slideUp('slow');
     // set the section to expand on next click
     $(this).removeClass('contract').addClass('expand');
+    return false;
+  });
+  $('.notice .close').on('click', function() {
+    $('.notice').slideUp();
     return false;
   });
 };
@@ -405,6 +495,14 @@ var loadEditor = function() {
         $('body').removeClass('disableselect');
       });
     });
+    $('#script_editor').on('keydown', function(event) {
+      if (event.ctrlKey || event.metaKey) {
+        if (String.fromCharCode(event.which).toLowerCase() == 's') {
+          event.preventDefault();
+          $(this).find('button').click();
+        }
+      }
+    });
   }
 };
 
@@ -417,6 +515,7 @@ var reload = function() {
 var listNodes = function(){
   // show the list
   $('#nodelist').show();
+  $('.logo a').attr('href','/diagnostics.htm');
   // set the initial display limit to 50
   $('#nodefilter').data('num', 50);
   // get the list of nodes from the host
@@ -430,7 +529,7 @@ var listNodes = function(){
     });
     // if the list goes over the display limit, add a 'more' link
     if(data.length > $('#nodefilter').data('num')) $('#nodelist ul').append('<li><strong><a id="listmore" href="#">'+(data.length-$('#nodefilter').data('num'))+' more</a>...</strong></li>');
-    // if there are no nodes, display a message
+    // if there are no nodes, display 'no results'
     if(data.length == 0) $('#nodelist ul').append('<li>searching...</li>');
   // if there is an error retrieving the list of nodes, display an error message
   }).error(function(){
@@ -448,7 +547,7 @@ var listNodes = function(){
     }
   });
   // watch for 'more' to be clicked, add 25 to the limit and refresh the list
-  $('#nodelist').on('click touchstart', '#listmore', function() {
+  $('#nodelist').on('click', '#listmore', function() {
     $('#nodefilter').data('num', $('#nodefilter').data('num')+25);
     $('#nodefilter').keyup();
     return false;
@@ -475,7 +574,7 @@ var listNodes = function(){
       // if the list goes over the display limit, add a 'more' link
       if(data.length > $('#nodefilter').data('num')) $('#nodelist ul').append('<li><strong><a id="listmore" href="#">'+(data.length-$('#nodefilter').data('num'))+' more</a>...</strong></li>');
       // if there are no nodes, display 'no results'
-      if(data.length == 0) $('#nodelist ul').append('<li>no results</li>');
+      if(data.length == 0) $('#nodelist ul').append('<li>searching...</li>');
     // if there is an error retrieving the list of nodes (and it was not because it was aborted), display an error message
     }).error(function(req){
       if(req.statusText!="abort"){
@@ -514,6 +613,12 @@ var dialog = function(message, type){
   return false;
 };
 
+var notice = function(message){
+  $('.notice .msg').html(message);
+  $('.notice').slideDown();
+  return false;
+};
+
 // function to start polling the nodehost to see if the UI should reload (the node has restarted)
 var checkReload = function(){
   // set the filter to get the current timestamp if it is not known
@@ -539,50 +644,110 @@ var checkReload = function(){
 
 // function to update the activity display using polling
 var updateLogs = function(){
-  var url;
-  // if the last sequence number is not set, set the filter to retrieve the last 100 entries
-  if(typeof $('#activity').data('seq') === "undefined") url = 'http://'+host+'/REST/nodes/'+encodeURIComponent(node)+'/logs?from=-1&max=100';
-  // otherwise, set the filter to retrieve the next 100 changes
-  else url = 'http://'+host+'/REST/nodes/'+encodeURIComponent(node)+'/logs?from='+$('#activity').data('seq')+'&max=100';
-  // call the function
-  $.getJSON(url, {timeout:tim}, function(data) {
-    // if the last sequence number is not set, set it and flag that the display should not be animated
-    if (typeof $('#activity').data('seq') === "undefined") {
-      var noanimate = true;
-      $('#activity').data('seq', -1);
-    }
-    // display the items in the activity log in reverse
-    $.each(data.reverse(), function(key, value) {
-      // add one to the current sequence
-      $('#activity').data('seq', value.seq+1);
-      // if the activity is a local event or action, and the display is not set to animate, highlight the action button
-      if((value.source=='local') && (!noanimate)) $('#'+value.type+'_'+value.alias+' button span').stop(true, true).css({'color':opts.local[value.type].colour}).animate({'color': '#bbb'},10000);
-      // construct the activity log entry
-      var str = '<li title="'+moment(value.timestamp).format('Do MMM, HH:mm.ss')+'"><div>'+opts[value.source][value.type].icon+'</div>'+value.alias;
-      str+= '&nbsp;&nbsp;<span class="timestamp">- '+moment(value.timestamp).format('Do MMM, h:mm a')+'</span>';
-      // add the return value to the entry, if it exists
-      if((typeof value.arg !== 'undefined') && (value.arg !== null)) {
-        str += '<span><br/>'+JSON.stringify(value.arg,null,2)+'</span>';
+  if(!("WebSocket" in window) || (typeof $('body').data('config')['webSocketPort'] === "undefined")) {
+    var url;
+    // if the last sequence number is not set, set the filter to retrieve the last 100 entries
+    if (typeof $('#activity').data('seq') === "undefined") url = 'http://' + host + '/REST/nodes/' + encodeURIComponent(node) + '/activity?from=-1';
+    // otherwise, set the filter to retrieve the next 100 changes
+    else url = 'http://' + host + '/REST/nodes/' + encodeURIComponent(node) + '/activity?from=' + $('#activity').data('seq');
+    // call the function
+    $.getJSON(url, {timeout: tim}, function (data) {
+      // if the last sequence number is not set, set it and flag that the display should not be animated
+      if (typeof $('#activity').data('seq') === "undefined") {
+        var noanimate = true;
+        $('#activity').data('seq', -1);
       }
-      str += '</li>';
-      // create the activity element
-      var activity = $(str).attr('id','activity_'+value.source+'_'+value.type+'_'+value.alias);
-      // if the activity id already exists in the list, remove it
-      $('#activity_'+value.source+'_'+value.type+'_'+value.alias).each(function(key) {
-        $(this).remove();
+      data.sort(function (a, b) {
+        return a.seq < b.seq ? -1 : a.seq > b.seq ? 1 : 0;
       });
-      // if animation is disabled, set to display without animation
-      if(noanimate) $(activity).children('div').css('color',opts[value.source][value.type].colour).css('opacity', 0.25);
-      // otherwise, set to display with animation
-      else $(activity).children('div').css('color',opts[value.source][value.type].colour).animate({'opacity': 0.25},10000);
-      // add the activity element to the top of the list
-      $('#activity ul').prepend(activity);
+      // display the items in the activity
+      $.each(data, function (key, value) {
+        if (value.seq != 0) {
+          // add one to the current sequence
+          $('#activity').data('seq', value.seq + 1);
+          parseLog(value, noanimate);
+        }
+      });
+    }).always(function () {
+      // check again in one second
+      $('#activity').data('timer', setTimeout(function () {
+        updateLogs();
+      }, 1000));
     });
-  }).always(function() {
-    // check again in one second
-    $('#activity').data('timer', setTimeout(function() { updateLogs(); }, 1000));
-  });
+  } else {
+    var wshost = "ws://"+document.location.hostname+":"+$('body').data('config')['webSocketPort']+"/nodes/"+node;
+    try{
+      var socket = new WebSocket(wshost);
+      socket.onopen = function(){
+        console.log('Socket Status: '+socket.readyState+' (open)');
+        online(socket);
+      }
+      socket.onmessage = function(msg){
+        var data = JSON.parse(msg.data);
+        //console.log('Received:');
+        //console.log(data);
+        if('activityHistory' in data){
+          $.each(data['activityHistory'], function() {
+            if(this.seq != 0) parseLog(this, true);
+          });
+        } else parseLog(data['activity']);
+      }
+      socket.onclose = function(){
+        console.log('Socket Status: '+socket.readyState+' (Closed)');
+        offline();
+      }
+    } catch(exception) {
+      console.log('Error: '+exception);
+      offline();
+    }
+  }
 };
+
+var parseLog = function(value, noanimate) {
+  if (typeof(noanimate) === 'undefined') noanimate = false;
+  if (value.source == 'local') $('#' + value.type + '_' + value.alias).trigger('updatedata', {"arg": value.arg});
+  // if the activity is a local event or action, and the display is not set to animate, highlight the action button
+  if ((value.source == 'local') && (!noanimate)) $('#' + value.type + '_' + value.alias + ' button span').stop(true, true).css({'color': opts.local[value.type].colour}).animate({'color': '#bbb'}, 10000);
+  // construct the activity log entry
+  var tme = moment(value.timestamp);
+  var str = '<li title="' + tme.format('Do MMM, HH:mm.ss') + '"><div>' + opts[value.source][value.type].icon + '</div>' + value.alias;
+  str += '&nbsp;&nbsp;<span class="timestamp">- ' + tme.format('Do MMM, h:mm a') + '</span>';
+  // add the return value to the entry, if it exists
+  if ((typeof value.arg !== 'undefined') && (value.arg !== null)) {
+    str += '<span><br/>' + JSON.stringify(value.arg, null, 2) + '</span>';
+  }
+  str += '</li>';
+  // create the activity element
+  var activity = $(str).attr('id', 'activity_' + value.source + '_' + value.type + '_' + value.alias).data('time',value.timestamp);
+  // if animation is disabled, set to display without animation
+  if (noanimate) $(activity).children('div').css('color', opts[value.source][value.type].colour).css('opacity', 0.25);
+  // otherwise, set to display with animation
+  else $(activity).children('div').css('color', opts[value.source][value.type].colour).animate({'opacity': 0.25}, 10000);
+  // check for current entry
+  var ele = $('#activity_' + value.source + '_' + value.type + '_' + value.alias);
+  if (ele.length) {
+    var diff = tme.diff(moment(ele.data('time')),'ms');
+    if(diff > 500) {
+      ele.remove();
+      $('#activity ul').prepend(activity);
+    } else {
+      $(ele).replaceWith(activity);
+    }
+  } else {
+    $('#activity ul').prepend(activity);
+  }
+}
+
+var online = function(socket){
+  $('body').data('timeout', setInterval(function() { socket.send('{}'); }, 1000));
+  console.log('online');
+}
+
+var offline = function(){
+  clearInterval($('body').data('timeout'));
+  $('body').data('update', setTimeout(function() { updateLogs(); }, 1000));
+  console.log('offline');
+}
 
 // function to update the console
 var updateConsoleForm = function(){
@@ -667,72 +832,83 @@ var buildForm = function(name, formname, path, action, link){
 var buildFormEvents = function(name, action, data){
   var req = 0;
   var reqs = [];
+  $('#'+name).on('updatedata', function(evt, newdata) {
+    if(!$(this).hasClass('active')) $.observable(data).setProperty(newdata);
+  });
   // handle submit validation
-  $('#'+name).on('click touchstart', '.'+action, function() {
-    var proceed = true;
-    // remove any previous validation error highlighting
-    $('.highlight').each(function(){
-      $(this).removeClass('highlight'); 
-    });
-    // check if an input is required
-    $('#'+name+' input.required, #'+name+' select.required').each(function(){
-      // check if it is a child of a required object
-      if(($(this).closest('div.object').length > 0) && (!$(this).closest('div.object').hasClass('required'))) {
-        // if it has a value
-        if($(this).val()) {
-          // if another field in the required object does not also have a value, highlight it and prevent the form from being submitted
-          $(this).closest('div.object').children('div.field').children('input.required, select.required').each(function(){
-            if(!$(this).val()) {
-              $(this).addClass('highlight').focus();
-              $(this).parents('div:hidden').each(function(){
-                $(this).slideDown('slow');
-              });
-              dialog('Required value missing', 'error');
-              proceed = false;
-              return false;
-            }
-          });
-        }
-      // if this is not a child of a required object
-      } else {
-        // if it doesn't have a value, highlight it and prevent the form from being submitted
-        if(!$(this).val()) {
-          $(this).addClass('highlight').focus();
-          $(this).parents('div:hidden').each(function(){
-            $(this).slideDown('slow');
-          });
-          dialog('Required value missing', 'error');
-          proceed = false;
-          return false;
-        }
-      };
-    });
-    // if a warning is required before submit, display the warning and submit only if 'ok' is clicked
-    if($('#'+name).data('caution') && proceed){
-      if(!confirm('Caution: ' + $('#'+name).data('caution'))) proceed = false;
-      dialog("Cancelled", "error");
-    }
-    // if validation and warning are ok, submit the form
-    if(proceed){
-      // make a copy of the data to be sent. Stringify removes extra jsviews data
-      var tosend = JSON.parse(JSON.stringify(data));
-      // remove empty values
-      removeNulls(tosend);
-      // post the data as JSON
-      $.postJSON($('#'+name).get(0).getAttribute('action'), JSON.stringify(tosend), function(data){
-        // if there is no error, print a success message
-        dialog(action + " - Success");
-      }).error(function(e, s) {
-        // otherwise, print the error details
-        errtxt = s;
-        if(e.responseText) errtxt = s + "\n" + e.responseText;
-        dialog("exec - Error:\n"+errtxt, "error");
+  $('#'+name).on('click', '.'+action, function() {
+    var ele = this;
+    if(!$(ele).hasClass('processing')) {
+      var proceed = true;
+      $(ele).addClass('processing');
+      // remove any previous validation error highlighting
+      $('.highlight').each(function () {
+        $(this).removeClass('highlight');
       });
+      // check if an input is required
+      $('#' + name + ' input.required, #' + name + ' select.required').each(function () {
+        // check if it is a child of a required object
+        if (($(this).closest('div.object').length > 0) && (!$(this).closest('div.object').hasClass('required'))) {
+          // if it has a value
+          if ($(this).val()) {
+            // if another field in the required object does not also have a value, highlight it and prevent the form from being submitted
+            $(this).closest('div.object').children('div.field').children('input.required, select.required').each(function () {
+              if (!$(this).val()) {
+                $(this).addClass('highlight').focus();
+                $(this).parents('div:hidden').each(function () {
+                  $(this).slideDown('slow');
+                });
+                dialog('Required value missing', 'error');
+                proceed = false;
+                return false;
+              }
+            });
+          }
+          // if this is not a child of a required object
+        } else {
+          // if it doesn't have a value, highlight it and prevent the form from being submitted
+          if (!$(this).val()) {
+            $(this).addClass('highlight').focus();
+            $(this).parents('div:hidden').each(function () {
+              $(this).slideDown('slow');
+            });
+            dialog('Required value missing', 'error');
+            proceed = false;
+            return false;
+          }
+        }
+      });
+      // if a warning is required before submit, display the warning and submit only if 'ok' is clicked
+      if ($('#' + name).data('caution') && proceed) {
+        if (!confirm('Caution: ' + $('#' + name).data('caution'))) proceed = false;
+        dialog("Cancelled", "error");
+      }
+      // if validation and warning are ok, submit the form
+      if (proceed) {
+        // make a copy of the data to be sent. Stringify removes extra jsviews data
+        var tosend = JSON.parse(JSON.stringify(data));
+        // remove empty values
+        removeNulls(tosend);
+        // post the data as JSON
+        $.postJSON($('#' + name).get(0).getAttribute('action'), JSON.stringify(tosend), function () {
+          // if there is no error, print a success message
+          dialog(action + " - Success");
+        }).error(function (e, s) {
+          // otherwise, print the error details
+          errtxt = s;
+          if (e.responseText) errtxt = s + "\n" + e.responseText;
+          dialog("exec - Error:\n" + errtxt, "error");
+        }).always(function () {
+          $(ele).removeClass('processing');
+        });
+      } else $(ele).removeClass('processing');
     }
+    if(typeof $(ele).data('retry') !== "undefined") clearTimeout($(ele).data('retry'));
+    else $(ele).data('retry', setTimeout(function(){$(ele).find('.'+action).trigger('click')},100));
     return false;
   });
   // handle array 'add' events
-  $('#'+name).on('click touchstart', '.add', function() {
+  $('#'+name).on('click', '.add', function() {
     var value = '';
     // get the context of the element
     var view = $.view(this);
@@ -758,7 +934,7 @@ var buildFormEvents = function(name, action, data){
     return false;
   });
   // handle array 'delete' events
-  $('#'+name).on('click touchstart', '.delete', function() {
+  $('#'+name).on('click', '.delete', function() {
     // get the context of the element
     var view = $.view(this);
     // ensure we are at the root element
@@ -769,7 +945,7 @@ var buildFormEvents = function(name, action, data){
     return false;
   });
   // handle array 'up' events
-  $('#'+name).on('click touchstart', '.up', function() {
+  $('#'+name).on('click', '.up', function() {
     // get the context of the element
     var view = $.view(this);
     // ensure we are at the root element
@@ -780,7 +956,7 @@ var buildFormEvents = function(name, action, data){
     return false;
   });
   // handle array 'down' events
-  $('#'+name).on('click touchstart', '.down', function() {
+  $('#'+name).on('click', '.down', function() {
     // get the context of the element
     var view = $.view(this);
     // ensure we are at the root element
@@ -796,6 +972,7 @@ var buildFormEvents = function(name, action, data){
     $(this).find('.addobj').each(function(){
         var v = $.view(this);
         $.observable(v.data).setProperty(this.id, {});
+        $(this).trigger('updated');
     });
     // initialise jqCron and set the current value
     $.when($(this).find('input.cron').each(function() {
@@ -920,7 +1097,7 @@ var buildFormEvents = function(name, action, data){
     }
   });
   // handle file browse button click events
-  $('#'+name).on('click touchstart','.browse', function(e) {
+  $('#'+name).on('click','.browse', function(e) {
     // trigger the native control
     $(this).next('input.upload').trigger('click');
     return false;
@@ -976,7 +1153,7 @@ var buildFormEvents = function(name, action, data){
     });
   });
   // handle when an item is selected from the autocomplete popup
-  $('#'+name).on('click touchstart', 'div.autocomplete ul li', function() {
+  $('#'+name).on('click', 'div.autocomplete ul li', function() {
     // set the field value
     $(this).parents('div.autocomplete').siblings('input#'+$(this).parents('div.autocomplete').data('target').replace(/\./g,'\\.')).val($(this).text()).trigger('change');
     // hide the autocomplete popup
@@ -997,11 +1174,40 @@ var buildFormEvents = function(name, action, data){
       dialog('Date is invalid', 'error');
     } else $(ele).removeClass('highlight');
   });
-  $('#'+name).on('change', 'input.range', function() {
-    var ele = this;
-    $(ele).siblings('label').children('span').text($(ele).val());
-    $(ele).parents('form').children('button').click();
+  $('#'+name).on('mousedown touchstart', 'input.range', function() {
+    $(this).closest('form').addClass('active');
   });
+  $('#'+name).on('mouseup mouseleave touchend', 'input.range', function() {
+    $(this).closest('form').removeClass('active');
+  });
+  $('#'+name).on('input change', 'input.range', function() {
+    var ele = this;
+    // ensure correct event order and rate limit
+    clearTimeout($(ele).data('bounce'));
+    $(ele).data('bounce', setTimeout(function(){$(ele).parents('form').children('button').click()}, 100));
+  });
+  $('#'+name).on('contextmenu', 'button', function(e) {
+    e.preventDefault();
+    if(typeof $(this).attr('title')!= "undefined") {
+      var text = $(this).attr('title');
+      if(text.indexOf(': ') > -1)
+        notice('<strong>' + text.split(': ')[0] + '</strong></br>' + text.split(': ')[1]);
+      else
+        notice(text);
+    }
+  });
+  $('#'+name+' button').addTouch();
+  $('#'+name).attr('unselectable','on')
+    .css({
+      '-webkit-touch-callout': 'none',
+      '-moz-user-select':'-moz-none',
+      '-moz-user-select':'none',
+      '-o-user-select':'none',
+      '-khtml-user-select':'none',
+      '-webkit-user-select':'none',
+      '-ms-user-select':'none',
+      'user-select':'none'
+    }).bind('selectstart', function(){ return false; });
 };
 
 // function to build a form template using a provided JSON schema (recursive)
@@ -1014,11 +1220,15 @@ var buildFormSchema = function(data, key, parent) {
   var group = '';
   // field group is always the parent
   if(parent) group = parent;
+  var link = key;
   // if there is a parent, set the new parent to be the current parent plus the current field key
-  if(parent) parent = parent + '.' + key;
+  if(parent) {
+    link = parent + '^' + key;
+    parent = parent + '.' + key;
+  }
   // otherwise, set the parent to the field key
   else parent = key;
-  // collect and format extra classes required for the element
+  // create string for display
   var xtr = [];
   if(data.required) xtr.push('required');
   if(data.format) xtr.push(data.format);
@@ -1030,21 +1240,34 @@ var buildFormSchema = function(data, key, parent) {
     // format an object
     case 'object':
       // render each object item
-      $.each(data.properties, function(lkey, lvalue) {
-        get=buildFormSchema(lvalue, lkey, parent);       
-        // if the item rendered is an object, append a conditionally displayed 'add' div for jsviews to initialise
-        if(lvalue.type=="object") {
-            var fkey = parent ? parent+'.'+lkey : lkey;
-            get='{^{if ~isSet('+fkey+')}}'+get+'{{else}}<div class="addobj" id="'+fkey+'"></div>{{/if}}';
+      if('properties' in data) {
+        var odr = [];
+        $.each(data.properties, function (lkey, lvalue) {
+          odr.push({key:lkey,val:lvalue});
+        });
+        odr.sort(function(a, b){
+          var aName = a.key.toLowerCase();
+          var bName = b.key.toLowerCase();
+          var aOrder = a.val.order ? a.val.order : 0;
+          var bOrder = b.val.order ? b.val.order : 0;
+          return aOrder < bOrder ? -1 : aOrder > bOrder ? 1 : aName < bName ? -1 : aName > bName ? 1 : 0;
+        });
+        $.each(odr, function (skey, svalue) {
+          get = buildFormSchema(svalue.val, svalue.key, parent);
+          // if the item rendered is an object, append a conditionally displayed 'add' div for jsviews to initialise
+          if (svalue.val.type == "object") {
+            var fkey = parent ? parent + '.' + svalue.key : svalue.key;
+            get = '{^{if ~isSet(' + fkey + ')}}' + get + '{{else}}<div class="addobj" id="' + fkey + '"></div>{{/if}}';
+          }
+          // add the item to the current template string
+          set += get;
+        });
+        // if this isn't a root object, add a block element wrapper
+        if (key) {
+          xtr.push('object');
+          set = '<div class="block"><h6>' + data.title + '</h6><div class="' + xtr.join(' ') + '">' + set + '</div></div>';
         }
-        // add the item to the current template string
-        set+=get;
-      });
-      // if this isn't a root object, add a block element wrapper
-      if(key){
-        xtr.push('object');
-        set = '<div class="block"><h6>'+data.title+'</h6><div class="'+xtr.join(' ')+'">'+set+'</div></div>';      
-      }
+      } else console.log('object '+parent+' has no proprties');
       break;
     // format an array
     case 'array':
@@ -1070,9 +1293,8 @@ var buildFormSchema = function(data, key, parent) {
         // add conditionally displayed add buttons (accounting for a maximm number of items)
         if(data.maxItems) set+= '{^{if '+parent+'}}{^{if '+parent+'.length < '+data.maxItems+'}}{^{if '+parent+'.length != 0}}<hr/>{{/if}}'+buttons+'{{/if}}{{/if}}'; 
         else set+= '{^{if '+parent+'}}{^{if '+parent+'.length > 0}}<hr/>{{/if}}'+buttons+'{{/if}}';
-        console.log(set);
         // if this isn't a root object, add a block element wrapper
-        if(key) set = '<div class="block"><h6>'+data.title+'</h6><div>'+set+'</div></div>';
+        if(key) set = '<div class="block array"><h6>'+htmlEncode(data.title)+'</h6><div>'+set+'</div></div>';
       // if the array can contain only one object
       } else if(data.items.type == 'object') {
         // render the object
@@ -1084,14 +1306,14 @@ var buildFormSchema = function(data, key, parent) {
         if(data.maxItems) set+= '{^{if '+parent+'}}{^{if '+parent+'.length < '+data.maxItems+'}}{^{if '+parent+'.length != 0}}<hr/>{{/if}}<input type="button" class="add" id="'+parent+'" value="Add" />{{/if}}{{/if}}'; 
         else set+= '{^{if '+parent+'}}{^{if '+parent+'.length > 0}}<hr/>{{/if}}{{/if}}<input type="button" class="add" id="'+parent+'" value="Add" />';
         // if this isn't a root object, add a block element wrapper
-        if(key) set = '<div class="block"><h6>'+data.title+'</h6><div>'+set+'</div></div>';
+        if(key) set = '<div class="block array"><h6>'+htmlEncode(data.title)+'</h6><div>'+set+'</div></div>';
       }
       break;
     // format a string
     case 'string':
       // if the string has a fixed set of options, render as a select list
       if(data['enum']){
-        set = '<div class="field"><label for="field_'+parent+'{{:#getIndex()}}"'+cls+'>'+data.title+'</label><select id="field_'+parent+'{{:#getIndex()}}" title="'+data.desc+'" data-link="'+parent+'"'+cls+'>';
+        set = '<div class="field"><label for="field_'+parent+'{{:#getIndex()}}"'+cls+'>'+htmlEncode(data.title)+'</label><select id="field_'+parent+'{{:#getIndex()}}" title="'+htmlEncode(data.desc)+'" data-link="'+link+'"'+cls+'>';
           set+= '<option value=""></option>';
         for (var i=0;i<data['enum'].length;i++) {
           set+= '<option value="'+data['enum'][i]+'">'+data['enum'][i]+'</option>';
@@ -1102,36 +1324,36 @@ var buildFormSchema = function(data, key, parent) {
         switch(data.format){
           // long fields are rendered as a textarea element
           case 'long':
-            set = '<div class="field"><label for="field_'+parent+'{{:#getIndex()}}"'+cls+'>'+data.title+'</label><textarea placeholder="'+placeholder+'" id="field_'+parent+'{{:#getIndex()}}" title="'+data.desc+'" data-link="'+parent+'"'+cls+'></textarea></div>';
+            set = '<div class="field"><label for="field_'+parent+'{{:#getIndex()}}"'+cls+'>'+htmlEncode(data.title)+'</label><textarea placeholder="'+placeholder+'" id="field_'+parent+'{{:#getIndex()}}" title="'+htmlEncode(data.desc)+'" data-link="'+link+'"'+cls+'></textarea></div>';
             break;
           // node, action and event fields render with an additional group attribute
           case 'node':
           case 'action':
           case 'event':
-            set = '<div class="field"><label for="field_'+parent+'{{:#getIndex()}}"'+cls+'>'+data.title+'</label><input id="field_'+parent+'{{:#getIndex()}}" title="'+data.desc+'" type="text" data-group="'+group+'" data-link="'+parent+'"'+cls+' /></div>';
+            set = '<div class="field"><label for="field_'+parent+'{{:#getIndex()}}"'+cls+'>'+htmlEncode(data.title)+'</label><input id="field_'+parent+'{{:#getIndex()}}" title="'+htmlEncode(data.desc)+'" type="text" data-group="'+group+'" data-link="'+link+'"'+cls+' /></div>';
             break;
           // file fields have a hidden upload element, progress indicator and 'browse' button
           case 'file':
-            set = '<div class="field"><label for="field_'+parent+'{{:#getIndex()}}"'+cls+'>'+data.title+'</label><input id="field_'+parent+'{{:#getIndex()}}" title="'+data.desc+'" type="text" data-link="'+parent+'"'+cls+' disabled /><input title="browse" class="browse" type="button" value="Browse"/><input class="upload" type="file" /><progress value="0" max="100"></progress></div>';
+            set = '<div class="field"><label for="field_'+parent+'{{:#getIndex()}}"'+cls+'>'+htmlEncode(data.title)+'</label><input id="field_'+parent+'{{:#getIndex()}}" title="'+htmlEncode(data.desc)+'" type="text" data-link="'+link+'"'+cls+' disabled /><input title="browse" class="browse" type="button" value="Browse"/><input class="upload" type="file" /><progress value="0" max="100"></progress></div>';
             break;
           // format a time
           case 'time':
             // time is rendered as html5 time type
-            set = '<div class="field"><label for="field_'+parent+'{{:#getIndex()}}"'+cls+'>'+data.title+'</label><input id="field_'+parent+'{{:#getIndex()}}" title="'+data.desc+'" type="time" data-link="'+parent+'"'+cls+' /></div>';
+            set = '<div class="field"><label for="field_'+parent+'{{:#getIndex()}}"'+cls+'>'+htmlEncode(data.title)+'</label><input id="field_'+parent+'{{:#getIndex()}}" title="'+htmlEncode(data.desc)+'" type="time" data-link="'+link+'"'+cls+' /></div>';
             break;
           // format a date
           case 'date':
             // date is rendered as html5 date type
-            set = '<div class="field"><label for="field_'+parent+'{{:#getIndex()}}"'+cls+'>'+data.title+'</label><input id="field_'+parent+'{{:#getIndex()}}" title="'+data.desc+'" type="date" data-link="'+parent+'"'+cls+' /></div>';
+            set = '<div class="field"><label for="field_'+parent+'{{:#getIndex()}}"'+cls+'>'+htmlEncode(data.title)+'</label><input id="field_'+parent+'{{:#getIndex()}}" title="'+htmlEncode(data.desc)+'" type="date" data-link="'+link+'"'+cls+' /></div>';
             break;
           // format a date-time
           case 'date-time':
             // date-time is rendered as html5 datetime type
-            set = '<div class="field"><label for="field_'+parent+'{{:#getIndex()}}"'+cls+'>'+data.title+'</label><input id="field_'+parent+'{{:#getIndex()}}" title="'+data.desc+'" type="datetime" data-link="'+parent+'"'+cls+' /></div>';
+            set = '<div class="field"><label for="field_'+parent+'{{:#getIndex()}}"'+cls+'>'+htmlEncode(data.title)+'</label><input id="field_'+parent+'{{:#getIndex()}}" title="'+htmlEncode(data.desc)+'" type="datetime" data-link="'+link+'"'+cls+' /></div>';
             break;
           // basic renderer for any other elements
           default:
-            set = '<div class="field"><label for="field_'+parent+'{{:#getIndex()}}"'+cls+'>'+data.title+'</label><input placeholder="'+placeholder+'" id="field_'+parent+'{{:#getIndex()}}" title="'+data.desc+'" type="text" data-link="'+parent+'"'+cls+' /></div>';
+            set = '<div class="field"><label for="field_'+parent+'{{:#getIndex()}}"'+cls+'>'+htmlEncode(data.title)+'</label><input placeholder="'+placeholder+'" id="field_'+parent+'{{:#getIndex()}}" title="'+htmlEncode(data.desc)+'" type="text" data-link="'+link+'"'+cls+' /></div>';
             break;
         }
       }
@@ -1140,20 +1362,20 @@ var buildFormSchema = function(data, key, parent) {
     case 'integer':
       // integers are forced to whole numbers
       if(data.format == "range" && (typeof data.min !== "undefined") && (typeof data.max !== "undefined")) {
-        set = '<div class="field"><label for="field_'+parent+'{{:#getIndex()}}"'+cls+'>'+data.title+'<span class="labelvalue">'+data.min+'</span></label><input id="field_'+parent+'{{:#getIndex()}}" title="'+data.desc+'" type="range" step="1" min="'+data.min+'" max="'+data.max+'" data-link="{numToStr:'+parent+'||\''+data.min+'\' trigger=\'input\':strToInt}"'+cls+' /></div>';
+        set = '<div class="field"><label for="field_'+parent+'{{:#getIndex()}}"'+cls+'>'+htmlEncode(data.title)+'<output class="labelvalue" data-link="{numToStr:'+link+' trigger=\'input\':strToInt}"></output></label><input id="field_'+parent+'{{:#getIndex()}}" title="'+htmlEncode(data.desc)+'" type="range" step="1" min="'+data.min+'" max="'+data.max+'" data-link="{numToStr:'+link+' trigger=\'input\':strToInt}"'+cls+' /></div>';
       } else {
-        set = '<div class="field"><label for="field_'+parent+'{{:#getIndex()}}"'+cls+'>'+data.title+'</label><input placeholder="'+placeholder+'" id="field_'+parent+'{{:#getIndex()}}" title="'+data.desc+'" type="number" step="1" data-link="{numToStr:'+parent+':strToInt}"'+cls+' /></div>';
+        set = '<div class="field"><label for="field_'+parent+'{{:#getIndex()}}"'+cls+'>'+htmlEncode(data.title)+'</label><input placeholder="'+placeholder+'" id="field_'+parent+'{{:#getIndex()}}" title="'+htmlEncode(data.desc)+'" type="number" step="1" data-link="{numToStr:'+link+':strToInt}"'+cls+' /></div>';
       }
       break;
     // format a number
     case 'number':
       // numbers can be floating point
-      set = '<div class="field"><label for="field_'+parent+'{{:#getIndex()}}"'+cls+'>'+data.title+'</label><input placeholder="'+placeholder+'" id="field_'+parent+'{{:#getIndex()}}" title="'+data.desc+'" type="number" step="any" data-link="{numToStr:'+parent+':strToFloat}"'+cls+' /></div>';
+      set = '<div class="field"><label for="field_'+parent+'{{:#getIndex()}}"'+cls+'>'+htmlEncode(data.title)+'</label><input placeholder="'+placeholder+'" id="field_'+parent+'{{:#getIndex()}}" title="'+htmlEncode(data.desc)+'" type="number" step="any" data-link="{numToStr:'+link+':strToFloat}"'+cls+' /></div>';
       break;
     // format a boolean
     case 'boolean':
       // booleans are rendered as checkboxes
-      set = '<div class="field"><fieldset><legend>'+data.title+'</legend><label for="field_'+parent+'{{:#getIndex()}}"'+cls+'><input id="field_'+parent+'{{:#getIndex()}}" title="'+data.desc+'" type="checkbox" data-link="'+parent+'"'+cls+' /><span>Yes</span></label></fieldset></div>';
+      set = '<div class="field"><fieldset><legend>'+htmlEncode(data.title)+'</legend><label for="field_'+parent+'{{:#getIndex()}}"'+cls+'><input id="field_'+parent+'{{:#getIndex()}}" title="'+htmlEncode(data.desc)+'" type="checkbox" data-link="'+link+'"'+cls+' /><span>Yes</span></label></fieldset></div>';
       break;
     // don't render a null type
     case 'null':

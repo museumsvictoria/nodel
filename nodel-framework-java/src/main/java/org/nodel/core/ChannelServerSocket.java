@@ -11,10 +11,10 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.concurrent.atomic.AtomicLong;
 
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.nodel.Handler;
 import org.nodel.Threads;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Manages the server-side part of a TCP-based nodel channel.
@@ -35,7 +35,7 @@ public class ChannelServerSocket {
     /**
      * (logging related)
      */
-    private Logger _logger = LogManager.getLogger(String.format("%s_%03d", this.getClass().getName(), _instance));
+    private Logger _logger = LoggerFactory.getLogger(String.format("%s_%03d", this.getClass().getName(), _instance));
 
     /**
      * Instance signal / lock.

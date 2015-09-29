@@ -23,6 +23,14 @@ button span {
 	padding-right: 10px;
 }
 
+button {
+	margin-right: 5px;
+}
+
+fieldset {
+	margin-bottom: 4px;
+}
+
 progress, input.upload {
   display: none;
   margin-left: 10px;
@@ -39,8 +47,8 @@ progress, input.upload {
 }
 
 div.block {
-  background: #eee;
-	background: rgba(0,0,0,0.04);
+	background: #f9f9f9;
+	background: rgba(0,0,0,0.025);
 	padding: 0px;
 	margin-bottom: 20px;
 	overflow: auto;
@@ -68,8 +76,9 @@ div.block hr {
 input[type="text"], input[type="range"], input[type="time"], input[type="password"], input[type="email"], input[type="number"], input[type="date"], input[type="time"], input[type="date-time"], textarea, select {
 	width: 100%;
 	-webkit-box-sizing: border-box;
-  -moz-box-sizing: border-box;
-  box-sizing: border-box;
+  	-moz-box-sizing: border-box;
+	box-sizing: border-box;
+	margin-bottom: 8px;
 }
 
 input[type="text"].highlight, input[type="range"].highlight, input[type="time"].highlight, input[type="password"].highlight,	input[type="email"].highlight, input[type="number"].highlight, input[type="date"].highlight, input[type="time"].highlight, input[type="date-time"].highlight, textarea.highlight, select.highlight {
@@ -80,8 +89,27 @@ input[type="text"].highlight, input[type="range"].highlight, input[type="time"].
 	box-shadow:  0 0 3px rgba(255,0,0,0.2); 
 }
 
-hr, .CodeMirror {
+button[disabled], input[type="submit"][disabled], input[type="reset"][disabled], input[type="button"][disabled] {
+	background: transparent;
+	text-shadow: none;
+	border-color: #ccc;
+	cursor: default;
+}
+
+.array.disabled button, .array.disabled input[type="button"], .array.disabled > div > hr {
+	display: none;
+}
+
+.CodeMirror {
 	margin-bottom: 20px;
+}
+
+hr {
+	margin-bottom: 10px;
+}
+
+.array.disabled hr {
+	margin-top: 20px;
 }
 
 label.required:after, button.caution:after {
@@ -127,6 +155,30 @@ label.required:after, button.caution:after {
 	background: rgb(240,255,240);
 }
 
+.notice {
+  position: fixed;
+  width: 100%;
+  bottom: 0;
+  z-index: 9999;
+  display: none;
+  pointer-events: none;
+}
+
+.notice div {
+  max-width: 400px;
+  margin: 0 auto;
+  padding: 10px 15px;
+  border: 1px solid rgba(0,0,0,0.2);
+  background: rgb(255,255,255);
+}
+
+.notice .close {
+  float: right;
+  padding: 0 0 5px 15px;
+  font-weight: 900;
+  pointer-events: auto;
+}
+
 .advanced, .advancededitor, .init, #nodelist {
 	display: none;
 }
@@ -139,8 +191,12 @@ label.required:after, button.caution:after {
 	color: #00ff00;
 }
 
-.remote {
+.remote, #console .info {
 	color: #0000ff;
+}
+
+.warn {
+	color: #ffa500;
 }
 
 .float {

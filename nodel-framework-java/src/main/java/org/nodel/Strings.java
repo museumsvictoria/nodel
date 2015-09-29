@@ -36,5 +36,21 @@ public class Strings {
         // was empty or all spaces
         return true;
     } // (method)
+
+    /**
+     * A safe, simple alphabetical compare function.
+     */
+    public static int compare(String name1, String name2) {
+        if (name1 == null && name2 == null)
+            return 0;
+        
+        if (name1 == null)
+            return 1;
+        
+        if (name2 == null)
+            return -1;
+        
+        return name1.compareTo(name2);
+    }
     
-} // (class)
+}
