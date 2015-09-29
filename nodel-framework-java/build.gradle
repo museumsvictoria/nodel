@@ -19,49 +19,49 @@ sourceCompatibility = 1.7
 targetCompatibility = 1.7
 
 // this version is manually bumped
-def CONTROLLED_VERSION = "2.0.12"
+def CONTROLLED_VERSION = "2.1.1"
 
 def hostname = InetAddress.getLocalHost().getHostName().toUpperCase();
 
 def now = DateTime.now().toString();
 
-task hgBranch(type:Exec) {
-  commandLine 'hg', 'branch'
+task gitBranch(type:Exec) {
+  commandLine 'git', 'rev-parse', '--abbrev-ref', 'HEAD'
   standardOutput = new ByteArrayOutputStream()
   ext.output = {
     return standardOutput.toString().trim()
   }
 }
 
-task hgId(type:Exec) {
-  commandLine 'hg', 'id'
+task gitId(type:Exec) {
+  commandLine 'git', 'rev-parse', 'HEAD'
   standardOutput = new ByteArrayOutputStream()
   ext.output = {
     return standardOutput.toString().trim()
   }
 }
 
-task hgRev(type:Exec) {
-    commandLine 'hg', 'id', '-n'
+task gitRev(type:Exec) {
+    commandLine 'git', 'rev-list', '--count', 'HEAD'
     standardOutput = new ByteArrayOutputStream()
     ext.output = {
         return standardOutput.toString().trim()
     }
 }
 
-hgBranch.execute()
-hgRev.execute()
-hgId.execute()
+gitBranch.execute()
+gitRev.execute()
+gitId.execute()
 
-def branch = hgBranch.output()
-if (branch.equals("default"))
+def branch = gitBranch.output()
+if (branch.equals("master"))
     branch = "dev"
 
-def rev = hgRev.output()
+def rev = gitRev.output()
 // strip out non-alphanumeric (e.g. the '+' in '1234+')
 rev = rev.replaceAll(/[^a-zA-Z0-9]/, '')
 
-def buildSummary = hgId.output();
+def buildSummary = gitId.output();
 
 if (!branch.equals("stable"))
     version CONTROLLED_VERSION + "-" + branch + "_r" + rev
@@ -75,7 +75,7 @@ task copyContent(type: Copy) {
 task filterContentTemplates(type: Copy) {
     from new File(project(':nodel-webui-js').projectDir, 'www')
     into 'build/contentWWW'
-    include 'build.json'
+    include 'build.json' 
     filter(ReplaceTokens, tokens: [ 
         buildSummary: project.name + "-" + project.version + " " + buildSummary + " (" + hostname + ") " + now,
         buildProject: project.name,
