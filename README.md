@@ -15,7 +15,7 @@ Technologies
 Quick start
 ===========
 * download a release
-* `java -jar nodelhost-2.0.7-rc1.jar`
+* `java -jar nodelhost-2.1.1-rc1.jar`
 * drop some [recipes] (https://github.com/museumvictoria/nodel-recipes) into `nodes` folder
 * check http://localhost:8085
 

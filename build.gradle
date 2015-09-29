@@ -1,26 +1,8 @@
 subprojects {
     apply plugin: 'java'
     group = 'org.nodel'
-    version = '2.0.4'
+    version = '2.0.1'
     repositories {
         mavenCentral()
     }
 }
-
-project(':nodel-jyhost-java') {
-	jar {
-		baseName = 'nodel-jyhost-java'
-		manifest {
-			 attributes 'Implementation-Title': 'Nodel Jython host',
-						'Implementation-Version': version
-		}    
-	}
-
-    dependencies {
-        compile project(':nodel-framework-java')
-		compile 'commons-daemon:commons-daemon:1.0.15'
-		compile 'org.apache.logging.log4j:log4j-core:2.1'
-		compile 'org.python:jython-standalone:2.5.4-rc1'
-    }
-}
-

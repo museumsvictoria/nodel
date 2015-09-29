@@ -7,7 +7,43 @@ repositories {
     mavenCentral()
 }
 
-version =  '2.0.7-rc1'
+task hgBranch(type:Exec) {
+  commandLine 'hg', 'branch'
+  standardOutput = new ByteArrayOutputStream()
+  ext.output = {
+    return standardOutput.toString().trim()
+  }
+}
+
+task hgId(type:Exec) {
+  commandLine 'hg', 'id'
+  standardOutput = new ByteArrayOutputStream()
+  ext.output = {
+    return standardOutput.toString().trim()
+  }
+}
+
+task hgRev(type:Exec) {
+    commandLine 'hg', 'id', '-n'
+    standardOutput = new ByteArrayOutputStream()
+    ext.output = {
+        return standardOutput.toString().trim()
+    }
+}
+
+hgBranch.execute()
+hgRev.execute()
+hgId.execute()
+
+def branch = hgBranch.output()
+if (branch.equals("default"))
+    branch = "dev"
+
+def rev = hgRev.output()
+// strip out non-alphanumeric (e.g. the '+' in '1234+')
+rev = rev.replaceAll(/[^a-zA-Z0-9]/, '')
+
+def buildSummary = hgId.output();
 
 mainClassName = "org.nodel.jyhost.Launch"
 
@@ -26,10 +62,19 @@ task fatJar(type: Jar) {
         	'Implementation-Version': version,
         	'Main-Class': mainClassName
     }
+	appendix = branch + '_r' + rev
     baseName = 'nodelhost'
     destinationDir new File(buildDir, 'distributions/standalone')
     from { configurations.compile.collect { it.isDirectory() ? it : zipTree(it) } }
     with jar
+}
+
+task unversioned(dependsOn:'fatJar', type: Copy) {
+    from(new File(buildDir, 'distributions/standalone')) {
+	    rename '.*($version)*', 'nodelhost.jar'
+	}
+
+    into new File(buildDir, 'distributions/standalone')
 }
 
 build.doLast {
@@ -37,9 +82,9 @@ build.doLast {
 }
 
 dependencies {
-		compile project(':nodel-framework-java')
-		compile 'commons-daemon:commons-daemon:1.0.15'
-		compile 'org.apache.logging.log4j:log4j-core:2.1'
-		compile 'org.python:jython-standalone:2.5.4-rc1'
+    compile project(':nodel-framework-java')
+    compile 'commons-daemon:commons-daemon:1.0.15'
+    compile 'org.slf4j:slf4j-api:1.7.10'
+    compile 'org.python:jython-standalone:2.5.4-rc1'
 }
 

@@ -1,29 +1,118 @@
+import org.apache.tools.ant.filters.ReplaceTokens
+import org.joda.time.DateTime;
+
 apply plugin: 'java'
 apply plugin: 'maven'
 apply plugin: 'eclipse'
 
-repositories {
-    mavenCentral()
+buildscript {
+    repositories {
+        jcenter()
+    }
+
+    dependencies {
+        classpath 'joda-time:joda-time:2.6'
+    }
 }
 
-version =  '2.0.7-rc1'
+sourceCompatibility = 1.7
+targetCompatibility = 1.7
 
-dependencies {
-    project(':nodel-webui-js')
-    compile 'joda-time:joda-time:2.6'
-    compile 'org.apache.logging.log4j:log4j-api:2.1'
+// this version is manually bumped
+def CONTROLLED_VERSION = "2.0.12"
+
+def hostname = InetAddress.getLocalHost().getHostName().toUpperCase();
+
+def now = DateTime.now().toString();
+
+task hgBranch(type:Exec) {
+  commandLine 'hg', 'branch'
+  standardOutput = new ByteArrayOutputStream()
+  ext.output = {
+    return standardOutput.toString().trim()
+  }
 }
 
+task hgId(type:Exec) {
+  commandLine 'hg', 'id'
+  standardOutput = new ByteArrayOutputStream()
+  ext.output = {
+    return standardOutput.toString().trim()
+  }
+}
 
-task jscontent(type: Zip) {
+task hgRev(type:Exec) {
+    commandLine 'hg', 'id', '-n'
+    standardOutput = new ByteArrayOutputStream()
+    ext.output = {
+        return standardOutput.toString().trim()
+    }
+}
+
+hgBranch.execute()
+hgRev.execute()
+hgId.execute()
+
+def branch = hgBranch.output()
+if (branch.equals("default"))
+    branch = "dev"
+
+def rev = hgRev.output()
+// strip out non-alphanumeric (e.g. the '+' in '1234+')
+rev = rev.replaceAll(/[^a-zA-Z0-9]/, '')
+
+def buildSummary = hgId.output();
+
+if (!branch.equals("stable"))
+    version CONTROLLED_VERSION + "-" + branch + "_r" + rev
+
+task copyContent(type: Copy) {
     from new File(project(':nodel-webui-js').projectDir, 'www')
-    archiveName 'content.zip'
-	destinationDir new File(buildDir, 'resources/main/org/nodel/host')
+    into 'build/contentWWW'
+    exclude 'build.json'
 }
 
-compileJava.doLast {
-    tasks.jscontent.execute()
+task filterContentTemplates(type: Copy) {
+    from new File(project(':nodel-webui-js').projectDir, 'www')
+    into 'build/contentWWW'
+    include 'build.json'
+    filter(ReplaceTokens, tokens: [ 
+        buildSummary: project.name + "-" + project.version + " " + buildSummary + " (" + hostname + ") " + now,
+        buildProject: project.name,
+        buildBranch: branch,
+        buildVersion: project.version,
+        buildId: buildSummary,
+		buildRev: rev,
+        buildHost: hostname,
+        buildDate: now
+    ])
 }
+
+task zipContentInterface(type: Zip, dependsOn: [copyContent, filterContentTemplates]) {
+    from new File(buildDir, 'contentWWW')
+    archiveName 'content.zip'
+    destinationDir new File(projectDir, 'src/main/resources/org/nodel/host')
+}
+
+task copyBuildInfo(type: Copy, dependsOn: [copyContent, filterContentTemplates]) {
+    from new File(buildDir, 'contentWWW')
+	include 'build.json'
+    destinationDir new File(projectDir, 'src/main/resources/org/nodel')
+}
+
+task preBuild << {
+    tasks.cleanCopyContent.execute()
+    tasks.cleanFilterContentTemplates.execute()
+    tasks.cleanZipContentInterface.execute()
+	tasks.cleanCopyBuildInfo.execute()
+
+    tasks.copyContent.execute()
+    tasks.filterContentTemplates.execute()
+    tasks.zipContentInterface.execute()
+	tasks.copyBuildInfo.execute()
+}
+
+compileJava.dependsOn(preBuild)
 
 jar {
 	from "$buildDir/output"
@@ -34,4 +123,9 @@ jar {
     }    
 }
 
+dependencies {
+    project(':nodel-webui-js')
+    compile 'joda-time:joda-time:2.6'
+    compile 'org.slf4j:slf4j-api:1.7.10'
+}
 
