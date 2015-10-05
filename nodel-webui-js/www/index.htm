@@ -50,7 +50,14 @@
 	<div class="container">
 		<div class="sixteen columns">
 			<h1 class="logo"><a href="/"><img src="images/nodel.png" alt="Nodel" title="Nodel" /></a></h1>
-			<h3 id="nodename"></h3>
+			<div class="nodedetails">
+				<div class="noderename">
+					<form id="noderename" action="#">
+						<input type="text" id="nodenameval" />
+					</form>
+				</div>
+				<h3 id="nodename"></h3>
+			</div>
 			<form class="init" id="advanced" action="#">
 				<fieldset>
 					<legend>Advanced mode</legend>
@@ -66,9 +73,18 @@
 			</form>
 			<div id="nodelist">
 				<h4>Network</h4>
+				<button id="nodeaddnew">Add new node</button>
+				<div class="nodeadd">
+					<form id="nodeadd" action="#">
+						<span class="close">X</span>
+						<label for="newnodename">Node name</label>
+						<input type="text" id="newnodename">
+						<button type="submit" id="nodeaddsubmit">Add</button>
+					</form>
+				</div>
 				<hr/>
 				<form id="nodesearch" action="#">
-				  <label for="nodefilter">Node name</label>
+				  <label for="nodefilter">Node search</label>
 				  <input type="text" id="nodefilter">
         </form>
 				<ul></ul>

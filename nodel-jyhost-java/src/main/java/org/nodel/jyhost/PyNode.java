@@ -1341,6 +1341,26 @@ public class PyNode extends BaseDynamicNode {
         // the folder should have been renamed!
         _logger.info("This node has been renamed. It will close down and restart under a new name shortly.");
     }
+    
+    /**
+     * Renames the node.
+     */
+    @Service(name = "remove", title = "Remove", desc = "Removes a node.")
+    public void remove(@Param(name = "confirm") boolean confirm) {
+        if (!confirm)
+            throw new RuntimeException("'confirm' flag was not set. Nothing removed.");
+        
+        Files.tryFlushDir(_root);
+
+        // files are flushed, now the directory itself
+        _root.delete();
+        
+        if (_root.exists())
+            throw new RuntimeException("An attempt was made at removing the node however it still exists. Temporary file locking might be preventing the removal of the node. Try again later.");
+
+        // the folder should have been renamed!
+        _logger.info("This node has been deleted. It will close down.");
+    }
 
     protected void injectError(String source, Throwable th) {
         String excValue = th.toString(); 

@@ -145,8 +145,8 @@ $(function() {
       $.getJSON('http://'+host+'/REST/nodes/'+encodeURIComponent(node)+'/', "",
       function(data) {
         // set page details
-        document.title = 'Nodel - '+node;
-        $('#nodename').text(node);
+        document.title = 'Nodel - '+data.name;
+        $('#nodename').text(data.name);
         if(data.desc) $('#nodename').after('<p>'+htmlEncode(data.desc)+'</p>');
         $('.logo img').attr('title', 'Nodel '+data.nodelVersion);
         if((typeof preinit !== "undefined") && ($.isFunction(preinit))){ preinit(data); }
@@ -453,7 +453,48 @@ var init = function() {
     $(this).removeClass('contract').addClass('expand');
     return false;
   });
-  $('.notice .close').on('click', function() {
+  $('body').on('mousedown touchstart', '#nodename', function() {
+    $('.noderename').show();
+    $('#nodenameval').val($('body').data('config').name).focus();
+    $('#nodename').html('&nbsp;');
+    return false;
+  });
+  $('#nodenameval').keypress(function(e){
+    if(e.keyCode == 13) {
+      e.preventDefault();
+      $(this).trigger('blur');
+    }
+  });
+  $('body').on('blur', '#nodenameval', function() {
+    var name = $('body').data('config').name;
+    var newname = $('#nodenameval').val();
+    if(name !== newname){
+      console.log('renaming');
+      $('#nodenameval').prop('disabled',true);
+      var nodename = {"value":newname};
+      var req = $.getJSON('http://'+host+'/REST/nodes/'+encodeURIComponent(node)+'/rename', nodename, function() {
+        dialog('Node renamed. Please wait...', 'info', 10000);
+        checkRedirect('http://' + host + '/nodes/' + encodeURIComponent(newname));
+      }).error(function(req){
+        if(req.statusText!="abort"){
+          var error = 'Node rename failed';
+          if(req.responseText) {
+            var message = JSON.parse(req.responseText);
+            error = error + '<br/>' + message['message'];
+          }
+          dialog(error,'error');
+        }
+        $('#nodename').text(name);
+        $('.noderename').hide();
+        $('#nodenameval').prop('disabled',false);
+      });
+    } else {
+      $('#nodename').text(name);
+      $('.noderename').hide();
+    }
+    return false;
+  });
+  $('.notice .close').on('mousedown touchstart', function() {
     $('.notice').slideUp();
     return false;
   });
@@ -547,7 +588,7 @@ var listNodes = function(){
     }
   });
   // watch for 'more' to be clicked, add 25 to the limit and refresh the list
-  $('#nodelist').on('click', '#listmore', function() {
+  $('#nodelist').on('mousedown touchstart', '#listmore', function() {
     $('#nodefilter').data('num', $('#nodefilter').data('num')+25);
     $('#nodefilter').keyup();
     return false;
@@ -583,6 +624,34 @@ var listNodes = function(){
       }
     });
   });
+  $('#nodelist').on('mousedown touchstart', '#nodeaddnew', function() {
+    $('.nodeadd').show();
+    return false;
+  });
+  $('#nodelist').on('mousedown touchstart', '.close', function() {
+    $('.nodeadd').hide();
+    return false;
+  });
+  $('#nodelist').on('mousedown touchstart', '#nodeaddsubmit', function() {
+    var nodenameraw = $('#nodelist #newnodename').val();
+    var nodename = {"value":nodenameraw};
+    var req = $.getJSON('http://' + host + '/REST/newNode', nodename, function() {
+      $('.nodeadd').hide();
+      $('#nodeaddnew').prop('disabled', true);
+      dialog('Node added. Please wait...', 'info', 10000);
+      checkRedirect('http://' + host + '/nodes/' + encodeURIComponent(nodenameraw));
+    }).error(function(req){
+      if(req.statusText!="abort"){
+        var error = 'Node add failed';
+        if(req.responseText) {
+          var message = JSON.parse(req.responseText);
+          error = error + '<br/>' + message['message'];
+        }
+        dialog(error,'error');
+      }
+    });
+    return false;
+  });
   setInterval(function(){ $('#nodefilter').keyup(); }, 3000);
 };
 
@@ -597,9 +666,10 @@ var getParameterByName = function(name) {
 };
 
 // function to display a message in a dialog box
-var dialog = function(message, type){
+var dialog = function(message, type, duration){
   // default to 'info' type
   type = type || "info";
+  duration = duration || 3000;
   // clear any timer that was set to close the dialog
   clearTimeout($('.dialog').stop().data('timer'));
   // set the message
@@ -608,7 +678,7 @@ var dialog = function(message, type){
   $('.dialog').slideDown(function() {
     var elem = $(this);
     // set a timer to close the dialog in 3 seconds
-    $.data(this, 'timer', setTimeout(function() { elem.slideUp(); }, 3000));
+    $.data(this, 'timer', setTimeout(function() { elem.slideUp(); }, duration));
   });
   return false;
 };
@@ -617,6 +687,17 @@ var notice = function(message){
   $('.notice .msg').html(message);
   $('.notice').slideDown();
   return false;
+};
+
+var checkRedirect = function(url) {
+  console.log(url);
+  $.get(url, function() {
+    window.location.href = url;
+  }).error(function(e) {
+    // check again in one second
+    $('body').data('redirect', setTimeout(function() { checkRedirect(url); }, 1000));
+    console.log('waiting for node to become available');
+  });
 };
 
 // function to start polling the nodehost to see if the UI should reload (the node has restarted)

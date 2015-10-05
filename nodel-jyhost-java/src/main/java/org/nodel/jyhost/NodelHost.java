@@ -27,6 +27,7 @@ import org.nodel.core.NodelClients.NodeURL;
 import org.nodel.diagnostics.AtomicLongMeasurementProvider;
 import org.nodel.diagnostics.Diagnostics;
 import org.nodel.discovery.AdvertisementInfo;
+import org.nodel.reflection.Serialisation;
 import org.nodel.threading.ThreadPool;
 import org.nodel.threading.TimerTask;
 import org.nodel.threading.Timers;
@@ -95,11 +96,21 @@ public class NodelHost {
      * Reflects the current running node configuration.
      */
     private Map<SimpleName, PyNode> _nodeMap = Collections.synchronizedMap(new HashMap<SimpleName, PyNode>());
+    
+    /**
+     * As specified by user.
+     */
+    private String[] _origInclFilters;
 
     /**
      * (will/must never be null)
      */
     private List<String[]> _inclTokensFilters = Collections.emptyList();
+    
+    /**
+     * As specified by user.
+     */    
+    private String[] _origExclFilters;
     
     /**
      * (will/must never be null)
@@ -116,6 +127,19 @@ public class NodelHost {
             _root = root;
         
         _logger.info("NodelHost initialised. root='{}'", root.getAbsolutePath());
+        
+        Nodel.setHostPath(new File(".").getAbsolutePath());
+        Nodel.setNodesRoot(_root.getAbsolutePath());
+        
+        _origInclFilters = inclFilters;
+        _origExclFilters = exclFilters;
+        
+        StringBuilder hostingRule = new StringBuilder();
+        hostingRule.append("Include ")
+                   .append(inclFilters == null || inclFilters.length == 0 ? "everything" : Serialisation.serialise(inclFilters))
+                   .append(", exclude ")
+                   .append(exclFilters == null || exclFilters.length == 0 ? "nothing" : Serialisation.serialise(exclFilters));
+        Nodel.setHostingRule(hostingRule.toString());
         
         // 'compile' the tokens list
         _inclTokensFilters = intoTokensList(inclFilters);
@@ -264,6 +288,13 @@ public class NodelHost {
     public void newNode(String name) {
         if (Strings.isNullOrEmpty(name))
             throw new RuntimeException("No node name was provided");
+        
+        if (!shouldBeIncluded(name)) {
+            String[] ins = _origInclFilters == null ? new String[] {} : _origInclFilters;
+            String[] outs = _origExclFilters == null ? new String[] {} : _origExclFilters;
+            throw new RuntimeException("Name rejected because this node host applies node filtering (includes: " + 
+                    Serialisation.serialise(ins) + ", excludes: " + Serialisation.serialise(outs) + ")");
+        }
 
         File newNodeDir = new File(_root, name);
 

@@ -42,6 +42,9 @@ function updateDiagnostics() {
         $('#started').text(moment(diagnostics.startTime).format('D-MMM-YYYY HH:mm:ss'));
         $('#hostname').text(diagnostics.hostname);
         $('#httpAddress').text(diagnostics.httpAddress);
+        $('#hostPath').text(diagnostics.hostPath);
+        $('#nodesRoot').text(diagnostics.nodesRoot);
+        $('#hostingRule').text(diagnostics.hostingRule);
     });
 };
 

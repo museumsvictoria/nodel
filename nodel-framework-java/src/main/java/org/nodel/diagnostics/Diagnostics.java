@@ -166,8 +166,8 @@ public class Diagnostics {
     @Value(name = "agent", title = "Agent", desc = "The nodel agent.")
     public String agent() {
         return Nodel.getAgent();
-    }    
-    
+    }
+
     @Value(name = "hostname", title = "Hostname", desc = "The name of the host.")
     public String hostname() {
         try {
@@ -177,11 +177,34 @@ public class Diagnostics {
         }
     }
     
+    @Value(name = "webSocketPort", title = "Web socket port")
+    public int webSocketPort() {
+        return Nodel.getWebSocketPort();
+    }
+    
+    /**
+     * Where this host is running from.
+     */
+    @Value(name = "hostPath", title = "Host path")
+    public String hostPath() {
+        return Nodel.getHostPath();
+    }
+    
+    @Value(name = "nodesRoot", title = "Nodes root", desc = "Where the nodes are being hosted.")
+    public String nodesRoot() {
+        return Nodel.getNodesRoot();
+    }
+
+    @Value(name = "hostingRule", title = "Hosting rule", desc = "If any 'include' and/or 'exclude' rules apply.")
+    public String hostingRule() {
+        return Nodel.getHostingRule();
+    }
+
     @Value(name = "httpAddress", title = "HTTP address", desc = "The address of the HTTP server.")
     public String httpAddress() {
         return Nodel.getHTTPAddress();
     }
-    
+
     @Service(name = "gc", title = "Garbage collect", desc = "Perform a 'garbage collect' operation; not necessarily stable.")
     public void gc() {
         System.gc();

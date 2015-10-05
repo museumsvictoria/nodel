@@ -426,4 +426,61 @@ public class Nodel {
         return s_agent;
     }
     
+    /**
+     * (see getter)
+     */
+    private static String s_hostPath = "";
+    
+    /**
+     * (see getter)
+     */
+    public static void setHostPath(String value) {
+        s_hostPath = value;
+    }
+
+    /**
+     * The host path (location) 
+     */
+    public static String getHostPath() {
+        return s_hostPath;
+    }
+    
+    /**
+     * (see getter)
+     */
+    private static String s_hostingRule = "";
+    
+    /**
+     * (see getter)
+     */
+    public static void setHostingRule(String value) {
+        s_hostingRule = value;
+    }
+
+    /**
+     * The hosting rule that applies.
+     */
+    public static String getHostingRule() {
+        return s_hostingRule;
+    }
+    
+    /**
+     * (see getter)
+     */
+    private static String s_nodesRoot = "";
+
+    /**
+     * (see getter)
+     */
+    public static void setNodesRoot(String value) {
+        s_nodesRoot = value;
+    }
+
+    /**
+     * The nodes root path (location)
+     */
+    public static String getNodesRoot() {
+        return s_nodesRoot;
+    }
+
 }

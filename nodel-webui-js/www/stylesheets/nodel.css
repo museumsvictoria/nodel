@@ -179,8 +179,52 @@ label.required:after, button.caution:after {
   pointer-events: auto;
 }
 
-.advanced, .advancededitor, .init, #nodelist {
+.nodeadd .close, .noderename .close {
+	position: absolute;
+	top: 0;
+	right: 5px;
+	font-weight: 900;
+	pointer-events: auto;
+	color: rgb(124,124,124);
+	cursor: pointer;
+}
+
+.nodeadd {
+	background: white;
+	position: absolute;
+	padding: 20px;
+	border: 1px solid rgb(224,224,224);
+	border-radius: 2px;
+	top: 45px;
+	left: 15px;
+	-webkit-box-shadow: 0 0 3px rgba(0,0,0,.2);
+	box-shadow: 0 0 3px rgba(0,0,0,.2);
+	z-index: 888;
+}
+
+.nodeadd form, .nodeadd form button {
+	margin-bottom: 0;
+}
+
+#nodename {
+	margin-bottom: 0;
+	display: inline;
+}
+
+.noderename {
+	position: absolute;
+}
+
+.nodedetails {
+	position: relative;
+}
+
+.advanced, .advancededitor, .init, #nodelist, .noderename, .nodeadd {
 	display: none;
+}
+
+#nodelist {
+	position: relative;
 }
 
 .error, .err {
