@@ -27,12 +27,12 @@ import org.nodel.discovery.AutoDNS;
 
 public class Nodel {
 
-	private final static String VERSION = "2.0.8-lumi";
-	
-	public static String getVersion() {
-		return VERSION;
-	}
-	
+    private final static String VERSION = "2.1.1";
+
+    public static String getVersion() {
+        return VERSION;
+    }
+
     /**
      * For sequence counting, starting at current time to get a unique, progressing sequence number every 
      * time (regardless of restart).

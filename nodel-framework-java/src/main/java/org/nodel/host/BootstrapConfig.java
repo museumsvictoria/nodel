@@ -99,19 +99,7 @@ public class BootstrapConfig {
     public void SetDeviceFingerprintOverride(String value) {
         this.deviceFingerprintOverride = value;
     }
-    
-    // was previously 'http://lumirdnet.appspot.com/serve/nodelHost-current.zip'
-    @Value(name = "nodelPackage", title = "Nodel package URL", order = 700, required = true)
-    private String nodelPackage = "";
 
-    public String getNodelPackage() {
-        return this.nodelPackage;
-    }
-
-    public void setNodelPackage(String value) {
-        this.nodelPackage = value;
-    }
-    
     @Value(name = "networkInterface", title = "Network interface", order = 800, required = false)
     private byte[] networkInterface = null;
 
