@@ -137,7 +137,12 @@ public class NodelHostHTTPD extends NanoHTTPD {
         @Service(name = "diagnostics", order = 6, title = "Diagnostics", desc = "Diagnostics related to the entire framework.")
         public Diagnostics framework() {
             return Diagnostics.shared();
-        }           
+        }
+
+        @Service(name = "newNode", order = 7, title = "New node", desc = "Creates a new node.")
+        public void newNode(String name) {
+            _nodelHost.newNode(name);
+        }
 
     } // (inner class)
 

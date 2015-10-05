@@ -698,11 +698,11 @@ public class PyNode extends BaseDynamicNode {
         _pySystemState = Py.getSystemState();
         
         _toolkit = new ManagedToolkit(this)
-            .setExceptionHandler(new Handler.H1<Exception>() {
+            .setExceptionHandler(new Handler.H2<String, Exception>() {
 
                 @Override
-                public void handle(Exception th) {
-                    String message = "toolkit - " + th.toString();
+                public void handle(String context, Exception th) {
+                    String message = "(" + context + ") " + th.toString();
                     _logger.info(message);
                     _errReader.inject(message);
                 }
@@ -1322,6 +1322,26 @@ public class PyNode extends BaseDynamicNode {
         }
     } // (method)
     
+    /**
+     * Renames the node.
+     */
+    @Service(name = "rename", title = "Rename", desc = "Renames a node.")
+    public void rename(String name) {
+        if (Strings.isNullOrEmpty(name))
+            throw new RuntimeException("No node name was provided");
+
+        File newNodeDir = new File(_root.getParentFile(), name);
+
+        if (newNodeDir.exists())
+            throw new RuntimeException("A node with the name '" + name + "' already exists.");
+
+        if (!_root.renameTo(newNodeDir))
+            throw new RuntimeException("The platform did not allow the renaming of the node folder for unspecified reasons.");
+
+        // the folder should have been renamed!
+        _logger.info("This node has been renamed. It will close down and restart under a new name shortly.");
+    }
+
     protected void injectError(String source, Throwable th) {
         String excValue = th.toString(); 
         _logger.info(source + " - " + excValue);

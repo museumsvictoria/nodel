@@ -184,6 +184,9 @@ public class NodelHost {
                         // ... skip 'New folder' folders and
                         && !filename.equalsIgnoreCase("New folder")
 
+                        // ... skip '.*' nodes
+                        && !filename.startsWith(".")
+
                         // apply any applicable inclusion / exclusion filters
                         && shouldBeIncluded(filename))
                     
@@ -254,10 +257,27 @@ public class NodelHost {
             }, PERIOD_MAINTENANCE);
         }
     } // (method)
-    
+
     /**
-     * Processes a name through inclusion and exclusion lists.
-     * (convenience instance function)
+     * Creates a new node.
+     */
+    public void newNode(String name) {
+        if (Strings.isNullOrEmpty(name))
+            throw new RuntimeException("No node name was provided");
+
+        File newNodeDir = new File(_root, name);
+
+        if (newNodeDir.exists())
+            throw new RuntimeException("A node with the name '" + name + "' already exists.");
+
+        if (!newNodeDir.mkdir())
+            throw new RuntimeException("The platform did not allow the creation of the node folder for unspecified reasons.");
+
+        // the folder is created!
+    }
+
+    /**
+     * Processes a name through inclusion and exclusion lists. (convenience instance function)
      */
     public boolean shouldBeIncluded(String name) {
         SimpleName simpleName = new SimpleName(name);

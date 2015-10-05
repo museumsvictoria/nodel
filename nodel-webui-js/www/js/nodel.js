@@ -968,11 +968,12 @@ var buildFormEvents = function(name, action, data){
   });
   // handle updates to forms
   $('#'+name).on('ready updated', function() {
+    var root = this;
     // initialise unset objects
     $(this).find('.addobj').each(function(){
         var v = $.view(this);
         $.observable(v.data).setProperty(this.id, {});
-        $(this).trigger('updated');
+        $(root).trigger('updated');
     });
     // initialise jqCron and set the current value
     $.when($(this).find('input.cron').each(function() {

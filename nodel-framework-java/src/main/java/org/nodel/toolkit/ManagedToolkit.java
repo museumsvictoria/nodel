@@ -95,10 +95,29 @@ public class ManagedToolkit {
     private Console.Interface _console = Console.NullConsole();
 
     /**
-     * The exception handler.
+     * The exception handler, with context
      */
-    private Handler.H1<Exception> _exceptionHandler;
+    private Handler.H2<String, Exception> _exceptionHandler;
     
+    /**
+     * ('exceptionHandler' with context)
+     */
+    private H1<Exception> _callDelayedExceptionHandler = createExceptionHandlerWithContext("callDelayed");
+    
+    /**
+     * ('exceptionHandler' with context)
+     */
+    private H1<Exception> _timerExceptionHandler = createExceptionHandlerWithContext("timer");
+    
+    /**
+     * ('exceptionHandler' with context)
+     */
+    private H1<Exception> _tcpExceptionHandler = createExceptionHandlerWithContext("tcp");    
+    
+    /**
+     * ('exceptionHandler' with context)
+     */
+    private H1<Exception> _udpExceptionHandler = createExceptionHandlerWithContext("udp");
     /**
      * Call from within calling thread, usually sets up the thread-state environment.
      */
@@ -173,7 +192,7 @@ public class ManagedToolkit {
     /**
      * An exception-handler when invocations within thread-pools fail.
      */
-    public ManagedToolkit setExceptionHandler(Handler.H1<Exception> handler) {
+    public ManagedToolkit setExceptionHandler(Handler.H2<String, Exception> handler) {
         _exceptionHandler = handler;
         
         return this;
@@ -195,7 +214,7 @@ public class ManagedToolkit {
     public <T> ManagedToolkit call(Callable<T> func, final H1<T> onComplete, final H1<Exception> onError) {
         return callDelayed(0, func, onComplete, onError);
     }
-
+    
     /**
      * Delays a function call.
      */
@@ -219,14 +238,14 @@ public class ManagedToolkit {
                         T result = func.call();
                         
                         // call the 'onComplete' callback if it exists
-                        _callbackQueue.handle(onComplete, result, _exceptionHandler);
+                        _callbackQueue.handle(onComplete, result, _callDelayedExceptionHandler);
 
                     } catch (Exception th) {
-                        if (onError == null)
-                            _callbackQueue.handle(onError, th, _exceptionHandler);
+                        if (onError != null)
+                            _callbackQueue.handle(onError, th, _callDelayedExceptionHandler);
                         else
                             // call the global exception handler
-                            _exceptionHandler.handle(th);
+                            _callDelayedExceptionHandler.handle(th);
 
                     } finally {
                         synchronized (_lock) {
@@ -264,7 +283,7 @@ public class ManagedToolkit {
     public ManagedTimer createTimer(H0 func, long delay, long interval, boolean stopped) {
         synchronized(_lock) {
             // create a timer (will be stopped)
-            ManagedTimer timer = new ManagedTimer(func, _threadStateHandler, s_timers, s_threadPool, _exceptionHandler, _callbackQueue);
+            ManagedTimer timer = new ManagedTimer(func, _threadStateHandler, s_timers, s_threadPool, _timerExceptionHandler, _callbackQueue);
             
             _timers.add(timer);
             
@@ -304,7 +323,7 @@ public class ManagedToolkit {
                                 String receiveDelimiters,
                                 String binaryStartStopFlags) {
         // create a new TCP connection providing this environment's facilities
-        ManagedTCP tcp = new ManagedTCP(_node, dest, _threadStateHandler, _exceptionHandler, _callbackQueue, s_threadPool, s_timers);
+        ManagedTCP tcp = new ManagedTCP(_node, dest, _threadStateHandler, _tcpExceptionHandler, _callbackQueue, s_threadPool, s_timers);
         
         // set up the callback handlers as provided by the user
         tcp.setConnectedHandler(onConnected);
@@ -332,7 +351,7 @@ public class ManagedToolkit {
                                 H2<String, String> onReceived, 
                                 H1<String> onSent,
                                 String intf) {
-        ManagedUDP udp = new ManagedUDP(_node, source, dest, _threadStateHandler, _exceptionHandler, _callbackQueue, s_threadPool, s_timers);
+        ManagedUDP udp = new ManagedUDP(_node, source, dest, _threadStateHandler, _udpExceptionHandler, _callbackQueue, s_threadPool, s_timers);
         
         udp.setReadyHandler(onReady);
         udp.setReceivedHandler(onReceived);
@@ -684,6 +703,20 @@ public class ManagedToolkit {
         } catch (UnsupportedEncodingException e) {
             throw new RuntimeException(e);
         }
+    }
+    
+    /**
+     * (convenience function)
+     */
+    private H1<Exception> createExceptionHandlerWithContext(final String context) {
+        return new H1<Exception>() {
+
+            @Override
+            public void handle(Exception value) {
+                Handler.tryHandle(_exceptionHandler, context, value);
+            }
+
+        };
     }
     
 }

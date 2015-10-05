@@ -184,14 +184,27 @@ public class ManagedTimer implements Closeable {
         }
     }
     
+    /**
+     * Starts the repeating timer if it hasn't already been started. If it's the first time
+     * this timer has even been started, a first delay applies.
+     */
     public void start() {
         synchronized(_lock) {
-            scheduleTimer(0, _interval);
+            if (_currentDelay > 0 || _currentInterval > 0)
+                // has started, nothing to do
+                return;
+            
+            if (_timerTask == null)
+                // has never ever started, so supply first delay
+                scheduleTimer(_delay, _interval);
+            else
+                // has previously been started, supply interval only
+                scheduleTimer(0, _interval);
         }
     }
     
     /**
-     * Stops / pauses / suspects this timer.
+     * Stops / pauses / suspends this timer.
      */
     public void stop() {
         scheduleTimer(0, 0);
