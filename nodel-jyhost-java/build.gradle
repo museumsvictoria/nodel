@@ -62,7 +62,7 @@ task fatJar(type: Jar) {
         	'Implementation-Version': version,
         	'Main-Class': mainClassName
     }
-	appendix = branch + '_r' + rev
+	appendix = branch + '-rev' + rev
     baseName = 'nodelhost'
     destinationDir new File(buildDir, 'distributions/standalone')
     from { configurations.compile.collect { it.isDirectory() ? it : zipTree(it) } }
