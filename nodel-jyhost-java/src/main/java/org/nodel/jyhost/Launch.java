@@ -234,15 +234,6 @@ public class Launch {
 
             _logger.info("'admin' and 'content' packages have been extracted.");
             
-            // dump new logging config example
-            try {
-                InputStream is = Launch.class.getResourceAsStream("log4j2.xml");
-                File exampleLoggingConfigFile = new File(_root, "loggingConfig (example).xml");
-                Stream.writeFully(exampleLoggingConfigFile, Stream.readFully(is));
-            } catch (Exception e) {
-                // ignore
-            }            
-
             // update the version stamp so extraction isn't done again
             Stream.writeFully(versionFile, VERSION);
         }
