@@ -10,6 +10,7 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.io.StringWriter;
@@ -143,8 +144,23 @@ public class NodelHostHTTPD extends NanoHTTPD {
         public void newNode(String name) {
             _nodelHost.newNode(name);
         }
+        
+        @Service(name = "toolkit", title = "Toolkit", desc = "The toolkit reference.")
+        public Info getToolkitReference() throws IOException {
+            try (InputStream moneyPatchStream = PyNode.class.getResourceAsStream("monkeyPatch.py")) {
+                Info info = new Info();
+                info.script = Stream.readFully(moneyPatchStream);
+                return info;
+            }
+        }
 
     } // (inner class)
+    
+    public static class Info {
+        
+        public String script;
+        
+    }
 
     private NodelHost _nodelHost;
 
