@@ -600,6 +600,11 @@
                 }
             }
         },
+        "toolkit": {
+            "type": "string",
+            "title": "Toolkit",
+            "desc": "The toolkit reference."
+        },
         "warningLogs": {
             "type": "array",
             "title": "Warning logs",
@@ -1220,6 +1225,17 @@
                     "title": "Free memory",
                     "desc": "Free memory (in bytes) as reported by Java; not necessarily stable."
                 },
+                "hostPath": {
+                    "type": "string",
+                    "required": true,
+                    "title": "Host path"
+                },
+                "hostingRule": {
+                    "type": "string",
+                    "required": true,
+                    "title": "Hosting rule",
+                    "desc": "If any 'include' and/or 'exclude' rules apply."
+                },
                 "hostname": {
                     "type": "string",
                     "required": true,
@@ -1237,6 +1253,12 @@
                     "required": true,
                     "title": "Maximum memory",
                     "desc": "Maximum memory (in bytes) as reported by Java; not necessarily stable."
+                },
+                "nodesRoot": {
+                    "type": "string",
+                    "required": true,
+                    "title": "Nodes root",
+                    "desc": "Where the nodes are being hosted."
                 },
                 "startTime": {
                     "type": "string",
@@ -1264,6 +1286,11 @@
                     "title": "VM arguments",
                     "desc": "The arguments supplied to this instance of the VM.",
                     "items": {"type": "object"}
+                },
+                "webSocketPort": {
+                    "type": "integer",
+                    "required": true,
+                    "title": "Web socket port"
                 }
             },
             "services": {
@@ -1332,6 +1359,17 @@
                 "order": 0
             }},
             "items": {"type": "object"}
+        },
+        "newNode": {
+            "type": "boolean",
+            "order": 7,
+            "title": "New node",
+            "desc": "Creates a new node.",
+            "takes": {"value": {
+                "type": "string",
+                "title": "New node",
+                "order": 0
+            }}
         }
     }
 }

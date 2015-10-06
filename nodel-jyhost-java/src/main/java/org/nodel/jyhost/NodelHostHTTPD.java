@@ -157,9 +157,10 @@ public class NodelHostHTTPD extends NanoHTTPD {
     } // (inner class)
     
     public static class Info {
-        
+
+        @Value(name = "script")
         public String script;
-        
+
     }
 
     private NodelHost _nodelHost;

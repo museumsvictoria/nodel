@@ -1,21 +1,29 @@
-# holds special 'reserved' words that
-# the bindings and parameter extractor 
-# uses   
+# This scripting toolkit is injected into the 
+# scripting environment.
+# 
+# It contains convenience utilities and classes.
 
+# Represents a template for a local event
 def LocalEvent(schemaDictOrJSONorTitle = None):
     return schemaDictOrJSONorTitle;
 
+# Represents a template for a local action
 def RemoteAction(schemaDictOrJSONorTitle = None):
     return schemaDictOrJSONorTitle;
 
+# Represents a template for a parameter
 def Parameter(schemaDictOrJSONorTitle = None):
     return schemaDictOrJSONorTitle;
 
-# Toolkit related
-# ('_toolkit' is injected by PyNode.java)
+# _toolkit: Native toolkit
 
-# provide a console object
+# A general console with:
+# .log(...)    - light verbose text
+# .info(...)   - blue text
+# .error(...)  - red text
+# .warn(...)   - orange text
 console = _toolkit.getConsole()
+
 
 # Simple JSON encoder
 def json_encode(obj):
@@ -25,10 +33,11 @@ def json_encode(obj):
 def json_decode(json):
   return _toolkit.jsonDecode(json)
 
+# Schedules a function to be called immediately
 def call(func, complete=None, error=None):
-  """Schedules a function to be called immediately"""
   _toolkit.callDelayed(0, func, complete, error)
 
+# Schedules a function to be called at a slighter later time
 def call_delayed(delayInSeconds, func, complete=None, error=None):
   _toolkit.callDelayed(delayInSeconds, func, complete, error)
 
@@ -36,26 +45,29 @@ def call_delayed(delayInSeconds, func, complete=None, error=None):
 def next_seq():
     return _toolkit.nextSequenceNumber()
 
-# Returns a high-precision atomically incrementing clock in milliseconds (can wrap)
+# Returns a high-precision atomically incrementing clock in milliseconds
 def system_clock():
     return _toolkit.systemClockInMillis();
 
 # Simple URL retriever (supports POST)
-def getURL(url, query=None, reference=None, contentType=None, post=None):
-  "Retrieves the contents of a plain URL."
+def get_url(url, query=None, reference=None, contentType=None, post=None):  
+  return _toolkit.getURL(url, query, reference, contentType, post)
+  
+# DEPRECATED (same as above)
+def getURL(url, query=None, reference=None, contentType=None, post=None):  
   return _toolkit.getURL(url, query, reference, contentType, post)
 
+# A managed TCP connection that attempts to stay open (includes instrumentation)
 def TCP(dest=None, connected=None, received=None, sent=None, disconnected=None, timeout=None, sendDelimiters='\n', receiveDelimiters='\r\n', binaryStartStopFlags=None):
-  """Creates a simple TCP connection that attempts to stay open"""
   return _toolkit.createTCP(dest, connected, received, sent, disconnected, timeout, sendDelimiters, receiveDelimiters, binaryStartStopFlags);
-  
+
+# A managed UDP connection for sending or receiving UDP (includes instrumentation)
 def UDP(source='0.0.0.0:0', dest=None, ready=None, received=None, sent=None, intf=None):
-  """Creates a permanent UDP socket used for sending and receiving."""
   return _toolkit.createUDP(source, dest, ready, received, sent, intf);  
-  
+
+# A general purpose timer class for repeating timers
 class Timer:
   def __init__(self, func, intervalInSeconds, firstDelayInSeconds=0, stopped=False):
-      """Creates a repeating timer"""
       self.wrapper = _toolkit.createTimer(func, long(firstDelayInSeconds * 1000), long(intervalInSeconds * 1000), stopped)
       
   def setDelayAndInterval(self, delayInSeconds, intervalInSeconds):
@@ -87,29 +99,32 @@ class Timer:
   
   def isStopped(self):
       return self.wrapper.isStopped()
-  
+
+# Create a node (on-the-fly)
 def Node(nodeName):
-    """Creates a managed node"""
     return _toolkit.createNode(nodeName)
 
+# Creates a node based on the name of an existing node (on-the-fly)
 def Subnode(baseName):
-    """Creates a managed node based on the name of an existing node"""
     return _toolkit.createSubnode(baseName)
   
-def Event(name, metadata = None):
+# Releases a node created with Node() or Subnode() and related resources.
+def release_node(node):
+  return _toolkit.releaseNode(node)
+
+# DEPRECATED (see above)  
+def releaseNode(node):
+  return _toolkit.releaseNode(node)
+
+# Creates a local signal (on-the-fly)
+def Signal(name, metadata=None):
     return _toolkit.createEvent(name, metadata)
 
-def Signal(name, metadata = None):
+# (see Signal)
+def Event(name, metadata=None):
     return _toolkit.createEvent(name, metadata)
-    
-def Action(name, handler, metadata = None):
+  
+# Creates a local action (on-the-fly)    
+def Action(name, handler, metadata=None):
 	return _toolkit.createAction(name, handler, metadata)
 
-def ImpromptuSignal(name, metadata):
-    signal = _toolkit.createEvent(name, metadata)
-    action = _toolkit.createAction("Emit signal '%s'" % name, lambda arg: signal.emit(arg), metadata)
-    return (signal, action)
-
-def releaseNode(node):
-  """Permanently destroys a node (releases all resources)"""
-  return _toolkit.releaseNode(node)

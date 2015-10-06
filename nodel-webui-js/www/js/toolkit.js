@@ -23,22 +23,20 @@ var dialog = function(message, type){
 };
 
 var updateeditor = function() {
-  var url = 'http://' + host + '/REST/toolkit';
-  console.info('getting url: ' + url);
-  $.get(url, function(data) {
+  $.get('/REST/toolkit', function(data) {
     $('#script_editor').val(data.script);
     if(typeof editor === "undefined"){
-		editor = CodeMirror.fromTextArea(document.getElementById("script_editor"), {
-		  mode: {
-			name: "python",
-			version: 2,
-			singleLineStringErrors: false
-		  },
-		  lineNumbers: true,
-		  indentUnit: 2,
-		  tabMode: "shift",
-		  matchBrackets: true
-		});
+        editor = CodeMirror.fromTextArea(document.getElementById("script_editor"), {
+          mode: {
+            name: "python",
+            version: 2,
+            singleLineStringErrors: false
+          },
+          lineNumbers: true,
+          indentUnit: 2,
+          tabMode: "shift",
+          matchBrackets: true
+        });
     }
   });
 };

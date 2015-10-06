@@ -6,3 +6,8 @@
 /.gradle
 /nodel-framework-java/bin
 /nodel-jyhost-java/bin
+/nodel-jyhost-java/content
+/nodel-jyhost-java/logs
+/nodel-jyhost-java/nodes
+
+
