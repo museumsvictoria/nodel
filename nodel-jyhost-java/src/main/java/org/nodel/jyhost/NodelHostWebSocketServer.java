@@ -128,7 +128,7 @@ public class NodelHostWebSocketServer extends NanoWebSocketServer {
      * Sets up a new session that can be pulled down when the socket dies.
      */
     private void newSession(WebSocket webSocket, BaseNode node) {       
-        SessionEntry session = new SessionEntry(webSocket, node);
+        final SessionEntry session = new SessionEntry(webSocket, node);
         session.activityHandler = new Handler.H1<LogEntry>() {
             
             @Override
@@ -201,7 +201,7 @@ public class NodelHostWebSocketServer extends NanoWebSocketServer {
     /**
      * Queues the message to be set immediately (without blocking)
      */
-    private void queueSend(SessionEntry session, QueueEntry qe) {
+    private void queueSend(final SessionEntry session, QueueEntry qe) {
         synchronized (session) {
             // add to the queue
             session.sendQueue.add(qe);
