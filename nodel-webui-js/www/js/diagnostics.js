@@ -1,3 +1,10 @@
+$(document).ready(function() {
+    updateDiagnostics();
+    updateBuildInfo();
+    updateCounters();
+    updateConsoleForm();
+});
+
 google.load("visualization", "1", {
     packages : [ "corechart" ]
 });
@@ -22,12 +29,8 @@ $(window).on('resizeEnd', function() {
 });
 
 google.setOnLoadCallback(function() {
-    updateDiagnostics();
-    updateBuildInfo();
-    updateCounters();
-    updateConsoleForm();
     setInterval(function() {
-      if(!paused) updateCounters();
+      if (!paused) updateCounters();
     }, 10000);
 });
 
