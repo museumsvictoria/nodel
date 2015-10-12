@@ -224,10 +224,12 @@ public class Objects {
         Iterator<?> e1 = collection1.iterator();
         Iterator<?> e2 = collection2.iterator();
         
+        level++;
+        
         while (e1.hasNext() && e2.hasNext()) {
             Object o1 = e1.next();
             Object o2 = e2.next();
-            if (!(o1 == null ? o2 == null : sameValue(o1, o2, level++)))
+            if (!(o1 == null ? o2 == null : sameValue(o1, o2, level)))
                 return false;
         }
         return !(e1.hasNext() || e2.hasNext());
@@ -243,6 +245,8 @@ public class Objects {
 
         if (keys1.size() != keys2.size())
             return false;
+        
+        level++;
 
         for (Entry<?, ?> entry1 : map1.entrySet()) {
             Object key1 = entry1.getKey();
@@ -255,7 +259,7 @@ public class Objects {
 
             // NOTE: value1 and value2 could legitimately both be 'null here
 
-            if (!sameValue(value1, value2, level++))
+            if (!sameValue(value1, value2, level))
                 return false;
 
             // keep going through the rest of the keys...
