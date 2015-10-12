@@ -4,12 +4,10 @@ import java.io.IOException;
 
 /**
  * Runtime version of IO exception.
- * 
- * TODO: sort this class out
  */
 public class UnexpectedIOException extends RuntimeException {
 
-    private static final long serialVersionUID = 1L;
+    private static final long serialVersionUID = -685861555660909086L;
 
     public UnexpectedIOException(String message) {
         super(message);

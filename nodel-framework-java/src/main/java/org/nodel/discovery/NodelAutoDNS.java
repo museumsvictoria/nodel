@@ -8,6 +8,7 @@ package org.nodel.discovery;
 
 import java.io.IOException;
 import java.net.DatagramPacket;
+import java.net.DatagramSocket;
 import java.net.Inet4Address;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
@@ -346,6 +347,11 @@ public class NodelAutoDNS extends AutoDNS {
     private InetAddress _group = parseNumericalIPAddress(MDNS_GROUP);
     
     /**
+     * (as an InetSocketAddress (with port); will never be null)
+     */
+    private InetSocketAddress _groupSocketAddress = new InetSocketAddress(_group, MDNS_PORT);
+    
+    /**
      * Whether or not we're probing for client. It will probe on start up and then deactivate.
      * e.g. 'list' is called.
      * (nanos)
@@ -410,6 +416,16 @@ public class NodelAutoDNS extends AutoDNS {
     private boolean _recycleReceiver;
     
     /**
+     * Used if direct "multicast" (using unicast) is enabled.
+     */
+    private DatagramSocket _multiunicastSocket;
+    
+    /**
+     * (socket label)
+     */
+    private static String s_multiunicastSocketlabel = "[multiUnicastSenderReceiver]";
+    
+    /**
      * (will never be null after being set)
      */
     private String _nodelAddress;
@@ -418,6 +434,13 @@ public class NodelAutoDNS extends AutoDNS {
      * Will be a valid address.
      */
     private String _httpAddress = "http://" + getLocalIPv4Address().getHostAddress() + ":" + Nodel.getHTTPPort() + Nodel.getHTTPSuffix();
+    
+    /**
+     * Holds a safe list of resolved addresses and ports that should be "directly" multicast to (i.e. using unicast).
+     * Can be used if multicasting is unreliable or inconvenient.
+     * (is either null or has at least one element)
+     */
+    private List<InetSocketAddress> _directMulticastAddresses = composeDirectMulticastSocketAddresses();
     
     /**
      * Returns immediately.
@@ -485,7 +508,7 @@ public class NodelAutoDNS extends AutoDNS {
         _logger.info("Auto discovery threads and timers started. probePeriod:{}, stalePeriodAllowed:{}",
                 DateTimes.formatShortDuration(PROBE_PERIOD), DateTimes.formatShortDuration(STALE_TIME));
     } // (init)
-    
+
     /**
      * Creates a new socket, cleaning up if anything goes wrong in the process
      */
@@ -576,19 +599,9 @@ public class NodelAutoDNS extends AutoDNS {
                     // update counter which is used to detect silence
                     if (!isLocal)
                         _lastExternalMulticastPacket = System.nanoTime();
-
-                    // place it in the queue and make it process if necessary
-                    synchronized (_incomingQueue) {
-                        QueueEntry qe = new QueueEntry(s_receiveSocketlabel, dp);
-                        _incomingQueue.add(qe);
-
-                        // kick off the other thread to process the queue
-                        // (otherwise the thread will already be processing the queue)
-                        if (!_isProcessingIncomingQueue) {
-                            _isProcessingIncomingQueue = true;
-                            _threadPool.execute(_incomingQueueProcessor);
-                        }
-                    }
+                    
+                    enqueueForProcessing(dp, s_receiveSocketlabel);
+                    
                 } // (inner while)
 
             } catch (Exception exc) {
@@ -664,19 +677,8 @@ public class NodelAutoDNS extends AutoDNS {
                         s_unicastInData.addAndGet(dp.getLength());
                         s_unicastInOps.incrementAndGet();
                     }
-
-                    // place it in the queue and make it process if necessary
-                    synchronized (_incomingQueue) {
-                        QueueEntry entry = new QueueEntry(s_sendSocketLabel, dp);
-                        _incomingQueue.add(entry);
-
-                        // kick off the on another thread to process the queue
-                        // (otherwise the thread will already be processing the queue)
-                        if (!_isProcessingIncomingQueue) {
-                            _isProcessingIncomingQueue = true;
-                            _threadPool.execute(_incomingQueueProcessor);
-                        }
-                    }
+                    
+                    enqueueForProcessing(dp, s_sendSocketLabel);
 
                 } // (inner while)
                 
@@ -702,7 +704,22 @@ public class NodelAutoDNS extends AutoDNS {
         } // (outer while)
         
         _logger.info("This thread has run to completion.");
-    } // (method)
+    }
+
+    private void enqueueForProcessing(DatagramPacket dp, String label) {
+        // place it in the queue and make it process if necessary
+        synchronized (_incomingQueue) {
+            QueueEntry qe = new QueueEntry(label, dp);
+            _incomingQueue.add(qe);
+
+            // kick off the other thread to process the queue
+            // (otherwise the thread will already be processing the queue)
+            if (!_isProcessingIncomingQueue) {
+                _isProcessingIncomingQueue = true;
+                _threadPool.execute(_incomingQueueProcessor);
+            }
+        }
+    }    
     
     /**
      * Processes whatever's in the queue.
@@ -801,19 +818,24 @@ public class NodelAutoDNS extends AutoDNS {
 		message.discovery = discoveryList;
 		message.types = typesList;
 
-		final InetSocketAddress address = new InetSocketAddress(_group, MDNS_PORT);
-		
 		_lastProbe.set(System.nanoTime());
 
 		// IO is involved so use a thread-pool
 		_threadPool.execute(new Runnable() {
 
-			@Override
-			public void run() {
-				sendMessage(address, message);
-			}
+            @Override
+            public void run() {
+                sendMessage(_sendSocket, s_sendSocketLabel, _groupSocketAddress, message);
 
-		});
+                // check if direct "multicasting" has been turned on for some hosts
+                if (_directMulticastAddresses != null && _multiunicastSocket != null) {
+                    for (InetSocketAddress socketAddress : _directMulticastAddresses) {
+                        sendMessage(_multiunicastSocket, s_multiunicastSocketlabel, socketAddress, message);
+                    }
+                }
+            }
+
+        });
 	}
 
 	/**
@@ -981,7 +1003,7 @@ public class NodelAutoDNS extends AutoDNS {
 
                     @Override
                     public void run() {
-                        sendMessage(_recipient, message);
+                        sendMessage(_sendSocket, s_sendSocketLabel, _recipient, message);
                     }
 
                 });
@@ -1011,16 +1033,14 @@ public class NodelAutoDNS extends AutoDNS {
     /**
      * Sends the message to a recipient 
      */
-    private void sendMessage(InetSocketAddress to, NameServicesChannelMessage message) {
-        MulticastSocket socket = _sendSocket;
-
+    private void sendMessage(DatagramSocket socket, String label, InetSocketAddress to, NameServicesChannelMessage message) {
         if (isSameSocketAddress(socket, to))
-            _logger.info("{} sending message. to=self, message={}", s_sendSocketLabel, message);
+            _logger.info("{} sending message. to=self, message={}", label, message);
         else
-            _logger.info("{} sending message. to={}, message={}", s_sendSocketLabel, to, message);
+            _logger.info("{} sending message. to={}, message={}", label, to, message);
         
         if (socket == null) {
-        	_logger.info("{} is not available yet; ignoring send request.", s_sendSocketLabel);
+        	_logger.info("{} is not available yet; ignoring send request.", label);
         	return;
         }
         
@@ -1057,7 +1077,7 @@ public class NodelAutoDNS extends AutoDNS {
      * The map of responders by recipient address.
      */
     private ConcurrentMap<SocketAddress, Responder> _responders = new ConcurrentHashMap<SocketAddress, Responder>();
-    
+
     /**
      * Handles a complete packet from the socket.
      */
@@ -1253,7 +1273,7 @@ public class NodelAutoDNS extends AutoDNS {
         for (TimerTask timer : _timers)
             timer.cancel();
 
-        Stream.safeClose(_sendSocket, _receiveSocket);
+        Stream.safeClose(_sendSocket, _receiveSocket, _multiunicastSocket);
     }
     
     /**
@@ -1344,13 +1364,85 @@ public class NodelAutoDNS extends AutoDNS {
     /**
      * Safely returns true if a packet has the same address and a socket. Used to determine its own socket.
      */
-    private static boolean isSameSocketAddress(MulticastSocket socket, InetSocketAddress addr) {
+    private static boolean isSameSocketAddress(DatagramSocket socket, InetSocketAddress addr) {
         if (socket == null || addr == null)
             return false;
         
         SocketAddress socketAddr = socket.getLocalSocketAddress();
         
         return socketAddr != null && socketAddr.equals(addr);
+    }
+    
+    /**
+     * Turns the list of addresses into "resolved" InetSocketAddresses.
+     * (should only be called once)
+     */
+    private List<InetSocketAddress> composeDirectMulticastSocketAddresses() {
+        List<InetAddress> addresses = Nodel.getDirectMulticastAddresses();
+        
+        if (addresses.size() <= 0)
+            return null;
+        
+        List<InetSocketAddress> socketAddresses = new ArrayList<InetSocketAddress>();
+        for (InetAddress address : addresses)
+            socketAddresses.add(new InetSocketAddress(address, MDNS_PORT));
+
+        // at least one address is enabled, so initialise a general purpose UDP socket and
+        // receiver thread.
+        
+        Thread thread = new Thread(new Runnable() {
+
+            @Override
+            public void run() {
+                multiunicastReceiverThreadMain();
+            }
+
+        }, s_multiunicastSocketlabel);
+        thread.setDaemon(true);
+        thread.start();
+
+        return socketAddresses;
+    }
+
+    /**
+     * (thread entry-point)
+     */
+    private void multiunicastReceiverThreadMain() {
+        DatagramSocket socket = null;
+        try {
+            // initialise a UDP socket on an arbitrary port
+            _multiunicastSocket = new DatagramSocket();
+
+            socket = _multiunicastSocket;
+
+            while (_enabled) {
+                DatagramPacket dp = UDPPacketRecycleQueue.instance().getReadyToUsePacket();
+
+                // ('returnPacket' will be called in 'catch' or later after use in thread-pool)
+
+                try {
+                    socket.receive(dp);
+
+                    s_unicastInData.addAndGet(dp.getLength());
+                    s_unicastInOps.incrementAndGet();
+
+                    enqueueForProcessing(dp, s_multiunicastSocketlabel);
+                    
+                } catch (Exception exc) {
+                    UDPPacketRecycleQueue.instance().returnPacket(dp);
+
+                    // ignore
+                }
+            } // (while)
+
+        } catch (Exception exc) {
+            _logger.warn("Failed to initialise [" + s_multiunicastSocketlabel + "] socket.", exc);
+        } finally {
+            _logger.info("[" + s_multiunicastSocketlabel + "] thread run to completion.");
+            
+            // close for good measure
+            Stream.safeClose(socket);
+        }
     }
 
 } // (class)
