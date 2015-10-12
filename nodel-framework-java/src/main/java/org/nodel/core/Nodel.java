@@ -10,6 +10,7 @@ import java.io.IOException;
 import java.net.InetAddress;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
@@ -21,6 +22,7 @@ import org.nodel.Strings;
 import org.nodel.core.NodelClients.NodeURL;
 import org.nodel.discovery.AdvertisementInfo;
 import org.nodel.discovery.AutoDNS;
+import org.nodel.io.UnexpectedIOException;
 
 // TODO: use one of these to implement character normalisation:
 // http://stackoverflow.com/questions/1008802/converting-symbols-accent-letters-to-english-alphabet
@@ -481,6 +483,42 @@ public class Nodel {
      */
     public static String getNodesRoot() {
         return s_nodesRoot;
+    }
+    
+    /**
+     * (see setter)
+     * (must never be null)
+     */
+    private static List<InetAddress> s_directMulticastAddresses = Collections.emptyList();
+
+    /**
+     * Gets the list of direct multicast addresses to assist with inconvenient or unreliable multicasting.
+     * (never returns null; items never null)
+     */
+    public static List<InetAddress> getDirectMulticastAddresses() {
+        return s_directMulticastAddresses;
+    }
+    
+    /**
+     * Sets the direct multicast addresses list. Using null resets the list.
+     */
+    public static void setDirectMulticastAddresses(List<String> addresses) {
+        if (addresses == null || addresses.size() == 0) {
+            s_directMulticastAddresses = Collections.emptyList();
+            return;
+        }
+
+        List<InetAddress> list = new ArrayList<InetAddress>();
+        for (String address : addresses) {
+            try {
+                list.add(InetAddress.getByName(address));
+                
+            } catch (IOException exc) {
+                throw new UnexpectedIOException(exc);
+            }
+        }
+
+        s_directMulticastAddresses = list;
     }
 
 }
