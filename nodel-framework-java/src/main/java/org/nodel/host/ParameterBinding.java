@@ -23,6 +23,7 @@ public class ParameterBinding {
     
     static {
         Example = new ParameterBinding();
+        Example.title = "IP address";
         Example.desc = "The IP address to connect to.";
         Example.schema = Schema.getSchemaObject(String.class);
         Example.value = "192.168.100.1";
