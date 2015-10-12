@@ -16,6 +16,7 @@ import org.nodel.Handler;
 import org.nodel.SimpleName;
 import org.nodel.Strings;
 import org.nodel.host.Binding;
+import org.nodel.reflection.Objects;
 import org.nodel.reflection.Param;
 import org.nodel.reflection.Service;
 import org.nodel.reflection.Value;
@@ -188,6 +189,16 @@ public class NodelServerEvent implements Closeable {
      */
     public void emit() {
         doEmit(null);
+    }
+    
+    /**
+     * Only emits the event if new argument (state) is different from the previous one.
+     */
+    public void emitIfDifferent(Object value) {
+        Object oldValue = _argValue.get();
+
+        if (!Objects.sameValue(oldValue, value))
+            doEmit(value);
     }
 
     /**

@@ -33,6 +33,11 @@ def json_encode(obj):
 def json_decode(json):
   return _toolkit.jsonDecode(json)
 
+# Tests whether two objects are effectively the same value (safely deeply inspects both objects)
+# (collections, arrays, maps, dicts sets, etc. are all normalised and made "comparable" where possible)
+def same_value(obj1, obj2):
+  return _toolkit.sameValue(obj1, obj2)
+
 # Schedules a function to be called immediately
 def call(func, complete=None, error=None):
   _toolkit.callDelayed(0, func, complete, error)
@@ -52,7 +57,7 @@ def system_clock():
 # Simple URL retriever (supports POST)
 def get_url(url, query=None, reference=None, contentType=None, post=None):  
   return _toolkit.getURL(url, query, reference, contentType, post)
-  
+
 # DEPRECATED (same as above)
 def getURL(url, query=None, reference=None, contentType=None, post=None):  
   return _toolkit.getURL(url, query, reference, contentType, post)

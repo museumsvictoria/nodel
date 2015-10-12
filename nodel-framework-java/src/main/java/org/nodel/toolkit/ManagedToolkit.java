@@ -32,6 +32,7 @@ import org.nodel.host.BaseDynamicNode;
 import org.nodel.host.Binding;
 import org.nodel.host.LogEntry;
 import org.nodel.io.Stream;
+import org.nodel.reflection.Objects;
 import org.nodel.reflection.Serialisation;
 import org.nodel.threading.ThreadPool;
 import org.nodel.threading.TimerTask;
@@ -692,6 +693,13 @@ public class ManagedToolkit {
      */
     public long systemClockInMillis() {
         return System.nanoTime() / 1000000; 
+    }
+    
+    /**
+     * Checks whether two objects are effectively of the same value.
+     */
+    public boolean sameValue(Object obj1, Object obj2) {
+        return Objects.sameValue(obj1, obj2);
     }
     
     /**
