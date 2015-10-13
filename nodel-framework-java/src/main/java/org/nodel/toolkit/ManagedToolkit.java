@@ -706,6 +706,27 @@ public class ManagedToolkit {
     public boolean sameValue(Object obj1, Object obj2) {
         return Objects.sameValue(obj1, obj2);
     }
+
+    /**
+     * 'now' as a DateTime instance.
+     */
+    public DateTime dateNow() {
+        return DateTime.now();
+    }
+    
+    /**
+     * A DateTime instance from composite date / time values.
+     */
+    public DateTime dateAt(int year, int month, int day, int hour, int minute, int second, int millisecond) {
+        return new DateTime(year, month, day, hour, minute, second, millisecond);
+    }
+    
+    /**
+     * A DateTime instance from 1970-based millis.
+     */
+    public DateTime dateAtInstant(long millis) {
+        return new DateTime(millis);
+    }    
     
     /**
      * (exception-less, convenience function) 
