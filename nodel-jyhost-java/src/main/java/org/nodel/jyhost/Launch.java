@@ -180,9 +180,9 @@ public class Launch {
             Nodel.setInterfaceToUse(addr);
         }
         
-        // check if any "direct" (assisted) multicast addresses have been set
-        if (_bootstrapConfig.getDirectMulticastAddresses() != null)
-            Nodel.setDirectMulticastAddresses(Arrays.asList(_bootstrapConfig.getDirectMulticastAddresses()));
+        // check if any "direct" hard links (assisted multicast using unicast) addresses have been set
+        if (_bootstrapConfig.getHardLinksAddresses() != null)
+            Nodel.setHardLinksAddresses(Arrays.asList(_bootstrapConfig.getHardLinksAddresses()));
 
         // check if advertisements should be disabled
         if (_bootstrapConfig.getDisableAdvertisements()) {

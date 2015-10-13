@@ -418,12 +418,12 @@ public class NodelAutoDNS extends AutoDNS {
     /**
      * Used if direct "multicast" (using unicast) is enabled.
      */
-    private DatagramSocket _multiunicastSocket;
+    private DatagramSocket _hardLinksSocket;
     
     /**
      * (socket label)
      */
-    private static String s_multiunicastSocketlabel = "[multiUnicastSenderReceiver]";
+    private static String s_hardLinksSocketlabel = "[unicastHardLinksSenderReceiver]";
     
     /**
      * (will never be null after being set)
@@ -440,7 +440,7 @@ public class NodelAutoDNS extends AutoDNS {
      * Can be used if multicasting is unreliable or inconvenient.
      * (is either null or has at least one element)
      */
-    private List<InetSocketAddress> _directMulticastAddresses = composeDirectMulticastSocketAddresses();
+    private List<InetSocketAddress> _hardLinksAddresses = composeHardLinksSocketAddresses();
     
     /**
      * Returns immediately.
@@ -827,10 +827,10 @@ public class NodelAutoDNS extends AutoDNS {
             public void run() {
                 sendMessage(_sendSocket, s_sendSocketLabel, _groupSocketAddress, message);
 
-                // check if direct "multicasting" has been turned on for some hosts
-                if (_directMulticastAddresses != null && _multiunicastSocket != null) {
-                    for (InetSocketAddress socketAddress : _directMulticastAddresses) {
-                        sendMessage(_multiunicastSocket, s_multiunicastSocketlabel, socketAddress, message);
+                // check if hard links (direct "multicasting") are enabled for some hosts
+                if (_hardLinksAddresses != null && _hardLinksSocket != null) {
+                    for (InetSocketAddress socketAddress : _hardLinksAddresses) {
+                        sendMessage(_hardLinksSocket, s_hardLinksSocketlabel, socketAddress, message);
                     }
                 }
             }
@@ -1273,7 +1273,7 @@ public class NodelAutoDNS extends AutoDNS {
         for (TimerTask timer : _timers)
             timer.cancel();
 
-        Stream.safeClose(_sendSocket, _receiveSocket, _multiunicastSocket);
+        Stream.safeClose(_sendSocket, _receiveSocket, _hardLinksSocket);
     }
     
     /**
@@ -1377,8 +1377,8 @@ public class NodelAutoDNS extends AutoDNS {
      * Turns the list of addresses into "resolved" InetSocketAddresses.
      * (should only be called once)
      */
-    private List<InetSocketAddress> composeDirectMulticastSocketAddresses() {
-        List<InetAddress> addresses = Nodel.getDirectMulticastAddresses();
+    private List<InetSocketAddress> composeHardLinksSocketAddresses() {
+        List<InetAddress> addresses = Nodel.getHardLinksAddresses();
         
         if (addresses.size() <= 0)
             return null;
@@ -1394,10 +1394,10 @@ public class NodelAutoDNS extends AutoDNS {
 
             @Override
             public void run() {
-                multiunicastReceiverThreadMain();
+                hardLinksReceiverThreadMain();
             }
 
-        }, s_multiunicastSocketlabel);
+        }, s_hardLinksSocketlabel);
         thread.setDaemon(true);
         thread.start();
 
@@ -1407,13 +1407,15 @@ public class NodelAutoDNS extends AutoDNS {
     /**
      * (thread entry-point)
      */
-    private void multiunicastReceiverThreadMain() {
+	private void hardLinksReceiverThreadMain() {
+		_logger.info("Instructed to use hardlinks. address:{}", _hardLinksAddresses);
+
         DatagramSocket socket = null;
         try {
             // initialise a UDP socket on an arbitrary port
-            _multiunicastSocket = new DatagramSocket();
+            _hardLinksSocket = new DatagramSocket();
 
-            socket = _multiunicastSocket;
+            socket = _hardLinksSocket;
 
             while (_enabled) {
                 DatagramPacket dp = UDPPacketRecycleQueue.instance().getReadyToUsePacket();
@@ -1426,7 +1428,7 @@ public class NodelAutoDNS extends AutoDNS {
                     s_unicastInData.addAndGet(dp.getLength());
                     s_unicastInOps.incrementAndGet();
 
-                    enqueueForProcessing(dp, s_multiunicastSocketlabel);
+                    enqueueForProcessing(dp, s_hardLinksSocketlabel);
                     
                 } catch (Exception exc) {
                     UDPPacketRecycleQueue.instance().returnPacket(dp);
@@ -1436,9 +1438,9 @@ public class NodelAutoDNS extends AutoDNS {
             } // (while)
 
         } catch (Exception exc) {
-            _logger.warn("Failed to initialise [" + s_multiunicastSocketlabel + "] socket.", exc);
+            _logger.warn("Failed to initialise [" + s_hardLinksSocketlabel + "] socket.", exc);
         } finally {
-            _logger.info("[" + s_multiunicastSocketlabel + "] thread run to completion.");
+            _logger.info("[" + s_hardLinksSocketlabel + "] thread run to completion.");
             
             // close for good measure
             Stream.safeClose(socket);
