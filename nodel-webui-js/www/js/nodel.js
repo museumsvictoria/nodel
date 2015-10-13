@@ -652,6 +652,12 @@ var listNodes = function(){
     });
     return false;
   });
+  $('#newnodename').keypress(function(e) {
+    if (e.keyCode == 13) {
+      e.preventDefault();
+      $('#nodeaddsubmit').trigger('mousedown');
+    }
+  });
   setInterval(function(){ $('#nodefilter').keyup(); }, 3000);
 };
 
@@ -1302,14 +1308,13 @@ var buildFormSchema = function(data, key, parent) {
   var group = '';
   // field group is always the parent
   if(parent) group = parent;
-  var link = key;
   // if there is a parent, set the new parent to be the current parent plus the current field key
   if(parent) {
-    link = parent + '^' + key;
     parent = parent + '.' + key;
   }
-  // otherwise, set the parent to the field key
-  else parent = key;
+  // otherwise, set the parent to the field key (or none)
+  else parent = key ? key : '';
+  var link = parent.replace('.','^');
   // create string for display
   var xtr = [];
   if(data.required) xtr.push('required');
@@ -1339,7 +1344,8 @@ var buildFormSchema = function(data, key, parent) {
           // if the item rendered is an object, append a conditionally displayed 'add' div for jsviews to initialise
           if (svalue.val.type == "object") {
             var fkey = parent ? parent + '.' + svalue.key : svalue.key;
-            get = '{^{if ~isSet(' + fkey + ')}}' + get + '{{else}}<div class="addobj" id="' + fkey + '"></div>{{/if}}';
+            var flink = fkey.replace('.','^');
+            get = '{^{if ~isSet(' + flink + ')}}' + get + '{{else}}<div class="addobj" id="' + fkey + '"></div>{{/if}}';
           }
           // add the item to the current template string
           set += get;
