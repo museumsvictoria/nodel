@@ -103,6 +103,11 @@ public class ManagedToolkit {
     /**
      * ('exceptionHandler' with context)
      */
+    private H1<Exception> _actionExceptionHandler = createExceptionHandlerWithContext("action");
+    
+    /**
+     * ('exceptionHandler' with context)
+     */
     private H1<Exception> _callDelayedExceptionHandler = createExceptionHandlerWithContext("callDelayed");
     
     /**
@@ -460,10 +465,10 @@ public class ManagedToolkit {
                 @Override
                 public void handleActionRequest(Object arg) {
                     _threadStateHandler.handle();
-                    
+
                     _node.injectLog(DateTime.now(), LogEntry.Source.local, LogEntry.Type.action, action.getAction(), arg);
-                    
-                    Handler.handle(actionFunction, arg);
+
+                    _callbackQueue.handle(actionFunction, arg, _actionExceptionHandler);
                 }
 
             });
