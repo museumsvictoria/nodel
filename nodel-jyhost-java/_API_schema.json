@@ -601,9 +601,13 @@
             }
         },
         "toolkit": {
-            "type": "string",
+            "type": "object",
             "title": "Toolkit",
-            "desc": "The toolkit reference."
+            "desc": "The toolkit reference.",
+            "properties": {"script": {
+                "type": "string",
+                "required": true
+            }}
         },
         "warningLogs": {
             "type": "array",

@@ -15,6 +15,7 @@ import java.net.InterfaceAddress;
 import java.net.NetworkInterface;
 import java.net.SocketException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
@@ -178,12 +179,16 @@ public class Launch {
             Inet4Address addr = checkForMultihoming(_bootstrapConfig.getNetworkInterface());
             Nodel.setInterfaceToUse(addr);
         }
+        
+        // check if any "direct" (assisted) multicast addresses have been set
+        if (_bootstrapConfig.getDirectMulticastAddresses() != null)
+            Nodel.setDirectMulticastAddresses(Arrays.asList(_bootstrapConfig.getDirectMulticastAddresses()));
 
         // check if advertisements should be disabled
         if (_bootstrapConfig.getDisableAdvertisements()) {
             Nodel.setDisableServerAdvertisements(true);
         }
-
+        
         initialisePython();
 
         _logger.info("Nodel [Jython] is starting... version=" + VERSION);
