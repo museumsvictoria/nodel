@@ -53,11 +53,20 @@ def next_seq():
 # Returns a high-precision atomically incrementing clock in milliseconds
 def system_clock():
     return _toolkit.systemClockInMillis();
+
+# Note: for DateTime functions:
+#
+#   now = date_now()
+#   now2 = date_at(now.getYear(), now.getMonthOfYear(), now.getDayOfMonth(), now.getHourOfDay(), now.getMinuteOfHour(), now.getSecondOfMinute(), now.getMillisOfSecond())
+#
+#   now == now2 (is True)
+#
+# (for instant.toString(pattern), see http://www.joda.org/joda-time/apidocs/org/joda/time/format/DateTimeFormat.html)
  
 # 'now' timestamp (based on excellent JODATIME library)
 def date_now():
     return _toolkit.dateNow()
- 
+
 # a timestamp at another time (based on excellent JODATIME library)
 def date_at(year, month, day, hour, minute, second=0, millisecond=0):
     return _toolkit.dateAt(year, month, day, hour, minute, second, millisecond)
@@ -65,6 +74,7 @@ def date_at(year, month, day, hour, minute, second=0, millisecond=0):
 # a timestamp based on a millisecond offset (JODATIME library)
 def date_instant(millis):
     return _toolkit.dateAtInstant(millis)
+
 
 # Simple URL retriever (supports POST)
 def get_url(url, query=None, reference=None, contentType=None, post=None):  
