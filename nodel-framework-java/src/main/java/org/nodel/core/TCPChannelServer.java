@@ -72,8 +72,8 @@ public class TCPChannelServer extends ChannelServer {
      * (diagnostics)
      */
     static {
-        Diagnostics.shared().registerCounter("Nodel TCP server channels.Receives", s_dataInCounter, true);
-        Diagnostics.shared().registerCounter("Nodel TCP server channels.Sends", s_dataOutCounter, true);
+        Diagnostics.shared().registerCounter("Nodel TCP server channels.Receives", s_dataInOpsCounter, true);
+        Diagnostics.shared().registerCounter("Nodel TCP server channels.Sends", s_dataOutOpsCounter, true);
     }
     
     /**
@@ -94,10 +94,12 @@ public class TCPChannelServer extends ChannelServer {
         
         // initialise the thread
         _thread = new Thread(new Runnable() {
+
             @Override
             public void run() {
                 TCPChannelServer.this.run();
             }
+
         });
         _thread.setName(String.format("channel_server_%d", this._instance));
         _thread.setDaemon(true);

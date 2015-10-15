@@ -151,7 +151,7 @@ public abstract class NanoHTTPD {
 
     private static SharableMeasurementProvider s_dataSendRate = Diagnostics.shared().registerSharableCounter("NanoWebSocketServer HTTP.Send rate", true);
     
-    private static SharableMeasurementProvider s_serverThreadsInUse = Diagnostics.shared().registerSharableCounter("NanoWebSocketServer HTTP.Server threads", false);
+    private static SharableMeasurementProvider s_serverThreadsInUse = Diagnostics.shared().registerSharableCounter("NanoWebSocketServer HTTP.Connections", false);
 
     /**
      * Pluggable strategy for asynchronously executing requests.

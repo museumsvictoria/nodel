@@ -77,7 +77,7 @@ public class NodelClients {
     /**
      * (threading)
      */
-    private Timers _timerThread = new Timers("nodel_clients");
+    private Timers _timerThread = new Timers("Nodel clients");
 
     /**
      * (used in 'nodeEntryByNodeName' map)
