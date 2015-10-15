@@ -38,13 +38,17 @@ def json_decode(json):
 def same_value(obj1, obj2):
   return _toolkit.sameValue(obj1, obj2)
 
-# Schedules a function to be called immediately
-def call(func, complete=None, error=None):
-  _toolkit.callDelayed(0, func, complete, error)
+# Schedules a function to be called immediately or delayed
+def call(func, delay=0, complete=None, error=None):
+  _toolkit.call(False, func, long(delay*1000), complete, error)
 
-# Schedules a function to be called at a slighter later time
-def call_delayed(delayInSeconds, func, complete=None, error=None):
-  _toolkit.callDelayed(delayInSeconds, func, complete, error)
+# DEPRECATED (use 'call' and optional args)
+def call_delayed(delay, func, complete=None, error=None):
+  _toolkit.call(False, func, long(delay*1000), complete, error)
+
+# Schedules a function to be called in a thread-safe manner
+def call_safe(func, delay=0, complete=None, error=None):
+  _toolkit.call(True, func, long(delay*1000), complete, error)
 
 # Returns an atomically incrementing long integer.  
 def next_seq():

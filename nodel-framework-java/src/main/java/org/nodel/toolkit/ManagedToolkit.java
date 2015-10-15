@@ -215,16 +215,13 @@ public class ManagedToolkit {
     }
     
     /**
-     * Calls a function and gets its result or exception asynchronously.
+     * Calls a function (optionally delayed) in an optionally thread-safe way and gets its result or exception asynchronously.
      */
-    public <T> ManagedToolkit call(Callable<T> func, final H1<T> onComplete, final H1<Exception> onError) {
-        return callDelayed(0, func, onComplete, onError);
-    }
-    
-    /**
-     * Delays a function call.
-     */
-    public <T> ManagedToolkit callDelayed(double delaySeconds, final Callable<T> func, final H1<T> onComplete, final H1<Exception> onError) {
+    public <T> ManagedToolkit call(final boolean threadSafe, 
+                                   final Callable<T> func, 
+                                   long delay, 
+                                   final H1<T> onComplete, 
+                                   final H1<Exception> onError) {
         if (func == null)
             throw new IllegalArgumentException("No function provided.");
 
@@ -240,9 +237,14 @@ public class ManagedToolkit {
                         // call the thread-state handler to allow thread state initialisation
                         _threadStateHandler.handle();
                     
-                        // function are considered long running
-                        T result = func.call();
-                        
+                        // functions are considered long running
+
+                        T result;
+                        if (threadSafe)
+                            result = _callbackQueue.handle(func);
+                        else
+                            result = func.call();
+
                         // call the 'onComplete' callback if it exists
                         _callbackQueue.handle(onComplete, result, _callDelayedExceptionHandler);
 
@@ -263,7 +265,7 @@ public class ManagedToolkit {
                     }
                 }
 
-            }, (int) (delaySeconds * 1000));
+            }, delay);
 
             _delayCalls.add(entry);
         }
