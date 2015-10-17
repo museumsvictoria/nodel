@@ -179,7 +179,7 @@ public class NodelHostHTTPD extends NanoHTTPD {
      */
     public void setNodeHost(NodelHost value) {
         _nodelHost = value;
-    }    
+    }
 
     /**
      * (all headers are stored by lower-case)
