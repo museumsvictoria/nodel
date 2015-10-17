@@ -107,15 +107,16 @@ var updateConsoleForm = function(){
         }
         // display each entry
         $.each(data, function(key, value) {
-            // parse the timestamp for formatting
-            var timestamp = moment(value.timestamp);
-            // add the entry to the list
-            var div = $('<div class="'+value.level+'"></div>').text(timestamp.format('MM-DD HH:mm:ss')+' - '+value.thread+' - '+value.tag+' - '+value.message);
-            $('#console').append(div);
+            var message = (value.message ? value.message.replace(/(\r\n|\r|\n)/g, '\r\n    ') : '');
+            $('#console').append($('<div class="'+value.level+'"></div>')
+              .text(moment(value.timestamp).format('YY-MM-DD HH:mm:ss')+
+                ' ['+value.thread+']'+' ['+value.tag+']'+' '+message));
+            if(value.error) $('#console').append($('<div class="'+value.level+'"></div>')
+              .text('    '+value.error.replace(/(\r\n|\r|\n)/g, '\r\n    ')));
             // set the current sequence number
             $('#console').data('seq', value.seq+1);
-            // trim the list if it goes over 100 items
-            if($("#console").children("div").length > 100) $("#console").children('div:lt(1)').remove();
+            // trim the list if it goes over 400 items
+            if($("#console").children("div").length > 400) $("#console").children('div:lt(1)').remove();
             // flag that the list should scroll to the latest item
             animate = true;
         });
