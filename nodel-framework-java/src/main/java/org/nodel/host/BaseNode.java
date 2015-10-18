@@ -26,6 +26,7 @@ import org.nodel.core.NodelClientAction;
 import org.nodel.core.NodelClientEvent;
 import org.nodel.core.NodelServerAction;
 import org.nodel.core.NodelServerEvent;
+import org.nodel.core.NodelServerEvent.EventInstance;
 import org.nodel.core.NodelClients.NodeURL;
 import org.nodel.discovery.AdvertisementInfo;
 import org.nodel.discovery.AutoDNS;
@@ -33,8 +34,10 @@ import org.nodel.host.LogEntry.Source;
 import org.nodel.host.LogEntry.Type;
 import org.nodel.host.RemoteBindingValues.ActionValue;
 import org.nodel.host.RemoteBindingValues.EventValue;
+import org.nodel.io.Stream;
 import org.nodel.reflection.Param;
 import org.nodel.reflection.Schema;
+import org.nodel.reflection.Serialisation;
 import org.nodel.reflection.Service;
 import org.nodel.reflection.Value;
 import org.nodel.threading.ThreadPool;
@@ -82,6 +85,11 @@ public abstract class BaseNode implements Closeable {
     protected Object _signal = new Object();
     
     /**
+     * If permanently closed (using 'close()')
+     */
+    protected boolean _closed = false;
+    
+    /**
      * Holds the name (derived from the directory name).
      */
     @Value(name = "name", title = "Name", order = 10, desc = "The name of the node.")
@@ -111,7 +119,7 @@ public abstract class BaseNode implements Closeable {
      * The root directory which holds configuration files and script.
      */
     protected File _root;
-    
+        
     /**
      * Returns the folder root for this node.
      * (can be null if not anchored to file resource)
@@ -119,6 +127,12 @@ public abstract class BaseNode implements Closeable {
     public File getRoot() {
         return _root;
     }
+    
+    /**
+     * The folder ".nodel" which stores a node's metadata such as seed values. This
+     * is typically transient, disposable and generated as needed.
+     */
+    protected File _metaRoot;
     
     /**
      * The current bindings.
@@ -187,6 +201,10 @@ public abstract class BaseNode implements Closeable {
         init(root.getCanonicalFile().getName());
         
         _root = root;
+        _metaRoot = new File(_root, ".nodel");
+        
+        // make the directory (don't care if it can or cannot)
+        _metaRoot.mkdirs();
 
         _logger.info("Node initialised. Name=" + _name + ", Root='" + _root.getAbsolutePath() + "'");
     } // (constructor)
@@ -521,18 +539,50 @@ public abstract class BaseNode implements Closeable {
         _localActions.remove(action.getAction());
     }
     
-    protected Map<SimpleName, NodelServerEvent> _localEvents = new LinkedHashMap<SimpleName, NodelServerEvent>();
+    private Map<SimpleName, NodelServerEvent> _localEvents = new LinkedHashMap<SimpleName, NodelServerEvent>();
     
     @Service(name = "events", title = "Events", desc = "The local events.", genericClassA = SimpleName.class, genericClassB = NodelServerEvent.class)
     public Map<SimpleName, NodelServerEvent> getLocalEvents() {
         return _localEvents;
     }
     
-    protected NodelServerEvent addLocalEvent(NodelServerEvent event) {
+    /**
+     * Adds a local event, seeding the argument if persistant data is available.
+     */
+    protected NodelServerEvent addLocalEvent(final NodelServerEvent event) {
+        // seed the event with some data if it exists
+        String key = event.getNodelPoint().getNode().getReducedForMatchingName();
+        File seedFile = new File(_metaRoot, key + ".event.json");
+        
+        EventInstance instance = null;
+        
+        if (seedFile.exists()) {
+            try {
+                instance =  (EventInstance) Serialisation.deserialise(EventInstance.class, Stream.readFully(seedFile));
+            } catch (IOException e) {
+                // ignore
+            }
+        }
+        
+        event.seedAndPersist(instance, new Handler.H1<EventInstance>() {
+
+            @Override
+            public void handle(EventInstance instance) {
+                persistEventArg(event, instance);
+            }
+
+        });
+
+        // register with the framework
+        event.registerEvent();
+        
         _localEvents.put(event.getEvent(), event);
         return event;
     }
     
+    /**
+     * (convenience method)
+     */
     protected NodelServerEvent addLocalEvent(String name, String desc, String group, String caution, double order, String argTitle, Class<?> argClass) {
         return addLocalEvent(name, desc, group, caution, order, Schema.getSchemaObject(argTitle, argClass));
     }
@@ -545,13 +595,26 @@ public abstract class BaseNode implements Closeable {
         
         Binding metadata = new Binding(event.getOriginalName(), desc, group, caution, order, schema);
         NodelServerEvent nodelEvent = new NodelServerEvent(this.getName(), new SimpleName(event.getReducedName()), metadata);
-        nodelEvent.registerEvent();
 
         return addLocalEvent(nodelEvent);
     }
     
     protected void removeLocalEvent(NodelServerEvent event) {
         _localEvents.remove(event);
+    }
+  
+    /**
+     * Persists an event's timestamp and argument.
+     */
+    private void persistEventArg(NodelServerEvent event, EventInstance instance) {
+        try {
+            File seedFile = new File(_metaRoot, event.getNodelPoint().getNode().getReducedName() + ".event.json");
+
+            Stream.writeFully(seedFile, Serialisation.serialise(instance));
+
+        } catch (Exception exc) {
+            // ignore
+        }
     }
     
     /**
@@ -794,7 +857,12 @@ public abstract class BaseNode implements Closeable {
      * Must be called by subclasses
      */
     public void close() {
-        synchronized(s_repo) {
+        _closed = true;
+        
+        Stream.safeCloseCloseables(_localActions.values());
+        Stream.safeCloseCloseables(_localEvents.values());
+
+        synchronized (s_repo) {
             s_repo.remove(_name);
         }
     }

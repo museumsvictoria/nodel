@@ -20,8 +20,29 @@ import org.nodel.reflection.Objects;
 import org.nodel.reflection.Param;
 import org.nodel.reflection.Service;
 import org.nodel.reflection.Value;
+import org.nodel.threading.ThreadPool;
+import org.nodel.threading.TimerTask;
+import org.nodel.threading.Timers;
 
 public class NodelServerEvent implements Closeable {
+    
+    /**
+     * Value and timestamp composite value.
+     */
+    public static class EventInstance {
+
+        @Value(name = "timestamp")
+        public DateTime timestamp;
+
+        @Value(name = "arg")
+        public Object arg;
+
+    }
+    
+    /**
+     * (background timers)
+     */
+    private static Timers s_timers = new Timers("_NodelServerEvent");
     
     protected SimpleName _node;
     
@@ -36,7 +57,7 @@ public class NodelServerEvent implements Closeable {
     /**
      * For monitoring purposes.
      */
-    private Handler.H1<Object> _monitor;
+    private Handler.H2<DateTime, Object> _monitor;
 
     private String _title;
 
@@ -55,7 +76,7 @@ public class NodelServerEvent implements Closeable {
     /**
      * The last value (linked to 'seqNum')
      */
-    private AtomicReference<Object> _argValue = new AtomicReference<Object>();
+    private AtomicReference<EventInstance> _instance = new AtomicReference<EventInstance>();
     
     /**
      * Holds an safely incrementing sequence number relating to the 
@@ -64,10 +85,26 @@ public class NodelServerEvent implements Closeable {
     private long _seqNum = 0;
 
     /**
-     * Holds the latest timestamp.
+     * Responsible for persisting the data.
      */
-    private AtomicReference<DateTime> _timestamp = new AtomicReference<DateTime>();
+    private Handler.H1<EventInstance> _persister;
+    
+    /**
+     * The repeating timer to persist the data.
+     */
+    private TimerTask _persisterTimer;
 
+    /**
+     * The last persisted event.
+     */
+    private EventInstance _persisted;
+
+    /**
+     * How often to persist the args.
+     * (default 2 hours)
+     */
+    private long PERSIST_PERIOD = 60 * 60 * 1000;
+        
     @Service(name = "schema", title = "Schema", genericClassA = String.class, genericClassB = Object.class, desc = "Prepares a filtered schema for this action.")
     public Map<String, Object> getFullSchema() {
         return _fullSchema;
@@ -123,6 +160,42 @@ public class NodelServerEvent implements Closeable {
         return schema;
     }
     
+    /**
+     * Seeds the argument without raising the event itself.
+     */
+    public void seedAndPersist(EventInstance instance, Handler.H1<EventInstance> persister) {
+        // (can be null)
+        _persisted = instance;
+
+        _instance.set(instance);
+
+        _seqNum = Nodel.getNextSeq();
+
+        // fire the monitor to record past existence...
+        if (instance != null && _monitor != null)
+            _monitor.handle(instance.timestamp, instance.arg);
+
+        // ...but *don't* fire the event itself
+        
+        // set up persister handler
+        _persister = persister;
+        
+        // and an ongoing timer to persist (on background thread-pool)
+        _persisterTimer = s_timers.schedule(ThreadPool.background(), new TimerTask() {
+
+            @Override
+            public void run() {
+                // persist the data if the values are different.
+                // Not bothering with timestamp as that information is secondary.
+                if (_persisted != null) {
+                    if (Objects.sameValue(_instance.get().arg, _persisted.arg))
+                        _persister.handle(_instance.get());
+                }
+            }
+            
+        }, PERSIST_PERIOD);
+    }
+    
     @Value(name = "name", title = "Name", desc = "The name.", order = 1)
     public SimpleName getEvent() {
         return _event;
@@ -163,7 +236,7 @@ public class NodelServerEvent implements Closeable {
      */
     @Value(name = "arg", title = "Argument value")
     public Object getArg() {
-        return _argValue.get();
+        return _instance.get();
     }
 
     @Value(name = "seq", title = "Sequence number")
@@ -173,7 +246,7 @@ public class NodelServerEvent implements Closeable {
 
     @Value(name = "timestamp", title = "Timestamp")
     public DateTime getTimestamp() {
-        return _timestamp.get();
+        return _instance.get().timestamp;
     }
     
     public NodelPoint getNodelPoint() {
@@ -195,7 +268,7 @@ public class NodelServerEvent implements Closeable {
      * Only emits the event if new argument (state) is different from the previous one.
      */
     public void emitIfDifferent(Object value) {
-        Object oldValue = _argValue.get();
+        Object oldValue = _instance.get();
 
         if (!Objects.sameValue(oldValue, value))
             doEmit(value);
@@ -213,22 +286,27 @@ public class NodelServerEvent implements Closeable {
      * Fires the event.
      */
     private void doEmit(Object arg) {
-        _argValue.set(arg);
-        _timestamp.set(DateTime.now());
+        DateTime now = DateTime.now();
+        
+        EventInstance instance = new EventInstance();
+        instance.timestamp = DateTime.now();
+        instance.arg = arg;
+        
+        _instance.set(instance);
         
         // seq must be set last
         _seqNum = Nodel.getNextSeq();
 
         if (_monitor != null)
-            _monitor.handle(arg);
+            _monitor.handle(now, arg);
 
-        NodelServers.instance().emitEvent(this, arg);        
+        NodelServers.instance().emitEvent(this, arg);
     }
     
     /**
      * Attaches a monitor.
      */
-    public void attachMonitor(Handler.H1<Object> monitor) {
+    public void attachMonitor(Handler.H2<DateTime, Object> monitor) {
         if (monitor == null)
             throw new IllegalArgumentException("Cannot detach monitor.");
         
@@ -243,6 +321,18 @@ public class NodelServerEvent implements Closeable {
             return;
         
         _closed = true;
+        
+        if (_persisterTimer != null)
+            _persisterTimer.cancel();
+        
+        // persist if necessary
+        if (_instance.get() != null) {
+            if (_persisted != null && Objects.sameValue(_persisted.arg, _instance.get()))
+                // don't bother saving the same value
+                return;
+            
+            Handler.tryHandle(_persister, _instance.get());
+        }
         
         NodelServers.instance().unregisterEvent(this);
     }

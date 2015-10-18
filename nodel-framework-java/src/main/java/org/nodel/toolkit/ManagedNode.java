@@ -13,7 +13,6 @@ import org.nodel.core.NodelServerEvent;
 import org.nodel.host.BaseNode;
 import org.nodel.host.Binding;
 import org.nodel.host.LogEntry;
-import org.nodel.io.Stream;
 import org.nodel.reflection.Serialisation;
 
 public class ManagedNode extends BaseNode {
@@ -80,11 +79,11 @@ public class ManagedNode extends BaseNode {
                 throw new IllegalStateException("Node is closed.");
 
             final NodelServerEvent event = new NodelServerEvent(_name, new SimpleName(Nodel.reduce(eventName)), metadata);
-            event.attachMonitor(new Handler.H1<Object>() {
+            event.attachMonitor(new Handler.H2<DateTime, Object>() {
                 
                 @Override
-                public void handle(Object arg) {
-                    addLog(DateTime.now(), LogEntry.Source.local, LogEntry.Type.event, event.getEvent(), arg);
+                public void handle(DateTime timestamp, Object arg) {
+                    addLog(timestamp, LogEntry.Source.local, LogEntry.Type.event, event.getEvent(), arg);
                 }
                 
             });
@@ -143,9 +142,6 @@ public class ManagedNode extends BaseNode {
             super.close();
             
             _closed = true;
-            
-            Stream.safeCloseCloseables(_localActions.values());
-            Stream.safeCloseCloseables(_localEvents.values());
         }
     }
 
