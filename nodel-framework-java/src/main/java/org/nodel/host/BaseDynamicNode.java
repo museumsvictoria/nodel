@@ -75,11 +75,11 @@ public abstract class BaseDynamicNode extends BaseNode {
     
     public NodelServerEvent injectLocalEvent(String name, String desc, String group, String caution, double order, String argTitle, Class<?> argClass) {
         final NodelServerEvent event = addLocalEvent(name, desc, group, caution, order, argTitle, argClass);
-        event.attachMonitor(new Handler.H1<Object>() {
+        event.attachMonitor(new Handler.H2<DateTime, Object>() {
 
             @Override
-            public void handle(Object arg) {
-                addLog(DateTime.now(), LogEntry.Source.local, LogEntry.Type.event, event.getEvent(), arg);
+            public void handle(DateTime timestamp, Object arg) {
+                addLog(timestamp, LogEntry.Source.local, LogEntry.Type.event, event.getEvent(), arg);
             }
 
         });

@@ -504,17 +504,7 @@ public class ManagedToolkit {
             if (_closed)
                 throw new IllegalStateException("Node is closed.");
 
-            final NodelServerEvent event = new NodelServerEvent(_node.getName(), new SimpleName(Nodel.reduce(eventName)), metadata);
-            event.attachMonitor(new Handler.H1<Object>() {
-                
-                @Override
-                public void handle(Object arg) {
-                    _node.injectLog(DateTime.now(), LogEntry.Source.local, LogEntry.Type.event, event.getEvent(), arg);
-                }
-                
-            });
-            event.registerEvent();
-
+            NodelServerEvent event = new NodelServerEvent(_node.getName(), new SimpleName(Nodel.reduce(eventName)), metadata);
             _node.injectLocalEvent(event);
 
             return event;
