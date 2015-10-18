@@ -9,11 +9,13 @@ package org.nodel.jyhost;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.RandomAccessFile;
 import java.net.Inet4Address;
 import java.net.InetAddress;
 import java.net.InterfaceAddress;
 import java.net.NetworkInterface;
 import java.net.SocketException;
+import java.nio.channels.FileLock;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -76,6 +78,11 @@ public class Launch {
      */
     protected NodelHost _nodelHost;
 
+    /**
+     * A locking mechanism to prevent unintended duplicate instances. Is never released.
+     */
+    private FileLock _hostInstanceLock = null;
+    
     /**
      * Holds the program arguments.
      */
@@ -203,11 +210,58 @@ public class Launch {
 
         // prepare 'custom content' which holds custom content files (used as first preference)
         File customContentDirectory = prepareDirectory("custom content", customRoot, _bootstrapConfig.getContentDirectory());
+
+        // now the kick off the httpd end-point arbitrary bound or by port request
+        NodelHostHTTPD nodelHostHTTPD = null;
+        int requestedPort = _bootstrapConfig.getNodelHostPort();
+        int tryPort = requestedPort;
+
+        File lastHTTPPortCache = new File(".lastHTTPPort");
+        int lastHTTPPort = lastHTTPPortCache.exists() ? Integer.parseInt(Stream.readFully(lastHTTPPortCache)) : 0;
+
+        if (requestedPort <= 0)
+            // ideally use 8085 as an arbitrary port
+            tryPort = lastHTTPPort == 0 ? 8085 : lastHTTPPort;
+
+        // make two attempts to bind to an arbitrary port (try previously used port first),
+        // or one attempt to bind to a requested one.
+        for (int a = 0; a < 2; a++) {
+            try {
+                nodelHostHTTPD = new NodelHostHTTPD(tryPort, contentDirectory);
+                
+            } catch (Exception exc) {
+                // port would be in use
+                
+                // specific port was requested?
+                if (requestedPort > 0)
+                    throw exc;
+
+                // try any port
+                tryPort = 0;
+
+                // loop once more (will abort before third attempt)
+                continue;
+            }
+            
+            // nodelHostHTTPD *will* have a value at this point 
+
+            // update with actual listening port
+            Nodel.setHTTPPort(nodelHostHTTPD.getListeningPort());
+
+            // stamp the cache if it's a different port
+            if (lastHTTPPort != Nodel.getHTTPPort())
+                Stream.writeFully(lastHTTPPortCache, String.valueOf(Nodel.getHTTPPort()));
+
+            // prevent unintended duplicate instances
+            createHostInstanceLockOrFail();
+
+            System.out.println("    (web interface started on port " + Nodel.getHTTPPort() + ")\n");
+            _logger.info("HTTP interface bound to TCP port " + Nodel.getHTTPPort());
+
+            break;
+        }
         
-        // now the pyNode httpd end-point
-        NodelHostHTTPD nodelHostHTTPD = new NodelHostHTTPD(_bootstrapConfig.getNodelHostPort(), contentDirectory);
         nodelHostHTTPD.setFirstChoiceDir(customContentDirectory);
-        _logger.info("Started HTTP interface on port " + _bootstrapConfig.getNodelHostPort());
         
         // start the WebSocket server
         NodelHostWebSocketServer nodelHostWSServer = new NodelHostWebSocketServer(0);
@@ -343,6 +397,33 @@ public class Launch {
         // dead code:
         return null;
     } // (method)
+
+    /**
+     * (is never unlocked)
+     */
+    @SuppressWarnings("resource")
+    private void createHostInstanceLockOrFail() throws RuntimeException {
+        Exception exc = null;
+
+        try {
+            _hostInstanceLock = new RandomAccessFile(new File("_instance.lock"), "rw").getChannel().tryLock();
+            
+        } catch (IOException ioExc) {
+            exc = ioExc;
+        }
+        
+        if (_hostInstanceLock == null) {
+            String message = "Could not create a Nodel host instance lock. There might already be another one managing the same set of nodes.";
+            
+            System.err.println(message);
+
+            // include cause exception if one exists
+            if (exc == null)
+                throw new RuntimeException(message);
+            else
+                throw new RuntimeException(message, exc);
+        }
+    }
     
     /**
      * Compares two buffers
