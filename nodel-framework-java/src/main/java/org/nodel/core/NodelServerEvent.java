@@ -176,8 +176,6 @@ public class NodelServerEvent implements Closeable {
         if (instance != ArgInstance.NULL) {
             _argInstance.set(instance);
 
-            
-
             // fire the monitor to indicate past occurrence
             if (_monitor != null)
                 _monitor.handle(instance.timestamp, instance.arg);
