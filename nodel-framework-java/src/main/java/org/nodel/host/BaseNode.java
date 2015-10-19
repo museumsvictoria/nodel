@@ -26,7 +26,7 @@ import org.nodel.core.NodelClientAction;
 import org.nodel.core.NodelClientEvent;
 import org.nodel.core.NodelServerAction;
 import org.nodel.core.NodelServerEvent;
-import org.nodel.core.NodelServerEvent.EventInstance;
+import org.nodel.core.NodelServerEvent.ArgInstance;
 import org.nodel.core.NodelClients.NodeURL;
 import org.nodel.discovery.AdvertisementInfo;
 import org.nodel.discovery.AutoDNS;
@@ -547,27 +547,27 @@ public abstract class BaseNode implements Closeable {
     }
     
     /**
-     * Adds a local event, seeding the argument if persistant data is available.
+     * Adds a local event, seeding the argument if persistent data is available.
      */
     protected NodelServerEvent addLocalEvent(final NodelServerEvent event) {
         // seed the event with some data if it exists
-        String key = event.getNodelPoint().getNode().getReducedForMatchingName();
+        String key = event.getNodelPoint().getPoint().getReducedForMatchingName();
         File seedFile = new File(_metaRoot, key + ".event.json");
         
-        EventInstance instance = null;
+        ArgInstance seed = null;
         
         if (seedFile.exists()) {
             try {
-                instance =  (EventInstance) Serialisation.deserialise(EventInstance.class, Stream.readFully(seedFile));
+                seed = (ArgInstance) Serialisation.deserialise(ArgInstance.class, Stream.readFully(seedFile));
             } catch (IOException e) {
                 // ignore
             }
         }
         
-        event.seedAndPersist(instance, new Handler.H1<EventInstance>() {
+        event.seedAndPersist(seed, new Handler.H1<ArgInstance>() {
 
             @Override
-            public void handle(EventInstance instance) {
+            public void handle(ArgInstance instance) {
                 persistEventArg(event, instance);
             }
 
@@ -606,9 +606,9 @@ public abstract class BaseNode implements Closeable {
     /**
      * Persists an event's timestamp and argument.
      */
-    private void persistEventArg(NodelServerEvent event, EventInstance instance) {
+    private void persistEventArg(NodelServerEvent event, ArgInstance instance) {
         try {
-            File seedFile = new File(_metaRoot, event.getNodelPoint().getNode().getReducedName() + ".event.json");
+            File seedFile = new File(_metaRoot, event.getNodelPoint().getPoint().getReducedForMatchingName() + ".event.json");
 
             Stream.writeFully(seedFile, Serialisation.serialise(instance));
 
