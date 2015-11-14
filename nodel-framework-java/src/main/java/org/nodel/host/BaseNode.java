@@ -559,7 +559,7 @@ public abstract class BaseNode implements Closeable {
         if (seedFile.exists()) {
             try {
                 seed = (ArgInstance) Serialisation.deserialise(ArgInstance.class, Stream.readFully(seedFile));
-            } catch (IOException e) {
+            } catch (Exception e) {
                 // ignore
             }
         }
