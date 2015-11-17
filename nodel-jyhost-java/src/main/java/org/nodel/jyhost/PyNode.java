@@ -928,21 +928,19 @@ public class PyNode extends BaseDynamicNode {
             
             NodelServerEvent nodelServerEvent = new NodelServerEvent(_name.getOriginalName(), eventBinding.getKey().getReducedName(), binding);
             
-            nodelServerEvent.attachMonitor(new Handler.H1<Object>() {
-                
+            nodelServerEvent.attachMonitor(new Handler.H2<DateTime, Object>() {
+
                 @Override
-                public void handle(Object arg) {
-                    addLog(DateTime.now(), LogEntry.Source.local, LogEntry.Type.event, eventBinding.getKey(), arg);
+                public void handle(DateTime timestamp, Object arg) {
+                    addLog(timestamp, LogEntry.Source.local, LogEntry.Type.event, eventBinding.getKey(), arg);
                 }
-                
+
             });
-            nodelServerEvent.registerEvent();
+            addLocalEvent(nodelServerEvent);
             
             String varName = "local_event_" + eventBinding.getKey().getReducedName();
             _python.set(varName, nodelServerEvent);
-            
-            _localEvents.put(eventBinding.getKey(), nodelServerEvent);
-            
+                        
             if (sb.length() > 0)
                 sb.append(", ");
             

@@ -1422,5 +1422,14 @@ public class NanoHTTPD {
 
         this.logger = LoggerFactory.getLogger(NanoHTTPD.class.getName() + "_" + instance);
     }
+    
+    // non-reference NanoHTTPD updates below:
+
+    /**
+     * Gets the actual port being used.
+     */
+    public final int getListeningPort() {
+        return this.myServerSocket == null ? -1 : this.myServerSocket.getLocalPort();
+    }
 
 } // (class)

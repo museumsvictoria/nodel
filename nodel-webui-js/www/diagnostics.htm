@@ -27,16 +27,17 @@
       <div class="sixteen columns">
         <h1 class="logo"><a href="/"><img src="images/nodel.png" alt="Nodel" title="Nodel" /></a></h1>
         <h3 id="nodename">Diagnostics</h3>
+		<br/><br/>
         <ul class="disc">
           <li>Running open-source build <a href='/build.json'><strong id='build'></strong></a> by <a href='http://museumvictoria.com.au'>Museum Victoria</a> &amp; <a href='http://www.lumicom.com.au'>Lumicom Pty Ltd</a></li>
-          <li>Serving from <strong id='hostname'></strong> (advertising "<span id='httpAddress'></span>")</li>
-          <li>Host path <strong id='hostPath'></strong></li>
-          <li>Nodes root <strong id='nodesRoot'></strong></li>
+          <li>Serving from <strong id='hostname'></strong>, advertising <strong><span id='httpAddress'></span></strong></li>
+          <li>Uptime <strong id='uptime'></strong> (started <span id='started'></span>)</li>
+          <li>Host path <strong id='hostPath'></strong>, nodes root <strong id='nodesRoot'></strong></li>
           <li>Hosting rule <strong id='hostingRule'></strong></li>
 		  <li>Scripting toolkit <a href="javascript:window.open('/toolkit.htm')">reference</a></li>
-          <li>Uptime <strong id='uptime'></strong> (started <span id='started'></span>)</li>
-          <li>Agent is <strong id='agent'></strong></li>
-          <li>Build server was <strong id='builtBy'></strong> (built <span id='builtOn'></span>)</li>
+          <li>Announcing agent <strong id='agent'></strong></li>
+          <li>Build server was <strong id='builtBy'></strong> (built <span id='builtOn'></span>,
+		      last <a id='commit' href="https://github.com/museumvictoria/nodel/commit/">commit)</a></li>
         </ul>
         <h4>Logs</h4>
         <div id='console' class=""></div><br/>

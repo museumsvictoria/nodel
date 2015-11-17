@@ -1,13 +1,29 @@
+var offline = false;
+
 $(document).ready(function() {
+    if (offline) {
+		$('#graphs').append('<h4 style="display: block;">Realtime counters</h4>(Unavailable - ' + 
+	        'rendering tools require this browser session has Internet access)');
+	}
     updateDiagnostics();
     updateBuildInfo();
     updateCounters();
     updateConsoleForm();
 });
 
-google.load("visualization", "1", {
+try {
+  google.load("visualization", "1", {
     packages : [ "corechart" ]
-});
+  });
+
+  google.setOnLoadCallback(function() {
+      setInterval(function() {
+        if (!paused) updateCounters();
+      }, 10000);
+  });
+} catch (err) {
+  offline = true;
+}
 
 var paused = false;
 var tim = 0;
@@ -26,12 +42,6 @@ $(window).resize(function() {
 $(window).on('resizeEnd', function() {
   paused = false;
   updateCounters();
-});
-
-google.setOnLoadCallback(function() {
-    setInterval(function() {
-      if (!paused) updateCounters();
-    }, 10000);
 });
 
 preparedCharts = {};
@@ -56,6 +66,7 @@ function updateBuildInfo() {
         $('#build').text(buildInfo.version);
         $('#builtBy').text(buildInfo.host);
         $('#builtOn').text(moment(buildInfo.date).format('D-MMM-YYYY HH:mm:ss Z'));
+		$("#commit").attr("href", "https://github.com/museumvictoria/nodel/commit/" + buildInfo.id);
     });
 };
 
@@ -96,15 +107,16 @@ var updateConsoleForm = function(){
         }
         // display each entry
         $.each(data, function(key, value) {
-            // parse the timestamp for formatting
-            var timestamp = moment(value.timestamp);
-            // add the entry to the list
-            var div = $('<div class="'+value.level+'"></div>').text(timestamp.format('MM-DD HH:mm:ss')+' - '+value.thread+' - '+value.tag+' - '+value.message);
-            $('#console').append(div);
+            var message = (value.message ? value.message.replace(/(\r\n|\r|\n)/g, '\r\n    ') : '');
+            $('#console').append($('<div class="'+value.level+'"></div>')
+              .text(moment(value.timestamp).format('YY-MM-DD HH:mm:ss')+
+                ' ['+value.thread+']'+' ['+value.tag+']'+' '+message));
+            if(value.error) $('#console').append($('<div class="'+value.level+'"></div>')
+              .text('    '+value.error.replace(/(\r\n|\r|\n)/g, '\r\n    ')));
             // set the current sequence number
             $('#console').data('seq', value.seq+1);
-            // trim the list if it goes over 100 items
-            if($("#console").children("div").length > 100) $("#console").children('div:lt(1)').remove();
+            // trim the list if it goes over 400 items
+            if($("#console").children("div").length > 400) $("#console").children('div:lt(1)').remove();
             // flag that the list should scroll to the latest item
             animate = true;
         });
@@ -156,7 +168,8 @@ function drawChart(values, isRate, name) {
 
     var categoryDiv = $('#' + categoryForDiv);
     if (categoryDiv.length == 0) {
-        $('#graphs').append('<div><h4 style="display: block;">' + category + '</h4><hr/><div id="' + categoryForDiv + '" class="container"></div></div>');
+        $('#graphs').append('<div><h4 style="display: block;">' + category + '</h4><hr/><div id="' + categoryForDiv + 
+		'" class="container"></div></div>');
         categoryDiv = $('#' + categoryForDiv);
     }
 

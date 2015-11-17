@@ -1,5 +1,6 @@
 package org.nodel.toolkit;
 
+import java.util.concurrent.Callable;
 import java.util.concurrent.locks.ReentrantLock;
 
 import org.nodel.Handler;
@@ -41,6 +42,20 @@ public class CallbackHandler {
         }        
     }
     
+    /**
+     * For synchronous functions.
+     */
+    public <T> T handle(Callable<T> func) throws Exception {
+        try {
+            _fairLock.lock();
+            
+            return func.call();
+            
+        } finally {
+            _fairLock.unlock();
+        }
+    }
+        
     /**
      * Creates a callback instance.
      */

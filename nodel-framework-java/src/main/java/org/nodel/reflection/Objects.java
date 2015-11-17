@@ -37,20 +37,9 @@ public class Objects {
         if (level > 255)
             return false;
 
-        if (obj1 == null && obj2 == null) {
+        if (obj1 == null && obj2 == null)
             return true;
-        }
-
-        else if (obj1 == null && obj2.equals(obj1)) {
-            return true;
-        }
-
-        else if (obj2 == null && obj1.equals(obj2)) {
-            return true;
-        }
-        
-        // (both 'obj1' and 'obj2' are not null)
-        
+                
         // try as collections...
         Collection<?> collection1 = asCollection(obj1);
         Collection<?> collection2 = asCollection(obj2);
@@ -61,22 +50,33 @@ public class Objects {
 
         // try as maps...
         Map<?,?> map1 = asMap(obj1);
-        Map<?,?> map2 = asMap(obj2);
-        
+        Map<?, ?> map2 = asMap(obj2);
+
         if (map1 != null && map2 != null) {
             return sameMapKeysAndValues(map1, map2, level++);
         }
-        
+
         // TODO: test annotated native Java classes
 
         // otherwise, try their native 'equals'
-        return obj1.equals(obj2);
+        if (obj1 != null)
+            return obj1.equals(obj2);
+        
+        else if (obj2 != null)
+            return obj2.equals(obj1);
+        
+        else
+            // should never be able to get here
+            return false;
     }
     
     /**
      * Returns a collection, wrapped collection (if possible), or null. 
      */
     private static Collection<?> asCollection(Object possibleCollection) {
+    	if (possibleCollection == null)
+    		return null;
+    	
         if (possibleCollection instanceof Collection)
             return (Collection<?>) possibleCollection;
 

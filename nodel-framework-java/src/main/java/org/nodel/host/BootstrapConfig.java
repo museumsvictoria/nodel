@@ -21,7 +21,7 @@ public class BootstrapConfig {
         Example.networkInterface = Base64.decode("Enc3lXyJ");
         Example.inclFilters = new String[] { "Main Campus *", "Campus 2*" };
         Example.exclFilters = new String[] { "Campus 3*" };
-        Example.directMulticastAddresses = new String[] { "127.0.0.1", "192.168.1.203" };
+        Example.hardLinksAddresses = new String[] { "127.0.0.1", "192.168.1.203" };
     }
     
     public final static int DEFAULT_NODELHOST_PORT = 8085;
@@ -180,19 +180,19 @@ public class BootstrapConfig {
     }
     
     
-    @Value(name = "directMulticastAddresses", title = "Direct multicast addresses", order = 1300, required = false,
+    @Value(name = "hardLinksAddresses", title = "Hard links", order = 1300, required = false,
             desc = "If IGMP multicasting is inconvenient or unreliable, these addresses can be used to assist " +
                    "advertisement and discovery. Examples might be '127.0.0.1' when locally hosted nodes do not " +
                    "appear or '192.168.1.203' if a particular hosts' nodes do not appear or even '192.168.1.255' " +
                    "to use UDP broadcast across an entire subnet.")
-    private String[] directMulticastAddresses = null;
+    private String[] hardLinksAddresses = null;
 
-    public String[] getDirectMulticastAddresses() {
-        return this.directMulticastAddresses;
+    public String[] getHardLinksAddresses() {
+        return this.hardLinksAddresses;
     }
 
-    public void setDirectMulticastAddresses(String[] value) {
-        this.directMulticastAddresses = value;
+    public void setHardLinksAddresses(String[] value) {
+        this.hardLinksAddresses = value;
     }
 
 } // (class)

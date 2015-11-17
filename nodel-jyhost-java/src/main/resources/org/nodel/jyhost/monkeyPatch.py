@@ -38,13 +38,17 @@ def json_decode(json):
 def same_value(obj1, obj2):
   return _toolkit.sameValue(obj1, obj2)
 
-# Schedules a function to be called immediately
-def call(func, complete=None, error=None):
-  _toolkit.callDelayed(0, func, complete, error)
+# Schedules a function to be called immediately or delayed
+def call(func, delay=0, complete=None, error=None):
+  _toolkit.call(False, func, long(delay*1000), complete, error)
 
-# Schedules a function to be called at a slighter later time
-def call_delayed(delayInSeconds, func, complete=None, error=None):
-  _toolkit.callDelayed(delayInSeconds, func, complete, error)
+# DEPRECATED (use 'call' and optional args)
+def call_delayed(delay, func, complete=None, error=None):
+  _toolkit.call(False, func, long(delay*1000), complete, error)
+
+# Schedules a function to be called in a thread-safe manner
+def call_safe(func, delay=0, complete=None, error=None):
+  _toolkit.call(True, func, long(delay*1000), complete, error)
 
 # Returns an atomically incrementing long integer.  
 def next_seq():
@@ -53,6 +57,28 @@ def next_seq():
 # Returns a high-precision atomically incrementing clock in milliseconds
 def system_clock():
     return _toolkit.systemClockInMillis();
+
+# Note: for DateTime functions:
+#
+#   now = date_now()
+#   now2 = date_at(now.getYear(), now.getMonthOfYear(), now.getDayOfMonth(), now.getHourOfDay(), now.getMinuteOfHour(), now.getSecondOfMinute(), now.getMillisOfSecond())
+#
+#   now == now2 (is True)
+#
+# (for instant.toString(pattern), see http://www.joda.org/joda-time/apidocs/org/joda/time/format/DateTimeFormat.html)
+ 
+# 'now' timestamp (based on excellent JODATIME library)
+def date_now():
+    return _toolkit.dateNow()
+
+# a timestamp at another time (based on excellent JODATIME library)
+def date_at(year, month, day, hour, minute, second=0, millisecond=0):
+    return _toolkit.dateAt(year, month, day, hour, minute, second, millisecond)
+   
+# a timestamp based on a millisecond offset (JODATIME library)
+def date_instant(millis):
+    return _toolkit.dateAtInstant(millis)
+
 
 # Simple URL retriever (supports POST)
 def get_url(url, query=None, reference=None, contentType=None, post=None):  

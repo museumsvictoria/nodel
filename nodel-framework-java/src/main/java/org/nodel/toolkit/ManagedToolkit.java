@@ -103,6 +103,11 @@ public class ManagedToolkit {
     /**
      * ('exceptionHandler' with context)
      */
+    private H1<Exception> _actionExceptionHandler = createExceptionHandlerWithContext("action");
+    
+    /**
+     * ('exceptionHandler' with context)
+     */
     private H1<Exception> _callDelayedExceptionHandler = createExceptionHandlerWithContext("callDelayed");
     
     /**
@@ -210,16 +215,13 @@ public class ManagedToolkit {
     }
     
     /**
-     * Calls a function and gets its result or exception asynchronously.
+     * Calls a function (optionally delayed) in an optionally thread-safe way and gets its result or exception asynchronously.
      */
-    public <T> ManagedToolkit call(Callable<T> func, final H1<T> onComplete, final H1<Exception> onError) {
-        return callDelayed(0, func, onComplete, onError);
-    }
-    
-    /**
-     * Delays a function call.
-     */
-    public <T> ManagedToolkit callDelayed(double delaySeconds, final Callable<T> func, final H1<T> onComplete, final H1<Exception> onError) {
+    public <T> ManagedToolkit call(final boolean threadSafe, 
+                                   final Callable<T> func, 
+                                   long delay, 
+                                   final H1<T> onComplete, 
+                                   final H1<Exception> onError) {
         if (func == null)
             throw new IllegalArgumentException("No function provided.");
 
@@ -235,9 +237,14 @@ public class ManagedToolkit {
                         // call the thread-state handler to allow thread state initialisation
                         _threadStateHandler.handle();
                     
-                        // function are considered long running
-                        T result = func.call();
-                        
+                        // functions are considered long running
+
+                        T result;
+                        if (threadSafe)
+                            result = _callbackQueue.handle(func);
+                        else
+                            result = func.call();
+
                         // call the 'onComplete' callback if it exists
                         _callbackQueue.handle(onComplete, result, _callDelayedExceptionHandler);
 
@@ -258,7 +265,7 @@ public class ManagedToolkit {
                     }
                 }
 
-            }, (int) (delaySeconds * 1000));
+            }, delay);
 
             _delayCalls.add(entry);
         }
@@ -460,10 +467,10 @@ public class ManagedToolkit {
                 @Override
                 public void handleActionRequest(Object arg) {
                     _threadStateHandler.handle();
-                    
+
                     _node.injectLog(DateTime.now(), LogEntry.Source.local, LogEntry.Type.action, action.getAction(), arg);
-                    
-                    Handler.handle(actionFunction, arg);
+
+                    _callbackQueue.handle(actionFunction, arg, _actionExceptionHandler);
                 }
 
             });
@@ -497,17 +504,7 @@ public class ManagedToolkit {
             if (_closed)
                 throw new IllegalStateException("Node is closed.");
 
-            final NodelServerEvent event = new NodelServerEvent(_node.getName(), new SimpleName(Nodel.reduce(eventName)), metadata);
-            event.attachMonitor(new Handler.H1<Object>() {
-                
-                @Override
-                public void handle(Object arg) {
-                    _node.injectLog(DateTime.now(), LogEntry.Source.local, LogEntry.Type.event, event.getEvent(), arg);
-                }
-                
-            });
-            event.registerEvent();
-
+            NodelServerEvent event = new NodelServerEvent(_node.getName(), new SimpleName(Nodel.reduce(eventName)), metadata);
             _node.injectLocalEvent(event);
 
             return event;
@@ -701,6 +698,27 @@ public class ManagedToolkit {
     public boolean sameValue(Object obj1, Object obj2) {
         return Objects.sameValue(obj1, obj2);
     }
+
+    /**
+     * 'now' as a DateTime instance.
+     */
+    public DateTime dateNow() {
+        return DateTime.now();
+    }
+    
+    /**
+     * A DateTime instance from composite date / time values.
+     */
+    public DateTime dateAt(int year, int month, int day, int hour, int minute, int second, int millisecond) {
+        return new DateTime(year, month, day, hour, minute, second, millisecond);
+    }
+    
+    /**
+     * A DateTime instance from 1970-based millis.
+     */
+    public DateTime dateAtInstant(long millis) {
+        return new DateTime(millis);
+    }    
     
     /**
      * (exception-less, convenience function) 

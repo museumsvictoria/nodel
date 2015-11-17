@@ -489,22 +489,22 @@ public class Nodel {
      * (see setter)
      * (must never be null)
      */
-    private static List<InetAddress> s_directMulticastAddresses = Collections.emptyList();
+    private static List<InetAddress> s_hardLinksAddresses = Collections.emptyList();
 
     /**
      * Gets the list of direct multicast addresses to assist with inconvenient or unreliable multicasting.
      * (never returns null; items never null)
      */
-    public static List<InetAddress> getDirectMulticastAddresses() {
-        return s_directMulticastAddresses;
+    public static List<InetAddress> getHardLinksAddresses() {
+        return s_hardLinksAddresses;
     }
     
     /**
      * Sets the direct multicast addresses list. Using null resets the list.
      */
-    public static void setDirectMulticastAddresses(List<String> addresses) {
+    public static void setHardLinksAddresses(List<String> addresses) {
         if (addresses == null || addresses.size() == 0) {
-            s_directMulticastAddresses = Collections.emptyList();
+            s_hardLinksAddresses = Collections.emptyList();
             return;
         }
 
@@ -518,7 +518,7 @@ public class Nodel {
             }
         }
 
-        s_directMulticastAddresses = list;
+        s_hardLinksAddresses = list;
     }
 
 }
