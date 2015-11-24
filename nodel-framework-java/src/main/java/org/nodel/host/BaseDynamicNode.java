@@ -12,6 +12,8 @@ import java.io.IOException;
 import org.joda.time.DateTime;
 import org.nodel.Handler;
 import org.nodel.SimpleName;
+import org.nodel.core.NodelClientAction;
+import org.nodel.core.NodelClientEvent;
 import org.nodel.core.NodelServerAction;
 import org.nodel.core.NodelServerEvent;
 
@@ -66,6 +68,20 @@ public abstract class BaseDynamicNode extends BaseNode {
      */
     public void extractLocalEvent(NodelServerEvent event) {
         removeLocalEvent(event);
-    }    
+    }
+    
+    /**
+     * Injects a remote action on behalf of another entity.
+     */
+    public void injectRemoteAction(NodelClientAction action) {
+        super.addRemoteAction(action);
+    }
+    
+    /**
+     * Injects a remote event on behalf of another entity.
+     */
+    public void injectRemoteEvent(NodelClientEvent event) {
+        super.addRemoteEvent(event);
+    }
    
 }

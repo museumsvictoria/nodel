@@ -158,4 +158,12 @@ def Event(name, metadata=None):
 # Creates a local action (on-the-fly)    
 def Action(name, handler, metadata=None):
 	return _toolkit.createAction(name, handler, metadata)
+	
+# Creates remote action
+def create_remote_action(name, metadata=None):
+    return _toolkit.createRemoteAction(name, metadata)
+    
+# Creates a remote event
+def create_remote_event(name, handler, metadata=None):
+    return _toolkit.createRemoteEvent(name, handler, metadata)
 

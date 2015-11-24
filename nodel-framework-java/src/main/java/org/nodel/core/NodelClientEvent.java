@@ -11,10 +11,13 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.joda.time.DateTime;
 import org.nodel.Handler;
 import org.nodel.SimpleName;
+import org.nodel.host.Binding;
 import org.nodel.reflection.Serialisation;
 import org.nodel.reflection.Value;
 
 public class NodelClientEvent {
+    
+    private final static SimpleName UNBOUND = new SimpleName("unbound");
     
     /**
      * The name (or alias) of this client event.
@@ -45,6 +48,11 @@ public class NodelClientEvent {
      * (will never be null) 
      */
     protected NodelPoint _eventPoint;
+    
+    /**
+     * (never null)
+     */
+    private Binding _metadata;
     
     /**
      * The handler call-back.
@@ -89,19 +97,42 @@ public class NodelClientEvent {
     protected DateTime _argTimestamp;
 
     /**
+     * In an unbound state.
+     */
+    private boolean _isUnbound;
+
+    /**
      * Constructs a new Nodel Client to manage a single remote node.
      */
-    public NodelClientEvent(SimpleName name, String node, String event) {
-        if (name == null || node == null || event == null)
-            throw new IllegalArgumentException("Arguments cannot be null.");
+    public NodelClientEvent(SimpleName name, Binding metadata, SimpleName node, SimpleName event) {
+        if (name == null)
+            throw new IllegalArgumentException("name cannot be null.");
         
         _name = name;
+        _metadata = (metadata != null ? metadata : Binding.Blank);
         
-        _node = new SimpleName(node);
-        _event = new SimpleName(event);
-        _eventPoint = NodelPoint.create(_node, _event);
+        setNodeAndEvent(node, event);
     }
     
+    /**
+     * (overloaded: null metadata)
+     */
+    public NodelClientEvent(SimpleName name, SimpleName node, SimpleName event) {
+        this(name, null, node, event);
+    }
+    
+    /**
+     * Delayed node and event setting.
+     */
+    public void setNodeAndEvent(SimpleName node, SimpleName event) {
+        _isUnbound = (node == null || event == null); 
+        
+        _node = node != null ? node : UNBOUND;
+        _event = event != null ? event : UNBOUND;
+
+        _eventPoint = NodelPoint.create(_node, _event);
+    }
+
     @Value(name = "name", title = "Name")
     public SimpleName getName() {
         return _name;
@@ -128,6 +159,13 @@ public class NodelClientEvent {
      */
     public NodelPoint getNodelPoint() {
         return _eventPoint;
+    }
+    
+    /**
+     * The metadata field.
+     */
+    public Binding getMetadata() {
+        return _metadata;
     }
     
     @Value(name = "arg", title = "Argument")
@@ -162,7 +200,7 @@ public class NodelClientEvent {
     }    
     
     /**
-     * Registers interest in a Node's events. 
+     * Sets the callback handler 
      */
     public void setHandler(final NodelEventHandler handler) {
         if (handler == null)
@@ -183,7 +221,16 @@ public class NodelClientEvent {
             }
 
         };
-
+    }
+    
+    /**
+     * Registers interest in a remote Node's event (Nodel layer trigger)
+     * (will fail if already registered)
+     */
+    public void registerInterest() {
+        if (_isUnbound)
+            return;
+        
         NodelClients.instance().registerEventInterest(this);
     }
     
