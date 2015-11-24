@@ -25,7 +25,11 @@ import org.nodel.Handler.H1;
 import org.nodel.Handler.H2;
 import org.nodel.Strings;
 import org.nodel.core.ActionRequestHandler;
+import org.nodel.core.BindingState;
 import org.nodel.core.Nodel;
+import org.nodel.core.NodelClientAction;
+import org.nodel.core.NodelClientEvent;
+import org.nodel.core.NodelEventHandler;
 import org.nodel.core.NodelServerAction;
 import org.nodel.core.NodelServerEvent;
 import org.nodel.host.BaseDynamicNode;
@@ -104,6 +108,11 @@ public class ManagedToolkit {
      * ('exceptionHandler' with context)
      */
     private H1<Exception> _actionExceptionHandler = createExceptionHandlerWithContext("action");
+    
+    /**
+     * ('exceptionHandler' with context)
+     */    
+    private H1<Exception> _remoteEventExceptionHandler = createExceptionHandlerWithContext("remoteEvent");
     
     /**
      * ('exceptionHandler' with context)
@@ -524,8 +533,116 @@ public class ManagedToolkit {
 
             _node.extractLocalEvent(event);
         }
-    }    
+    }
     
+    /**
+     * Creates a remote action.
+     */
+    public NodelClientAction createRemoteAction(String actionName, Map<String, Object> metadata) {
+        return createRemoteAction(actionName, (Binding) Serialisation.coerce(Binding.class, metadata));
+    }
+
+    /**
+     * Creates a remote action.
+     */
+    public NodelClientAction createRemoteAction(String actionName, Binding metadata) {
+        synchronized (_lock) {
+            if (_closed)
+                throw new IllegalStateException("Node is closed.");
+            
+            final SimpleName action = new SimpleName(actionName);
+            
+            if (metadata == null)
+                metadata = new Binding();
+            
+            if (Strings.isNullOrEmpty(metadata.title))
+                metadata.title = actionName;
+
+            final NodelClientAction clientAction = new NodelClientAction(new SimpleName(actionName), metadata, null, null);
+            
+            clientAction.attachMonitor(new Handler.H1<Object>() {
+                
+                @Override
+                public void handle(Object arg) {
+                    if (clientAction.isUnbound())
+                        _node.injectLog(DateTime.now(), LogEntry.Source.unbound, LogEntry.Type.action, action, arg);                    
+                    else
+                        _node.injectLog(DateTime.now(), LogEntry.Source.remote, LogEntry.Type.action, action, arg);
+                }
+                
+            });
+            clientAction.attachWiredStatusChanged(new Handler.H1<BindingState>() {
+                
+                @Override
+                public void handle(BindingState status) {
+                    _logger.info("Action binding status: {} - '{}'", action.getReducedName(), status);
+                    
+                    _node.injectLog(DateTime.now(), LogEntry.Source.remote, LogEntry.Type.actionBinding, action, status);
+                }
+                
+            });            
+            
+            _node.injectRemoteAction(clientAction);
+
+            return clientAction;
+        }
+    }
+    
+    /**
+     * Creates a remote event.
+     */
+    public NodelClientEvent createRemoteEvent(String eventName, Handler.H1<Object> eventFunction, Map<String, Object> metadata) {
+        return createRemoteEvent(eventName, eventFunction, (Binding) Serialisation.coerce(Binding.class, metadata));
+    }
+
+    /**
+     * Creates a remote action.
+     */
+    public NodelClientEvent createRemoteEvent(String eventName, final Handler.H1<Object> eventFunction, Binding metadata) {
+        synchronized (_lock) {
+            if (_closed)
+                throw new IllegalStateException("Node is closed.");
+            
+            final SimpleName event = new SimpleName(eventName);
+            
+            if (metadata == null)
+                metadata = new Binding();
+            
+            if (Strings.isNullOrEmpty(metadata.title))
+                metadata.title = eventName;
+
+            final NodelClientEvent clientEvent = new NodelClientEvent(new SimpleName(eventName), metadata, null, null);
+            
+            clientEvent.setHandler(new NodelEventHandler() {
+                
+                @Override
+                public void handleEvent(SimpleName node, SimpleName event, Object arg) {
+                    _node.injectLog(DateTime.now(), LogEntry.Source.remote, LogEntry.Type.event, event, arg);
+                    
+                    _threadStateHandler.handle();
+
+                    _callbackQueue.handle(eventFunction, arg, _remoteEventExceptionHandler);                    
+                }
+                
+            });
+            
+            clientEvent.attachWiredStatusChanged(new Handler.H1<BindingState>() {
+                
+                @Override
+                public void handle(BindingState status) {
+                    _node.injectLog(DateTime.now(), LogEntry.Source.remote, LogEntry.Type.eventBinding, event, status);
+                    
+                    _logger.info("Event binding status: {} - '{}'", event.getReducedName(), status);
+                }
+                
+            });             
+            
+            _node.injectRemoteEvent(clientEvent);
+
+            return clientEvent;
+        }
+    }    
+
     /**
      * Kicks off any resources set up within this toolkit like TCP connections, timers, etc.
      */

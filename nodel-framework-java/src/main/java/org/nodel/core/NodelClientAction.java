@@ -11,7 +11,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.joda.time.DateTime;
 import org.nodel.Handler;
 import org.nodel.SimpleName;
-import org.nodel.Strings;
+import org.nodel.host.Binding;
 import org.nodel.reflection.Serialisation;
 import org.nodel.reflection.Value;
 
@@ -19,6 +19,8 @@ import org.nodel.reflection.Value;
  * Represents a Nodel client action dependency.
  */
 public class NodelClientAction {
+    
+    private final static SimpleName UNBOUND = new SimpleName("unbound");
     
     /**
      * The name of this client action
@@ -67,6 +69,11 @@ public class NodelClientAction {
     private Handler.H1<Object> _monitor;
     
     /**
+     * The metadata field (never null)
+     */
+    private Binding _metadata;
+
+    /**
      * When wired status changes.
      */
     private Handler.H1<BindingState> wiredStatusHandler;
@@ -103,24 +110,33 @@ public class NodelClientAction {
 
     /**
      * Constructs a new Nodel Client to manage a single remote node.
-     * (allows name and action to be null or empty)
+     * (allows name and action to be null or empty; can be set later.)
      */
-    public NodelClientAction(SimpleName name, String node, String action) {
+    public NodelClientAction(SimpleName name, Binding metadata, SimpleName node, SimpleName action) {
         _name = name;
+        _metadata = (metadata != null ? metadata : Binding.Blank);
         
-        if (Strings.isNullOrEmpty(node) || Strings.isNullOrEmpty(action))
-            _isUnbound = true;
+        setNodeAndAction(node, action);
+    }
+    
+    /**
+     * Sets the node and action (prior to registering interest)
+     */
+    public void setNodeAndAction(SimpleName node, SimpleName action) {
+        _isUnbound = (node == null || action == null); 
 
-        if (Strings.isNullOrEmpty(node))
-            node = "unbound";
+        _node = (node != null ? node : UNBOUND);
         
-        _node = new SimpleName(node);
+        _action = (action != null ? action : UNBOUND);
         
-        if (Strings.isNullOrEmpty(action))
-            action = "unbound";
-        _action = new SimpleName(action);
-        
-        _nodelPoint = NodelPoint.create(_node, _action);
+        _nodelPoint = NodelPoint.create(_node, _action);        
+    }
+    
+    /**
+     * (overloaded) No metadata
+     */
+    public NodelClientAction(SimpleName name, SimpleName node, SimpleName action) {
+        this(name, null, node, action);
     }
 
     @Value(name = "name")
@@ -141,6 +157,10 @@ public class NodelClientAction {
     @Value(name = "action")
     public SimpleName getAction() {
         return _action;
+    }
+
+    public Binding getMetadata() {
+        return _metadata;
     }
 
     /**
