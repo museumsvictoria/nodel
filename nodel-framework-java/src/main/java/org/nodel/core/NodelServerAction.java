@@ -221,9 +221,17 @@ public class NodelServerAction implements Closeable {
     }
 
     @Service(name = "call", title = "Call", desc = "Invokes this action.")
-    public void callExternal(@Param(name = "arg", title = "Argument") Object arg) {
+    public void call(@Param(name = "arg", title = "Argument") Object arg) {
         if (_handler != null)
             _handler.handleActionRequest(arg);
+    }
+
+    /**
+     * (without any argument)
+     */
+    public void call() {
+        if (_handler != null)
+            _handler.handleActionRequest(null);
     }
 
     /**
