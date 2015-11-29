@@ -508,6 +508,13 @@ public class ManagedToolkit {
         }
     }
     
+    /**
+     * Looks up a Nodel action from this Node.
+     */
+    public NodelServerAction getLocalAction(String name) {
+        return _node.getLocalActions().get(new SimpleName(name));
+    }
+    
     public NodelServerEvent createEvent(String eventName, Binding metadata) {
         synchronized (_lock) {
             if (_closed)
@@ -523,6 +530,14 @@ public class ManagedToolkit {
     public NodelServerEvent createEvent(String eventName, Map<String, Object> metadata) {
         return createEvent(eventName, (Binding) Serialisation.coerce(Binding.class, metadata));
     }
+    
+    /**
+     * Looks up a Nodel event from this Node.
+     */
+    public NodelServerEvent getLocalEvent(String name) {
+        return _node.getLocalEvents().get(new SimpleName(name));
+    }
+   
     
     public void releaseEvent(NodelServerEvent event) {
         if (event == null)
