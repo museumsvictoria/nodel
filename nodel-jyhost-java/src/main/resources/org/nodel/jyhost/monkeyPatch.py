@@ -15,7 +15,7 @@ def RemoteAction(schemaDictOrJSONorTitle = None):
 def Parameter(schemaDictOrJSONorTitle = None):
     return schemaDictOrJSONorTitle;
 
-# _toolkit: Native toolkit
+# _toolkit: Native toolkit (injected)
 
 # A general console with:
 # .log(...)    - light verbose text
@@ -158,4 +158,19 @@ def Event(name, metadata=None):
 # Creates a local action (on-the-fly)    
 def Action(name, handler, metadata=None):
 	return _toolkit.createAction(name, handler, metadata)
+	
+# Creates remote action
+def create_remote_action(name, metadata=None):
+    return _toolkit.createRemoteAction(name, metadata)
+    
+# Creates a remote event
+def create_remote_event(name, handler, metadata=None):
+    return _toolkit.createRemoteEvent(name, handler, metadata)
 
+# Looks up a local action by simple name
+def lookup_local_action(name):
+    return _toolkit.getLocalAction(name)
+
+# Looks up a local event by simple name
+def lookup_local_event(name):
+    return _toolkit.getLocalEvent(name)

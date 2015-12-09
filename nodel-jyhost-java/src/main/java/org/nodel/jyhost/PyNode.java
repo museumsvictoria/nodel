@@ -1026,7 +1026,10 @@ public class PyNode extends BaseDynamicNode {
             // empty bindings are allowed and will show up as "unbound" sources
             
             // (Nodel layer)
-            final NodelClientAction nodelAction = new NodelClientAction(action.getKey(), nodeName, actionName);
+            final NodelClientAction nodelAction = new NodelClientAction(action.getKey(),
+                    !Strings.isNullOrEmpty(nodeName) ? new SimpleName(nodeName) : null, 
+                    !Strings.isNullOrEmpty(actionName) ? new SimpleName(actionName) : null);
+
             nodelAction.attachMonitor(new Handler.H1<Object>() {
                 
                 @Override
@@ -1082,7 +1085,7 @@ public class PyNode extends BaseDynamicNode {
                 // skip for now
                 continue;
 
-            final NodelClientEvent nodelClientEvent = new NodelClientEvent(alias, nodeName, eventName);
+            final NodelClientEvent nodelClientEvent = new NodelClientEvent(alias, new SimpleName(nodeName), new SimpleName(eventName));
             nodelClientEvent.setHandler(new NodelEventHandler() {
                 
                 @Override
@@ -1093,17 +1096,20 @@ public class PyNode extends BaseDynamicNode {
             });
             
             nodelClientEvent.attachWiredStatusChanged(new Handler.H1<BindingState>() {
-                
+
                 @Override
                 public void handle(BindingState status) {
                     addLog(DateTime.now(), LogEntry.Source.remote, LogEntry.Type.eventBinding, alias, status);
-                    
+
                     _logger.info("Event binding status: {} - '{}'", alias.getReducedName(), status);
                 }
-                
-            });            
+
+            });
             
             _remoteEvents.add(nodelClientEvent);
+            
+            // finally use Nodel layer
+            nodelClientEvent.registerInterest();
             
             if (sb.length() > 0)
                 sb.append(", ");

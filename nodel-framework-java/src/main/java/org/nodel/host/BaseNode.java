@@ -815,6 +815,82 @@ public abstract class BaseNode implements Closeable {
      * The remote events
      */
     protected List<NodelClientEvent> _remoteEvents = new ArrayList<NodelClientEvent>();
+    
+    /**
+     * Add a remote action (by subclass)
+     */
+    protected void addRemoteAction(NodelClientAction remoteAction) {
+        SimpleName remoteActionName = remoteAction.getName();
+        
+        // look up the value first
+        Map<SimpleName, ActionValue> actionValues = _config.remoteBindingValues.actions;
+        ActionValue actionValue = actionValues.get(remoteAction.getName());
+        
+        SimpleName node = null;
+        SimpleName action = null;
+        
+        if (actionValue != null) {
+            node = actionValue.node;
+            action = actionValue.action;
+        }
+
+        // ensure a section is already reserved for this remote action
+        Map<SimpleName, NodelActionInfo> remoteActionBindings = _bindings.remote.actions;
+        
+        // (check if same name already being used)
+        if (remoteActionBindings.containsKey(remoteActionName))
+            throw new IllegalStateException("Remote action '" + remoteActionName + "' already exists.");
+        
+        // create the action info required for the remote binding info structure
+        NodelActionInfo actionInfo = (NodelActionInfo) Serialisation.coerce(NodelActionInfo.class, remoteAction.getMetadata());
+        remoteActionBindings.put(remoteActionName, actionInfo);
+
+        // set the node and action values
+        remoteAction.setNodeAndAction(node, action);
+        
+        // make sure it gets cleaned up later
+        _remoteActions.add(remoteAction);
+
+        remoteAction.registerActionInterest();
+    }
+    
+    /**
+     * Add a remote event (by subclass)
+     */
+    protected void addRemoteEvent(NodelClientEvent remoteEvent) {
+        SimpleName remoteEventName = remoteEvent.getName();
+        
+        // look up the value first
+        Map<SimpleName, EventValue> eventValues = _config.remoteBindingValues.events;
+        EventValue eventValue = eventValues.get(remoteEvent.getName());
+        
+        SimpleName node = null;
+        SimpleName event = null;
+        
+        if (eventValue != null) {
+            node = eventValue.node;
+            event = eventValue.event;
+        }
+
+        // ensure a section is already reserved for this remote action
+        Map<SimpleName, NodelEventInfo> remoteEventBindings = _bindings.remote.events;
+        
+        // (check if same name already being used)
+        if (remoteEventBindings.containsKey(remoteEventName))
+            throw new IllegalStateException("Remote action '" + remoteEventName + "' already exists.");
+        
+        // create the event info required for the remote binding info structure
+        NodelEventInfo eventInfo = (NodelEventInfo) Serialisation.coerce(NodelEventInfo.class, remoteEvent.getMetadata());
+        remoteEventBindings.put(remoteEventName, eventInfo);
+
+        // set the node and event values
+        remoteEvent.setNodeAndEvent(node, event);
+        
+        // make sure it gets cleaned up later
+        _remoteEvents.add(remoteEvent);
+
+        remoteEvent.registerInterest();
+    }   
             
     /**
      * The parameters
