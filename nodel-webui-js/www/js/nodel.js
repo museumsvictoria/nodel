@@ -44,7 +44,7 @@ JSON.parse = function(data) {
   return json_parse(data, function (key, value) {
     if (value && Object.prototype.toString.call(value) === '[object Object]') {
       for (var k in value) {
-        if (/\./.test(k) && Object.hasOwnProperty.call(value, k)) {
+        if (/(^[0-9]|[^0-9a-zA-Z])/g.test(k) && Object.hasOwnProperty.call(value, k)) {
           value[encodr(k)] = value[k];
           delete value[k];
         }
@@ -198,127 +198,131 @@ var init = function() {
       } else $('#'+form).replaceWith('<h5 class="pad">None</h5>');
     });
   });
-  var actions_list = ['init'];
-  var events_list = ['init'];
+  var actions_list = [];
+  var events_list = [];
   $('#actions, #events').on('ready', function(evt){
     actions_list = jQuery.grep(actions_list, function(value){return value != evt.target.id;});
     events_list = jQuery.grep(events_list, function(value){return value != evt.target.id;});
     if(actions_list.length == 0 && events_list.length == 0) updateLogs();
   });
-  // retrieve the node actions
-  $.getJSON('http://'+host+'/REST/nodes/'+encodeURIComponent(node)+'/actions',"",
-  function(data) {
-    var actionsData = [];
-    $.each(data, function(key, form) {
-      actionsData.push(form);
-    });
-    actions_list = $.map(actionsData, function(val){
-      return 'action_'+val.name;
-    });
-    // sort
-    actionsData.sort(function(a, b){
-      var aName = a.name.toLowerCase();
-      var bName = b.name.toLowerCase();
-      var aOrder = a.order ? a.order : 0;
-      var bOrder = b.order ? b.order : 0;
-      return aOrder < bOrder ? -1 : aOrder > bOrder ? 1 : aName < bName ? -1 : aName > bName ? 1 : 0;
-    });
-    // build
-    $.each(actionsData, function(key, form) {
-      // build the form tempalte from the schema
-      var template = '';
-      if(typeof form.schema !== "undefined") {
-        var schema = {type: "object", properties: {arg: form.schema}};
-        template = buildFormSchema(schema);
+  if($('#actions').length) {
+    actions_list = ['init'];
+    // retrieve the node actions
+    $.getJSON('http://' + host + '/REST/nodes/' + encodeURIComponent(node) + '/actions', "", function (data) {
+      var actionsData = [];
+      $.each(data, function (key, form) {
+        actionsData.push(form);
+      });
+      actions_list = $.map(actionsData, function (val) {
+        return 'action_' + val.name;
+      });
+      // sort
+      actionsData.sort(function (a, b) {
+        var aName = a.name.toLowerCase();
+        var bName = b.name.toLowerCase();
+        var aOrder = a.order ? a.order : 0;
+        var bOrder = b.order ? b.order : 0;
+        return aOrder < bOrder ? -1 : aOrder > bOrder ? 1 : aName < bName ? -1 : aName > bName ? 1 : 0;
+      });
+      // build
+      $.each(actionsData, function (key, form) {
+        // build the form tempalte from the schema
+        var template = '';
+        if (typeof form.schema !== "undefined") {
+          var schema = {type: "object", properties: {arg: form.schema}};
+          template = buildFormSchema(schema);
+        }
+        // if the action does not have any fields (it only has a submit button), set it to display inline
+        var float = template ? 'unfloat' : 'float';
+        // set the class for the form submit handler
+        var cls = ['call'];
+        // create the form wrapper
+        newform = '<div class="' + float + '"><form id="action_' + form.name + '"></form></div>';
+        // if the action is part of a group, add the form to the group, otherwise add it ungrouped
+        if (form.group) {
+          // if the group exists, add the form to the group, otherwise add the new group
+          if ($('#actiongroup_' + form.group.replace(/[^0-9a-zA-Z]/g, "")).length) $('#actiongroup_' + form.group.replace(/[^0-9a-zA-Z]/g, "")).append(newform);
+          else $('#actions').append('<div class="unfloat block"><h6>' + htmlEncode(form.group) + '</h6><div id="actiongroup_' + form.group.replace(/[^0-9a-zA-Z]/g, "") + '">' + newform + '</div></div>');
+        } else $('#actions').append(newform);
+        // if a warning is required before submit, add an extra class to the submit handler and add a caution variable to the form data
+        if (form.caution) {
+          cls.push('caution');
+          $('#action_' + form.name).data('caution', form.caution);
+        }
+        var name = (typeof form.title !== 'undefined') ? htmlEncode(form.title) : form.name;
+        // add a submit button to the template
+        template = template + '<button title="' + form.name + ': ' + htmlEncode(form.desc) + '" class="' + cls.join(' ') + '"><span>' + opts.local.action.icon + '</span>' + name + '</button>';
+        // add the template to jsviews
+        eval('$.templates({action_' + form.name + 'Template: template})');
+        // fill the template with data
+        buildForm(form.name, 'action_' + form.name, ['actions'], 'call', false);
+      });
+      // if there are no actions, display 'none'
+      if ($.isEmptyObject(data)) {
+        actions_list = [];
+        $('#actions').trigger('ready').append('<h5 class="pad">None</h5>');
       }
-      // if the action does not have any fields (it only has a submit button), set it to display inline
-      var float = template ? 'unfloat':'float';
-      // set the class for the form submit handler
-      var cls = ['call'];
-      // create the form wrapper
-      newform = '<div class="'+float+'"><form id="action_'+form.name+'"></form></div>';
-      // if the action is part of a group, add the form to the group, otherwise add it ungrouped
-      if(form.group) {
-        // if the group exists, add the form to the group, otherwise add the new group
-        if($('#actiongroup_'+form.group.replace(/[^0-9a-zA-Z]/g, "")).length) $('#actiongroup_'+form.group.replace(/[^0-9a-zA-Z]/g, "")).append(newform);
-        else $('#actions').append('<div class="unfloat block"><h6>'+htmlEncode(form.group)+'</h6><div id="actiongroup_'+form.group.replace(/[^0-9a-zA-Z]/g, "")+'">'+newform+'</div></div>');
-      } else $('#actions').append(newform);
-      // if a warning is required before submit, add an extra class to the submit handler and add a caution variable to the form data
-      if(form.caution) {
-        cls.push('caution');
-        $('#action_'+form.name).data('caution',form.caution);
-      }
-      var name = (typeof form.title !== 'undefined') ? htmlEncode(form.title): form.name;
-      // add a submit button to the template
-      template = template+'<button title="'+form.name+': '+htmlEncode(form.desc)+'" class="'+cls.join(' ')+'"><span>'+opts.local.action.icon+'</span>'+name+'</button>';
-      // add the template to jsviews
-      eval('$.templates({action_'+form.name+'Template: template})');
-      // fill the template with data
-      buildForm(form.name, 'action_'+form.name, ['actions'],'call', false);
     });
-    // if there are no actions, display 'none'
-    if($.isEmptyObject(data)) {
-      actions_list = [];
-      $('#actions').trigger('ready').append('<h5 class="pad">None</h5>');
-    }
-  });
+  }
   // retrieve the node events
-  $.getJSON('http://'+host+'/REST/nodes/'+encodeURIComponent(node)+'/events',"",
-  function(data) {
-    var eventsData = [];
-    $.each(data, function(key, form) {
-      eventsData.push(form);
-    });
-    events_list = $.map(eventsData, function(val){
-      return 'event_'+val.name;
-    });
-    // sort
-    eventsData.sort(function(a, b){
-      var aName = a.name.toLowerCase();
-      var bName = b.name.toLowerCase();
-      var aOrder = a.order ? a.order : 0;
-      var bOrder = b.order ? b.order : 0;
-      return aOrder < bOrder ? -1 : aOrder > bOrder ? 1 : aName < bName ? -1 : aName > bName ? 1 : 0;
-    });
-    // build
-    $.each(eventsData, function(key, form) {
-      // build the form tempalte from the schema
-      var template = '';
-      if(typeof form.schema !== "undefined") {
-        var schema = {type: "object", properties: {arg: form.schema}};
-        template = buildFormSchema(schema);
+  if($('#events').length) {
+    events_list = ['init'];
+    $.getJSON('http://' + host + '/REST/nodes/' + encodeURIComponent(node) + '/events', "", function (data) {
+      var eventsData = [];
+      $.each(data, function (key, form) {
+        eventsData.push(form);
+      });
+      events_list = $.map(eventsData, function (val) {
+        return 'event_' + val.name;
+      });
+      // sort
+      eventsData.sort(function (a, b) {
+        var aName = a.name.toLowerCase();
+        var bName = b.name.toLowerCase();
+        var aOrder = a.order ? a.order : 0;
+        var bOrder = b.order ? b.order : 0;
+        return aOrder < bOrder ? -1 : aOrder > bOrder ? 1 : aName < bName ? -1 : aName > bName ? 1 : 0;
+      });
+      // build
+      $.each(eventsData, function (key, form) {
+        // build the form tempalte from the schema
+        var template = '';
+        if (typeof form.schema !== "undefined") {
+          var schema = {type: "object", properties: {arg: form.schema}};
+          template = buildFormSchema(schema);
+        }
+        // if the event does not have any fields (it only has a submit button), set it to display inline
+        var float = template ? 'unfloat' : 'float';
+        // set the class for the form submit handler
+        var cls = ['emit'];
+        // create the form wrapper
+        newform = '<div class="' + float + '"><form id="event_' + form.name + '"></form></div>';
+        // if the event is part of a group, add the form to the group, otherwise add it ungrouped
+        if (form.group) {
+          // if the group exists, add the form to the group, otherwise add the new group
+          if ($('#eventgroup_' + form.group.replace(/[^0-9a-zA-Z]/g, "")).length) $('#eventgroup_' + form.group.replace(/[^0-9a-zA-Z]/g, "")).append(newform);
+          else $('#events').append('<div class="unfloat block"><h6>' + htmlEncode(form.group) + '</h6><div id="eventgroup_' + form.group.replace(/[^0-9a-zA-Z]/g, "") + '">' + newform + '</div></div>');
+        } else $('#events').append(newform);
+        // if a warning is required before submit, add an extra class to the submit handler and add a caution variable to the form data
+        if (form.caution) {
+          cls.push('caution');
+          $('#event_' + form.name).data('caution', form.caution);
+        }
+        var name = (typeof form.title !== 'undefined') ? htmlEncode(form.title) : form.name;
+        // add a submit button to the template
+        template = template + '<button title="' + form.name + ': ' + htmlEncode(form.desc) + '" class="' + cls.join(' ') + '"><span>' + opts.local.event.icon + '</span>' + name + '</button>';
+        // add the template to jsviews
+        eval('$.templates({event_' + form.name + 'Template: template})');
+        // fill the template with data and attach UI events
+        buildForm(form.name, 'event_' + form.name, ['events'], 'emit', false);
+      });
+      // if there are no actions, display 'none'
+      if ($.isEmptyObject(data)) {
+        events_list = [];
+        $('#events').trigger('ready').append('<h5 class="pad">None</h5>');
       }
-      // if the event does not have any fields (it only has a submit button), set it to display inline
-      var float = template ? 'unfloat':'float';
-      // set the class for the form submit handler
-      var cls = ['emit'];
-      // create the form wrapper
-      newform = '<div class="'+float+'"><form id="event_'+form.name+'"></form></div>';
-      // if the event is part of a group, add the form to the group, otherwise add it ungrouped
-      if(form.group) {
-        // if the group exists, add the form to the group, otherwise add the new group
-        if($('#eventgroup_'+form.group.replace(/[^0-9a-zA-Z]/g, "")).length) $('#eventgroup_'+form.group.replace(/[^0-9a-zA-Z]/g, "")).append(newform);
-        else $('#events').append('<div class="unfloat block"><h6>'+htmlEncode(form.group)+'</h6><div id="eventgroup_'+form.group.replace(/[^0-9a-zA-Z]/g, "")+'">'+newform+'</div></div>');
-      } else $('#events').append(newform);
-      // if a warning is required before submit, add an extra class to the submit handler and add a caution variable to the form data
-      if(form.caution) {
-        cls.push('caution');
-        $('#event_'+form.name).data('caution',form.caution);
-      }
-      var name = (typeof form.title !== 'undefined') ? htmlEncode(form.title): form.name;
-      // add a submit button to the template
-      template = template+'<button title="'+form.name+': '+htmlEncode(form.desc)+'" class="'+cls.join(' ')+'"><span>'+opts.local.event.icon+'</span>'+name+'</button>';
-      // add the template to jsviews
-      eval('$.templates({event_'+form.name+'Template: template})');
-      // fill the template with data and attach UI events
-      buildForm(form.name, 'event_'+form.name, ['events'],'emit', false);
     });
-    // if there are no actions, display 'none'
-    if($.isEmptyObject(data)) {
-      events_list = [];
-      $('#events').trigger('ready').append('<h5 class="pad">None</h5>');
-    }
-  });
+  }
   // define the script form schema
   var scriptSchema = JSON.parse('{"type":"object","required":false,"properties":{ "script": { "type":"string", "title":"Script", "required":false, "format":"long" }}}');
   // build the form template
@@ -695,9 +699,10 @@ var checkRedirect = function(url) {
 // function to start polling the nodehost to see if the UI should reload (the node has restarted)
 var checkReload = function(){
   // set the filter to get the current timestamp if it is not known
+  var params = {};
   if(typeof $('body').data('timestamp') === "undefined") params = {timeout:tim};
   // otherwise, set the filter to the current timestamp
-  else params = {timeout:tim, timestamp:$('body').data('timestamp')};
+  else var params = {timeout:tim, timestamp:$('body').data('timestamp')};
   // call the function
   $.getJSON('http://'+host+'/REST/nodes/'+encodeURIComponent(node)+'/hasRestarted', params,
   function(data) {
@@ -720,15 +725,15 @@ var updateLogs = function(){
   if(!("WebSocket" in window) || (typeof $('body').data('config')['webSocketPort'] === "undefined")) {
     var url;
     // if the last sequence number is not set, set the filter to retrieve the last 100 entries
-    if (typeof $('#activity').data('seq') === "undefined") url = 'http://' + host + '/REST/nodes/' + encodeURIComponent(node) + '/activity?from=-1';
+    if (typeof $('body').data('seq') === "undefined") url = 'http://' + host + '/REST/nodes/' + encodeURIComponent(node) + '/activity?from=-1';
     // otherwise, set the filter to retrieve the next 100 changes
-    else url = 'http://' + host + '/REST/nodes/' + encodeURIComponent(node) + '/activity?from=' + $('#activity').data('seq');
+    else url = 'http://' + host + '/REST/nodes/' + encodeURIComponent(node) + '/activity?from=' + $('body').data('seq');
     // call the function
     $.getJSON(url, {timeout: tim}, function (data) {
       // if the last sequence number is not set, set it and flag that the display should not be animated
-      if (typeof $('#activity').data('seq') === "undefined") {
+      if (typeof $('body').data('seq') === "undefined") {
         var noanimate = true;
-        $('#activity').data('seq', -1);
+        $('body').data('seq', -1);
       }
       data.sort(function (a, b) {
         return a.seq < b.seq ? -1 : a.seq > b.seq ? 1 : 0;
@@ -737,13 +742,13 @@ var updateLogs = function(){
       $.each(data, function (key, value) {
         if (value.seq != 0) {
           // add one to the current sequence
-          $('#activity').data('seq', value.seq + 1);
+          $('body').data('seq', value.seq + 1);
           parseLog(value, noanimate);
         }
       });
     }).always(function () {
       // check again in one second
-      $('#activity').data('timer', setTimeout(function () {
+      $('body').data('logs', setTimeout(function () {
         updateLogs();
       }, 1000));
     });
@@ -778,9 +783,9 @@ var updateLogs = function(){
 
 var parseLog = function(value, noanimate) {
   if (typeof(noanimate) === 'undefined') noanimate = false;
-  if (value.source == 'local') $('#' + value.type + '_' + value.alias).trigger('updatedata', {"arg": value.arg});
+  if (value.source == 'local') $('#' + value.type + '_' + encodr(value.alias)).trigger('updatedata', {"arg": value.arg});
   // if the activity is a local event or action, and the display is not set to animate, highlight the action button
-  if ((value.source == 'local') && (!noanimate)) $('#' + value.type + '_' + value.alias + ' button span').stop(true, true).css({'color': opts.local[value.type].colour}).animate({'color': '#bbb'}, 10000);
+  if ((value.source == 'local') && (!noanimate)) $('#' + value.type + '_' + encodr(value.alias) + ' button span').stop(true, true).css({'color': opts.local[value.type].colour}).animate({'color': '#bbb'}, 10000);
   // construct the activity log entry
   var tme = moment(value.timestamp);
   var str = '<li title="' + tme.format('Do MMM, HH:mm.ss') + '"><div>' + opts[value.source][value.type].icon + '</div>' + value.alias;
@@ -791,13 +796,13 @@ var parseLog = function(value, noanimate) {
   }
   str += '</li>';
   // create the activity element
-  var activity = $(str).attr('id', 'activity_' + value.source + '_' + value.type + '_' + value.alias).data('time',value.timestamp);
+  var activity = $(str).attr('id', 'activity_' + value.source + '_' + value.type + '_' + encodr(value.alias)).data('time',value.timestamp);
   // if animation is disabled, set to display without animation
   if (noanimate) $(activity).children('div').css('color', opts[value.source][value.type].colour).css('opacity', 0.25);
   // otherwise, set to display with animation
   else $(activity).children('div').css('color', opts[value.source][value.type].colour).animate({'opacity': 0.25}, 10000);
   // check for current entry
-  var ele = $('#activity_' + value.source + '_' + value.type + '_' + value.alias);
+  var ele = $('#activity_' + value.source + '_' + value.type + '_' + encodr(value.alias));
   if (ele.length) {
     var diff = tme.diff(moment(ele.data('time')),'ms');
     if(diff > 500) {
