@@ -838,6 +838,9 @@ public abstract class BaseNode implements Closeable {
                 actionValue = new ActionValue();
                 actionValue.node = suggestedNode;
                 actionValue.action = suggestedAction;
+                
+                // 'fake' the values
+                actionValues.put(remoteAction.getName(), actionValue);
             }
         }
 
@@ -883,6 +886,9 @@ public abstract class BaseNode implements Closeable {
                 eventValue = new EventValue();
                 eventValue.node = suggestedNode;
                 eventValue.event = suggestedEvent;
+                
+                // 'fake' the values
+                eventValues.put(remoteEvent.getName(), eventValue);                
             }
         }
 
