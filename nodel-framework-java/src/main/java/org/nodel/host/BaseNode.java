@@ -832,11 +832,13 @@ public abstract class BaseNode implements Closeable {
         if (actionValue != null) {
             node = actionValue.node;
             action = actionValue.action;
-        } else {
-            // use suggestions
+        } 
+        
+        // optionally use suggestions
+        if (node == null)
             node = suggestedNode;
+        if (action == null)
             action = suggestedAction;
-        }
 
         // ensure a section is already reserved for this remote action
         Map<SimpleName, NodelActionInfo> remoteActionBindings = _bindings.remote.actions;
@@ -874,11 +876,13 @@ public abstract class BaseNode implements Closeable {
         if (eventValue != null) {
             node = eventValue.node;
             event = eventValue.event;
-        } else {
-            // use suggested values
-            node = suggestedNode;
-            event = suggestedEvent;
         }
+        
+        // optionally, use suggestions
+        if (node == null)
+            node = suggestedNode;
+        if (event == null)
+            event = suggestedEvent;
 
         // ensure a section is already reserved for this remote action
         Map<SimpleName, NodelEventInfo> remoteEventBindings = _bindings.remote.events;
