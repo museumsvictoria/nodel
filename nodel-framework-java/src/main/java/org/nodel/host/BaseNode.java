@@ -819,7 +819,7 @@ public abstract class BaseNode implements Closeable {
     /**
      * Add a remote action (by subclass)
      */
-    protected void addRemoteAction(NodelClientAction remoteAction) {
+    protected void addRemoteAction(NodelClientAction remoteAction, SimpleName suggestedNode, SimpleName suggestedAction) {
         SimpleName remoteActionName = remoteAction.getName();
         
         // look up the value first
@@ -832,6 +832,10 @@ public abstract class BaseNode implements Closeable {
         if (actionValue != null) {
             node = actionValue.node;
             action = actionValue.action;
+        } else {
+            // use suggestions
+            node = suggestedNode;
+            action = suggestedAction;
         }
 
         // ensure a section is already reserved for this remote action
@@ -857,7 +861,7 @@ public abstract class BaseNode implements Closeable {
     /**
      * Add a remote event (by subclass)
      */
-    protected void addRemoteEvent(NodelClientEvent remoteEvent) {
+    protected void addRemoteEvent(NodelClientEvent remoteEvent, SimpleName suggestedNode, SimpleName suggestedEvent) {
         SimpleName remoteEventName = remoteEvent.getName();
         
         // look up the value first
@@ -870,6 +874,10 @@ public abstract class BaseNode implements Closeable {
         if (eventValue != null) {
             node = eventValue.node;
             event = eventValue.event;
+        } else {
+            // use suggested values
+            node = suggestedNode;
+            event = suggestedEvent;
         }
 
         // ensure a section is already reserved for this remote action

@@ -160,12 +160,12 @@ def Action(name, handler, metadata=None):
 	return _toolkit.createAction(name, handler, metadata)
 	
 # Creates remote action
-def create_remote_action(name, metadata=None):
-    return _toolkit.createRemoteAction(name, metadata)
+def create_remote_action(name, metadata=None, suggestedNode=None, suggestedAction=None):
+    return _toolkit.createRemoteAction(name, metadata, suggestedNode, suggestedAction)
     
 # Creates a remote event
-def create_remote_event(name, handler, metadata=None):
-    return _toolkit.createRemoteEvent(name, handler, metadata)
+def create_remote_event(name, handler, metadata=None, suggestedNode=None, suggestedEvent=None):
+    return _toolkit.createRemoteEvent(name, handler, metadata, suggestedNode, suggestedEvent)
 
 # Looks up a local action by simple name
 def lookup_local_action(name):
