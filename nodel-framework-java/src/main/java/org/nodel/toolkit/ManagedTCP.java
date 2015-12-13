@@ -744,6 +744,8 @@ public class ManagedTCP implements Closeable {
                 handleReceivedData(str);
                 
                 bb.reset();
+                
+                synced = false;
             }
         } // (while)
         

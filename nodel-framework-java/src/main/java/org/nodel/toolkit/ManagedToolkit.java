@@ -553,19 +553,22 @@ public class ManagedToolkit {
     /**
      * Creates a remote action.
      */
-    public NodelClientAction createRemoteAction(String actionName, Map<String, Object> metadata) {
-        return createRemoteAction(actionName, (Binding) Serialisation.coerce(Binding.class, metadata));
+    public NodelClientAction createRemoteAction(String actionName, Map<String, Object> metadata, String suggestedNodeName, String suggestedActionName) {
+        return createRemoteAction(actionName, (Binding) Serialisation.coerce(Binding.class, metadata), suggestedNodeName, suggestedActionName);
     }
 
     /**
      * Creates a remote action.
      */
-    public NodelClientAction createRemoteAction(String actionName, Binding metadata) {
+    public NodelClientAction createRemoteAction(String actionName, Binding metadata, String suggestedNodeName, String suggestedActionName) {
         synchronized (_lock) {
             if (_closed)
                 throw new IllegalStateException("Node is closed.");
             
             final SimpleName action = new SimpleName(actionName);
+            
+            SimpleName suggestedNode = (suggestedNodeName != null ? new SimpleName(suggestedNodeName) : null);
+            SimpleName suggestedAction = (suggestedActionName != null ? new SimpleName(suggestedActionName) : null);
             
             if (metadata == null)
                 metadata = new Binding();
@@ -597,7 +600,7 @@ public class ManagedToolkit {
                 
             });            
             
-            _node.injectRemoteAction(clientAction);
+            _node.injectRemoteAction(clientAction, suggestedNode, suggestedAction);
 
             return clientAction;
         }
@@ -606,19 +609,22 @@ public class ManagedToolkit {
     /**
      * Creates a remote event.
      */
-    public NodelClientEvent createRemoteEvent(String eventName, Handler.H1<Object> eventFunction, Map<String, Object> metadata) {
-        return createRemoteEvent(eventName, eventFunction, (Binding) Serialisation.coerce(Binding.class, metadata));
+    public NodelClientEvent createRemoteEvent(String eventName, Handler.H1<Object> eventFunction, Map<String, Object> metadata, String suggestedNodeName, String suggestedEventName) {
+        return createRemoteEvent(eventName, eventFunction, (Binding) Serialisation.coerce(Binding.class, metadata), suggestedNodeName, suggestedEventName);
     }
 
     /**
      * Creates a remote action.
      */
-    public NodelClientEvent createRemoteEvent(String eventName, final Handler.H1<Object> eventFunction, Binding metadata) {
+    public NodelClientEvent createRemoteEvent(String eventName, final Handler.H1<Object> eventFunction, Binding metadata, String suggestedNodeName, String suggestedEventName) {
         synchronized (_lock) {
             if (_closed)
                 throw new IllegalStateException("Node is closed.");
             
             final SimpleName event = new SimpleName(eventName);
+            
+            SimpleName suggestedNode = (suggestedNodeName != null ? new SimpleName(suggestedNodeName) : null);
+            SimpleName suggestedEvent = (suggestedEventName != null ? new SimpleName(suggestedEventName) : null);            
             
             if (metadata == null)
                 metadata = new Binding();
@@ -652,7 +658,7 @@ public class ManagedToolkit {
                 
             });             
             
-            _node.injectRemoteEvent(clientEvent);
+            _node.injectRemoteEvent(clientEvent, suggestedNode, suggestedEvent);
 
             return clientEvent;
         }

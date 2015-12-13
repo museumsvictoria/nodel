@@ -819,7 +819,7 @@ public abstract class BaseNode implements Closeable {
     /**
      * Add a remote action (by subclass)
      */
-    protected void addRemoteAction(NodelClientAction remoteAction) {
+    protected void addRemoteAction(NodelClientAction remoteAction, SimpleName suggestedNode, SimpleName suggestedAction) {
         SimpleName remoteActionName = remoteAction.getName();
         
         // look up the value first
@@ -832,6 +832,16 @@ public abstract class BaseNode implements Closeable {
         if (actionValue != null) {
             node = actionValue.node;
             action = actionValue.action;
+        } else {
+            // optionally use suggestions
+            if (suggestedNode != null || suggestedAction != null) {
+                actionValue = new ActionValue();
+                actionValue.node = suggestedNode;
+                actionValue.action = suggestedAction;
+                
+                // 'fake' the values
+                actionValues.put(remoteAction.getName(), actionValue);
+            }
         }
 
         // ensure a section is already reserved for this remote action
@@ -857,7 +867,7 @@ public abstract class BaseNode implements Closeable {
     /**
      * Add a remote event (by subclass)
      */
-    protected void addRemoteEvent(NodelClientEvent remoteEvent) {
+    protected void addRemoteEvent(NodelClientEvent remoteEvent, SimpleName suggestedNode, SimpleName suggestedEvent) {
         SimpleName remoteEventName = remoteEvent.getName();
         
         // look up the value first
@@ -870,6 +880,16 @@ public abstract class BaseNode implements Closeable {
         if (eventValue != null) {
             node = eventValue.node;
             event = eventValue.event;
+        } else {
+            // optionally use suggestions
+            if (suggestedNode != null || suggestedEvent != null) {
+                eventValue = new EventValue();
+                eventValue.node = suggestedNode;
+                eventValue.event = suggestedEvent;
+                
+                // 'fake' the values
+                eventValues.put(remoteEvent.getName(), eventValue);                
+            }
         }
 
         // ensure a section is already reserved for this remote action
