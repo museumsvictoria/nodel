@@ -62,7 +62,7 @@ public class ManagedToolkit {
     /**
      * The shared thread-pool.
      */
-    private static ThreadPool s_threadPool = new ThreadPool("Toolkit", 16);
+    private static ThreadPool s_threadPool = new ThreadPool("Toolkit", 32);
     
     /**
      * (logging related)
