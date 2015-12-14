@@ -68,6 +68,10 @@ $.views.converters({
   // convert string to float
   strToFloat: function (value) {
     return parseFloat(value);
+  },
+  // convert db to percentage
+  dbToPerc: function (value) {
+    return typeof value === "undefined" ? 0 : (Math.pow(10,value/80.04)*0.75)*100;
   }
 });
 
@@ -1449,7 +1453,11 @@ var buildFormSchema = function(data, key, parent) {
     // format a number
     case 'number':
       // numbers can be floating point
-      set = '<div class="field"><label for="field_'+parent+'{{:#getIndex()}}"'+cls+'>'+htmlEncode(data.title)+'</label><input placeholder="'+placeholder+'" id="field_'+parent+'{{:#getIndex()}}" title="'+htmlEncode(data.desc)+'" type="number" step="any" data-link="{numToStr:'+link+':strToFloat}"'+cls+' /></div>';
+      if(data.format == "dbmeter"){
+        set = '<div class="field"><label for="field_' + parent + '{{:#getIndex()}}"' + cls + '>' + htmlEncode(data.title) + '</label><svg viewBox="0 0 100 10" style="width:100%; height:30px;" preserveAspectRatio="none"><defs><clipPath id="clip"><rect x="0" y="0" width="0" height="10" data-link="width{dbToPerc:'+link+'}"/></clipPath><linearGradient id="grad1"><stop offset="0%" stop-color="rgb(0,200,0)"/><stop offset="65%" stop-color="rgb(0,200,0)"/><stop offset="80%" stop-color="rgb(255,255,0)"/><stop offset="100%" stop-color="rgb(255,0,0)"/></linearGradient></defs><rect x="0" y="0" width="100" height="10" fill="url(#grad1)" clip-path="url(#clip)"/><line x1="75" x2="75" y1="0" y2="10" stroke="rgb(0,0,0)" stroke-width="0.25"/><text x="72.5" y="3" font-size="3px">0</text><line x1="75" x2="75" y1="0" y2="10" stroke="rgb(0,0,0)" stroke-width="0.25"/><text x="72.5" y="3" font-size="3px">0</text><line x1="99.75" x2="99.75" y1="0" y2="10" stroke="rgb(0,0,0)" stroke-width="0.25"/><text x="94" y="3" font-size="3px">+10</text></svg></div>'
+      } else {
+        set = '<div class="field"><label for="field_' + parent + '{{:#getIndex()}}"' + cls + '>' + htmlEncode(data.title) + '</label><input placeholder="' + placeholder + '" id="field_' + parent + '{{:#getIndex()}}" title="' + htmlEncode(data.desc) + '" type="number" step="any" data-link="{numToStr:' + link + ':strToFloat}"' + cls + ' /></div>';
+      }
       break;
     // format a boolean
     case 'boolean':
