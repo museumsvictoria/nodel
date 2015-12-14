@@ -87,7 +87,6 @@ public class ManagedNode extends BaseNode {
                 }
                 
             });
-            event.registerEvent();
 
             super.addLocalEvent(event);
 
