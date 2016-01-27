@@ -174,3 +174,11 @@ def lookup_local_action(name):
 # Looks up a local event by simple name
 def lookup_local_event(name):
     return _toolkit.getLocalEvent(name)
+    
+# Looks up a remote action by simple name
+def lookup_remote_action(name):
+    return _toolkit.getRemoteAction(name)
+
+# Looks up a remote event by simple name
+def lookup_remote_event(name):
+    return _toolkit.RemoteEvent(name)

@@ -1056,7 +1056,7 @@ public class PyNode extends BaseDynamicNode {
             // (Python)
             _python.set(varName, nodelAction);
 
-            _remoteActions.add(nodelAction);
+            _remoteActions.put(nodelAction.getName(), nodelAction);
             
             _logger.info("Mapped peer action to Python variable '{}'", varName);
         } // (for)
@@ -1106,7 +1106,7 @@ public class PyNode extends BaseDynamicNode {
 
             });
             
-            _remoteEvents.add(nodelClientEvent);
+            _remoteEvents.put(nodelClientEvent.getName(), nodelClientEvent);
             
             // finally use Nodel layer
             nodelClientEvent.registerInterest();

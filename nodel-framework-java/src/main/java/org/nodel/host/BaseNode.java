@@ -457,7 +457,7 @@ public abstract class BaseNode implements Closeable {
             }
             
             // go through remote events
-            for (NodelClientEvent remoteEvent : _remoteEvents) {
+            for (NodelClientEvent remoteEvent : _remoteEvents.values()) {
                 long seq = remoteEvent.getArgSeqNum();
                 if (seq >= from)
                     batch.add(new LogEntry(seq, remoteEvent.getArgTimestamp(), Source.remote, Type.event, remoteEvent.getName(), remoteEvent.getArg()));
@@ -469,7 +469,7 @@ public abstract class BaseNode implements Closeable {
             }
             
             // go through remote actions
-            for (NodelClientAction remoteAction : _remoteActions) {
+            for (NodelClientAction remoteAction : _remoteActions.values()) {
                 long seq = remoteAction.getArgSeqNum();
                 if (seq >= from)
                     batch.add(new LogEntry(seq, remoteAction.getArgTimestamp(), Source.remote, Type.event, remoteAction.getName(), remoteAction.getArg()));
@@ -758,14 +758,14 @@ public abstract class BaseNode implements Closeable {
         }
 
         // release previous events
-        for (NodelClientEvent event : _remoteEvents) {
+        for (NodelClientEvent event : _remoteEvents.values()) {
             _logger.info("Releasing client event " + event.getNodelPoint());
             event.close();
         }
         _remoteEvents.clear();        
         
         // release previous events
-        for (NodelClientAction action : _remoteActions) {
+        for (NodelClientAction action : _remoteActions.values()) {
             _logger.info("Releasing client action " + action.getNodelPoint());
             action.close();
         }
@@ -809,13 +809,23 @@ public abstract class BaseNode implements Closeable {
     /**
      * The remote actions
      */
-    protected List<NodelClientAction> _remoteActions = new ArrayList<NodelClientAction>();
+    protected Map<SimpleName, NodelClientAction> _remoteActions = new LinkedHashMap<SimpleName, NodelClientAction>();
     
+    @Service(name = "remoteActions", title = "Remote actions", genericClassA = SimpleName.class, genericClassB = NodelClientAction.class)
+    public Map<SimpleName, NodelClientAction> getRemoteActions() {
+        return _remoteActions;
+    }
+
     /**
      * The remote events
      */
-    protected List<NodelClientEvent> _remoteEvents = new ArrayList<NodelClientEvent>();
+    protected Map<SimpleName, NodelClientEvent> _remoteEvents = new LinkedHashMap<SimpleName, NodelClientEvent>();
     
+    @Service(name = "remoteEvents", title = "Remote events", genericClassA = SimpleName.class, genericClassB = NodelClientEvent.class)
+    public Map<SimpleName, NodelClientEvent> getRemoteEvents() {
+        return _remoteEvents;
+    }
+
     /**
      * Add a remote action (by subclass)
      */
@@ -859,7 +869,7 @@ public abstract class BaseNode implements Closeable {
         remoteAction.setNodeAndAction(node, action);
         
         // make sure it gets cleaned up later
-        _remoteActions.add(remoteAction);
+        _remoteActions.put(remoteAction.getName(), remoteAction);
 
         remoteAction.registerActionInterest();
     }
@@ -907,7 +917,7 @@ public abstract class BaseNode implements Closeable {
         remoteEvent.setNodeAndEvent(node, event);
         
         // make sure it gets cleaned up later
-        _remoteEvents.add(remoteEvent);
+        _remoteEvents.put(remoteEvent.getName(), remoteEvent);
 
         remoteEvent.registerInterest();
     }   

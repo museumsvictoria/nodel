@@ -531,14 +531,6 @@ public class ManagedToolkit {
         return createEvent(eventName, (Binding) Serialisation.coerce(Binding.class, metadata));
     }
     
-    /**
-     * Looks up a Nodel event from this Node.
-     */
-    public NodelServerEvent getLocalEvent(String name) {
-        return _node.getLocalEvents().get(new SimpleName(name));
-    }
-   
-    
     public void releaseEvent(NodelServerEvent event) {
         if (event == null)
             throw new IllegalArgumentException("No event provided");
@@ -556,6 +548,13 @@ public class ManagedToolkit {
     public NodelClientAction createRemoteAction(String actionName, Map<String, Object> metadata, String suggestedNodeName, String suggestedActionName) {
         return createRemoteAction(actionName, (Binding) Serialisation.coerce(Binding.class, metadata), suggestedNodeName, suggestedActionName);
     }
+    
+    /**
+     * Looks up a Nodel event from this Node.
+     */
+    public NodelServerEvent getLocalEvent(String name) {
+        return _node.getLocalEvents().get(new SimpleName(name));
+    }    
 
     /**
      * Creates a remote action.
@@ -606,6 +605,13 @@ public class ManagedToolkit {
         }
     }
     
+    /**
+     * Looks up a Nodel remote action from this Node.
+     */
+    public NodelClientAction getRemoteAction(String name) {
+        return _node.getRemoteActions().get(new SimpleName(name));
+    }
+
     /**
      * Creates a remote event.
      */
@@ -662,7 +668,14 @@ public class ManagedToolkit {
 
             return clientEvent;
         }
-    }    
+    }
+    
+    /**
+     * Looks up a Nodel remote event from this Node.
+     */
+    public NodelClientEvent getRemoteEvent(String name) {
+        return _node.getRemoteEvents().get(new SimpleName(name));
+    }
 
     /**
      * Kicks off any resources set up within this toolkit like TCP connections, timers, etc.
