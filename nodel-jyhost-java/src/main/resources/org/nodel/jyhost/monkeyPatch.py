@@ -181,4 +181,4 @@ def lookup_remote_action(name):
 
 # Looks up a remote event by simple name
 def lookup_remote_event(name):
-    return _toolkit.RemoteEvent(name)
+    return _toolkit.getRemoteEvent(name)
