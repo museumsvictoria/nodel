@@ -85,7 +85,8 @@ $.views.helpers({
   isIn: function () {
     var args = arguments;
     var valid = true;
-    $.each($.map(this.data, function(e,i) {return i}), function(i,v){
+    var obj = JSON.parse(JSON.stringify(this.data));
+    $.each($.map(obj, function(e,i) {return i}), function(i,v){
       if($.inArray(v, args)<0) return valid = false;
     });
     return valid;
