@@ -460,6 +460,156 @@
                             }
                         }
                     },
+                    "remoteActions": {
+                        "type": "object",
+                        "title": "Remote actions",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "action": {
+                                    "type": "string",
+                                    "required": true,
+                                    "format": "SimpleName"
+                                },
+                                "arg": {
+                                    "type": "object",
+                                    "required": true,
+                                    "title": "Argument"
+                                },
+                                "argSeqNum": {
+                                    "type": "integer",
+                                    "required": true,
+                                    "title": "Argument sequence number"
+                                },
+                                "argTimestamp": {
+                                    "type": "string",
+                                    "required": true,
+                                    "title": "Argument timestamp",
+                                    "format": "date-time"
+                                },
+                                "bindingState": {
+                                    "type": "string",
+                                    "required": true,
+                                    "title": "Binding state",
+                                    "enum": [
+                                        "Empty",
+                                        "ResolutionFailure",
+                                        "Resolved",
+                                        "Wired",
+                                        "MissingActionPoint",
+                                        "MissingEventPoint"
+                                    ]
+                                },
+                                "bindingStateSeqNum": {
+                                    "type": "integer",
+                                    "required": true,
+                                    "title": "Binding state sequence number"
+                                },
+                                "bindingStateTimestamp": {
+                                    "type": "string",
+                                    "required": true,
+                                    "title": "Binding state timestamp",
+                                    "format": "date-time"
+                                },
+                                "closed": {
+                                    "type": "boolean",
+                                    "required": true
+                                },
+                                "isUnbound": {
+                                    "type": "boolean",
+                                    "required": true
+                                },
+                                "name": {
+                                    "type": "string",
+                                    "required": true,
+                                    "format": "SimpleName"
+                                },
+                                "node": {
+                                    "type": "string",
+                                    "required": true,
+                                    "format": "SimpleName"
+                                },
+                                "nodelPoint": {
+                                    "type": "object",
+                                    "required": true
+                                }
+                            }
+                        }
+                    },
+                    "remoteEvents": {
+                        "type": "object",
+                        "title": "Remote events",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "arg": {
+                                    "type": "object",
+                                    "required": true,
+                                    "title": "Argument"
+                                },
+                                "argSeq": {
+                                    "type": "integer",
+                                    "required": true,
+                                    "title": "Argument sequence"
+                                },
+                                "argTimestamp": {
+                                    "type": "string",
+                                    "required": true,
+                                    "title": "Argument timestamp",
+                                    "format": "date-time"
+                                },
+                                "closed": {
+                                    "type": "boolean",
+                                    "required": true
+                                },
+                                "event": {
+                                    "type": "string",
+                                    "required": true,
+                                    "format": "SimpleName"
+                                },
+                                "eventPoint": {
+                                    "type": "string",
+                                    "required": true,
+                                    "format": "SimpleName"
+                                },
+                                "name": {
+                                    "type": "string",
+                                    "required": true,
+                                    "title": "Name",
+                                    "format": "SimpleName"
+                                },
+                                "node": {
+                                    "type": "string",
+                                    "required": true,
+                                    "format": "SimpleName"
+                                },
+                                "status": {
+                                    "type": "string",
+                                    "required": true,
+                                    "title": "Status",
+                                    "enum": [
+                                        "Empty",
+                                        "ResolutionFailure",
+                                        "Resolved",
+                                        "Wired",
+                                        "MissingActionPoint",
+                                        "MissingEventPoint"
+                                    ]
+                                },
+                                "statusSeq": {
+                                    "type": "integer",
+                                    "required": true,
+                                    "title": "Status sequence"
+                                },
+                                "statusTimestamp": {
+                                    "type": "string",
+                                    "required": true,
+                                    "title": "Status timestamp",
+                                    "format": "date-time"
+                                }
+                            }
+                        }
+                    },
                     "allNodes": {
                         "type": "array",
                         "order": 5,
@@ -1137,6 +1287,156 @@
                                     "order": 6,
                                     "title": "Argument",
                                     "desc": "An argument."
+                                }
+                            }
+                        }
+                    },
+                    "remoteActions": {
+                        "type": "object",
+                        "title": "Remote actions",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "action": {
+                                    "type": "string",
+                                    "required": true,
+                                    "format": "SimpleName"
+                                },
+                                "arg": {
+                                    "type": "object",
+                                    "required": true,
+                                    "title": "Argument"
+                                },
+                                "argSeqNum": {
+                                    "type": "integer",
+                                    "required": true,
+                                    "title": "Argument sequence number"
+                                },
+                                "argTimestamp": {
+                                    "type": "string",
+                                    "required": true,
+                                    "title": "Argument timestamp",
+                                    "format": "date-time"
+                                },
+                                "bindingState": {
+                                    "type": "string",
+                                    "required": true,
+                                    "title": "Binding state",
+                                    "enum": [
+                                        "Empty",
+                                        "ResolutionFailure",
+                                        "Resolved",
+                                        "Wired",
+                                        "MissingActionPoint",
+                                        "MissingEventPoint"
+                                    ]
+                                },
+                                "bindingStateSeqNum": {
+                                    "type": "integer",
+                                    "required": true,
+                                    "title": "Binding state sequence number"
+                                },
+                                "bindingStateTimestamp": {
+                                    "type": "string",
+                                    "required": true,
+                                    "title": "Binding state timestamp",
+                                    "format": "date-time"
+                                },
+                                "closed": {
+                                    "type": "boolean",
+                                    "required": true
+                                },
+                                "isUnbound": {
+                                    "type": "boolean",
+                                    "required": true
+                                },
+                                "name": {
+                                    "type": "string",
+                                    "required": true,
+                                    "format": "SimpleName"
+                                },
+                                "node": {
+                                    "type": "string",
+                                    "required": true,
+                                    "format": "SimpleName"
+                                },
+                                "nodelPoint": {
+                                    "type": "object",
+                                    "required": true
+                                }
+                            }
+                        }
+                    },
+                    "remoteEvents": {
+                        "type": "object",
+                        "title": "Remote events",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "arg": {
+                                    "type": "object",
+                                    "required": true,
+                                    "title": "Argument"
+                                },
+                                "argSeq": {
+                                    "type": "integer",
+                                    "required": true,
+                                    "title": "Argument sequence"
+                                },
+                                "argTimestamp": {
+                                    "type": "string",
+                                    "required": true,
+                                    "title": "Argument timestamp",
+                                    "format": "date-time"
+                                },
+                                "closed": {
+                                    "type": "boolean",
+                                    "required": true
+                                },
+                                "event": {
+                                    "type": "string",
+                                    "required": true,
+                                    "format": "SimpleName"
+                                },
+                                "eventPoint": {
+                                    "type": "string",
+                                    "required": true,
+                                    "format": "SimpleName"
+                                },
+                                "name": {
+                                    "type": "string",
+                                    "required": true,
+                                    "title": "Name",
+                                    "format": "SimpleName"
+                                },
+                                "node": {
+                                    "type": "string",
+                                    "required": true,
+                                    "format": "SimpleName"
+                                },
+                                "status": {
+                                    "type": "string",
+                                    "required": true,
+                                    "title": "Status",
+                                    "enum": [
+                                        "Empty",
+                                        "ResolutionFailure",
+                                        "Resolved",
+                                        "Wired",
+                                        "MissingActionPoint",
+                                        "MissingEventPoint"
+                                    ]
+                                },
+                                "statusSeq": {
+                                    "type": "integer",
+                                    "required": true,
+                                    "title": "Status sequence"
+                                },
+                                "statusTimestamp": {
+                                    "type": "string",
+                                    "required": true,
+                                    "title": "Status timestamp",
+                                    "format": "date-time"
                                 }
                             }
                         }
