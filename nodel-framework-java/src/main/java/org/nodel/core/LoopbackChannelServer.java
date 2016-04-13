@@ -42,8 +42,16 @@ public class LoopbackChannelServer extends ChannelServer {
     @Override
     protected void sendMessage(final ChannelMessage message) {
         s_counterMessages.incr();
-        
-        LoopbackChannelClient.instance().receiveMessage(message);
+
+        // use thread-pool to avoid deep dive into client-side stack
+        s_threadPool.execute(new Runnable() {
+
+            @Override
+            public void run() {
+                LoopbackChannelClient.instance().receiveMessage(message);
+            }
+
+        });
     }
     
     /**

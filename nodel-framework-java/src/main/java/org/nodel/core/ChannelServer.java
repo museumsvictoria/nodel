@@ -31,7 +31,7 @@ public abstract class ChannelServer {
     /**
      * (threading)
      */
-    private static ThreadPool s_threadPool = new ThreadPool("Nodel channel-servers", 128);
+    protected static ThreadPool s_threadPool = new ThreadPool("Nodel channel-servers", 128);
 
     /**
      * (logging)
