@@ -12,12 +12,21 @@ import org.joda.time.DateTime;
 import org.nodel.Handler;
 import org.nodel.SimpleName;
 import org.nodel.host.Binding;
+import org.nodel.reflection.Objects;
 import org.nodel.reflection.Serialisation;
 import org.nodel.reflection.Value;
+import org.nodel.threading.ThreadPool;
+import org.nodel.threading.TimerTask;
+import org.nodel.threading.Timers;
 
 public class NodelClientEvent {
     
     private final static SimpleName UNBOUND = new SimpleName("unbound");
+    
+    /**
+     * (background timers)
+     */
+    private static Timers s_timers = new Timers("_NodelClientEvent");
     
     /**
      * The name (or alias) of this client event.
@@ -81,20 +90,29 @@ public class NodelClientEvent {
     private DateTime _statusTimestamp;
 
     /**
-     * The last value (linked to 'seqNum')
+     * The last snap shot of the argument (linked to 'seqNum') (can never be 'null')
      */
-    private AtomicReference<Object> _argValue = new AtomicReference<Object>();
+    private AtomicReference<ArgInstance> _argInstance = new AtomicReference<ArgInstance>(ArgInstance.NULL);
     
     /**
-     * Holds an safely incrementing sequence number relating to the 
-     * value of the argument (state)
+     * Responsible for persisting the data.
      */
-    private long _argSeq = 0;
+    private Handler.H1<ArgInstance> _persister;
+    
+    /**
+     * The repeating timer to persist the data.
+     */
+    private TimerTask _persisterTimer;
 
     /**
-     * Time argument was set.
+     * The last persisted event.
      */
-    protected DateTime _argTimestamp;
+    private ArgInstance _persistedArg;
+    
+    /**
+     * How often to persist the args. (default 12 hours)
+     */
+    private long PERSIST_PERIOD = 12 * 3600 * 1000;    
 
     /**
      * In an unbound state.
@@ -120,6 +138,35 @@ public class NodelClientEvent {
     public NodelClientEvent(SimpleName name, SimpleName node, SimpleName event) {
         this(name, null, node, event);
     }
+    
+    /**
+     * Seeds the argument without raising the event itself.
+     */
+    public void seedAndPersist(ArgInstance instance, Handler.H1<ArgInstance> persister) {
+        // use a safe NULL object
+        if (instance == null)
+            instance = ArgInstance.NULL;
+            
+        // attach the handler
+        _persister = persister;
+        
+        _persistedArg = instance;
+
+        if (instance != ArgInstance.NULL) {
+            _argInstance.set(instance);
+        }
+        
+        // add an ongoing timer to persist (on background thread-pool)
+        // (not critical, so default is every 12 hours. Persist will occur on close anyway.)
+        _persisterTimer = s_timers.schedule(ThreadPool.background(), new TimerTask() {
+
+            @Override
+            public void run() {
+                handlePersistRequest();
+            }
+
+        }, PERSIST_PERIOD);
+    }    
     
     /**
      * Delayed node and event setting.
@@ -170,17 +217,17 @@ public class NodelClientEvent {
     
     @Value(name = "arg", title = "Argument")
     public Object getArg() {
-        return _argValue.get();
-    }    
+        return _argInstance.get().arg;
+    }   
 
     @Value(name = "argSeq", title = "Argument sequence")
-    public long getArgSeqNum() {
-        return _argSeq;
+    public long getSeqNum() {
+        return _argInstance.get().seqNum;
     }
     
     @Value(name = "argTimestamp", title = "Argument timestamp")
-    public DateTime getArgTimestamp() {
-        return _argTimestamp;
+    public DateTime getTimestamp() {
+        return _argInstance.get().timestamp;
     }
     
     @Value(name = "status", title = "Status")
@@ -211,12 +258,15 @@ public class NodelClientEvent {
 
             @Override
             public void handleEvent(SimpleName node, SimpleName event, Object arg) {
-                _argValue.set(arg);
-                _argTimestamp = DateTime.now();
+                DateTime now = DateTime.now();
                 
-                // must set sequence number last
-                _argSeq = Nodel.getNextSeq();
-
+                ArgInstance argInstance = new ArgInstance();
+                argInstance.timestamp = now;
+                argInstance.arg = arg;
+                argInstance.seqNum = Nodel.getNextSeq(); 
+                
+                _argInstance.set(argInstance);
+                
                 handler.handleEvent(node, event, arg);
             }
 
@@ -235,6 +285,29 @@ public class NodelClientEvent {
     }
     
     /**
+     * Handles a persist request.
+     * 
+     * (mainly timer entry-point)
+     */
+    private void handlePersistRequest() {
+        // persist the data if the values are different.
+        // Not bothering with comparing timestamp as that information is secondary.
+        
+        ArgInstance argInstance = _argInstance.get();
+
+        // don't bother if there has been no activity
+        if (argInstance.seqNum == 0)
+            return;
+        
+        // don't bother if the values are the same
+        if (_persistedArg != null && Objects.sameValue(_persistedArg.arg, argInstance))
+            return;
+        
+        // otherwise, persist the argument state
+        Handler.tryHandle(_persister, argInstance);        
+    }    
+    
+    /**
      * Releases this binding.
      */
     public void close() {
@@ -242,6 +315,11 @@ public class NodelClientEvent {
             return;
         
         _closed = true;
+        
+        if (_persisterTimer != null)
+            _persisterTimer.cancel();
+        
+        handlePersistRequest();
         
         NodelClients.instance().release(this);
     }

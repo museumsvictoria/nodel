@@ -27,24 +27,6 @@ import org.nodel.threading.Timers;
 public class NodelServerEvent implements Closeable {
     
     /**
-     * Value and timestamp composite value.
-     */
-    public static class ArgInstance {
-        
-        public static ArgInstance NULL = new ArgInstance();
-
-        @Value(name = "timestamp")
-        public DateTime timestamp;
-
-        @Value(name = "arg")
-        public Object arg;
-        
-        @Value(name = "seq")
-        public long seqNum;
-
-    }
-    
-    /**
      * (background timers)
      */
     private static Timers s_timers = new Timers("_NodelServerEvent");
