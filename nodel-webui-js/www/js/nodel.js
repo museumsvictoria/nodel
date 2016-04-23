@@ -463,7 +463,7 @@ var init = function() {
   $('body').on('mousedown touchstart', '#nodename', function() {
     $('.noderename').show();
     $('#nodenameval').val($('body').data('config').name).focus();
-    $('#nodename').html('&nbsp;');
+    /*$('#nodename').html('&nbsp;');*/
     return false;
   });
   $('#nodenameval').keypress(function(e){
@@ -472,15 +472,14 @@ var init = function() {
       $(this).trigger('blur');
     }
   });
-  $('body').on('blur', '#nodenameval', function() {
+  $('body').on('mousedown touchstart', '#noderenamesubmit', function() {
     var name = $('body').data('config').name;
     var newname = $('#nodenameval').val();
     if(name !== newname){
       console.log('renaming');
       $('#nodenameval').prop('disabled',true);
       var nodename = {"value":newname};
-      var req = $.getJSON('http://'+host+'/REST/nodes/'+encodeURIComponent(node)+'/rename', nodename, function() {
-        dialog('Node renamed. Please wait...', 'info', 10000);
+      $.getJSON('http://'+host+'/REST/nodes/'+encodeURIComponent(node)+'/rename', nodename, function() {
         checkRedirect('http://' + host + '/nodes/' + encodeURIComponent(newname));
       }).error(function(req){
         if(req.statusText!="abort"){
@@ -495,10 +494,30 @@ var init = function() {
         $('.noderename').hide();
         $('#nodenameval').prop('disabled',false);
       });
-    } else {
-      $('#nodename').text(name);
-      $('.noderename').hide();
+    } else $('.noderename').hide();
+    return false;
+  });
+  $('body').on('mousedown touchstart', '#nodedeletesubmit', function() {
+    if(confirm("Are you sure?")) {
+      $.getJSON('http://' + host + '/REST/nodes/' + encodeURIComponent(node) + '/remove?confirm=true', function () {
+        window.location.href = 'http://' + host + '/';
+      }).error(function (req) {
+        if (req.statusText != "abort") {
+          var error = 'Node delete failed';
+          if (req.responseText) {
+            var message = JSON.parse(req.responseText);
+            error = error + '<br/>' + message['message'];
+          }
+          dialog(error, 'error');
+        }
+        $('.noderename').hide();
+        $('#nodenameval').prop('disabled', false);
+      });
+      return false;
     }
+  });
+  $('#noderename').on('mousedown touchstart', '.close', function() {
+    $('.noderename').hide();
     return false;
   });
   $('.notice .close').on('mousedown touchstart', function() {
@@ -633,6 +652,7 @@ var listNodes = function(){
   });
   $('#nodelist').on('mousedown touchstart', '#nodeaddnew', function() {
     $('.nodeadd').show();
+    $('#newnodename').focus();
     return false;
   });
   $('#nodelist').on('mousedown touchstart', '.close', function() {
@@ -645,7 +665,6 @@ var listNodes = function(){
     var req = $.getJSON('http://' + host + '/REST/newNode', nodename, function() {
       $('.nodeadd').hide();
       $('#nodeaddnew').prop('disabled', true);
-      dialog('Node added. Please wait...', 'info', 10000);
       checkRedirect('http://' + host + '/nodes/' + encodeURIComponent(nodenameraw));
     }).error(function(req){
       if(req.statusText!="abort"){
@@ -690,8 +709,8 @@ var dialog = function(message, type, duration){
   // show the dialog box
   $('.dialog').slideDown(function() {
     var elem = $(this);
-    // set a timer to close the dialog in 3 seconds
-    $.data(this, 'timer', setTimeout(function() { elem.slideUp(); }, duration));
+    // set a timer to close the dialog
+    if(duration>0) $.data(this, 'timer', setTimeout(function() { elem.slideUp(); }, duration));
   });
   return false;
 };
@@ -708,8 +727,10 @@ var checkRedirect = function(url) {
     window.location.href = url;
   }).error(function(e) {
     // check again in one second
+    if($('body').data('redirecttimeout')) $('body').data('redirecttimeout', $('body').data('redirecttimeout')+1)
+    else $('body').data('redirecttimeout',1)
     $('body').data('redirect', setTimeout(function() { checkRedirect(url); }, 1000));
-    console.log('waiting for node to become available');
+    dialog('Redirecting. Waiting for node to become available ('+$('body').data('redirecttimeout')+')','info',0);
   });
 };
 

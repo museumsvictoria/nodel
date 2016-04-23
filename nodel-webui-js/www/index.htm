@@ -51,12 +51,16 @@
 		<div class="sixteen columns">
 			<h1 class="logo"><a href="/"><img src="images/nodel.png" alt="Nodel" title="Nodel" /></a></h1>
 			<div class="nodedetails">
+				<h3 id="nodename"></h3>
 				<div class="noderename">
 					<form id="noderename" action="#">
-						<input type="text" id="nodenameval" />
+						<span class="close">X</span>
+						<label for="nodenameval">Node name</label>
+						<input type="text" id="nodenameval">
+						<button type="submit" id="noderenamesubmit">Rename</button>
+						<button type="submit" id="nodedeletesubmit">Delete</button>
 					</form>
 				</div>
-				<h3 id="nodename"></h3>
 			</div>
 			<form class="init" id="advanced" action="#">
 				<fieldset>
