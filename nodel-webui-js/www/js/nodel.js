@@ -4,6 +4,7 @@ $.ajaxSetup({timeout: 30000, cache: false});
 // set globals
 var adv = false;
 var rld = false;
+var poll = false;
 var tim = 0;
 var opts = {};
 
@@ -178,6 +179,7 @@ var init = function() {
   // get any extra parameters from the query string
   adv = getParameterByName('advanced') == 'true';
   rld = getParameterByName('reload') == 'true';
+  poll = getParameterByName('poll') == 'true';
   tim = parseInt(getParameterByName('timeout')) || 0;
   // if a timeout parameter is specified, configure the default ajax handler
   if(tim) $.ajaxSetup({timeout: tim*1000, cache: false});
@@ -727,7 +729,7 @@ var checkReload = function(){
 
 // function to update the activity display using polling
 var updateLogs = function(){
-  if(!("WebSocket" in window) || (typeof $('body').data('config')['webSocketPort'] === "undefined")) {
+  if(poll || !("WebSocket" in window) || (typeof $('body').data('config')['webSocketPort'] === "undefined")) {
     var url;
     // if the last sequence number is not set, set the filter to retrieve the last 100 entries
     if (typeof $('body').data('seq') === "undefined") url = 'http://' + host + '/REST/nodes/' + encodeURIComponent(node) + '/activity?from=-1';
@@ -778,6 +780,9 @@ var updateLogs = function(){
       socket.onclose = function(){
         console.log('Socket Status: '+socket.readyState+' (Closed)');
         offline();
+      }
+      socket.onerror = function(){
+        poll = true;
       }
     } catch(exception) {
       console.log('Error: '+exception);
