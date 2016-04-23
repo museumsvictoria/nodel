@@ -176,6 +176,7 @@ $(function() {
 var init = function() {
   // show the init block
   $('.init').show();
+  $('body').find('h1, h2, h3, h4, h5, h6, p, legend, label, button').attr('unselectable','on').addClass('disableselect').bind('selectstart', function(){ return false; });
   // get any extra parameters from the query string
   adv = getParameterByName('advanced') == 'true';
   rld = getParameterByName('reload') == 'true';
@@ -205,12 +206,21 @@ var init = function() {
       } else $('#'+form).replaceWith('<h5 class="pad">None</h5>');
     });
   });
+  $('#params').on('ready', function(){
+    $('#paraams').find('h1, h2, h3, h4, h5, h6, p, legend, label, button').attr('unselectable','on').addClass('disableselect').bind('selectstart', function(){ return false; });
+  });
+  $('#remote').on('ready', function(){
+    $('#remote').find('h1, h2, h3, h4, h5, h6, p, legend, label, button').attr('unselectable','on').addClass('disableselect').bind('selectstart', function(){ return false; });
+  });
   var actions_list = [];
   var events_list = [];
   $('#actions, #events').on('ready', function(evt){
     actions_list = jQuery.grep(actions_list, function(value){return value != evt.target.id;});
     events_list = jQuery.grep(events_list, function(value){return value != evt.target.id;});
-    if(actions_list.length == 0 && events_list.length == 0) updateLogs();
+    if(actions_list.length == 0 && events_list.length == 0) {
+      updateLogs();
+      $('#actions, #events').find('h1, h2, h3, h4, h5, h6, p, legend, label, button').attr('unselectable','on').addClass('disableselect').bind('selectstart', function(){ return false; });
+    }
   });
   if($('#actions').length) {
     actions_list = ['init'];
@@ -1286,17 +1296,7 @@ var buildFormEvents = function(name, action, data){
     }
   });
   $('#'+name+' button').addTouch();
-  $('#'+name).attr('unselectable','on')
-    .css({
-      '-webkit-touch-callout': 'none',
-      '-moz-user-select':'-moz-none',
-      '-moz-user-select':'none',
-      '-o-user-select':'none',
-      '-khtml-user-select':'none',
-      '-webkit-user-select':'none',
-      '-ms-user-select':'none',
-      'user-select':'none'
-    }).bind('selectstart', function(){ return false; });
+  $('#'+name).find('label, button').attr('unselectable','on').addClass('disableselect').bind('selectstart', function(){ return false; });
 };
 
 // function to build a form template using a provided JSON schema (recursive)
