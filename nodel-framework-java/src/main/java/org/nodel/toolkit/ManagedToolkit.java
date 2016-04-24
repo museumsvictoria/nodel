@@ -11,6 +11,7 @@ import java.net.URL;
 import java.net.URLConnection;
 import java.net.URLEncoder;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
@@ -173,6 +174,11 @@ public class ManagedToolkit {
      * Holds all the UDP sockets
      */
     private Set<ManagedUDP> _udpSockets = new HashSet<ManagedUDP>();    
+    
+    /**
+     * Holds all the processes
+     */
+    private Set<ManagedProcess> _processes = new HashSet<ManagedProcess>();    
     
     /**
      * Nodel actions
@@ -386,6 +392,39 @@ public class ManagedToolkit {
     }
     
     /**
+     * Constructs a managed OS process.
+     */
+    public ManagedProcess createProcess(List<String> command,
+                                H0 onConnected,
+                                H1<String> onReceived, 
+                                H1<String> onSent,
+                                H0 onDisconnected,
+                                H0 onTimeout,
+                                String sendDelimiters,
+                                String receiveDelimiters,
+                                String binaryStartStopFlags) {
+        ManagedProcess process = new ManagedProcess(_node, command, _threadStateHandler, _tcpExceptionHandler, _callbackQueue, s_threadPool, s_timers);
+        
+        // set up the callback handlers as provided by the user
+        process.setConnectedHandler(onConnected);
+        process.setReceivedHandler(onReceived);
+        process.setSentHandler(onSent);
+        process.setDisconnectedHandler(onDisconnected);
+        process.setTimeoutHandler(onTimeout);
+        process.setSendDelimeters(sendDelimiters);
+        process.setReceiveDelimeters(receiveDelimiters);
+        
+        synchronized(_lock) {
+            if (_closed)
+                Stream.safeClose(process);
+            else
+                _processes.add(process);
+        }
+        
+        return process;
+    }    
+    
+    /**
      * Releases all TCP connections
      */
     public void releaseTCPs() {
@@ -408,6 +447,19 @@ public class ManagedToolkit {
                 Stream.safeClose(socket);
 
             _udpSockets.clear();
+        }
+    }
+    
+    /**
+     * Releases all processes
+     */
+    public void releaseProcesses() {
+        synchronized (_lock) {
+            // close all connections
+            for (ManagedProcess process : _processes)
+                Stream.safeClose(process);
+
+            _processes.clear();
         }
     }    
     
@@ -810,6 +862,8 @@ public class ManagedToolkit {
             releaseTCPs();
             
             releaseUDPs();
+            
+            releaseProcesses();
             
             releaseNodes();
         }

@@ -94,7 +94,11 @@ def TCP(dest=None, connected=None, received=None, sent=None, disconnected=None, 
 
 # A managed UDP connection for sending or receiving UDP (includes instrumentation)
 def UDP(source='0.0.0.0:0', dest=None, ready=None, received=None, sent=None, intf=None):
-  return _toolkit.createUDP(source, dest, ready, received, sent, intf);  
+  return _toolkit.createUDP(source, dest, ready, received, sent, intf);
+  
+# A managed processes that attempts to stay executed (includes instrumentation)
+def Process(command=None, connected=None, received=None, sent=None, disconnected=None, timeout=None, sendDelimiters='\n', receiveDelimiters='\r\n'):
+  return _toolkit.createProcess(command, connected, received, sent, disconnected, timeout, sendDelimiters, receiveDelimiters);
 
 # A general purpose timer class for repeating timers
 class Timer:
