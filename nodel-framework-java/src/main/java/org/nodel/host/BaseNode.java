@@ -21,12 +21,12 @@ import org.nodel.Handlers;
 import org.nodel.SimpleName;
 import org.nodel.Threads;
 import org.nodel.core.ActionRequestHandler;
+import org.nodel.core.ArgInstance;
 import org.nodel.core.Nodel;
 import org.nodel.core.NodelClientAction;
 import org.nodel.core.NodelClientEvent;
 import org.nodel.core.NodelServerAction;
 import org.nodel.core.NodelServerEvent;
-import org.nodel.core.NodelServerEvent.ArgInstance;
 import org.nodel.core.NodelClients.NodeURL;
 import org.nodel.discovery.AdvertisementInfo;
 import org.nodel.discovery.AutoDNS;
@@ -458,9 +458,9 @@ public abstract class BaseNode implements Closeable {
             
             // go through remote events
             for (NodelClientEvent remoteEvent : _remoteEvents.values()) {
-                long seq = remoteEvent.getArgSeqNum();
+                long seq = remoteEvent.getSeqNum();
                 if (seq >= from)
-                    batch.add(new LogEntry(seq, remoteEvent.getArgTimestamp(), Source.remote, Type.event, remoteEvent.getName(), remoteEvent.getArg()));
+                    batch.add(new LogEntry(seq, remoteEvent.getTimestamp(), Source.remote, Type.event, remoteEvent.getName(), remoteEvent.getArg()));
 
                 seq = remoteEvent.getStatusSeqNum();
                 if (seq >= from)
@@ -616,6 +616,20 @@ public abstract class BaseNode implements Closeable {
             // ignore
         }
     }
+    
+    /**
+     * Persists an event's timestamp and argument.
+     */
+    private void persistEventArg(NodelClientEvent remoteevent, ArgInstance instance) {
+        try {
+            File seedFile = new File(_metaRoot, remoteevent.getNodelPoint().getPoint().getReducedForMatchingName() + ".remoteevent.json");
+
+            Stream.writeFully(seedFile, Serialisation.serialise(instance));
+
+        } catch (Exception exc) {
+            // ignore
+        }
+    }    
     
     /**
      * Injects the remote binding values into the Remote Bindings
@@ -874,10 +888,11 @@ public abstract class BaseNode implements Closeable {
         remoteAction.registerActionInterest();
     }
     
+
     /**
-     * Add a remote event (by subclass)
+     * Prepares a remote event before its added using any suggestion parameters.
      */
-    protected void addRemoteEvent(NodelClientEvent remoteEvent, SimpleName suggestedNode, SimpleName suggestedEvent) {
+    protected void prepareRemoteEvent(final NodelClientEvent remoteEvent, SimpleName suggestedNode, SimpleName suggestedEvent) {
         SimpleName remoteEventName = remoteEvent.getName();
         
         // look up the value first
@@ -914,13 +929,42 @@ public abstract class BaseNode implements Closeable {
         remoteEventBindings.put(remoteEventName, eventInfo);
 
         // set the node and event values
-        remoteEvent.setNodeAndEvent(node, event);
-        
+        remoteEvent.setNodeAndEvent(node, event);        
+    }
+    
+    
+    /**
+     * Add a remote event (by subclass)
+     */
+    protected void addRemoteEvent(final NodelClientEvent remoteEvent) {
+        // seed the event with some data if it exists
+        String key = remoteEvent.getNodelPoint().getPoint().getReducedForMatchingName();
+        File seedFile = new File(_metaRoot, key + ".remoteevent.json");
+
+        ArgInstance seed = null;
+
+        if (seedFile.exists()) {
+            try {
+                seed = (ArgInstance) Serialisation.deserialise(ArgInstance.class, Stream.readFully(seedFile));
+            } catch (Exception e) {
+                // ignore
+            }
+        }
+
+        remoteEvent.seedAndPersist(seed, new Handler.H1<ArgInstance>() {
+
+            @Override
+            public void handle(ArgInstance instance) {
+                persistEventArg(remoteEvent, instance);
+            }
+
+        });
+
         // make sure it gets cleaned up later
         _remoteEvents.put(remoteEvent.getName(), remoteEvent);
 
         remoteEvent.registerInterest();
-    }   
+    }
             
     /**
      * The parameters

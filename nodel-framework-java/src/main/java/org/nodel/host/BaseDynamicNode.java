@@ -81,7 +81,8 @@ public abstract class BaseDynamicNode extends BaseNode {
      * Injects a remote event on behalf of another entity.
      */
     public void injectRemoteEvent(NodelClientEvent event, SimpleName suggestedNode, SimpleName suggestedEvent) {
-        super.addRemoteEvent(event, suggestedNode, suggestedEvent);
+        super.prepareRemoteEvent(event, suggestedNode, suggestedEvent);
+        super.addRemoteEvent(event);
     }
    
 }
