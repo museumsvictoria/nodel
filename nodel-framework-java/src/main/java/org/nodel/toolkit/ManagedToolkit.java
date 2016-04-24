@@ -134,6 +134,12 @@ public class ManagedToolkit {
      * ('exceptionHandler' with context)
      */
     private H1<Exception> _udpExceptionHandler = createExceptionHandlerWithContext("udp");
+    
+    /**
+     * ('exceptionHandler' with context)
+     */
+    private H1<Exception> _processExceptionHandler = createExceptionHandlerWithContext("process");    
+    
     /**
      * Call from within calling thread, usually sets up the thread-state environment.
      */
@@ -401,9 +407,8 @@ public class ManagedToolkit {
                                 H0 onDisconnected,
                                 H0 onTimeout,
                                 String sendDelimiters,
-                                String receiveDelimiters,
-                                String binaryStartStopFlags) {
-        ManagedProcess process = new ManagedProcess(_node, command, _threadStateHandler, _tcpExceptionHandler, _callbackQueue, s_threadPool, s_timers);
+                                String receiveDelimiters) {
+        ManagedProcess process = new ManagedProcess(_node, command, _threadStateHandler, _processExceptionHandler, _callbackQueue, s_threadPool, s_timers);
         
         // set up the callback handlers as provided by the user
         process.setConnectedHandler(onConnected);
@@ -733,18 +738,22 @@ public class ManagedToolkit {
      * Kicks off any resources set up within this toolkit like TCP connections, timers, etc.
      */
     public void enable() {
-        synchronized(_lock) {
+        synchronized (_lock) {
             if (_enabled)
                 return;
-            
+
             _enabled = true;
-            
-            for(ManagedTCP tcp : _tcpConnections) {
+
+            for (ManagedTCP tcp : _tcpConnections) {
                 tcp.start();
             }
-            
-            for(ManagedUDP udp: _udpSockets) {
+
+            for (ManagedUDP udp : _udpSockets) {
                 udp.start();
+            }
+
+            for (ManagedProcess process : _processes) {
+                process.start();
             }
         }
     }

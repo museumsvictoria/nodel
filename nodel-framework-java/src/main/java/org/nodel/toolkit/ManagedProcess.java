@@ -98,6 +98,11 @@ public class ManagedProcess implements Closeable {
     private Object _lock = new Object();
     
     /**
+     * The parent node.
+     */
+    private BaseNode _parentNode;
+    
+    /**
      * The shared thread-pool
      */
     private ThreadPool _threadPool;
@@ -279,6 +284,8 @@ public class ManagedProcess implements Closeable {
      * (constructor)
      */
     public ManagedProcess(BaseNode node, List<String> command, H0 threadStateHandler, H1<Exception> callbackExceptionHandler, CallbackHandler callbackQueue, ThreadPool threadPool, Timers timers) {
+        _parentNode = node;
+        
         _command = command;
         
         _threadStateHandler = threadStateHandler;
@@ -296,7 +303,7 @@ public class ManagedProcess implements Closeable {
             }
             
         });
-        _thread.setName(node.getName().getReducedName() + "_tcpConnectAndReceive_" + _instance);
+        _thread.setName(node.getName().getReducedName() + "_processLaunchAndReceive_" + _instance);
         _thread.setDaemon(true);
         
         // register the counters
@@ -496,17 +503,13 @@ public class ManagedProcess implements Closeable {
                 throw new RuntimeException("No launch arguments were provided.");
             
             // ensure program path exists
-            String programPath =command.get(0); 
-            File program = new File(programPath);
-            if (!program.exists())
-                throw new FileNotFoundException("Program does not exist - [" + programPath + "])");
-            
-            String cwd = Paths.get(".").toAbsolutePath().normalize().toString();
-            System.out.println("Working dir is " + cwd);
-            
-            String work;
+//            String programPath =command.get(0); 
+//            File program = new File(programPath);
+//            if (!program.exists())
+//                throw new FileNotFoundException("Program does not exist - '" + programPath + "'");
             
             ProcessBuilder processBuilder = new ProcessBuilder(command);
+            processBuilder.directory(_parentNode.getRoot());
             
             process = processBuilder.start();
             
