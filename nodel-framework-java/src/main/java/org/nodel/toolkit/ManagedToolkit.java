@@ -401,23 +401,31 @@ public class ManagedToolkit {
      * Constructs a managed OS process.
      */
     public ManagedProcess createProcess(List<String> command,
-                                H0 onConnected,
-                                H1<String> onReceived, 
-                                H1<String> onSent,
-                                H0 onDisconnected,
+                                H0 onStarted,
+                                H1<String> onOut, 
+                                H1<String> onIn,
+                                H1<String> onErr,
+                                H1<Integer> onStopped,
                                 H0 onTimeout,
                                 String sendDelimiters,
-                                String receiveDelimiters) {
+                                String receiveDelimiters,
+                                String working,
+                                boolean mergestderr) {
         ManagedProcess process = new ManagedProcess(_node, command, _threadStateHandler, _processExceptionHandler, _callbackQueue, s_threadPool, s_timers);
         
         // set up the callback handlers as provided by the user
-        process.setConnectedHandler(onConnected);
-        process.setReceivedHandler(onReceived);
-        process.setSentHandler(onSent);
-        process.setDisconnectedHandler(onDisconnected);
+        process.setStartedHandler(onStarted);
+        process.setOutHandler(onOut);
+        process.setInHandler(onIn);
+        process.setErrHandler(onErr);
+        process.setStoppedHandler(onStopped);
         process.setTimeoutHandler(onTimeout);
+        
+        // set general arguments
         process.setSendDelimeters(sendDelimiters);
         process.setReceiveDelimeters(receiveDelimiters);
+        process.setWorking(working);
+        process.setMergeError(mergestderr);
         
         synchronized(_lock) {
             if (_closed)

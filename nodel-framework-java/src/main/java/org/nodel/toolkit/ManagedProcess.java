@@ -23,6 +23,7 @@ import org.nodel.diagnostics.Diagnostics;
 import org.nodel.diagnostics.SharableMeasurementProvider;
 import org.nodel.host.BaseNode;
 import org.nodel.io.BufferBuilder;
+import org.nodel.io.UTF8Charset;
 import org.nodel.threading.ThreadPool;
 import org.nodel.threading.TimerTask;
 import org.nodel.threading.Timers;
@@ -87,11 +88,6 @@ public class ManagedProcess implements Closeable {
     private static final int RECV_TIMEOUT =  5 * 60000;
     
     /**
-     * The amount of time given to connect to a socket.
-     */
-    private static final int CONNECT_TIMEOUT = 30000;
-    
-    /**
      * (synchronisation / locking)
      */
     private Object _lock = new Object();
@@ -124,22 +120,27 @@ public class ManagedProcess implements Closeable {
     /**
      * (see setter)
      */
-    private H0 _connectedCallback;
+    private H0 startedCallback;
 
     /**
      * (see setter)
      */
-    private H0 _disconnectedCallback;
+    private H1<Integer> _stoppedCallback;
 
     /**
      * (see setter)
      */
-    private H1<String> _receivedCallback;
+    private H1<String> _stdoutCallback;
+    
+    /**
+     * (see setter)
+     */
+    private H1<String> _stderrCallback;    
 
     /**
      * (see setter)
      */
-    private H1<String> _sentCallback;
+    private H1<String> _stdinCallback;
 
     /**
      * (see setter)
@@ -201,6 +202,11 @@ public class ManagedProcess implements Closeable {
     private String _working;
     
     /**
+     * (see setter)
+     */
+    private boolean _mergeError; 
+    
+    /**
      * The delimiters to split the receive data on.
      */
     private String _receiveDelimiters = "\r\n";
@@ -257,12 +263,17 @@ public class ManagedProcess implements Closeable {
     /**
      * (diagnostics)
      */    
-    private SharableMeasurementProvider _counterRecvOps;
+    private SharableMeasurementProvider _counterStdoutOps;
     
     /**
      * (diagnostics)
      */    
-    private SharableMeasurementProvider _counterSendOps;
+    private SharableMeasurementProvider _counterStdinOps;
+    
+    /**
+     * (diagnostics)
+     */    
+    private SharableMeasurementProvider _counterStderrOps;
     
     /**
      * The request queue
@@ -313,36 +324,44 @@ public class ManagedProcess implements Closeable {
         // register the counters
         String counterName = "'" + node.getName().getReducedName() + "'";
         _counterLaunches = Diagnostics.shared().registerSharableCounter(counterName + ".Process launches", true);
-        _counterRecvOps = Diagnostics.shared().registerSharableCounter(counterName + ".Process receives", true);
-        _counterSendOps = Diagnostics.shared().registerSharableCounter(counterName + ".Process sends", true);
+        _counterStdoutOps = Diagnostics.shared().registerSharableCounter(counterName + ".Process stdout", true);
+        _counterStderrOps = Diagnostics.shared().registerSharableCounter(counterName + ".Process stderr", true);
+        _counterStdinOps = Diagnostics.shared().registerSharableCounter(counterName + ".Process stdin", true);
     }
     
     /**
-     * When a connection moves into a connected state.
+     * When the process has been started.
      */
-    public void setConnectedHandler(H0 handler) {
-        _connectedCallback = handler;
+    public void setStartedHandler(H0 handler) {
+        startedCallback = handler;
     }
 
     /**
      * When the connected moves into a disconnected state.
      */
-    public void setDisconnectedHandler(H0 handler) {
-        _disconnectedCallback = handler;
+    public void setStoppedHandler(H1<Integer> handler) {
+        _stoppedCallback = handler;
     }
 
     /**
-     * When a data segment arrives.
+     * When a data from stdout arrives.
      */
-    public void setReceivedHandler(H1<String> handler) {
-        _receivedCallback = handler;
+    public void setOutHandler(H1<String> handler) {
+        _stdoutCallback = handler;
     }
     
     /**
-     * When a data segment is sent
+     * When a data to stdin is sent
      */
-    public void setSentHandler(H1<String> handler) {
-        _sentCallback = handler;
+    public void setInHandler(H1<String> handler) {
+        _stdinCallback = handler;
+    }
+    
+    /**
+     * When a data from stderr arrives.
+     */
+    public void setErrHandler(H1<String> handler) {
+        _stderrCallback = handler;
     }    
     
     /**
@@ -398,20 +417,6 @@ public class ManagedProcess implements Closeable {
     }
     
     /**
-     * Sets the working directory, otherwise leaves as node's root.
-     */
-    public void setWorking(String value) {
-        _working = value;
-    }
-    
-    /**
-     * (see setter)
-     */
-    public String getWorking() {
-        return _working;
-    }
-    
-    /**
      * Gets the connection and receive timeout.
      */
     public int getTimeout() {
@@ -440,6 +445,34 @@ public class ManagedProcess implements Closeable {
             return _queueLength;
         }
     }
+    
+    /**
+     * Sets the working directory, otherwise leaves as node's root.
+     */
+    public void setWorking(String value) {
+        _working = value;
+    }
+    
+    /**
+     * Merge stderr with stdout.
+     */
+    public void setMergeError(boolean value) {
+        _mergeError = value;
+    }
+    
+    /**
+     * (see setter)
+     */
+    public boolean getMergeError() {
+        return _mergeError;
+    }
+    
+    /**
+     * (see setter)
+     */
+    public String getWorking() {
+        return _working;
+    }    
     
     /**
      * Safely starts this TCP connection after event handlers have been set.
@@ -541,13 +574,18 @@ public class ManagedProcess implements Closeable {
                 processBuilder.directory(_parentNode.getRoot());
             }
             
+            // should merge stderr with stdout?
+            if (_mergeError) {
+                processBuilder.redirectErrorStream(_mergeError);
+            }
+            
             process = processBuilder.start();
             
             _counterLaunches.incr();
             
             // 'inject' countable stream
             OutputStream stdin = process.getOutputStream();
-            os = new CountableOutputStream(stdin, _counterSendOps, SharableMeasurementProvider.Null.INSTANCE);
+            os = new CountableOutputStream(stdin, _counterStdinOps, SharableMeasurementProvider.Null.INSTANCE);
             
             // update flag
             _lastSuccessfulConnection = System.nanoTime();
@@ -568,7 +606,7 @@ public class ManagedProcess implements Closeable {
             }
             
             // fire the connected event
-            _callbackHandler.handle(_connectedCallback, _callbackErrorHandler);
+            _callbackHandler.handle(startedCallback, _callbackErrorHandler);
             
             // start reading
             if (_mode == Modes.CharacterDelimitedText)
@@ -584,8 +622,9 @@ public class ManagedProcess implements Closeable {
             Handler.tryHandle(_callbackErrorHandler, exc);
 
             // fire the disconnected handler if was previously connected
-            if (os != null)
-                Handler.tryHandle(_disconnectedCallback, _callbackErrorHandler);
+            if (os != null) {
+                Handler.tryHandle(_stoppedCallback, process.exitValue(), _callbackErrorHandler);
+            }
 
             throw exc;
 
@@ -610,7 +649,19 @@ public class ManagedProcess implements Closeable {
     @SuppressWarnings("resource")
     private void readTextLoop(Process process) throws Exception {
         InputStream in = process.getInputStream();
-        BufferedInputStream bis = new BufferedInputStream(new CountableInputStream(in, _counterRecvOps, SharableMeasurementProvider.Null.INSTANCE), 1024);
+        BufferedInputStream bis = new BufferedInputStream(new CountableInputStream(in, _counterStdoutOps, SharableMeasurementProvider.Null.INSTANCE), 1024);
+        
+        // not bothering with special parsing on error stream, hence no BufferedInputStream like above
+        InputStream stderr = process.getErrorStream();
+        final CountableInputStream cstderr = new CountableInputStream(stderr, _counterStderrOps, SharableMeasurementProvider.Null.INSTANCE);
+        
+        // this is ugly, but a new thread has to be started otherwise polling has to be done
+        if (_stderrCallback != null) {
+            Thread thread = new Thread(new StderrHandler(process, cstderr), _parentNode.getName().getReducedName() + "_stderr");
+            thread.start();
+            
+            // (thread will gracefully stop after its associated process dies)
+        }
         
         // create a buffer that'll be reused
         // start off small, will grow as needed
@@ -648,17 +699,77 @@ public class ManagedProcess implements Closeable {
             if (str != null)
                 handleReceivedData(str);
             
-            // then fire the disconnected callback
-            Handler.tryHandle(_disconnectedCallback, _callbackErrorHandler);
+            // then fire the stopped event and pass through the exit value
+            Handler.tryHandle(_stoppedCallback, _process.exitValue(), _callbackErrorHandler);
         }
     }
     
     /**
-     * No read-delimiters specified, so fire events as data segments arrive. 
+     * (thread handler)
+     */
+    private class StderrHandler implements Runnable {
+        
+        /**
+         * (reference for this instance)
+         */
+        private Process __process;
+        
+        /**
+         * (reference for this instance)
+         */
+        private InputStream __is;
+
+        /**
+         * (constructor)
+         */
+        public StderrHandler(Process process, InputStream is) {
+            __process = process;
+            __is = is;
+        }
+
+        @Override
+        public void run() {
+            try {
+                // allocate a reasonably large sized buffer that'll grow
+                // larger if needed
+                byte[] buffer = new byte[4096];
+
+                // keep running while there's no shutdown flag
+                // and its the original process this thread started up with
+                while (!_shutdown && __process == _process) {
+                    // read directly into the buffer
+                    int bytesRead = __is.read(buffer, 0, buffer.length);
+
+                    if (bytesRead <= 0)
+                        // fall out and end
+                        break;
+
+                    String data = new String(buffer, 0, bytesRead, UTF8Charset.instance());
+
+                    // stderr callback
+                    _callbackHandler.handle(_stderrCallback, data, _callbackErrorHandler);
+
+                    // double the buffer size if it maxed out the original buffer (likely big data dump)
+                    // (still capped, not unbounded)
+                    if (bytesRead == buffer.length && bytesRead < MAX_SEGMENT_ALLOWED)
+                        buffer = new byte[buffer.length * 2];
+                }
+            } catch (Exception exc) {
+                // gracefully end
+            }
+        }
+
+    } 
+    
+    /**
+     * No read-delimiters specified, so fire events as data segments arrive.
+     * (suppress was used with resource-free CountableInputStream)
      */
     private void readUnboundedRawLoop(Process process) throws IOException {
         InputStream stdout = process.getInputStream();
-        CountableInputStream cis = new CountableInputStream(stdout, _counterRecvOps, SharableMeasurementProvider.Null.INSTANCE);
+        
+        @SuppressWarnings("resource")
+        CountableInputStream cis = new CountableInputStream(stdout, _counterStdoutOps, SharableMeasurementProvider.Null.INSTANCE);
         
         // create a buffer that'll be reused
         if (_buffer == null)
@@ -680,7 +791,7 @@ public class ManagedProcess implements Closeable {
         
         if (!_shutdown) {
             // then fire the disconnected callback
-            Handler.tryHandle(_disconnectedCallback, _callbackErrorHandler);
+            Handler.tryHandle(_stoppedCallback, _process.exitValue(), _callbackErrorHandler);
         }        
     }    
 
@@ -729,7 +840,7 @@ public class ManagedProcess implements Closeable {
         }
         
         // ...then fire the 'received' callback next
-        _callbackHandler.handle(_receivedCallback, data, _callbackErrorHandler);
+        _callbackHandler.handle(_stdoutCallback, data, _callbackErrorHandler);
         
         processQueue();
     }
@@ -1131,7 +1242,7 @@ public class ManagedProcess implements Closeable {
             // ignore
         }
 
-        Handler.tryHandle(_sentCallback, origData, _callbackErrorHandler);
+        Handler.tryHandle(_stdinCallback, origData, _callbackErrorHandler);
     }
 
     /**
@@ -1213,6 +1324,6 @@ public class ManagedProcess implements Closeable {
         } catch (Exception exc) {
             // ignore
         }
-    }    
+    }
     
 }

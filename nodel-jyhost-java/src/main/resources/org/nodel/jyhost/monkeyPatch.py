@@ -97,13 +97,21 @@ def UDP(source='0.0.0.0:0', dest=None, ready=None, received=None, sent=None, int
   return _toolkit.createUDP(source, dest, ready, received, sent, intf);
   
 # A managed processes that attempts to stay executed (includes instrumentation)
-def Process(command, # required
-           connected=None, received=None, sent=None, disconnected=None, timeout=None, # callbacks 
-           sendDelimiters='\n', receiveDelimiters='\r\n', # default delimeters
+def Process(command, # the command line and arguments
+           # callbacks
+           started=None, # everytime the process is started
+           stdout=None, # stdout handler
+           stdin=None, # feedback when .send is called (for convenience) 
+           stderr=None, # stderr handler
+           stopped=None, # when the process is stops / stopped
+           timeout=None,  # timeout when a request is issued but not response
+           sendDelimiters='\n', receiveDelimiters='\r\n', # default delimiters
+           # arguments
            working=None, # working directory
-           
-           ):
-  return _toolkit.createProcess(command, connected, received, sent, disconnected, timeout, sendDelimiters, receiveDelimiters);
+           mergeConsoleErr=False):
+  return _toolkit.createProcess(command, 
+                                started, stdout, stdin, stderr, stopped, timeout, sendDelimiters, receiveDelimiters,
+                                working, mergeConsoleErr)
 
 # A general purpose timer class for repeating timers
 class Timer:
