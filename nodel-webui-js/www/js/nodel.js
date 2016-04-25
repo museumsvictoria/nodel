@@ -146,6 +146,10 @@ $(function() {
   else {
     // if the node is not specified on the query string, look for it in the path
     if (window.location.pathname.split( '/' )[1]=="nodes") node = decodeURIComponent(window.location.pathname.split( '/' )[2].replace(/\+/g, '%20'));
+    $(document).on('keyup', function(e) {
+      e.preventDefault();
+      if (e.keyCode === 27) $('.close').trigger('mousedown');
+    });
     if(node){
       // if a node name is found, retrieve node configuration
       $.getJSON('http://'+host+'/REST/nodes/'+encodeURIComponent(node)+'/', "",
@@ -540,7 +544,9 @@ var loadEditor = function() {
       lineNumbers: true,
       indentUnit: 2,
       tabMode: "shift",
-      matchBrackets: true
+      matchBrackets: true,
+      foldGutter: true,
+      gutters: ["CodeMirror-linenumbers", "CodeMirror-foldgutter"]
     });
     // ensure the editor form is updated as changes are made
     editor.on("change", function() {
