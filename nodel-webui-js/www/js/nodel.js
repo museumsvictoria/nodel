@@ -544,7 +544,9 @@ var loadEditor = function() {
       lineNumbers: true,
       indentUnit: 2,
       tabMode: "shift",
-      matchBrackets: true
+      matchBrackets: true,
+      foldGutter: true,
+      gutters: ["CodeMirror-linenumbers", "CodeMirror-foldgutter"]
     });
     // ensure the editor form is updated as changes are made
     editor.on("change", function() {
