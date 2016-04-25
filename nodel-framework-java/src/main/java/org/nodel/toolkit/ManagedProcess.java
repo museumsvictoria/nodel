@@ -7,7 +7,6 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.nio.file.Paths;
 import java.util.List;
 import java.util.Random;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -146,7 +145,7 @@ public class ManagedProcess implements Closeable {
      * (see setter)
      */
     private H0 _timeoutCallback;
-
+    
     /**
      * When errors occur during callbacks.
      */
@@ -195,6 +194,11 @@ public class ManagedProcess implements Closeable {
      * (may be null)
      */
     private List<String> _command;
+    
+    /**
+     * (see setter)
+     */
+    private String _working;
     
     /**
      * The delimiters to split the receive data on.
@@ -394,6 +398,20 @@ public class ManagedProcess implements Closeable {
     }
     
     /**
+     * Sets the working directory, otherwise leaves as node's root.
+     */
+    public void setWorking(String value) {
+        _working = value;
+    }
+    
+    /**
+     * (see setter)
+     */
+    public String getWorking() {
+        return _working;
+    }
+    
+    /**
      * Gets the connection and receive timeout.
      */
     public int getTimeout() {
@@ -495,6 +513,8 @@ public class ManagedProcess implements Closeable {
         Process process = null;
         OutputStream os = null;
         
+        String workingStr = _working;
+        
         try {
             List<String> command = _command;
             
@@ -509,7 +529,17 @@ public class ManagedProcess implements Closeable {
 //                throw new FileNotFoundException("Program does not exist - '" + programPath + "'");
             
             ProcessBuilder processBuilder = new ProcessBuilder(command);
-            processBuilder.directory(_parentNode.getRoot());
+            
+            // set the working directory if it's specified, or to the node's root
+            if (!Strings.isNullOrEmpty(workingStr)) {
+                File workingDir = new File(workingStr);
+                if (!workingDir.exists() || !workingDir.isDirectory())
+                    throw new FileNotFoundException("Working directory specifed does exist or is not a directory.");
+                
+            } else {
+                // (node's root)
+                processBuilder.directory(_parentNode.getRoot());
+            }
             
             process = processBuilder.start();
             
@@ -551,6 +581,8 @@ public class ManagedProcess implements Closeable {
             // (any non-timeout exceptions will be propagated to caller...)
 
         } catch (Exception exc) {
+            Handler.tryHandle(_callbackErrorHandler, exc);
+
             // fire the disconnected handler if was previously connected
             if (os != null)
                 Handler.tryHandle(_disconnectedCallback, _callbackErrorHandler);
@@ -599,8 +631,9 @@ public class ManagedProcess implements Closeable {
                 
             } else {
                 if (bb.getSize() >= MAX_SEGMENT_ALLOWED) {
-                    // drop the connection
-                    throw new IOException("Too much data arrived (at least " + bb.getSize() / 1024 + " KB) before any delimeter was present; dropping connection.");
+                    // dump what's in the buffer and reset
+                    Handler.tryHandle(_callbackErrorHandler, new IOException("Too much data arrived (at least " + bb.getSize() / 1024 + " KB) before any delimeter was present; dumping buffer and continuing."));
+                    bb.reset();
                 }
 
                 bb.append((byte) c);
