@@ -1106,10 +1106,7 @@ public class PyNode extends BaseDynamicNode {
 
             });
             
-            _remoteEvents.put(nodelClientEvent.getName(), nodelClientEvent);
-            
-            // finally use Nodel layer
-            nodelClientEvent.registerInterest();
+            addRemoteEvent(nodelClientEvent);
             
             if (sb.length() > 0)
                 sb.append(", ");
