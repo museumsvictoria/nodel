@@ -182,9 +182,14 @@ public class ManagedToolkit {
     private Set<ManagedUDP> _udpSockets = new HashSet<ManagedUDP>();    
     
     /**
-     * Holds all the processes
+     * Holds all the long living managed processes
      */
-    private Set<ManagedProcess> _processes = new HashSet<ManagedProcess>();    
+    private Set<ManagedProcess> _processes = new HashSet<ManagedProcess>();
+    
+    /**
+     * Holds all the quick processes
+     */
+    private Set<QuickProcess> _quickProcesses = new HashSet<QuickProcess>();    
     
     /**
      * Nodel actions
@@ -433,9 +438,29 @@ public class ManagedToolkit {
             else
                 _processes.add(process);
         }
-        
+
         return process;
-    }    
+    }
+    
+    public QuickProcess createQuickProcess(List<String> command,
+            String stdinPush,
+            H1<Integer> onStarted,
+            H1<QuickProcess.FinishedArg> onFinished,
+            long timeout,
+            String working,
+            boolean mergeErr) {
+        
+        QuickProcess quickProcess = new QuickProcess(_threadStateHandler, s_threadPool, s_timers, _processExceptionHandler, _node, command, stdinPush, onStarted, onFinished, timeout, working, mergeErr); 
+        
+        synchronized(_lock) {
+            if (_closed)
+                Stream.safeClose(quickProcess);
+            else
+                _quickProcesses.add(quickProcess);
+        }
+        
+        return quickProcess;
+  }
     
     /**
      * Releases all TCP connections
@@ -468,11 +493,17 @@ public class ManagedToolkit {
      */
     public void releaseProcesses() {
         synchronized (_lock) {
-            // close all connections
+            // close all long living processes
             for (ManagedProcess process : _processes)
                 Stream.safeClose(process);
 
             _processes.clear();
+            
+            // and quick processes
+            for (QuickProcess quickProcess: _quickProcesses)
+                Stream.safeClose(quickProcess);
+            
+            _quickProcesses.clear();
         }
     }    
     

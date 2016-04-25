@@ -108,10 +108,23 @@ def Process(command, # the command line and arguments
            sendDelimiters='\n', receiveDelimiters='\r\n', # default delimiters
            # arguments
            working=None, # working directory
-           mergeConsoleErr=False):
+           mergeErr=False):
   return _toolkit.createProcess(command, 
                                 started, stdout, stdin, stderr, stopped, timeout, sendDelimiters, receiveDelimiters,
-                                working, mergeConsoleErr)
+                                working, mergeErr)
+
+def quick_process(command,
+                  stdinPush=None, # text to push to stdin
+                  started=None,   # a callback where arg is OS process ID
+                  finished=None,  # callback with argument with these properties
+                                  # 'exit': The exit code (or null of timed out)
+                                  # 'error': Any launch errors e.g. program not found
+                                  # 'stdout': The complete stdout capture
+                                  # 'stderr': The complete stderr capture (if not merged)
+                  timeoutInSeconds=0,
+                  working=None,
+                  mergeErr=False):
+    return _toolkit.createQuickProcess(command, stdinPush, started, finished, long(timeoutInSeconds * 1000), working, mergeErr)
 
 # A general purpose timer class for repeating timers
 class Timer:

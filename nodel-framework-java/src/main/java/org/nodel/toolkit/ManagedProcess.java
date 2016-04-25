@@ -569,6 +569,8 @@ public class ManagedProcess implements Closeable {
                 if (!workingDir.exists() || !workingDir.isDirectory())
                     throw new FileNotFoundException("Working directory specifed does exist or is not a directory.");
                 
+                processBuilder.directory(workingDir);
+                
             } else {
                 // (node's root)
                 processBuilder.directory(_parentNode.getRoot());
@@ -650,26 +652,27 @@ public class ManagedProcess implements Closeable {
     private void readTextLoop(Process process) throws Exception {
         InputStream in = process.getInputStream();
         BufferedInputStream bis = new BufferedInputStream(new CountableInputStream(in, _counterStdoutOps, SharableMeasurementProvider.Null.INSTANCE), 1024);
-        
-        // not bothering with special parsing on error stream, hence no BufferedInputStream like above
-        InputStream stderr = process.getErrorStream();
-        final CountableInputStream cstderr = new CountableInputStream(stderr, _counterStderrOps, SharableMeasurementProvider.Null.INSTANCE);
-        
-        // this is ugly, but a new thread has to be started otherwise polling has to be done
-        if (_stderrCallback != null) {
+
+        // check if stderr needs to be dealt with i.e. 'merge error' not flagged AND a callback is set up
+        if (!_mergeError && _stderrCallback != null) {
+            // not bothering with special parsing on error stream, hence no BufferedInputStream like above
+            InputStream stderr = process.getErrorStream();
+            final CountableInputStream cstderr = new CountableInputStream(stderr, _counterStderrOps, SharableMeasurementProvider.Null.INSTANCE);
+
+            // this is ugly, but a new thread has to be started otherwise polling has to be done
             Thread thread = new Thread(new StderrHandler(process, cstderr), _parentNode.getName().getReducedName() + "_stderr");
             thread.start();
-            
+
             // (thread will gracefully stop after its associated process dies)
         }
-        
+
         // create a buffer that'll be reused
         // start off small, will grow as needed
         BufferBuilder bb = new BufferBuilder(256);
-        
+
         while (!_shutdown) {
             int c = bis.read();
-            
+
             if (c < 0)
                 break;
 
@@ -730,6 +733,9 @@ public class ManagedProcess implements Closeable {
         @Override
         public void run() {
             try {
+                // (required once)
+                _threadStateHandler.handle();            	
+            	
                 // allocate a reasonably large sized buffer that'll grow
                 // larger if needed
                 byte[] buffer = new byte[4096];
