@@ -390,7 +390,7 @@ public class Launch {
 
         System.err.println("      This host appears to be multihomed; a network interface must be chosen.");
         System.err.println("      Please use a 'hardwareAddr' from one of the above adapters and update");
-        System.err.println("      your 'bootstrap.config' file.");
+        System.err.println("      your 'bootstrap.json' file.");
         
         System.exit(-1);
         
