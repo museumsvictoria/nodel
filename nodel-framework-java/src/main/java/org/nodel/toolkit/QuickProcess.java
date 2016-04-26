@@ -29,6 +29,9 @@ public class QuickProcess implements Closeable {
      */
     private Object _lock = new Object();
     
+    /**
+     * Permanently closed flag
+     */
     private boolean _closed = false;
 
     /**
@@ -91,8 +94,14 @@ public class QuickProcess implements Closeable {
      */
     private boolean _mergeErr;
 
+    /**
+     * The process object.
+     */
     private Process _process;
 
+    /**
+     * Kills the process on timeout.
+     */
     private TimerTask _timeoutTimer;
 
     public static class FinishedArg {
