@@ -160,7 +160,7 @@ public class BootstrapConfig {
     
 
     @Value(name = "inclFilters", title = "Node inclusions", order = 1100, required = false, 
-            desc = "If specified, exlusively hosts nodes (matched using simple glob-based pattern matching, e.g. 'Main Campus*'). " + 
+            desc = "If specified, exclusively hosts nodes (matched using simple glob-based pattern matching, e.g. 'Main Campus*'). " + 
                    "Multiple patterns can be specified. (Short command arg '-I')")
     private String[] inclFilters = null;
 
