@@ -1244,6 +1244,7 @@ public class ManagedProcess implements Closeable {
     private void sendBufferNow0(OutputStream os, byte[] buffer, String origData) {
         try {
             os.write(buffer);
+            os.flush();
         } catch (Exception exc) {
             // ignore
         }

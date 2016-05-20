@@ -83,6 +83,11 @@ public class CountableOutputStream extends OutputStream {
         this.base.write(b, off, len);
     }
     
+    @Override
+    public void flush() throws IOException {
+        this.base.flush();
+    }
+    
     /**
      * {@inheritDoc}
      */    
