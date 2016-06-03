@@ -23,7 +23,7 @@ import org.nodel.diagnostics.Diagnostics;
 import org.nodel.diagnostics.SharableMeasurementProvider;
 import org.nodel.host.BaseNode;
 import org.nodel.io.BufferBuilder;
-import org.nodel.io.UTF8Charset;
+import org.nodel.io.Stream;
 import org.nodel.threading.ThreadPool;
 import org.nodel.threading.TimerTask;
 import org.nodel.threading.Timers;
@@ -263,17 +263,17 @@ public class ManagedProcess implements Closeable {
     /**
      * (diagnostics)
      */    
-    private SharableMeasurementProvider _counterStdoutOps;
+    private SharableMeasurementProvider _counterStdoutRate;
     
     /**
      * (diagnostics)
      */    
-    private SharableMeasurementProvider _counterStdinOps;
+    private SharableMeasurementProvider _counterStdinRate;
     
     /**
      * (diagnostics)
      */    
-    private SharableMeasurementProvider _counterStderrOps;
+    private SharableMeasurementProvider _counterStderrRate;
     
     /**
      * The request queue
@@ -324,9 +324,9 @@ public class ManagedProcess implements Closeable {
         // register the counters
         String counterName = "'" + node.getName().getReducedName() + "'";
         _counterLaunches = Diagnostics.shared().registerSharableCounter(counterName + ".Process launches", true);
-        _counterStdoutOps = Diagnostics.shared().registerSharableCounter(counterName + ".Process stdout", true);
-        _counterStderrOps = Diagnostics.shared().registerSharableCounter(counterName + ".Process stderr", true);
-        _counterStdinOps = Diagnostics.shared().registerSharableCounter(counterName + ".Process stdin", true);
+        _counterStdoutRate = Diagnostics.shared().registerSharableCounter(counterName + ".Process stdout rate", true);
+        _counterStderrRate = Diagnostics.shared().registerSharableCounter(counterName + ".Process stderr rate", true);
+        _counterStdinRate = Diagnostics.shared().registerSharableCounter(counterName + ".Process stdin rate", true);
     }
     
     /**
@@ -587,7 +587,7 @@ public class ManagedProcess implements Closeable {
             
             // 'inject' countable stream
             OutputStream stdin = process.getOutputStream();
-            os = new CountableOutputStream(stdin, _counterStdinOps, SharableMeasurementProvider.Null.INSTANCE);
+            os = new CountableOutputStream(stdin, SharableMeasurementProvider.Null.INSTANCE, _counterStdinRate);
             
             // update flag
             _lastSuccessfulConnection = System.nanoTime();
@@ -651,16 +651,15 @@ public class ManagedProcess implements Closeable {
     @SuppressWarnings("resource")
     private void readTextLoop(Process process) throws Exception {
         InputStream in = process.getInputStream();
-        BufferedInputStream bis = new BufferedInputStream(new CountableInputStream(in, _counterStdoutOps, SharableMeasurementProvider.Null.INSTANCE), 1024);
+        BufferedInputStream bis = new BufferedInputStream(new CountableInputStream(in, SharableMeasurementProvider.Null.INSTANCE, _counterStdoutRate), 1024);
 
         // check if stderr needs to be dealt with i.e. 'merge error' not flagged AND a callback is set up
-        if (!_mergeError && _stderrCallback != null) {
-            // not bothering with special parsing on error stream, hence no BufferedInputStream like above
+        if (!_mergeError) {
             InputStream stderr = process.getErrorStream();
-            final CountableInputStream cstderr = new CountableInputStream(stderr, _counterStderrOps, SharableMeasurementProvider.Null.INSTANCE);
+            BufferedInputStream biserr = new BufferedInputStream(new CountableInputStream(stderr, SharableMeasurementProvider.Null.INSTANCE, _counterStderrRate), 1024);
 
             // this is ugly, but a new thread has to be started otherwise polling has to be done
-            Thread thread = new Thread(new StderrHandler(process, cstderr), _parentNode.getName().getReducedName() + "_stderr");
+            Thread thread = new Thread(new StderrHandler(biserr), _parentNode.getName().getReducedName() + "_stderr");
             thread.start();
 
             // (thread will gracefully stop after its associated process dies)
@@ -703,7 +702,7 @@ public class ManagedProcess implements Closeable {
                 handleReceivedData(str);
             
             // then fire the stopped event and pass through the exit value
-            Handler.tryHandle(_stoppedCallback, _process.exitValue(), _callbackErrorHandler);
+            Handler.tryHandle(_stoppedCallback, _process.waitFor(), _callbackErrorHandler);
         }
     }
     
@@ -715,18 +714,12 @@ public class ManagedProcess implements Closeable {
         /**
          * (reference for this instance)
          */
-        private Process __process;
-        
-        /**
-         * (reference for this instance)
-         */
         private InputStream __is;
 
         /**
          * (constructor)
          */
-        public StderrHandler(Process process, InputStream is) {
-            __process = process;
+        public StderrHandler(InputStream is) {
             __is = is;
         }
 
@@ -734,34 +727,38 @@ public class ManagedProcess implements Closeable {
         public void run() {
             try {
                 // (required once)
-                _threadStateHandler.handle();            	
-            	
-                // allocate a reasonably large sized buffer that'll grow
-                // larger if needed
-                byte[] buffer = new byte[4096];
+                _threadStateHandler.handle();
+                
+                // create a buffer that'll be reused
+                // start off small, will grow as needed
+                BufferBuilder bb = new BufferBuilder(256);
 
-                // keep running while there's no shutdown flag
-                // and its the original process this thread started up with
-                while (!_shutdown && __process == _process) {
-                    // read directly into the buffer
-                    int bytesRead = __is.read(buffer, 0, buffer.length);
+                while (!_shutdown) {
+                    int c = __is.read();
 
-                    if (bytesRead <= 0)
-                        // fall out and end
+                    if (c < 0)
                         break;
 
-                    String data = new String(buffer, 0, bytesRead, UTF8Charset.instance());
+                    if (charMatches((char) c, _receiveDelimiters)) {
+                        String str = bb.getTrimmedString();
+                        if (str != null)
+                            _callbackHandler.handle(_stderrCallback, str, _callbackErrorHandler);
 
-                    // stderr callback
-                    _callbackHandler.handle(_stderrCallback, data, _callbackErrorHandler);
+                        bb.reset();
+                        
+                    } else {
+                        if (bb.getSize() >= MAX_SEGMENT_ALLOWED) {
+                            // dump what's in the buffer and reset
+                            Handler.tryHandle(_callbackErrorHandler, new IOException("STDERR: Too much data arrived (at least " + bb.getSize() / 1024 + " KB) before any delimeter was present; dumping buffer and continuing."));
+                            bb.reset();
+                        }
 
-                    // double the buffer size if it maxed out the original buffer (likely big data dump)
-                    // (still capped, not unbounded)
-                    if (bytesRead == buffer.length && bytesRead < MAX_SEGMENT_ALLOWED)
-                        buffer = new byte[buffer.length * 2];
-                }
+                        bb.append((byte) c);
+                    }
+                } // (while)
             } catch (Exception exc) {
-                // gracefully end
+                // gracefully cleanup and end
+                Stream.safeClose(__is);
             }
         }
 
@@ -775,7 +772,7 @@ public class ManagedProcess implements Closeable {
         InputStream stdout = process.getInputStream();
         
         @SuppressWarnings("resource")
-        CountableInputStream cis = new CountableInputStream(stdout, _counterStdoutOps, SharableMeasurementProvider.Null.INSTANCE);
+        CountableInputStream cis = new CountableInputStream(stdout, SharableMeasurementProvider.Null.INSTANCE, _counterStdoutRate);
         
         // create a buffer that'll be reused
         if (_buffer == null)

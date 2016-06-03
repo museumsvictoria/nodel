@@ -279,15 +279,15 @@ public class BootstrapConfig {
         // go through the lists
         List<String> list = lists.get('h');
         if (list != null)
-            this.hardLinksAddresses = (String[]) list.toArray();
+            this.hardLinksAddresses = (String[]) Serialisation.coerce(String[].class, list);
         
         list = lists.get('X');
         if (list != null)
-            this.exclFilters = (String[]) list.toArray();
+            this.exclFilters = (String[]) Serialisation.coerce(String[].class, list);
         
         list = lists.get('I');
         if (list != null)
-            this.inclFilters = (String[]) list.toArray();
+            this.inclFilters = (String[]) Serialisation.coerce(String[].class, list);
     }
 
 } // (class)
