@@ -305,7 +305,7 @@ public class Launch {
 
         nodelHostHTTPD.setNodeHost(_nodelHost);
 
-        Nodel.setHTTPPort(nodelHostHTTPD.getPort());
+        Nodel.setHTTPPort(nodelHostHTTPD.getListeningPort());
 
         // kick off the HTTPDs
         nodelHostHTTPD.start();
