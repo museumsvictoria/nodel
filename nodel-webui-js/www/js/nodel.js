@@ -851,28 +851,28 @@ var parseLog = function(value, noanimate) {
   // check for current entry
   var ele = $('#activity_' + value.source + '_' + value.type + '_' + encodr(value.alias));
   if (ele.length) {
-    var diff = tme.diff(moment(ele.data('time')),'ms');
-    if(diff > 500) {
+    /*var diff = tme.diff(moment(ele.data('time')),'ms');
+    if(diff > 500) { */
       ele.remove();
       $('#activity ul').prepend(activity);
-    } else {
+    /*} else {
       $(ele).replaceWith(activity);
-    }
+    } */
   } else {
     $('#activity ul').prepend(activity);
   }
-}
+};
 
 var online = function(socket){
   $('body').data('timeout', setInterval(function() { socket.send('{}'); }, 1000));
   console.log('online');
-}
+};
 
 var offline = function(){
   clearInterval($('body').data('timeout'));
   $('body').data('update', setTimeout(function() { updateLogs(); }, 1000));
   console.log('offline');
-}
+};
 
 // function to update the console
 var updateConsoleForm = function(){
