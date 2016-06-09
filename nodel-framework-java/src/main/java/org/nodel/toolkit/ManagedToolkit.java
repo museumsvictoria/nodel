@@ -11,6 +11,7 @@ import java.net.URL;
 import java.net.URLConnection;
 import java.net.URLEncoder;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
@@ -133,6 +134,12 @@ public class ManagedToolkit {
      * ('exceptionHandler' with context)
      */
     private H1<Exception> _udpExceptionHandler = createExceptionHandlerWithContext("udp");
+    
+    /**
+     * ('exceptionHandler' with context)
+     */
+    private H1<Exception> _processExceptionHandler = createExceptionHandlerWithContext("process");    
+    
     /**
      * Call from within calling thread, usually sets up the thread-state environment.
      */
@@ -173,6 +180,16 @@ public class ManagedToolkit {
      * Holds all the UDP sockets
      */
     private Set<ManagedUDP> _udpSockets = new HashSet<ManagedUDP>();    
+    
+    /**
+     * Holds all the long living managed processes
+     */
+    private Set<ManagedProcess> _processes = new HashSet<ManagedProcess>();
+    
+    /**
+     * Holds all the quick processes
+     */
+    private Set<QuickProcess> _quickProcesses = new HashSet<QuickProcess>();    
     
     /**
      * Nodel actions
@@ -386,6 +403,66 @@ public class ManagedToolkit {
     }
     
     /**
+     * Constructs a managed OS process.
+     */
+    public ManagedProcess createProcess(List<String> command,
+                                H0 onStarted,
+                                H1<String> onOut, 
+                                H1<String> onIn,
+                                H1<String> onErr,
+                                H1<Integer> onStopped,
+                                H0 onTimeout,
+                                String sendDelimiters,
+                                String receiveDelimiters,
+                                String working,
+                                boolean mergestderr) {
+        ManagedProcess process = new ManagedProcess(_node, command, _threadStateHandler, _processExceptionHandler, _callbackQueue, s_threadPool, s_timers);
+        
+        // set up the callback handlers as provided by the user
+        process.setStartedHandler(onStarted);
+        process.setOutHandler(onOut);
+        process.setInHandler(onIn);
+        process.setErrHandler(onErr);
+        process.setStoppedHandler(onStopped);
+        process.setTimeoutHandler(onTimeout);
+        
+        // set general arguments
+        process.setSendDelimeters(sendDelimiters);
+        process.setReceiveDelimeters(receiveDelimiters);
+        process.setWorking(working);
+        process.setMergeError(mergestderr);
+        
+        synchronized(_lock) {
+            if (_closed)
+                Stream.safeClose(process);
+            else
+                _processes.add(process);
+        }
+
+        return process;
+    }
+    
+    public QuickProcess createQuickProcess(List<String> command,
+            String stdinPush,
+            H1<Integer> onStarted,
+            H1<QuickProcess.FinishedArg> onFinished,
+            long timeout,
+            String working,
+            boolean mergeErr) {
+        
+        QuickProcess quickProcess = new QuickProcess(_threadStateHandler, s_threadPool, s_timers, _processExceptionHandler, _node, command, stdinPush, onStarted, onFinished, timeout, working, mergeErr); 
+        
+        synchronized(_lock) {
+            if (_closed)
+                Stream.safeClose(quickProcess);
+            else
+                _quickProcesses.add(quickProcess);
+        }
+        
+        return quickProcess;
+  }
+    
+    /**
      * Releases all TCP connections
      */
     public void releaseTCPs() {
@@ -408,6 +485,25 @@ public class ManagedToolkit {
                 Stream.safeClose(socket);
 
             _udpSockets.clear();
+        }
+    }
+    
+    /**
+     * Releases all processes
+     */
+    public void releaseProcesses() {
+        synchronized (_lock) {
+            // close all long living processes
+            for (ManagedProcess process : _processes)
+                Stream.safeClose(process);
+
+            _processes.clear();
+            
+            // and quick processes
+            for (QuickProcess quickProcess: _quickProcesses)
+                Stream.safeClose(quickProcess);
+            
+            _quickProcesses.clear();
         }
     }    
     
@@ -681,18 +777,22 @@ public class ManagedToolkit {
      * Kicks off any resources set up within this toolkit like TCP connections, timers, etc.
      */
     public void enable() {
-        synchronized(_lock) {
+        synchronized (_lock) {
             if (_enabled)
                 return;
-            
+
             _enabled = true;
-            
-            for(ManagedTCP tcp : _tcpConnections) {
+
+            for (ManagedTCP tcp : _tcpConnections) {
                 tcp.start();
             }
-            
-            for(ManagedUDP udp: _udpSockets) {
+
+            for (ManagedUDP udp : _udpSockets) {
                 udp.start();
+            }
+
+            for (ManagedProcess process : _processes) {
+                process.start();
             }
         }
     }
@@ -810,6 +910,8 @@ public class ManagedToolkit {
             releaseTCPs();
             
             releaseUDPs();
+            
+            releaseProcesses();
             
             releaseNodes();
         }

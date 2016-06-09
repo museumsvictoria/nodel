@@ -94,7 +94,40 @@ def TCP(dest=None, connected=None, received=None, sent=None, disconnected=None, 
 
 # A managed UDP connection for sending or receiving UDP (includes instrumentation)
 def UDP(source='0.0.0.0:0', dest=None, ready=None, received=None, sent=None, intf=None):
-  return _toolkit.createUDP(source, dest, ready, received, sent, intf);  
+  return _toolkit.createUDP(source, dest, ready, received, sent, intf);
+  
+# A managed processes that attempts to stay executed (includes instrumentation)
+def Process(command, # the command line and arguments
+           # callbacks
+           started=None, # everytime the process is started
+           stdout=None, # stdout handler
+           stdin=None, # feedback when .send is called (for convenience) 
+           stderr=None, # stderr handler
+           stopped=None, # when the process is stops / stopped
+           timeout=None,  # timeout when a request is issued but not response
+           # arguments
+           sendDelimiters='\n', receiveDelimiters='\r\n', # default delimiters
+           working=None, # working directory
+           mergeErr=False):
+  return _toolkit.createProcess(command, 
+                                started, stdout, stdin, stderr, stopped, timeout, sendDelimiters, receiveDelimiters,
+                                working, mergeErr)
+
+# Creates a short-living process (still managed)
+def quick_process(command,
+                  stdinPush=None, # text to push to stdin
+                  started=None,   # a callback where arg is OS process ID
+                  finished=None,  # callback with argument with these properties:
+                                  #   'exit': The exit code (or null of timed out)
+                                  #   'error': Any launch errors e.g. program not found
+                                  #   'stdout': The complete stdout capture
+                                  #   'stderr': The complete stderr capture (if not merged)
+                  timeoutInSeconds=0, # if positive, kills the process on timeout
+                  working=None,   # the working directory
+                  mergeErr=False):# merge  stderr into the stdout for convenience
+    return _toolkit.createQuickProcess(command, stdinPush, 
+                                       started, finished, 
+                                       long(timeoutInSeconds * 1000), working, mergeErr)
 
 # A general purpose timer class for repeating timers
 class Timer:

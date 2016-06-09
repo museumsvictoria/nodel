@@ -167,6 +167,9 @@ public class Launch {
             _bootstrapConfig = new BootstrapConfig();
         }
         
+        // override with any command-line arguments
+        _bootstrapConfig.overrideWith(s_processArgs);
+        
         // provide the REST API schema too
         String apiSchema = Serialisation.serialise(Schema.getSchemaObject(NodelHostHTTPD.RESTModel.class), 4);
         File apiSchemaFile = new File(_root, "_API" + "_schema.json");
@@ -177,8 +180,8 @@ public class Launch {
 
         initLogging();
     } // (method)
-    
-    private void start() throws IOException {
+
+	private void start() throws IOException {
         // check for multihomed host
         if (_bootstrapConfig.getNetworkInterface() == null) {
             checkForMultihoming(null);
@@ -609,5 +612,5 @@ public class Launch {
             exc.printStackTrace();
         }
     }
-
+    
 }
