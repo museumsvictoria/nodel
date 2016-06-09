@@ -83,11 +83,6 @@ public class ManagedProcess implements Closeable {
     private final static int MAX_BACKOFF = 32000;
 
     /**
-     * The connection or TCP read timeout (default 5 mins) 
-     */
-    private static final int RECV_TIMEOUT =  5 * 60000;
-    
-    /**
      * (synchronisation / locking)
      */
     private Object _lock = new Object();
@@ -240,21 +235,10 @@ public class ManagedProcess implements Closeable {
     private int _longTermRequestTimeout = 60000;
     
     /**
-     * The last time a successful connection occurred (connection or data receive)
-     * (nano time)
-     */
-    private long _lastSuccessfulConnection = System.nanoTime();
-
-    /**
      * (Response for handling thread-state)
      */
     private H0 _threadStateHandler;
 
-    /**
-     * The connection and receive timeout.
-     */
-    private int _timeout = RECV_TIMEOUT;
-    
     /**
      * (diagnostics)
      */
@@ -408,22 +392,6 @@ public class ManagedProcess implements Closeable {
     }
     
     /**
-     * Sets the connection and receive timeout.
-     */
-    public void setTimeout(int value) {
-        synchronized(_lock) {
-            _timeout = value;
-        }
-    }
-    
-    /**
-     * Gets the connection and receive timeout.
-     */
-    public int getTimeout() {
-        return _timeout;
-    }
-    
-    /**
      * The request timeout (millis)
      */
     public int getRequestTimeout() {
@@ -475,7 +443,7 @@ public class ManagedProcess implements Closeable {
     }    
     
     /**
-     * Safely starts this TCP connection after event handlers have been set.
+     * Safely starts this process (after event handlers have been set)
      */
     public void start() {
         synchronized(_lock) {
@@ -503,10 +471,10 @@ public class ManagedProcess implements Closeable {
      * The main thread.
      */
     private void begin() {
+        // only need to set the thread state once here
+        _threadStateHandler.handle();
+
         while (!_shutdown) {
-            // only need to set the thread state once here
-            _threadStateHandler.handle();
-            
             try {
                 launchAndRead();
                 
@@ -523,15 +491,8 @@ public class ManagedProcess implements Closeable {
                     _backoffTime = Math.min(_backoffTime * 2, MAX_BACKOFF);
                     _backoffTime = Math.max(MIN_LAUNCH_GAP, _backoffTime);
                 }
-                
-                long timeDiff = (System.nanoTime() - _lastSuccessfulConnection) / 1000000;
-                if (timeDiff > _timeout) {
-                    // reset the timestamp
-                    _lastSuccessfulConnection = System.nanoTime();
 
-                    _callbackHandler.handle(_timeoutCallback, _callbackErrorHandler);
-                }
-
+                // reset flag
                 _recentlyConnected = false;
             }
             
@@ -588,9 +549,6 @@ public class ManagedProcess implements Closeable {
             // 'inject' countable stream
             OutputStream stdin = process.getOutputStream();
             os = new CountableOutputStream(stdin, SharableMeasurementProvider.Null.INSTANCE, _counterStdinRate);
-            
-            // update flag
-            _lastSuccessfulConnection = System.nanoTime();
             
             synchronized (_lock) {
                 if (_shutdown)
@@ -1292,7 +1250,7 @@ public class ManagedProcess implements Closeable {
     }
     
     /**
-     * Permanently shuts down this managed TCP connection.
+     * Permanently shuts down this managed process
      */
     @Override
     public void close() {
