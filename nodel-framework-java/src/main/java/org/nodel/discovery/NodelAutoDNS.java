@@ -519,13 +519,13 @@ public class NodelAutoDNS extends AutoDNS {
             _logger.info("Preparing {} socket. interface:{}, port:{}, group:{}", 
                     label, (intf == null ? "default" : intf), (port == 0 ? "any" : port), _group);
             
-            // selecting interface using constructor instead of 'socket.setInterface(intf)' so that there
-            // is no ambiguity.
-
-            if (port == 0)
-                socket = intf == null ? new MulticastSocket() : new MulticastSocket(new InetSocketAddress(intf, port));
-            else
-                socket = intf == null ? new MulticastSocket(port) : new MulticastSocket(new InetSocketAddress(intf, port));
+            // in previous versions the interface was selected using constructor instead of 'socket.setInterface(intf)' 
+            // but that uncovered side-effect in OSX which caused 'cannot assign address' Java bug
+            
+            socket = new MulticastSocket(port); // (port '0' means any port)
+            
+            if (intf != null)
+                socket.setInterface(intf);
 
             // join the multicast group
             socket.joinGroup(_group);
