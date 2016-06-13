@@ -79,6 +79,9 @@ def date_at(year, month, day, hour, minute, second=0, millisecond=0):
 def date_instant(millis):
     return _toolkit.dateAtInstant(millis)
 
+# parses a date string e.g. '2016-06-13T08:17:11.836-04:00'
+def date_parse(s):
+    return _toolkit.parseDate(s)
 
 # Simple URL retriever (supports POST)
 def get_url(url, query=None, reference=None, contentType=None, post=None):  

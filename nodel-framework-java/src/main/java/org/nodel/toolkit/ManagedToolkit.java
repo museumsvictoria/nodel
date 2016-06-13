@@ -972,9 +972,16 @@ public class ManagedToolkit {
     public DateTime dateAtInstant(long millis) {
         return new DateTime(millis);
     }    
-    
+
     /**
-     * (exception-less, convenience function) 
+     * Parses a DateTime from the specified string.
+     */
+    public DateTime parseDate(String str) {
+        return DateTime.parse(str);
+    }
+
+    /**
+     * (exception-less, convenience function)
      */
     private static String urlEncode(String value) {
         try {
