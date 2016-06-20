@@ -128,7 +128,12 @@ public class ManagedToolkit {
     /**
      * ('exceptionHandler' with context)
      */
-    private H1<Exception> _tcpExceptionHandler = createExceptionHandlerWithContext("tcp");    
+    private H1<Exception> _tcpExceptionHandler = createExceptionHandlerWithContext("tcp");
+    
+    /**
+     * ('exceptionHandler' with context)
+     */
+    private H1<Exception> _requestQueueExceptionHandler = createExceptionHandlerWithContext("requestQueue");    
     
     /**
      * ('exceptionHandler' with context)
@@ -189,7 +194,7 @@ public class ManagedToolkit {
     /**
      * Holds all the quick processes
      */
-    private Set<QuickProcess> _quickProcesses = new HashSet<QuickProcess>();    
+    private Set<QuickProcess> _quickProcesses = new HashSet<QuickProcess>();
     
     /**
      * Nodel actions
@@ -461,6 +466,28 @@ public class ManagedToolkit {
         
         return quickProcess;
   }
+    
+    /**
+     * Constructs a managed TCP connection.
+     */
+    public RequestQueue createRequestQueue(
+                                H1<Object> onReceived, 
+                                H0 onSent,
+                                H0 onTimeout) {
+        RequestQueue requestQueue = new RequestQueue(_node, _threadStateHandler, _requestQueueExceptionHandler, _callbackQueue, s_threadPool, s_timers);
+        
+        // set up the callback handlers as provided by the user
+        requestQueue.setReceivedHandler(onReceived);
+        requestQueue.setSentHandler(onSent);
+        requestQueue.setTimeoutHandler(onTimeout);
+        
+        synchronized(_lock) {
+            if (_closed)
+                Stream.safeClose(requestQueue);
+        }
+        
+        return requestQueue;
+    }    
     
     /**
      * Releases all TCP connections

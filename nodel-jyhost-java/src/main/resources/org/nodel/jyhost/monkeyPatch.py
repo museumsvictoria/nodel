@@ -132,6 +132,17 @@ def quick_process(command,
                                        started, finished, 
                                        long(timeoutInSeconds * 1000), working, mergeErr)
 
+# create a safe request queue for mixing asynchronous and synchronous programming.
+# e.g. 
+# queue = request_queue()
+#
+# def udp_received(source, data):
+#     queue.handle((source, data))
+#
+# queue.request(lambda: udp.send('?'), lambda arg: console.info('RECV UDP %s' % arg)) 
+def request_queue(received=None, sent=None, timeout=None):
+    return _toolkit.createRequestQueue(received, sent, timeout)
+
 # A general purpose timer class for repeating timers
 class Timer:
   def __init__(self, func, intervalInSeconds, firstDelayInSeconds=0, stopped=False):
