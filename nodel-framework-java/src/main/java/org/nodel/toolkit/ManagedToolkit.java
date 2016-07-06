@@ -39,6 +39,7 @@ import org.nodel.host.LogEntry;
 import org.nodel.io.Stream;
 import org.nodel.reflection.Objects;
 import org.nodel.reflection.Serialisation;
+import org.nodel.threading.CallbackQueue;
 import org.nodel.threading.ThreadPool;
 import org.nodel.threading.TimerTask;
 import org.nodel.threading.Timers;
@@ -83,7 +84,7 @@ public class ManagedToolkit {
     /**
      * A callback queue for orderly, predictable handling of callbacks.
      */
-    private CallbackHandler _callbackQueue = new CallbackHandler();
+    private CallbackQueue _callbackQueue;
 
     /**
      * The node name for debugging purposes.
@@ -138,7 +139,12 @@ public class ManagedToolkit {
     /**
      * ('exceptionHandler' with context)
      */
-    private H1<Exception> _processExceptionHandler = createExceptionHandlerWithContext("process");    
+    private H1<Exception> _processExceptionHandler = createExceptionHandlerWithContext("process");
+    
+    /**
+     * ('exceptionHandler' with context)
+     */
+    private H1<Exception> _emitExceptionHandler = createExceptionHandlerWithContext("emit");    
     
     /**
      * Call from within calling thread, usually sets up the thread-state environment.
@@ -239,6 +245,15 @@ public class ManagedToolkit {
         
         return this;
     }
+    
+    /**
+     * Sets the callback handler for orderly callback handling. 
+     */
+    public ManagedToolkit setCallbackHandler(CallbackQueue handler) {
+        _callbackQueue = handler;
+        
+        return this;
+    }    
     
     /**
      * Calls a function (optionally delayed) in an optionally thread-safe way and gets its result or exception asynchronously.
@@ -515,7 +530,7 @@ public class ManagedToolkit {
             throw new IllegalArgumentException("Name cannot be empty");
 
         synchronized (_lock) {
-            ManagedNode node = new ManagedNode(name, _threadStateHandler);
+            ManagedNode node = new ManagedNode(name, _callbackQueue, _threadStateHandler);
 
             _managedNodes.add(node);
 
@@ -531,7 +546,7 @@ public class ManagedToolkit {
             throw new IllegalArgumentException("Suffix cannot be empty");
 
         synchronized (_lock) {
-            ManagedNode node = new ManagedNode(_node.getName().getOriginalName() + " " + suffix, _threadStateHandler);
+            ManagedNode node = new ManagedNode(_node.getName().getOriginalName() + " " + suffix, _callbackQueue, _threadStateHandler);
 
             _managedNodes.add(node);
 
@@ -617,6 +632,7 @@ public class ManagedToolkit {
                 throw new IllegalStateException("Node is closed.");
 
             NodelServerEvent event = new NodelServerEvent(_node.getName(), new SimpleName(Nodel.reduce(eventName)), metadata);
+            event.setThreadingEnvironment(_callbackQueue, _threadStateHandler, _emitExceptionHandler);
             _node.injectLocalEvent(event);
 
             return event;

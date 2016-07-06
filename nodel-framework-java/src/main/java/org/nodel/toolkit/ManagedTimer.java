@@ -5,6 +5,7 @@ import java.io.IOException;
 
 import org.nodel.Handler.H0;
 import org.nodel.Handler.H1;
+import org.nodel.threading.CallbackQueue;
 import org.nodel.threading.ThreadPool;
 import org.nodel.threading.TimerTask;
 import org.nodel.threading.Timers;
@@ -33,7 +34,7 @@ public class ManagedTimer implements Closeable {
     /**
      * Callback queue
      */
-    private CallbackHandler _callbackQueue;
+    private CallbackQueue _callbackQueue;
     
     /**
      * The registered callback (fixed for this timer)
@@ -70,7 +71,7 @@ public class ManagedTimer implements Closeable {
      */
     private H0 _threadStateHandler;
 
-    public ManagedTimer(H0 callback, H0 threadStateHandler, Timers timerThreads, ThreadPool threadPool, H1<Exception> exceptionHandler, CallbackHandler callbackQueue) {
+    public ManagedTimer(H0 callback, H0 threadStateHandler, Timers timerThreads, ThreadPool threadPool, H1<Exception> exceptionHandler, CallbackQueue callbackQueue) {
         _threadStateHandler = threadStateHandler;
         _timerThread = timerThreads;
         _threadPool = threadPool;

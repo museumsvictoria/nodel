@@ -1,4 +1,4 @@
-package org.nodel.toolkit;
+package org.nodel.threading;
 
 import java.util.concurrent.Callable;
 import java.util.concurrent.locks.ReentrantLock;
@@ -14,14 +14,14 @@ import org.nodel.Handler.H5;
 /**
  * A callback handler that using a fair ordering policy, with safe exception handling.
  */
-public class CallbackHandler {
+public class CallbackQueue {
     
     private ReentrantLock _fairLock = new ReentrantLock(true);
     
     /**
      * Creates a safe callback handler 
      */
-    public CallbackHandler() {
+    public CallbackQueue() {
     }
     
     /**

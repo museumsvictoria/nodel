@@ -595,6 +595,8 @@ public abstract class BaseNode implements Closeable {
         
         Binding metadata = new Binding(event.getOriginalName(), desc, group, caution, order, schema);
         NodelServerEvent nodelEvent = new NodelServerEvent(this.getName(), new SimpleName(event.getReducedName()), metadata);
+        
+        // TODO: check whether threading environment can be set here
 
         return addLocalEvent(nodelEvent);
     }

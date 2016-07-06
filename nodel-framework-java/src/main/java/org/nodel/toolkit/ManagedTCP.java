@@ -25,6 +25,7 @@ import org.nodel.diagnostics.SharableMeasurementProvider;
 import org.nodel.host.BaseNode;
 import org.nodel.io.BufferBuilder;
 import org.nodel.io.Stream;
+import org.nodel.threading.CallbackQueue;
 import org.nodel.threading.ThreadPool;
 import org.nodel.threading.TimerTask;
 import org.nodel.threading.Timers;
@@ -108,7 +109,7 @@ public class ManagedTCP implements Closeable {
     /**
      * The safe queue as provided by a host
      */
-    private CallbackHandler _callbackHandler;    
+    private CallbackQueue _callbackHandler;    
     
     /**
      * The current back-off period (exponential back-off)
@@ -299,7 +300,7 @@ public class ManagedTCP implements Closeable {
     /**
      * (constructor)
      */
-    public ManagedTCP(BaseNode node, String dest, H0 threadStateHandler, H1<Exception> callbackExceptionHandler, CallbackHandler callbackQueue, ThreadPool threadPool, Timers timers) {
+    public ManagedTCP(BaseNode node, String dest, H0 threadStateHandler, H1<Exception> callbackExceptionHandler, CallbackQueue callbackQueue, ThreadPool threadPool, Timers timers) {
         _dest = dest;
         
         _threadStateHandler = threadStateHandler;

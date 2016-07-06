@@ -13,6 +13,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import org.joda.time.DateTime;
 import org.nodel.Handler;
+import org.nodel.Handler.H1;
 import org.nodel.SimpleName;
 import org.nodel.Strings;
 import org.nodel.host.Binding;
@@ -20,6 +21,7 @@ import org.nodel.reflection.Objects;
 import org.nodel.reflection.Param;
 import org.nodel.reflection.Service;
 import org.nodel.reflection.Value;
+import org.nodel.threading.CallbackQueue;
 import org.nodel.threading.ThreadPool;
 import org.nodel.threading.TimerTask;
 import org.nodel.threading.Timers;
@@ -45,6 +47,11 @@ public class NodelServerEvent implements Closeable {
      * For monitoring purposes.
      */
     private Handler.H2<DateTime, Object> _monitor;
+    
+    /**
+     * For other in-process 'emit' handlers that may be interested in this event.
+     */
+    private AtomicReference<Handler.H1<Object>[]> _emitHandlers = new AtomicReference<Handler.H1<Object>[]>();
 
     private String _title;
 
@@ -92,7 +99,22 @@ public class NodelServerEvent implements Closeable {
         return _fullSchema;
     }
     
-    public NodelServerEvent(String node, String event, Binding metadata) {
+    /**
+     * To match threading of wild environment.
+     */
+    private CallbackQueue _callbackQueue;
+    
+    /**
+     * To match threading of wild environment.
+     */
+    private Handler.H0 _threadStateHandler;
+    
+    /**
+     * To match threading of wild environment.
+     */
+    private H1<Exception> _exceptionHandler;
+    
+    public NodelServerEvent(String node, String event, Binding metadata, boolean v) {
         if (Strings.isNullOrEmpty(node) || Strings.isNullOrEmpty(event))
             throw new IllegalArgumentException("Names cannot be null or empty.");
         
@@ -101,7 +123,7 @@ public class NodelServerEvent implements Closeable {
     
     public NodelServerEvent(SimpleName node, SimpleName event, Binding metadata) {
         init(node, event, metadata);  
-    }    
+    }
     
     private void init(SimpleName node, SimpleName event, Binding metadata) {
         _eventPoint = NodelPoint.create(node, event);
@@ -140,6 +162,15 @@ public class NodelServerEvent implements Closeable {
         properties.put("arg", argSchema);
         
         return schema;
+    }
+    
+    /**
+     * Sets fields which control the threading environment.
+     */
+    public void setThreadingEnvironment(CallbackQueue callbackQueue, Handler.H0 threadStateHandler, Handler.H1<Exception> exceptionHandler) {
+        _callbackQueue = callbackQueue;
+        _threadStateHandler = threadStateHandler;
+        _exceptionHandler = exceptionHandler;
     }
     
     /**
@@ -266,7 +297,7 @@ public class NodelServerEvent implements Closeable {
     /**
      * Fires the event.
      */
-    private void doEmit(Object arg) {
+    private void doEmit(final Object arg) {
         DateTime now = DateTime.now();
         
         ArgInstance argInstance = new ArgInstance();
@@ -280,8 +311,77 @@ public class NodelServerEvent implements Closeable {
             _monitor.handle(now, arg);
 
         NodelServers.instance().emitEvent(this, arg);
+        
+        // snap-shot of handlers
+        final H1<Object>[] handlers = _emitHandlers.get();
+        
+        // if there are some handlers, use the Channel Client thread-pool (treat as though remote events)
+        if (handlers != null) {
+            ChannelClient.getThreadPool().execute(new Runnable() {
+
+                @Override
+                public void run() {
+                    // set up thread state
+                    if (_threadStateHandler != null)
+                        _threadStateHandler.handle();
+                    
+                    Exception lastExc = null;
+                    
+                    // call handlers one after the other
+                    for (Handler.H1<Object> handler : handlers) {
+                        if (_callbackQueue != null)
+                            _callbackQueue.handle(handler, arg, _exceptionHandler);
+                        else {
+                            try {
+                                Handler.tryHandle(handler, arg);
+                            } catch (Exception exc) {
+                                lastExc = exc;
+                            }
+                        }
+                    } // (for)
+                    
+                    if (lastExc != null) {
+                        // let the thread-pool exception handler deal with it
+                        throw new RuntimeException("Emit handler", lastExc);
+                    }
+                }
+
+            });
+        }
     }
     
+    /**
+     * Attaches an in-process emit handler (will arrive on same thread as .emit() call)
+     */
+    @SuppressWarnings("unchecked")
+    public void addEmitHandler(Handler.H1<Object> handler) {
+        if (handler == null)
+            throw new IllegalArgumentException("No emit handler given.");
+        
+        H1<Object>[] current = _emitHandlers.get();
+
+        // grow array 'lock-lessly'
+        for (;;) {
+            H1<Object>[] value;
+            if (current == null) {
+                value = (H1<Object>[]) new Handler.H1<?>[] { handler };
+            } else {
+                // make space for one more
+                int currentSize = current.length;
+                value = (H1<Object>[]) new Handler.H1<?>[currentSize + 1];
+
+                // copy all and set the last one
+                System.arraycopy(current, 0, value, 0, currentSize);
+                value[current.length] = handler;
+            }
+            
+            if(_emitHandlers.compareAndSet(current, value))
+                break;
+            
+            // otherwise keep trying
+        }
+    }
+
     /**
      * Attaches a monitor.
      */
@@ -326,6 +426,8 @@ public class NodelServerEvent implements Closeable {
 
         if (_persisterTimer != null)
             _persisterTimer.cancel();
+        
+        _emitHandlers.set(null);
         
         handlePersistRequest();
 
