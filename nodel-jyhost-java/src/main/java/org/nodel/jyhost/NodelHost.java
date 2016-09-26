@@ -164,8 +164,12 @@ public class NodelHost {
     /**
      * Sets other (secondary) roots
      */
-    public void setOtherRoots(List<File> roots) {
-        _otherRoots = roots;
+    public void setOtherRoots(List<String> roots) {
+        List<File> fileRoots = new ArrayList<File>();
+        for (String root : roots)
+            fileRoots.add(new File(root));
+        
+        _otherRoots = fileRoots;
     }
     
     /**
