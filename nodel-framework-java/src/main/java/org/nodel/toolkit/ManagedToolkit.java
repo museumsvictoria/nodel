@@ -800,7 +800,7 @@ public class ManagedToolkit {
     /**
      * A very simple URL getter. queryArgs, contentType, postData are all optional.
      */
-    public String getURL(String urlStr, Map<String, String> query, String reference, String contentType, String post) throws IOException {
+    public String getURL(String urlStr, Map<String, String> query, Map<String, String> headers, String reference, String contentType, String post) throws IOException {
         // build up query string if args given
         StringBuilder queryArg = null;
         if (query != null) {
@@ -846,6 +846,13 @@ public class ManagedToolkit {
 
                 if (!Strings.isNullOrEmpty(contentType)) {
                     httpConn.setRequestProperty("Content-Type", contentType);
+                }
+
+                // add (or override) any request headers
+                if (headers != null) {
+                    for (Entry<String, String> entry : headers.entrySet()) {
+                        httpConn.setRequestProperty(entry.getKey(), entry.getValue());
+                    }
                 }
 
                 if (!Strings.isNullOrEmpty(post)) {

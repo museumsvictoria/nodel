@@ -84,12 +84,12 @@ def date_parse(s):
     return _toolkit.parseDate(s)
 
 # Simple URL retriever (supports POST)
-def get_url(url, query=None, reference=None, contentType=None, post=None):  
-  return _toolkit.getURL(url, query, reference, contentType, post)
+def get_url(url, query=None, headers=None, reference=None, contentType=None, post=None):  
+  return _toolkit.getURL(url, query, headers, reference, contentType, post)
 
 # DEPRECATED (same as above)
-def getURL(url, query=None, reference=None, contentType=None, post=None):  
-  return _toolkit.getURL(url, query, reference, contentType, post)
+def getURL(url, query=None, headers=None, reference=None, contentType=None, post=None):  
+  return _toolkit.getURL(url, query, headers, reference, contentType, post)
 
 # A managed TCP connection that attempts to stay open (includes instrumentation)
 def TCP(dest=None, connected=None, received=None, sent=None, disconnected=None, timeout=None, sendDelimiters='\n', receiveDelimiters='\r\n', binaryStartStopFlags=None):
