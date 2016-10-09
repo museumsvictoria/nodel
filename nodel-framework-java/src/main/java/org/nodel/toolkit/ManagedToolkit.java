@@ -797,10 +797,17 @@ public class ManagedToolkit {
         }
     }
     
+    // Safe URL timeouts are optimised for servers that are likely available and responsive.
+
+    private final static int DEFAULT_CONNECTTIMEOUT = 10000;
+    private final static int DEFAULT_READTIMEOUT = 15000;
+    
     /**
      * A very simple URL getter. queryArgs, contentType, postData are all optional.
+     * 
+     * Safe timeouts are used to avoid non-responsive servers being able to hold up connections indefinitely.
      */
-    public String getURL(String urlStr, Map<String, String> query, Map<String, String> headers, String reference, String contentType, String post) throws IOException {
+    public String getURL(String urlStr, Map<String, String> query, Map<String, String> headers, String reference, String contentType, String post, Integer connectTimeout, Integer readTimeout) throws IOException {
         // build up query string if args given
         StringBuilder queryArg = null;
         if (query != null) {
@@ -841,6 +848,10 @@ public class ManagedToolkit {
             url = new URL(fullURL);
 
             URLConnection urlConn = url.openConnection();
+
+            urlConn.setConnectTimeout(connectTimeout != null ? connectTimeout : DEFAULT_CONNECTTIMEOUT);
+            urlConn.setReadTimeout(readTimeout != null ? readTimeout : DEFAULT_READTIMEOUT);
+
             if (urlConn instanceof HttpURLConnection) {
                 HttpURLConnection httpConn = (HttpURLConnection) urlConn;
 
