@@ -73,14 +73,14 @@ public class ManagedProcess implements Closeable {
     private final static int MAX_SEGMENT_ALLOWED = 2 * 1024 * 1024;
 
     /**
-     * The minimum gap between launches (default 500ms).
+     * The minimum gap between automatic process relaunches (500ms).
      */
-    private final static int MIN_LAUNCH_GAP = 500;
+    private final static int MIN_START_GAP = 500;
     
     /**
-     * The maximum back-off time allowed (default 32 secs or 2^5 millis)
+     * How long to backoff if the process fails to start (15s)
      */
-    private final static int MAX_BACKOFF = 32000;
+    private final static int BACKOFF_ON_FAULT = 15000;
 
     /**
      * (synchronisation / locking)
@@ -103,14 +103,9 @@ public class ManagedProcess implements Closeable {
     private CallbackHandler _callbackHandler;    
     
     /**
-     * The current back-off period (exponential back-off)
+     * If there was a recent start of the process
      */
-    private int _backoffTime = 0;
-
-    /**
-     * If there was a recent successful connection.
-     */
-    private boolean _recentlyConnected = false;
+    private boolean _gracefulStart = false;
 
     /**
      * (see setter)
@@ -153,9 +148,19 @@ public class ManagedProcess implements Closeable {
     private boolean _shutdown;
     
     /**
-     * Has started?
+     * Start-only once?
      */
-    private boolean _started;
+    private boolean _startOnce = false;
+    
+    private enum State {
+        Stopped, Started
+    }
+    
+    /**
+     * Started or stopped
+     * (synchronised around 'lock')
+     */
+    private State _state = State.Started;
 
     /**
      * The receive thread.
@@ -169,7 +174,8 @@ public class ManagedProcess implements Closeable {
     
     /**
      * The current socket.
-     * (must be set and clear with 'outputStream')
+     * (must be set and cleared with 'outputStream')
+     * (synced around 'lock')
      */
     private Process _process;
     
@@ -182,6 +188,7 @@ public class ManagedProcess implements Closeable {
     
     /**
      * The start timer.
+     * (synced around 'lock')
      */
     private TimerTask _startTimer;
     
@@ -440,30 +447,70 @@ public class ManagedProcess implements Closeable {
      */
     public String getWorking() {
         return _working;
-    }    
+    }
     
     /**
-     * Safely starts this process (after event handlers have been set)
+     * Performs necessary initialisation before either actually starting or stopping
+     */
+    public void init() {
+        synchronized(_lock) {
+            if (_startTimer == null) {
+                // kick off after a random amount of time to avoid resource usage spikes
+                int kickoffTime = 1000 + s_random.nextInt(KICKOFF_DELAY);
+
+                _startTimer = _timerThread.schedule(_threadPool, new TimerTask() {
+
+                    @Override
+                    public void run() {
+                        _thread.start();
+                    }
+
+                }, kickoffTime);
+            }
+        }
+    }
+    
+    /**
+     * Safely starts this process
      */
     public void start() {
         synchronized(_lock) {
-            if (_shutdown || _started)
+            if (_shutdown || _state == State.Started)
                 return;
             
-            _started = true;
+            _state = State.Started;
             
-            // kick off after a random amount of time to avoid resource usage spikes
+            _lock.notifyAll();
+        }
+    }
+    
+    /**
+     * Safely starts this process once
+     */
+    public void startOnce() {
+        synchronized(_lock) {
+            if (_shutdown || _state == State.Started)
+                return;
             
-            int kickoffTime = 1000 + s_random.nextInt(KICKOFF_DELAY);
-
-            _startTimer = _timerThread.schedule(_threadPool, new TimerTask() {
-
-                @Override
-                public void run() {
-                    _thread.start();
-                }
-
-            }, kickoffTime);
+            _startOnce = true;
+            
+            _state = State.Started;
+            
+            _lock.notifyAll();
+        }
+    }    
+    
+    /**
+     * Stops automatically recycling the process
+     */
+    public void stop() {
+        synchronized(_lock) {
+            if (_shutdown || _state == State.Stopped)
+                return;
+            
+            _state = State.Stopped;
+            
+            safeClose(_process);
         }
     }
     
@@ -473,30 +520,56 @@ public class ManagedProcess implements Closeable {
     private void begin() {
         // only need to set the thread state once here
         _threadStateHandler.handle();
-
+        
         while (!_shutdown) {
+            boolean exitedCleanly = true;
+            
+            long backoffTime = MIN_START_GAP;
+            
             try {
-                launchAndRead();
+                // reset flag
+                _gracefulStart = false;
                 
+                // this can be safely used out of sync because fail-safe checking occurs deeper within the method anyway
+                // and timing is not critical here
+                if (_state == State.Started)
+                    launchAndRead();
+
             } catch (Exception exc) {
                 if (_shutdown) {
                     // thread can gracefully exit
                     return;
                 }
-                
-                if (_recentlyConnected)
-                    _backoffTime = MIN_LAUNCH_GAP;
 
-                else {
-                    _backoffTime = Math.min(_backoffTime * 2, MAX_BACKOFF);
-                    _backoffTime = Math.max(MIN_LAUNCH_GAP, _backoffTime);
-                }
-
-                // reset flag
-                _recentlyConnected = false;
+                exitedCleanly = false;
             }
             
-            Threads.wait(_lock, _backoffTime);
+            synchronized(_lock) {
+                if (_startOnce) {
+                    // force the state change
+                    _state = State.Stopped;
+
+                    // and reset the flag
+                    _startOnce = false;
+                    
+                    // (will fall through and wait indefinitely)
+                }
+                
+                if (_state == State.Started) {
+                    // still in START mode
+                    if (!exitedCleanly) {
+                        if (_gracefulStart)
+                            backoffTime = MIN_START_GAP;
+                        else
+                            backoffTime = BACKOFF_ON_FAULT;
+                    }
+
+                    Threads.wait(_lock, backoffTime);
+                } else {
+                    // STOP requested so wait indefinitely (or until signal)
+                    Threads.waitOnSync(_lock);
+                }
+            }
         } // (while)
     }
     
@@ -515,12 +588,6 @@ public class ManagedProcess implements Closeable {
             // ensure enough arguments (at least 1)
             if (command == null || command.size() == 0)
                 throw new RuntimeException("No launch arguments were provided.");
-            
-            // ensure program path exists
-//            String programPath =command.get(0); 
-//            File program = new File(programPath);
-//            if (!program.exists())
-//                throw new FileNotFoundException("Program does not exist - '" + programPath + "'");
             
             ProcessBuilder processBuilder = new ProcessBuilder(command);
             
@@ -553,44 +620,44 @@ public class ManagedProcess implements Closeable {
             synchronized (_lock) {
                 if (_shutdown)
                     return;
-                
+                    
                 _process = process;
                 _outputStream = os;
                 
                 // connection has been successful so reset variables
-                // related to exponential back-off
+                // related to safe backing
 
-                _recentlyConnected = true;
-                
-                _backoffTime = MIN_LAUNCH_GAP;
+                _gracefulStart = true;
             }
             
-            // fire the connected event
+            // fire the started event
             _callbackHandler.handle(startedCallback, _callbackErrorHandler);
             
             // start reading
-            if (_mode == Modes.CharacterDelimitedText)
+            if (_mode == Modes.CharacterDelimitedText) {
                 readTextLoop(process);
 
-            else { // mode is 'UnboundedRaw'
+            } else { // mode is 'UnboundedRaw'
                 readUnboundedRawLoop(process);
             }
 
-            // (any non-timeout exceptions will be propagated to caller...)
+            // (any unexpected exceptions will be propagated to caller...)
 
         } catch (Exception exc) {
-            Handler.tryHandle(_callbackErrorHandler, exc);
+            // indicate error only on unusual termination
+            if (_state == State.Started)
+                Handler.tryHandle(_callbackErrorHandler, exc);
 
-            // fire the disconnected handler if was previously connected
-            if (os != null) {
+            // fire the STOPPED handler if it had fully started previously
+            if (os != null)
                 Handler.tryHandle(_stoppedCallback, process.exitValue(), _callbackErrorHandler);
-            }
 
-            throw exc;
+            // propagate exception only on unusual termination
+            if (_state == State.Started)
+                throw exc;
 
         } finally {
-            // always gracefully close the socket and invalidate the socket fields
-            
+            // always gracefully cleanup the process and invalidate related fields
             synchronized(_lock) {
                 _process = null;
                 _outputStream = null;

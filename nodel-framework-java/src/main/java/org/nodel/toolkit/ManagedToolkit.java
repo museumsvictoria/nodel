@@ -792,7 +792,7 @@ public class ManagedToolkit {
             }
 
             for (ManagedProcess process : _processes) {
-                process.start();
+                process.init();
             }
         }
     }

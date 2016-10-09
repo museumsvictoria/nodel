@@ -20,3 +20,5 @@
 /nodel-jyhost-java/bootstrap.json
 /nodel-framework-java/src/main/resources/org/nodel/host/content.zip
 /nodel-framework-java/src/main/resources/org/nodel/build.json
+.lastHTTPPort
+_instance.lock
