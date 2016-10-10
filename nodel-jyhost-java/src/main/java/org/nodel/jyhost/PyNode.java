@@ -27,6 +27,8 @@ import org.joda.time.DateTime;
 import org.nodel.DateTimes;
 import org.nodel.Handler;
 import org.nodel.Handler.H0;
+import org.nodel.Handler.H1;
+import org.nodel.Handler.H2;
 import org.nodel.SimpleName;
 import org.nodel.Strings;
 import org.nodel.Threads;
@@ -59,6 +61,7 @@ import org.nodel.reflection.Param;
 import org.nodel.reflection.Serialisation;
 import org.nodel.reflection.Service;
 import org.nodel.reflection.Value;
+import org.nodel.threading.CallbackQueue;
 import org.nodel.threading.TimerTask;
 import org.nodel.toolkit.Console;
 import org.nodel.toolkit.ManagedToolkit;
@@ -282,6 +285,50 @@ public class PyNode extends BaseDynamicNode {
      * (required because of threading)
      */
     private PySystemState _pySystemState;
+
+    /**
+     * The thread-state handler
+     */
+    private H0 _threadStateHandler = new Handler.H0() {
+
+        @Override
+        public void handle() {
+            Py.setSystemState(_pySystemState);
+        }
+        
+    };
+    
+    /**
+     * A callback queue for orderly, predictable handling of callbacks.
+     * (gets recycled)
+     */
+    private CallbackQueue _callbackQueue;
+
+    /**
+     * The exception handler.
+     */
+    private H2<String, Exception> _exceptionHandler = new Handler.H2<String, Exception>() {
+
+        @Override
+        public void handle(String context, Exception th) {
+            String message = "(" + context + ") " + th.toString();
+            _logger.info(message);
+            _errReader.inject(message);
+        }
+
+    };
+
+    /**
+     * Provides context
+     */
+    private H1<Exception> _emitExceptionHandler = new H1<Exception>() {
+
+        @Override
+        public void handle(Exception value) {
+            Handler.tryHandle(_exceptionHandler, "Emitter", value);
+        }
+
+    };
     
     /**
      * The Python "globals"
@@ -693,29 +740,14 @@ public class PyNode extends BaseDynamicNode {
      * (suppressed 'resource' because it gets cleaned up using 'Stream.safeClose' in this method.
      */
     private void injectToolkit() {
-        // toolkit is cleaned up by 'cleanupInterpreter'
+        // toolkit and callback queue are cleaned up by 'cleanupInterpreter'
 
         _pySystemState = Py.getSystemState();
-        
+        _callbackQueue = new CallbackQueue();
         _toolkit = new ManagedToolkit(this)
-            .setExceptionHandler(new Handler.H2<String, Exception>() {
-
-                @Override
-                public void handle(String context, Exception th) {
-                    String message = "(" + context + ") " + th.toString();
-                    _logger.info(message);
-                    _errReader.inject(message);
-                }
-
-            })
-            .setThreadStateHandler(new H0() {
-
-                @Override
-                public void handle() {
-                    Py.setSystemState(_pySystemState);
-                }
-                
-            })
+            .setExceptionHandler(_exceptionHandler)
+            .setThreadStateHandler(_threadStateHandler)
+            .setCallbackHandler(_callbackQueue)
             .attachConsole(new Console.Interface() {
                 
                 @Override
@@ -761,6 +793,10 @@ public class PyNode extends BaseDynamicNode {
         
         if (_toolkit != null) {
             _toolkit.shutdown();
+        }
+        
+        if (_callbackQueue != null) {
+            _callbackQueue = null;
         }
     } // (method)
     
@@ -926,8 +962,8 @@ public class PyNode extends BaseDynamicNode {
             // (Nodel layer and Python)
             Binding binding = eventBinding.getValue();
             
-            NodelServerEvent nodelServerEvent = new NodelServerEvent(_name.getOriginalName(), eventBinding.getKey().getReducedName(), binding);
-            
+            NodelServerEvent nodelServerEvent = new NodelServerEvent(_name.getOriginalName(), eventBinding.getKey().getReducedName(), binding, true);
+            nodelServerEvent.setThreadingEnvironment(_callbackQueue, _threadStateHandler, _emitExceptionHandler);
             nodelServerEvent.attachMonitor(new Handler.H2<DateTime, Object>() {
 
                 @Override

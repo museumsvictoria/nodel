@@ -5,6 +5,8 @@ import java.util.Map;
 import org.joda.time.DateTime;
 import org.nodel.Handler;
 import org.nodel.Handler.H0;
+import org.nodel.Handler.H1;
+import org.nodel.Handler.H2;
 import org.nodel.SimpleName;
 import org.nodel.core.ActionRequestHandler;
 import org.nodel.core.Nodel;
@@ -14,6 +16,7 @@ import org.nodel.host.BaseNode;
 import org.nodel.host.Binding;
 import org.nodel.host.LogEntry;
 import org.nodel.reflection.Serialisation;
+import org.nodel.threading.CallbackQueue;
 
 public class ManagedNode extends BaseNode {
     
@@ -22,11 +25,46 @@ public class ManagedNode extends BaseNode {
      */
     private boolean _closed;
     
+    /**
+     * Matches the threading environment.
+     */
     private H0 _threadStateHandler;
+
+    /**
+     * Matches the threading environment.
+     */    
+    private CallbackQueue _callbackQueue;
     
-    public ManagedNode(String name, H0 threadStateHandler) {
+    /**
+     * The exception handler.
+     */
+    private H2<String, Exception> _exceptionHandler = new Handler.H2<String, Exception>() {
+
+        @Override
+        public void handle(String context, Exception th) {
+            String message = "(" + context + ") " + th.toString();
+            _logger.info(message);
+            _errReader.inject(message);
+        }
+
+    };
+
+    /**
+     * Provides context
+     */
+    private H1<Exception> _emitExceptionHandler = new H1<Exception>() {
+
+        @Override
+        public void handle(Exception value) {
+            Handler.tryHandle(_exceptionHandler, "Emitter", value);
+        }
+
+    };    
+    
+    public ManagedNode(String name, CallbackQueue callbackQueue, Handler.H0 threadStateHandler) {
         super(name);
         
+        _callbackQueue = callbackQueue;
         _threadStateHandler = threadStateHandler;
     }
     
@@ -79,6 +117,7 @@ public class ManagedNode extends BaseNode {
                 throw new IllegalStateException("Node is closed.");
 
             final NodelServerEvent event = new NodelServerEvent(_name, new SimpleName(Nodel.reduce(eventName)), metadata);
+            event.setThreadingEnvironment(_callbackQueue, _threadStateHandler, _emitExceptionHandler);
             event.attachMonitor(new Handler.H2<DateTime, Object>() {
                 
                 @Override

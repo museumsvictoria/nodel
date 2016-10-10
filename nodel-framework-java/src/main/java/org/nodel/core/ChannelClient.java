@@ -37,9 +37,16 @@ public abstract class ChannelClient {
     private static AtomicLong s_instance = new AtomicLong();
     
     protected static ThreadPool s_threadPool = new ThreadPool("Nodel channel-clients", 128);
-    
+
+    /**
+     * Returns the static thread-pool for in use by Channel Client related classes
+     */
+    public static ThreadPool getThreadPool() {
+        return s_threadPool;
+    }
+
     protected static Timers s_timerThread = new Timers("Nodel channel-clients");
-    
+
     /**
      * (logging related)
      */
