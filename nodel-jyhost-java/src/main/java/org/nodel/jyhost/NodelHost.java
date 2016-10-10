@@ -93,6 +93,11 @@ public class NodelHost {
     private File _root;
     
     /**
+     * Additional roots (see 'root')
+     */
+    private List<File> _otherRoots = new ArrayList<File>();
+    
+    /**
      * Reflects the current running node configuration.
      */
     private Map<SimpleName, PyNode> _nodeMap = Collections.synchronizedMap(new HashMap<SimpleName, PyNode>());
@@ -131,19 +136,7 @@ public class NodelHost {
         Nodel.setHostPath(new File(".").getAbsolutePath());
         Nodel.setNodesRoot(_root.getAbsolutePath());
         
-        _origInclFilters = inclFilters;
-        _origExclFilters = exclFilters;
-        
-        StringBuilder hostingRule = new StringBuilder();
-        hostingRule.append("Include ")
-                   .append(inclFilters == null || inclFilters.length == 0 ? "everything" : Serialisation.serialise(inclFilters))
-                   .append(", exclude ")
-                   .append(exclFilters == null || exclFilters.length == 0 ? "nothing" : Serialisation.serialise(exclFilters));
-        Nodel.setHostingRule(hostingRule.toString());
-        
-        // 'compile' the tokens list
-        _inclTokensFilters = intoTokensList(inclFilters);
-        _exclTokensFilters = intoTokensList(exclFilters);
+        setHostingFilters(inclFilters, exclFilters);
         
         // attach to some error handlers
         Nodel.attachNameRegistrationFaultHandler(new Handler.H2<SimpleName, Exception>() {
@@ -164,7 +157,53 @@ public class NodelHost {
             }
             
         });
+        
+        s_instance = this;
     } // (constructor)
+    
+    /**
+     * Sets other (secondary) roots
+     */
+    public void setOtherRoots(List<String> roots) {
+        List<File> fileRoots = new ArrayList<File>();
+        for (String root : roots)
+            fileRoots.add(new File(root));
+        
+        _otherRoots = fileRoots;
+    }
+    
+    /**
+     * (see setter)
+     */
+    public List<File> getOtherRoots() {
+        return _otherRoots;
+    }
+
+    /**
+     * Used to adjust filters on-the-fly.
+     */
+    public void setHostingFilters(String[] inclFilters, String[] exclFilters) {
+        _origInclFilters = inclFilters;
+        _origExclFilters = exclFilters;
+        
+        StringBuilder hostingRule = new StringBuilder();
+        hostingRule.append("Include ")
+                   .append(inclFilters == null || inclFilters.length == 0 ? "everything" : Serialisation.serialise(inclFilters))
+                   .append(", exclude ")
+                   .append(exclFilters == null || exclFilters.length == 0 ? "nothing" : Serialisation.serialise(exclFilters));
+        Nodel.setHostingRule(hostingRule.toString());
+        
+        // 'compile' the tokens list
+        _inclTokensFilters = intoTokensList(inclFilters);
+        _exclTokensFilters = intoTokensList(exclFilters);
+    }
+    
+    /**
+     * Returns the current hosting filters.
+     */
+    public String[][] getHostingFilters() {
+        return new String[][] { _origInclFilters, _origExclFilters };
+    }
     
     /**
      * Fault handler for name registration issues.
@@ -198,25 +237,10 @@ public class NodelHost {
         // get all directories
         // (do this outside synchronized loop because it is IO dependent)
         Map<SimpleName, File> currentFolders = new HashMap<SimpleName, File>();
-        for (File file : _root.listFiles()) {
-            // only include directories
-            if (file.isDirectory()) {
-                String filename = file.getName();
-                
-                // skip '_*' nodes...
-                if (!filename.startsWith("_")
-                        // ... skip 'New folder' folders and
-                        && !filename.equalsIgnoreCase("New folder")
-
-                        // ... skip '.*' nodes
-                        && !filename.startsWith(".")
-
-                        // apply any applicable inclusion / exclusion filters
-                        && shouldBeIncluded(filename))
-                    
-                    currentFolders.put(new SimpleName(file.getName()), file);
-            }
-        } // (for)
+        
+        checkRoot(currentFolders, _root);
+        for (File root : _otherRoots)
+            checkRoot(currentFolders, root);
 
         synchronized (_signal) {
             // find all those that are not in current node map
@@ -282,6 +306,28 @@ public class NodelHost {
         }
     } // (method)
 
+    private void checkRoot(Map<SimpleName, File> currentFolders, File root) {
+        for (File file : root.listFiles()) {
+            // only include directories
+            if (file.isDirectory()) {
+                String filename = file.getName();
+                
+                // skip '_*' nodes...
+                if (!filename.startsWith("_")
+                        // ... skip 'New folder' folders and
+                        && !filename.equalsIgnoreCase("New folder")
+
+                        // ... skip '.*' nodes
+                        && !filename.startsWith(".")
+
+                        // apply any applicable inclusion / exclusion filters
+                        && shouldBeIncluded(filename))
+                    
+                    currentFolders.put(new SimpleName(file.getName()), file);
+            }
+        } // (for)
+    }
+
     /**
      * Creates a new node.
      */
@@ -296,6 +342,7 @@ public class NodelHost {
                     Serialisation.serialise(ins) + ", excludes: " + Serialisation.serialise(outs) + ")");
         }
 
+        // TODO: should be able to select a node
         File newNodeDir = new File(_root, name);
 
         if (newNodeDir.exists())
@@ -320,8 +367,9 @@ public class NodelHost {
         boolean include = true;
 
         // check if any exclusive inclusion filters apply
-        if (_inclTokensFilters != null) {
-            int len = _inclTokensFilters.size();
+        List<String[]> inclTokensFilters = _inclTokensFilters;
+        if (inclTokensFilters != null) {
+            int len = inclTokensFilters.size();
 
             for (int a = 0; a < len; a++) {
                 // got at least one inclusion filter, so flip the mode
@@ -331,7 +379,7 @@ public class NodelHost {
                     include = false;
                 }
 
-                String[] inclTokens = _inclTokensFilters.get(a);
+                String[] inclTokens = inclTokensFilters.get(a);
 
                 if (SimpleName.wildcardMatch(simpleName, inclTokens)) {
                     // flag it can be included and...
@@ -344,11 +392,12 @@ public class NodelHost {
         }
 
         // now check if there are any "opt-outs"
-        if (_exclTokensFilters != null) {
-            int len = _exclTokensFilters.size();
+        List<String[]> exclTokensFilters = _exclTokensFilters;
+        if (exclTokensFilters != null) {
+            int len = exclTokensFilters.size();
 
             for (int a = 0; a < len; a++) {
-                String[] exclTokens = _exclTokensFilters.get(a);
+                String[] exclTokens = exclTokensFilters.get(a);
 
                 if (SimpleName.wildcardMatch(simpleName, exclTokens)) {
                     // flag it must be excluded
@@ -414,6 +463,18 @@ public class NodelHost {
         }
 
         return list;
+    }
+    
+    /**
+     * (init. in constructor)
+     */
+    public static NodelHost s_instance;
+    
+    /**
+     * Returns the first instance.
+     */
+    public static NodelHost instance() {
+        return s_instance; 
     }
     
 }
