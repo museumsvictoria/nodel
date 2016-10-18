@@ -686,19 +686,22 @@ public class PyNode extends BaseDynamicNode {
             }
             
             try {
-                _toolkit.enable();
-                
                 if (_python.get("main") == null) {
                     msg = "(no 'main' method to call)";
 
+                    // nothing could have gone wrong, kick off toolkit
+                    _toolkit.enable();
                 } else {
                     lock = null;
                     try {
-                    	lock = getAReentrantLock();
-                    	
+                        lock = getAReentrantLock();
+
                         trackFunction("main()");
 
                         _python.exec("main()");
+
+                        // nothing went wrong, kick off toolkit
+                        _toolkit.enable();
 
                         msg = "'main' completed cleanly.";
                     } finally {
