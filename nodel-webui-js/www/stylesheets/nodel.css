@@ -75,7 +75,7 @@ div.block hr {
 	margin-top: 0;
 }
 
-input[type="text"], input[type="range"], input[type="time"], input[type="password"], input[type="email"], input[type="number"], input[type="date"], input[type="time"], input[type="date-time"], textarea, select {
+input[type="text"], input[type="password"], input[type="range"], input[type="time"], input[type="password"], input[type="email"], input[type="number"], input[type="date"], input[type="time"], input[type="date-time"], textarea, select {
 	width: 100%;
 	-webkit-box-sizing: border-box;
   	-moz-box-sizing: border-box;
@@ -83,7 +83,14 @@ input[type="text"], input[type="range"], input[type="time"], input[type="passwor
 	margin-bottom: 8px;
 }
 
-input[type="text"].highlight, input[type="range"].highlight, input[type="time"].highlight, input[type="password"].highlight,	input[type="email"].highlight, input[type="number"].highlight, input[type="date"].highlight, input[type="time"].highlight, input[type="date-time"].highlight, textarea.highlight, select.highlight {
+input[type="color"] {
+	-webkit-box-sizing: border-box;
+	-moz-box-sizing: border-box;
+	box-sizing: border-box;
+	margin-bottom: 8px;
+}
+
+input[type="text"].highlight, input[type="password"].highlight, input[type="range"].highlight, input[type="time"].highlight, input[type="password"].highlight,	input[type="email"].highlight, input[type="number"].highlight, input[type="date"].highlight, input[type="time"].highlight, input[type="date-time"].highlight, textarea.highlight, select.highlight {
 	border: 1px solid rgba(255,0,0,0.5);
 	color: #444444;
 	-moz-box-shadow: 0 0 3px rgba(255,0,0,0.2);

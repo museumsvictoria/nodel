@@ -1526,6 +1526,14 @@ var buildFormSchema = function(data, key, parent) {
             // date-time is rendered as html5 datetime type
             set = '<div class="field"><label for="field_'+parent+'{{:#getIndex()}}"'+cls+'>'+htmlEncode(data.title)+'</label><input id="field_'+parent+'{{:#getIndex()}}" title="'+htmlEncode(data.desc)+'" type="datetime" data-link="'+link+'"'+cls+' /></div>';
             break;
+          // format a password
+          case 'password':
+            set = '<div class="field"><label for="field_'+parent+'{{:#getIndex()}}"'+cls+'>'+htmlEncode(data.title)+'</label><input id="field_'+parent+'{{:#getIndex()}}" title="'+htmlEncode(data.desc)+'" type="password" data-link="'+link+'"'+cls+' /></div>';
+            break;
+          // format a color
+          case 'color':
+            set = '<div class="field"><label for="field_'+parent+'{{:#getIndex()}}"'+cls+'>'+htmlEncode(data.title)+'</label><input id="field_'+parent+'{{:#getIndex()}}" title="'+htmlEncode(data.desc)+'" type="color" data-link="'+link+'"'+cls+' /></div>';
+            break;
           // basic renderer for any other elements
           default:
             set = '<div class="field"><label for="field_'+parent+'{{:#getIndex()}}"'+cls+'>'+htmlEncode(data.title)+'</label><input placeholder="'+placeholder+'" id="field_'+parent+'{{:#getIndex()}}" title="'+htmlEncode(data.desc)+'" type="text" data-link="'+link+'"'+cls+' /></div>';
