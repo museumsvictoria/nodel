@@ -59,7 +59,7 @@ JSON.parse = function(data) {
 $.views.converters({
   // convert number to string
   numToStr: function (value) {
-    if(typeof value === "undefined") return ""; 
+    if(typeof value === "undefined") return "";
     else return "" + value;
   },
   // convert string to integer
@@ -152,8 +152,7 @@ $(function() {
     });
     if(node){
       // if a node name is found, retrieve node configuration
-      $.getJSON('http://'+host+'/REST/nodes/'+encodeURIComponent(node)+'/', "",
-      function(data) {
+      $.getJSON('http://'+host+'/REST/nodes/'+encodeURIComponent(node)+'/', "", function(data) {
         // set page details
         document.title = 'Nodel - '+data.name;
         $('#nodename').text(data.name);
@@ -195,8 +194,7 @@ var init = function() {
   var execindex = -1;
   // retrieve the node parameters and bindings schema
   $.each(['params','remote'], function(key, form) {
-    $.getJSON('http://'+host+'/REST/nodes/'+encodeURIComponent(node)+'/'+form+'/schema',"",
-    function(data) {
+    $.getJSON('http://'+host+'/REST/nodes/'+encodeURIComponent(node)+'/'+form+'/schema',"", function(data) {
       // build the form template from the schema
       var get = buildFormSchema(data);
       if(get){
@@ -387,7 +385,7 @@ var init = function() {
     if(keyCode == 38) {
       if(execindex>0) execindex--;
       $('#exec').val(execs[execindex]);
-    // if the key is a 'down arrow', display the next stored command, or blank if it is the end of the list
+      // if the key is a 'down arrow', display the next stored command, or blank if it is the end of the list
     } else if(keyCode == 40) {
       if(execindex<execs.length) {
         execindex++;
@@ -405,13 +403,13 @@ var init = function() {
       $('.advanced').slideDown();
       // if 'display editor' is checked, show and load the editor as well
       if($('#showeditor').prop('checked')) {
-       $('.advancededitor').slideDown();
-       loadEditor();
+        $('.advancededitor').slideDown();
+        loadEditor();
       }
       $('#events input, #events button').prop('disabled', false);
       $('#events .array').removeClass('disabled');
       window.history.replaceState('','','http://'+host+'/nodes/'+node+'/?advanced=true');
-    // if it is 'disabled', hide the advanced section
+      // if it is 'disabled', hide the advanced section
     } else {
       $('#events input, #events button').prop('disabled', true);
       $('#events .array').addClass('disabled');
@@ -439,7 +437,7 @@ var init = function() {
     if($(this).prop('checked')) {
       $('.advancededitor').slideDown();
       loadEditor();
-    // if it is 'disabled', hide the editor
+      // if it is 'disabled', hide the editor
     } else $('.advancededitor').slideUp();
   });
   // watch for clicks on all group or object block titles
@@ -604,7 +602,7 @@ var listNodes = function(){
     if(data.length > $('#nodefilter').data('num')) $('#nodelist ul').append('<li><strong><a id="listmore" href="#">'+(data.length-$('#nodefilter').data('num'))+' more</a>...</strong></li>');
     // if there are no nodes, display 'no results'
     if(data.length == 0) $('#nodelist ul').append('<li>searching...</li>');
-  // if there is an error retrieving the list of nodes, display an error message
+    // if there is an error retrieving the list of nodes, display an error message
   }).error(function(){
     $('#nodelist ul').empty();
     $('#nodelist ul').append('<li>error retrieving results</li>');
@@ -648,7 +646,7 @@ var listNodes = function(){
       if(data.length > $('#nodefilter').data('num')) $('#nodelist ul').append('<li><strong><a id="listmore" href="#">'+(data.length-$('#nodefilter').data('num'))+' more</a>...</strong></li>');
       // if there are no nodes, display 'no results'
       if(data.length == 0) $('#nodelist ul').append('<li>searching...</li>');
-    // if there is an error retrieving the list of nodes (and it was not because it was aborted), display an error message
+      // if there is an error retrieving the list of nodes (and it was not because it was aborted), display an error message
     }).error(function(req){
       if(req.statusText!="abort"){
         $('#nodelist ul').empty();
@@ -748,12 +746,11 @@ var checkReload = function(){
   // otherwise, set the filter to the current timestamp
   else var params = {timeout:tim, timestamp:$('body').data('timestamp')};
   // call the function
-  $.getJSON('http://'+host+'/REST/nodes/'+encodeURIComponent(node)+'/hasRestarted', params,
-  function(data) {
+  $.getJSON('http://'+host+'/REST/nodes/'+encodeURIComponent(node)+'/hasRestarted', params, function(data) {
     // set the current timestamp if it is not known
     if(typeof $('body').data('timestamp') === "undefined"){
       $('body').data('timestamp', data.timestamp);
-    // otherwise, reload the UI if the timestamps do not match
+      // otherwise, reload the UI if the timestamps do not match
     } else if ($('body').data('timestamp')!=data.timestamp) {
       $('body').data('timestamp', data.timestamp);
       reload();
@@ -851,13 +848,8 @@ var parseLog = function(value, noanimate) {
   // check for current entry
   var ele = $('#activity_' + value.source + '_' + value.type + '_' + encodr(value.alias));
   if (ele.length) {
-    /*var diff = tme.diff(moment(ele.data('time')),'ms');
-    if(diff > 500) { */
-      ele.remove();
-      $('#activity ul').prepend(activity);
-    /*} else {
-      $(ele).replaceWith(activity);
-    } */
+    ele.remove();
+    $('#activity ul').prepend(activity);
   } else {
     $('#activity ul').prepend(activity);
   }
@@ -925,8 +917,7 @@ var buildForm = function(name, formname, path, action, link){
   // if this form should be linked to data
   if(link) {
     // get the data
-    $.getJSON('http://'+host+'/REST/nodes/'+encodeURIComponent(node)+'/'+(path.length!==0?(path.join('/')+'/'+name):name),"",
-    function(data) {
+    $.getJSON('http://'+host+'/REST/nodes/'+encodeURIComponent(node)+'/'+(path.length!==0?(path.join('/')+'/'+name):name),"", function(data) {
       // if there is no data for this form, set the data to an empty object
       if($.isEmptyObject(data)) data = {};
       // set the form action (if it exsits)
@@ -938,7 +929,7 @@ var buildForm = function(name, formname, path, action, link){
       // indicate that the form is ready
       $('#'+formname).trigger('ready');
     });
-  // if the form does not need to link to exist data
+    // if the form does not need to link to exist data
   } else {
     // set the data to an empty object
     data = {};
@@ -1096,9 +1087,9 @@ var buildFormEvents = function(name, action, data){
     var root = this;
     // initialise unset objects
     $(this).find('.addobj').each(function(){
-        var v = $.view(this);
-        $.observable(v.data).setProperty(this.id, {});
-        $(root).trigger('updated');
+      var v = $.view(this);
+      $.observable(v.data).setProperty(this.id, {});
+      $(root).trigger('updated');
     });
     // initialise jqCron and set the current value
     $.when($(this).find('input.cron').each(function() {
@@ -1117,110 +1108,172 @@ var buildFormEvents = function(name, action, data){
     })).then($(this).trigger('jqcronenabled'));
   });
   // watch for text being entered into node type fields
-  $('#'+name).on('keyup', 'input.node', function(e) {
-    // if the field has a value, set the filter to this value
-    if($(this).val().length >0) filter = {filter:$(this).val()};
-    else filter = '';
-    // abort any requests in progress
-    if(req) req.abort();
-    var ele = this;
-    // if there is a value to lookup
-    if($(this).val().length >0) {
-      // get the list of nodes from the host
-      req = $.getJSON('http://'+host+'/REST/nodeURLs',filter, function(data) {
-        // dynamically add the popup code to the page if it doesn't exist
-        if(!$(ele).siblings('div.autocomplete[data-target="'+$(ele).attr('id')+'"]').length) $(ele).after('<div class="autocomplete" data-target="'+$(ele).attr('id')+'"><ul></ul></div>');
-        // get the list element
-        var list = $(ele).siblings('div.autocomplete[data-target="'+$(ele).attr('id')+'"]').children('ul');
-        // ensure the list is empty
-        $(list).empty();
-        // for each node, create an entry in the list to a maximum of six
-        $.each(data, function(key, value) {
-          var re = new RegExp("(.*)("+$(ele).val()+")(.*)","ig");
-          var val = value.node.replace(re, '$1<strong>$2</strong>$3')
-          $(list).append('<li>'+val+'</li>');
-          return key < 6;
+  $('#'+name).on('keydown', 'input.node', function(e) {
+    var charCode = e.charCode || e.keyCode;
+    if((charCode == 40) || (charCode == 38) || (charCode == 13)) {
+      e.preventDefault();
+      // is an arrow down or up, so pick an item from the autocomplete box
+      var ele = $(this).siblings('div.autocomplete[data-target="'+$(this).attr('id')+'"]');
+      if(ele.length !== 0){
+        if((charCode == 40) || (charCode == 38)) {
+          if($(ele).find('li.active').length != 0) {
+            var sub = $(ele).find('li.active');
+            if (charCode == 40) {
+              if($(sub).next().length !== 0){
+                $(sub).removeClass('active');
+                $(sub).next().addClass('active');
+              }
+            } else {
+              if($(sub).prev().length !== 0){
+                $(sub).removeClass('active');
+                $(sub).prev().addClass('active');
+              }
+            }
+          } else {
+            $(ele).find("li").first().addClass('active');
+          }
+        } else {
+          $(ele).find('li.active').click();
+        }
+      }
+    } else if (charCode != 9) {
+      if(e.ctrlKey || e.altKey || e.shiftKey) return false;
+      // if the field has a value, set the filter to this value
+      if($(this).val().length >0) filter = {filter:$(this).val()};
+      else filter = '';
+      // abort any requests in progress
+      if(req) req.abort();
+      var ele = this;
+      // if there is a value to lookup
+      if($(this).val().length >0) {
+        // get the list of nodes from the host
+        req = $.getJSON('http://'+host+'/REST/nodeURLs',filter, function(data) {
+          // dynamically add the popup code to the page if it doesn't exist
+          if(!$(ele).siblings('div.autocomplete[data-target="'+$(ele).attr('id')+'"]').length) $(ele).after('<div class="autocomplete" data-target="'+$(ele).attr('id')+'"><ul></ul></div>');
+          // get the list element
+          var list = $(ele).siblings('div.autocomplete[data-target="'+$(ele).attr('id')+'"]').children('ul');
+          // ensure the list is empty
+          $(list).empty();
+          // for each node, create an entry in the list to a maximum of six
+          $.each(data, function(key, value) {
+            var re = new RegExp("(.*)("+$(ele).val()+")(.*)","ig");
+            var val = value.node.replace(re, '$1<strong>$2</strong>$3')
+            $(list).append('<li>'+val+'</li>');
+            return key < 6;
+          });
+          // if there are no results, remove the popup
+          if(data.length == 0) $(ele).siblings('div.autocomplete[data-target="'+$(ele).attr('id')+'"]').remove();
+          // if there is an error, remove the popup
+        }).error(function(req){
+          if(req.statusText!="abort") $(this).siblings('div.autocomplete[data-target="'+$(ele).attr('id')+'"]').remove();
         });
-        // if there are no results, remove the popup
-        if(data.length == 0) $(ele).siblings('div.autocomplete[data-target="'+$(ele).attr('id')+'"]').remove();
-      // if there is an error, remove the popup
-      }).error(function(req){
-        if(req.statusText!="abort") $(this).siblings('div.autocomplete[data-target="'+$(ele).attr('id')+'"]').remove();
-      });
-    // if there is nothing to look up, remove the popup
-    } else {
-      $(this).siblings('div.autocomplete[data-target="'+$(ele).attr('id')+'"]').remove();
+        // if there is nothing to look up, remove the popup
+      } else {
+        $(this).siblings('div.autocomplete[data-target="'+$(ele).attr('id')+'"]').remove();
+      }
     }
+    return false;
   });
   // watch for text being entered into action and event type fields
-  $('#'+name).on('keyup', 'input.event, input.action', function(e) {
-    // abort any requests in progress
-    if(req) req.abort();
-    var ele = this;
-    var lnode = '';
-    // find the nearest node field and retrieve its value
-    if($(this).closest('div.object').children('div.field').children('input.node[data-group="'+$(this).data('group')+'"]').length > 0) {
-      lnode = $(this).closest('div.object').children('div.field').children('input.node[data-group="'+$(this).data('group')+'"]').val();
-    // if no node field is found, use the local node
-    } else lnode = node;
-    // check if this this is an action or event
-    var type = $(this).hasClass("event") ? 'events' : 'actions';
-    // set the filter to the node name
-    var filter = {filter:lnode};
-    // if the field has a value
-    if(($(this).val().length >0)) {
-      // get the node list
-      req = $.getJSON('http://'+host+'/REST/nodeURLs',filter, function(data) {
-        // if one or more nodes is found
-        if(data.length > 0){
-          var len = 0;
-          // stop any requests in progress
-          $.each(reqs, function(key,value){ value.abort() });
-          reqs=[];
-          // create an empty list
-          var items = $('<ul>');
-          // for every item returned
-          $.each(data, function(key, value) {
-            // use an anchor element to parse url for each node
-            var parser = document.createElement('a');
-            parser.href = value.address;            
-            var host = parser.host;
-            $(parser).remove();
-            var lnode = value.node;
-            // get the list of actions/events from the host
-            reqs.push($.getJSON('http://'+host+'/REST/nodes/'+encodeURIComponent(lnode)+'/'+type,"", function(data) {
-              // for every action
-              $.each(data, function(key, value) {
-                // if there is a value
-                if(value.name.toLowerCase().indexOf($(ele).val().toLowerCase()) >= 0) {
-                  // check if the name matches the current value, highlight and add to the list
-                  var re = new RegExp("(.*)("+$(ele).val()+")(.*)","ig");
-                  var val = value.name.replace(re, '$1<strong>$2</strong>$3')
-                  $(items).append('<li>'+val+'</li>');
-                  len++;
-                }
-                // limit to 20 results
-                return len < 20;
-              });
-            }));
-          });
-          // when all requests have completed
-          $.when.apply($, reqs).then(function (){
-            // if the requests were not aborted and there are results
-            if(($(items).children('li').length != 0) && (req.statusText!="abort")){
-              // dynamically add the popup code to the page if it doesn't exist
-              if(!$(ele).siblings('div.autocomplete[data-target="'+$(ele).attr('id')+'"]').length) $(ele).after('<div class="autocomplete" data-target="'+$(ele).attr('id')+'"><ul></ul></div>');
-              // replace the current list with the new one
-              $(ele).siblings('div.autocomplete[data-target="'+$(ele).attr('id')+'"]').children('ul').replaceWith(items);
-            // if there are no results, remove the popup
-            } else $(ele).siblings('div.autocomplete[data-target="'+$(ele).attr('id')+'"]').remove();
-          });
+  $('#'+name).on('keydown', 'input.event, input.action', function(e) {
+    var charCode = e.charCode || e.keyCode;
+    if((charCode == 40) || (charCode == 38) || (charCode == 13)) {
+      e.preventDefault();
+      // is an arrow down or up, so pick an item from the autocomplete box
+      var ele = $(this).siblings('div.autocomplete[data-target="'+$(this).attr('id')+'"]');
+      if(ele.length !== 0){
+        if((charCode == 40) || (charCode == 38)) {
+          if($(ele).find('li.active').length != 0) {
+            var sub = $(ele).find('li.active');
+            if (charCode == 40) {
+              if($(sub).next().length !== 0){
+                $(sub).removeClass('active');
+                $(sub).next().addClass('active');
+              }
+            } else {
+              if($(sub).prev().length !== 0){
+                $(sub).removeClass('active');
+                $(sub).prev().addClass('active');
+              }
+            }
+          } else {
+            $(ele).find("li").first().addClass('active');
+          }
+        } else {
+          $(ele).find('li.active').click();
         }
-      })
-    // if the field has no value, remove the popup
-    } else {
-      $(this).siblings('div.autocomplete[data-target="'+$(ele).attr('id')+'"]').remove();
+      }
+    } else if (charCode != 9) {
+      if(e.ctrlKey || e.altKey || e.shiftKey) return false;
+      // abort any requests in progress
+      if(req) req.abort();
+      var ele = this;
+      var lnode = '';
+      // find the nearest node field and retrieve its value 
+      if($(this).closest('div.object').children('div.field').children('input.node[data-group="'+$(this).data('group')+'"]').length > 0) {
+        lnode = $(this).closest('div.object').children('div.field').children('input.node[data-group="'+$(this).data('group')+'"]').val();
+        // if no node field is found, use the local node
+      } else lnode = node;
+      // check if this this is an action or event
+      var type = $(this).hasClass("event") ? 'events' : 'actions';
+      // set the filter to the node name
+      var filter = {filter:lnode};
+      // if the field has a value
+      if(($(this).val().length >0)) {
+        // get the node list
+        req = $.getJSON('http://'+host+'/REST/nodeURLs',filter, function(data) {
+          // if one or more nodes is found
+          if(data.length > 0){
+            var len = 0;
+            // stop any requests in progress
+            $.each(reqs, function(key,value){ value.abort() });
+            reqs=[];
+            // create an empty list
+            var items = $('<ul>');
+            // for every item returned
+            $.each(data, function(key, value) {
+              // use an anchor element to parse url for each node
+              var parser = document.createElement('a');
+              parser.href = value.address;
+              var host = parser.host;
+              $(parser).remove();
+              var lnode = value.node;
+              // get the list of actions/events from the host
+              reqs.push($.getJSON('http://'+host+'/REST/nodes/'+encodeURIComponent(lnode)+'/'+type,"", function(data) {
+                // for every action
+                $.each(data, function(key, value) {
+                  // if there is a value
+                  if(value.name.toLowerCase().indexOf($(ele).val().toLowerCase()) >= 0) {
+                    // check if the name matches the current value, highlight and add to the list
+                    var re = new RegExp("(.*)("+$(ele).val()+")(.*)","ig");
+                    var val = value.name.replace(re, '$1<strong>$2</strong>$3')
+                    $(items).append('<li>'+val+'</li>');
+                    len++;
+                  }
+                  // limit to 20 results
+                  return len < 20;
+                });
+              }));
+            });
+            // when all requests have completed
+            $.when.apply($, reqs).then(function (){
+              // if the requests were not aborted and there are results
+              if(($(items).children('li').length != 0) && (req.statusText!="abort")){
+                // dynamically add the popup code to the page if it doesn't exist
+                if(!$(ele).siblings('div.autocomplete[data-target="'+$(ele).attr('id')+'"]').length) $(ele).after('<div class="autocomplete" data-target="'+$(ele).attr('id')+'"><ul></ul></div>');
+                // replace the current list with the new one
+                $(ele).siblings('div.autocomplete[data-target="'+$(ele).attr('id')+'"]').children('ul').replaceWith(items);
+                // if there are no results, remove the popup
+              } else $(ele).siblings('div.autocomplete[data-target="'+$(ele).attr('id')+'"]').remove();
+            });
+          }
+        })
+        // if the field has no value, remove the popup
+      } else {
+        $(this).siblings('div.autocomplete[data-target="'+$(ele).attr('id')+'"]').remove();
+      }
     }
+    return false;
   });
   // handle file browse button click events
   $('#'+name).on('click','.browse', function(e) {
@@ -1248,7 +1301,7 @@ var buildFormEvents = function(name, action, data){
         myXhr = $.ajaxSettings.xhr();
         if(myXhr.upload){
           // update the progress indicator
-          myXhr.upload.addEventListener('progress',function(data){ 
+          myXhr.upload.addEventListener('progress',function(data){
             $(_this).siblings('progress').val(Math.floor((data.loaded/data.total)*100));
           }, false);
         }
@@ -1277,6 +1330,12 @@ var buildFormEvents = function(name, action, data){
         $(this).siblings('progress').val(0).hide();
       }
     });
+  });
+  $('#'+name).on('mouseleave', 'div.autocomplete ul li', function() {
+    $(this).parent().find('.active:not(:hover)').removeClass('active');
+  });
+  $('#'+name).on('mouseenter', 'div.autocomplete ul li', function() {
+    $(this).addClass('active');
   });
   // handle when an item is selected from the autocomplete popup
   $('#'+name).on('click', 'div.autocomplete ul li', function() {
@@ -1407,11 +1466,11 @@ var buildFormSchema = function(data, key, parent) {
           buttons+= '<input type="button" class="add" id="'+parent+'" data-seed="'+i.join(',')+'" value="Add '+e+'" />';
         });
         // add conditionally displayed add buttons (accounting for a maximm number of items)
-        if(data.maxItems) set+= '{^{if '+parent+'}}{^{if '+parent+'.length < '+data.maxItems+'}}{^{if '+parent+'.length != 0}}<hr/>{{/if}}'+buttons+'{{/if}}{{/if}}'; 
+        if(data.maxItems) set+= '{^{if '+parent+'}}{^{if '+parent+'.length < '+data.maxItems+'}}{^{if '+parent+'.length != 0}}<hr/>{{/if}}'+buttons+'{{/if}}{{/if}}';
         else set+= '{^{if '+parent+'}}{^{if '+parent+'.length > 0}}<hr/>{{/if}}'+buttons+'{{/if}}';
         // if this isn't a root object, add a block element wrapper
         if(key) set = '<div class="block array"><h6>'+htmlEncode(data.title)+'</h6><div>'+set+'</div></div>';
-      // if the array can contain only one object
+        // if the array can contain only one object
       } else if(data.items.type == 'object') {
         // render the object
         get=buildFormSchema(data.items, null, null);
@@ -1419,7 +1478,7 @@ var buildFormSchema = function(data, key, parent) {
         if(data.minItems) set= '{^{for '+parent+'}}<span>'+get+'{^{if #parent.data.length > '+data.minItems+'}}<input type="button" class="delete" id="'+parent+'{{:#getIndex()}}" value="Delete" />{{/if}}{^{if #getIndex() > 0}}<input type="button" class="up" id="up_'+parent+'{{:#getIndex()}}" value="&#x25b2;" />{{/if}}{^{if #getIndex() < #parent.data.length-1}}<input type="button" class="down" id="down_'+parent+'{{:#getIndex()}}" value="&#x25bc;" /><hr/>{{/if}}</span>{{/for}}';
         else set= '{^{for '+parent+'}}<span>'+get+'<input type="button" class="delete" id="'+parent+'{{:#getIndex()}}" value="Delete" />{^{if #getIndex() > 0}}<input type="button" class="up" id="up_'+parent+'{{:#getIndex()}}" value="&#x25b2;" />{{/if}}{^{if #getIndex() < #parent.data.length-1}}<input type="button" class="down" id="down_'+parent+'{{:#getIndex()}}" value="&#x25bc;" /><hr/>{{/if}}</span>{{/for}}';
         // add conditionally displayed add button (accounting for a maximum number of items)
-        if(data.maxItems) set+= '{^{if '+parent+'}}{^{if '+parent+'.length < '+data.maxItems+'}}{^{if '+parent+'.length != 0}}<hr/>{{/if}}<input type="button" class="add" id="'+parent+'" value="Add" />{{/if}}{{/if}}'; 
+        if(data.maxItems) set+= '{^{if '+parent+'}}{^{if '+parent+'.length < '+data.maxItems+'}}{^{if '+parent+'.length != 0}}<hr/>{{/if}}<input type="button" class="add" id="'+parent+'" value="Add" />{{/if}}{{/if}}';
         else set+= '{^{if '+parent+'}}{^{if '+parent+'.length > 0}}<hr/>{{/if}}{{/if}}<input type="button" class="add" id="'+parent+'" value="Add" />';
         // if this isn't a root object, add a block element wrapper
         if(key) set = '<div class="block array"><h6>'+htmlEncode(data.title)+'</h6><div>'+set+'</div></div>';
@@ -1430,7 +1489,7 @@ var buildFormSchema = function(data, key, parent) {
       // if the string has a fixed set of options, render as a select list
       if(data['enum']){
         set = '<div class="field"><label for="field_'+parent+'{{:#getIndex()}}"'+cls+'>'+htmlEncode(data.title)+'</label><select id="field_'+parent+'{{:#getIndex()}}" title="'+htmlEncode(data.desc)+'" data-link="'+link+'"'+cls+'>';
-          set+= '<option value=""></option>';
+        set+= '<option value=""></option>';
         for (var i=0;i<data['enum'].length;i++) {
           set+= '<option value="'+data['enum'][i]+'">'+data['enum'][i]+'</option>';
         }
