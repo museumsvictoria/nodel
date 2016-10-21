@@ -65,6 +65,17 @@ div.block h6 {
 	cursor: pointer;
 }
 
+div.block h6::after {
+	content: "+";
+	float: right;
+	color: #ccc;
+	font-size: x-large;
+}
+
+div.block h6.contract::after {
+	content: "-";
+}
+
 div.block > div {
 	padding: 0px 15px 10px;
 	display: none;

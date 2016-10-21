@@ -249,6 +249,7 @@ var init = function() {
         var template = '';
         if (typeof form.schema !== "undefined") {
           var schema = {type: "object", properties: {arg: form.schema}};
+          if(typeof schema.properties.arg.title == "undefined") schema.properties.arg.title = form.name + " properties";
           template = buildFormSchema(schema);
         }
         // if the action does not have any fields (it only has a submit button), set it to display inline
@@ -308,6 +309,7 @@ var init = function() {
         var template = '';
         if (typeof form.schema !== "undefined") {
           var schema = {type: "object", properties: {arg: form.schema}};
+          if(typeof schema.properties.arg.title == "undefined") schema.properties.arg.title = form.name + " properties";
           template = buildFormSchema(schema);
         }
         // if the event does not have any fields (it only has a submit button), set it to display inline
@@ -443,7 +445,7 @@ var init = function() {
   // watch for clicks on all group or object block titles
   $('body').on('mousedown touchstart', '.block h6', function() {
     // show or hide the contents
-    $(this).next('div').slideToggle('slow');
+    $(this).toggleClass('contract').next('div').finish().slideToggle('slow');
     return false;
   });
   // watch for clicks on all section titles set to expand
