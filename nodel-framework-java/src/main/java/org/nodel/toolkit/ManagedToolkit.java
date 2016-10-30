@@ -469,18 +469,29 @@ public class ManagedToolkit {
             long timeout,
             String working,
             boolean mergeErr) {
+
+        final QuickProcess quickProcess = new QuickProcess(_threadStateHandler, s_threadPool, s_timers, _processExceptionHandler, _node, command, stdinPush, onStarted, onFinished, timeout, working, mergeErr);
+        quickProcess.setClosedHandler(new Handler.H0() {
+
+            @Override
+            public void handle() {
+                _quickProcesses.remove(quickProcess);
+            }
+
+        });
         
-        QuickProcess quickProcess = new QuickProcess(_threadStateHandler, s_threadPool, s_timers, _processExceptionHandler, _node, command, stdinPush, onStarted, onFinished, timeout, working, mergeErr); 
-        
-        synchronized(_lock) {
+        // all wired, can begin...
+        quickProcess.go();
+
+        synchronized (_lock) {
             if (_closed)
                 Stream.safeClose(quickProcess);
             else
                 _quickProcesses.add(quickProcess);
         }
-        
+
         return quickProcess;
-  }
+    }
     
     /**
      * Constructs a managed TCP connection.

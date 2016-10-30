@@ -55,6 +55,11 @@ public class QuickProcess implements Closeable {
     H1<Exception> _callbackExceptionHandler;
     
     /**
+     * (toolkit related)
+     */
+    private Handler.H0 _closedHandler;
+    
+    /**
      * (from toolkit)
      */
     private BaseNode _parentNode;    
@@ -106,8 +111,8 @@ public class QuickProcess implements Closeable {
 
     public static class FinishedArg {
         
-        @Value(name = "exitCode", order = 1, desc = "The exit code (or null if timed out)")
-        public Integer exitCode;
+        @Value(name = "code", order = 1, desc = "The exit code (or null if timed out)")
+        public Integer code;
 
         @Value(name = "stdout", order = 3)
         public String stdout;
@@ -125,7 +130,7 @@ public class QuickProcess implements Closeable {
     /**
      * Constructs a new quick process.
      */
-    public QuickProcess(H0 threadStateHandler, ThreadPool threadPool, Timers timers, H1<Exception> callbackExceptionHandler,  BaseDynamicNode parentNode, 
+    public QuickProcess(H0 threadStateHandler, ThreadPool threadPool, Timers timers, H1<Exception> callbackExceptionHandler,  BaseDynamicNode parentNode,
             List<String> command, String stdinPush, H1<Integer> onStarted, H1<FinishedArg> onFinished, long timeout, String working, boolean mergeErr) {
         
         // validate command list
@@ -133,6 +138,7 @@ public class QuickProcess implements Closeable {
             throw new RuntimeException("The command list was missing or empty.");
         
         _threadStateHandler = threadStateHandler;
+        _callbackExceptionHandler = callbackExceptionHandler;
         _threadPool = threadPool;
         _timers = timers;
         _parentNode = parentNode;
@@ -144,9 +150,21 @@ public class QuickProcess implements Closeable {
         _timeout = timeout;
         _working = working;
         _mergeErr = mergeErr;
-        
-        // must return immediately, use thread-pool
-        threadPool.execute(new Runnable() {
+    }
+    
+    /**
+     * Callback for when closed and clean up can be taken.
+     */
+    protected void setClosedHandler(Handler.H0 handler) {
+        _closedHandler = handler;
+    }
+    
+    /**
+     * Starts the quick-process (allowing for handlers to have been wired up)
+     * (returns immediately)
+     */
+    protected void go() {
+        _threadPool.execute(new Runnable() {
 
             @Override
             public void run() {
@@ -250,7 +268,7 @@ public class QuickProcess implements Closeable {
             
             
             FinishedArg arg = new FinishedArg();
-            arg.exitCode = process.waitFor();
+            arg.code = process.waitFor();
             arg.stdout = stdoutCapture;
             arg.stderr = stderrCapture;
             
@@ -299,10 +317,16 @@ public class QuickProcess implements Closeable {
 
                     @Override
                     public void run() {
-                        process.destroy();
+                        try {
+                            process.destroy();
+                        } finally {
+                            _closedHandler.handle();
+                        }
                     }
 
                 });
+            } else {
+                _closedHandler.handle();
             }
         }
     }

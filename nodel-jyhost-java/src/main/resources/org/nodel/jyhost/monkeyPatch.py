@@ -120,9 +120,8 @@ def Process(command, # the command line and arguments
 def quick_process(command,
                   stdinPush=None, # text to push to stdin
                   started=None,   # a callback where arg is OS process ID
-                  finished=None,  # callback with argument with these properties:
-                                  #   'exit': The exit code (or null of timed out)
-                                  #   'error': Any launch errors e.g. program not found
+                  finished=None,  # single callback argument with these properties:
+                                  #   'code': The exit code (or null in timed out)
                                   #   'stdout': The complete stdout capture
                                   #   'stderr': The complete stderr capture (if not merged)
                   timeoutInSeconds=0, # if positive, kills the process on timeout
