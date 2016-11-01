@@ -520,5 +520,14 @@ public class Nodel {
 
         s_hardLinksAddresses = list;
     }
+    
+	/**
+	 * Java (up to version 8) provides no way besides this crude technique to retrieve the PID of this process 
+	 */
+    public static int getPID() {
+    	// TODO: don't directly bind to ManagementFactory class, rather
+    	// allow for the possibility of this failing on some platforms by using reflection
+		return Integer.parseInt(ManagementFactory.getRuntimeMXBean().getName().split("@")[0]);		
+	}    
 
 }

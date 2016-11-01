@@ -7,6 +7,7 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -15,6 +16,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import org.nodel.Handler;
 import org.nodel.Handler.H0;
 import org.nodel.Handler.H1;
+import org.nodel.core.Nodel;
 import org.nodel.Strings;
 import org.nodel.Threads;
 import org.nodel.diagnostics.CountableInputStream;
@@ -584,14 +586,48 @@ public class ManagedProcess implements Closeable {
         String workingStr = _working;
         
         try {
-            List<String> command = _command;
-            
+            List<String> origCommand = _command;
+
             // ensure enough arguments (at least 1)
-            if (command == null || command.size() == 0)
+            if (origCommand == null || origCommand.size() == 0)
                 throw new RuntimeException("No launch arguments were provided.");
-            
+
+            // if on Windows, use the ProcessSandbox.exe utility if it can be found
+            // (try it in current dir...)
+            final String PROCESS_SANDBOX = "ProcessSandbox.exe";
+            File processSandboxFile = new File(PROCESS_SANDBOX);
+            if (!processSandboxFile.exists()) {
+                // otherwise is it next to the executable we're trying to run
+                // (which might not have any path information)
+                File processExe = new File(origCommand.get(0));
+                if (processExe.exists()) {
+                    processSandboxFile = new File(processExe.getParent(), PROCESS_SANDBOX);
+                    if (!processSandboxFile.exists())
+                        processSandboxFile = null;
+                }
+            } else {
+                processSandboxFile = null;
+            }
+
+            List<String> command; // the command list that will be used
+
+            if (processSandboxFile != null) {
+                // prepend the sandbox and the arguments it needs
+                ArrayList<String> list = new ArrayList<String>();
+                list.add(processSandboxFile.getAbsolutePath());
+                list.add("--ppid");
+                list.add(String.valueOf(Nodel.getPID()));
+                list.addAll(origCommand);
+
+                command = list;
+
+            } else {
+                // just use the original
+                command = origCommand;
+            }
+
             ProcessBuilder processBuilder = new ProcessBuilder(command);
-            
+
             // set the working directory if it's specified, or to the node's root
             if (!Strings.isNullOrEmpty(workingStr)) {
                 File workingDir = new File(workingStr);
