@@ -1,6 +1,114 @@
-// (this Gradle project may be expanded in the future)
+apply plugin: 'java'
 
-task content(type: Zip) {
-	from 'www'
+import org.apache.tools.ant.filters.ReplaceTokens
+import org.joda.time.DateTime;
+
+buildscript {
+    repositories {
+        jcenter()
+    }
+
+    dependencies {
+        classpath 'joda-time:joda-time:2.6'
+    }
+}
+
+sourceCompatibility = 1.7
+targetCompatibility = 1.7
+
+def hostname = InetAddress.getLocalHost().getHostName().toUpperCase();
+
+def now = DateTime.now().toString();
+
+task gitBranch(type:Exec) {
+  commandLine 'git', 'rev-parse', '--abbrev-ref', 'HEAD'
+  standardOutput = new ByteArrayOutputStream()
+  ext.output = {
+    return standardOutput.toString().trim()
+  }
+}
+
+task gitId(type:Exec) {
+  commandLine 'git', 'rev-parse', 'HEAD'
+  standardOutput = new ByteArrayOutputStream()
+  ext.output = {
+    return standardOutput.toString().trim()
+  }
+}
+
+task gitRev(type:Exec) {
+    commandLine 'git', 'rev-list', '--count', 'HEAD'
+    standardOutput = new ByteArrayOutputStream()
+    ext.output = {
+        return standardOutput.toString().trim()
+    }
+}
+
+gitBranch.execute()
+gitRev.execute()
+gitId.execute()
+
+def branch = gitBranch.output()
+if (branch.equals("master"))
+    branch = "dev"
+
+def rev = gitRev.output()
+// strip out non-alphanumeric (e.g. the '+' in '1234+')
+rev = rev.replaceAll(/[^a-zA-Z0-9]/, '')
+
+def buildSummary = gitId.output();
+
+if (!branch.equals("stable"))
+    version project.version + "-" + branch + "_r" + rev
+
+task copyContent(type: Copy) {
+    from 'www'
+    into new File(project.buildDir, 'www-content_stage')
+    exclude 'build.json'
+}
+
+task filterContentTemplates(type: Copy) {
+    from 'www'
+    into new File(project.buildDir, 'www-content_stage')
+    include 'build.json' 
+    filter(ReplaceTokens, tokens: [ 
+        buildSummary: project.name + "-" + project.version + " " + buildSummary + " (" + hostname + ") " + now,
+        buildProject: project.name,
+        buildBranch: branch,
+        buildVersion: project.version,
+        buildId: buildSummary,
+        buildRev: rev,
+        buildHost: hostname,
+        buildDate: now
+    ])
+}
+
+task zipContentInterface(type: Zip, dependsOn: [copyContent, filterContentTemplates]) {
+    from new File(project.buildDir, 'www-content_stage')
+    archiveName 'content.zip'
+    destinationDir new File(project.buildDir, 'www-content/org/nodel/host')
+}
+
+sourceSets {
+    main {
+        resources.srcDir new File(project.buildDir, 'www-content')
+    }
+}
+
+task preBuild << {
+    tasks.cleanFilterContentTemplates.execute()
+    tasks.cleanZipContentInterface.execute()
+    tasks.cleanCopyContent.execute()
+
+    tasks.copyContent.execute()
+    tasks.filterContentTemplates.execute()
+    tasks.zipContentInterface.execute()
+}
+
+compileJava.dependsOn(preBuild)
+
+dependencies {
+    compile 'joda-time:joda-time:2.6'
+    compile 'org.joda:joda-convert:1.7'
 }
 

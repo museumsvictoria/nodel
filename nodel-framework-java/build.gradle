@@ -66,54 +66,6 @@ def buildSummary = gitId.output();
 if (!branch.equals("stable"))
     version CONTROLLED_VERSION + "-" + branch + "_r" + rev
 
-task copyContent(type: Copy) {
-    from new File(project(':nodel-webui-js').projectDir, 'www')
-    into 'build/contentWWW'
-    exclude 'build.json'
-}
-
-task filterContentTemplates(type: Copy) {
-    from new File(project(':nodel-webui-js').projectDir, 'www')
-    into 'build/contentWWW'
-    include 'build.json' 
-    filter(ReplaceTokens, tokens: [ 
-        buildSummary: project.name + "-" + project.version + " " + buildSummary + " (" + hostname + ") " + now,
-        buildProject: project.name,
-        buildBranch: branch,
-        buildVersion: project.version,
-        buildId: buildSummary,
-		buildRev: rev,
-        buildHost: hostname,
-        buildDate: now
-    ])
-}
-
-task zipContentInterface(type: Zip, dependsOn: [copyContent, filterContentTemplates]) {
-    from new File(buildDir, 'contentWWW')
-    archiveName 'content.zip'
-    destinationDir new File(projectDir, 'src/main/resources/org/nodel/host')
-}
-
-task copyBuildInfo(type: Copy, dependsOn: [copyContent, filterContentTemplates]) {
-    from new File(buildDir, 'contentWWW')
-	include 'build.json'
-    destinationDir new File(projectDir, 'src/main/resources/org/nodel')
-}
-
-task preBuild << {
-    tasks.cleanCopyContent.execute()
-    tasks.cleanFilterContentTemplates.execute()
-    tasks.cleanZipContentInterface.execute()
-	tasks.cleanCopyBuildInfo.execute()
-
-    tasks.copyContent.execute()
-    tasks.filterContentTemplates.execute()
-    tasks.zipContentInterface.execute()
-	tasks.copyBuildInfo.execute()
-}
-
-compileJava.dependsOn(preBuild)
-
 jar {
 	from "$buildDir/output"
     baseName = 'nodel-framework'
