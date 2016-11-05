@@ -66,6 +66,12 @@ def buildSummary = gitId.output();
 if (!branch.equals("stable"))
     version CONTROLLED_VERSION + "-" + branch + "_r" + rev
 
+sourceSets {
+    main {
+        resources.srcDirs new File(project(':nodel-webui-js').buildDir, 'www-content')
+    }
+}
+
 jar {
 	from "$buildDir/output"
     baseName = 'nodel-framework'

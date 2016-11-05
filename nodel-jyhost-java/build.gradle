@@ -86,6 +86,7 @@ build.doLast {
 }
 
 dependencies {
+    compile project(':nodel-webui-js')
     compile project(':nodel-framework-java')
     compile 'commons-daemon:commons-daemon:1.0.15'
     compile 'org.slf4j:slf4j-api:1.7.10'

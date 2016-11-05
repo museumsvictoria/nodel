@@ -1,4 +1,5 @@
 apply plugin: 'java'
+apply plugin: 'eclipse'
 
 import org.apache.tools.ant.filters.ReplaceTokens
 import org.joda.time.DateTime;
@@ -89,6 +90,12 @@ task zipContentInterface(type: Zip, dependsOn: [copyContent, filterContentTempla
     destinationDir new File(project.buildDir, 'www-content/org/nodel/host')
 }
 
+task copyBuildInfo(type: Copy, dependsOn: [copyContent, filterContentTemplates]) {
+    from new File(project.buildDir, 'www-content_stage')
+    include 'build.json'
+    destinationDir new File(project.buildDir, 'www-content/org/nodel')
+}
+
 sourceSets {
     main {
         resources.srcDir new File(project.buildDir, 'www-content')
@@ -103,6 +110,8 @@ task preBuild << {
     tasks.copyContent.execute()
     tasks.filterContentTemplates.execute()
     tasks.zipContentInterface.execute()
+
+    tasks.copyBuildInfo.execute()
 }
 
 compileJava.dependsOn(preBuild)
