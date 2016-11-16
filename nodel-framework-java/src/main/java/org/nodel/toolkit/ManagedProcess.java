@@ -591,11 +591,11 @@ public class ManagedProcess implements Closeable {
             // ensure enough arguments (at least 1)
             if (origCommand == null || origCommand.size() == 0)
                 throw new RuntimeException("No launch arguments were provided.");
-
+            
             // if on Windows, use the ProcessSandbox.exe utility if it can be found
-            // (try it in current dir...)
+            // (try it in node root...)
             final String PROCESS_SANDBOX = "ProcessSandbox.exe";
-            File processSandboxFile = new File(PROCESS_SANDBOX);
+            File processSandboxFile = new File(_parentNode.getRoot(), PROCESS_SANDBOX);
             if (!processSandboxFile.exists()) {
                 // otherwise is it next to the executable we're trying to run
                 // (which might not have any path information)
@@ -604,9 +604,10 @@ public class ManagedProcess implements Closeable {
                     processSandboxFile = new File(processExe.getParent(), PROCESS_SANDBOX);
                     if (!processSandboxFile.exists())
                         processSandboxFile = null;
+                } else {
+                    // doesn't have any path information, so can't do anything
+                    processSandboxFile = null;
                 }
-            } else {
-                processSandboxFile = null;
             }
 
             List<String> command; // the command list that will be used
