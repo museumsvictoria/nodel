@@ -1174,7 +1174,6 @@ var buildFormEvents = function(name, action, data){
         $(this).siblings('div.autocomplete[data-target="'+$(ele).attr('id')+'"]').remove();
       }
     }
-    return false;
   });
   // watch for text being entered into action and event type fields
   $('#'+name).on('keydown', 'input.event, input.action', function(e) {
@@ -1275,7 +1274,6 @@ var buildFormEvents = function(name, action, data){
         $(this).siblings('div.autocomplete[data-target="'+$(ele).attr('id')+'"]').remove();
       }
     }
-    return false;
   });
   // handle file browse button click events
   $('#'+name).on('click','.browse', function(e) {
@@ -1333,10 +1331,8 @@ var buildFormEvents = function(name, action, data){
       }
     });
   });
-  $('#'+name).on('mouseleave', 'div.autocomplete ul li', function() {
-    $(this).parent().find('.active:not(:hover)').removeClass('active');
-  });
   $('#'+name).on('mouseenter', 'div.autocomplete ul li', function() {
+    $(this).parent().find('.active:not(:hover)').removeClass('active');
     $(this).addClass('active');
   });
   // handle when an item is selected from the autocomplete popup
