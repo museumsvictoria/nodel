@@ -140,7 +140,7 @@ public class Diagnostics {
     
     @Value(name = "vmArgs", title = "VM arguments", desc = "The arguments supplied to this instance of the VM.")
     public List<String> vmArgs() {
-        return Environment.getVMArgs();
+        return Environment.instance().getVMArgs();
     }
     
     @Value(name = "availableProcessors", title = "Available processors", desc = "The number of available processors.")

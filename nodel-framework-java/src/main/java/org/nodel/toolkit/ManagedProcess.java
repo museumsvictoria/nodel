@@ -7,6 +7,7 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -15,6 +16,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import org.nodel.Handler;
 import org.nodel.Handler.H0;
 import org.nodel.Handler.H1;
+import org.nodel.core.Nodel;
 import org.nodel.Strings;
 import org.nodel.Threads;
 import org.nodel.diagnostics.CountableInputStream;
@@ -45,6 +47,17 @@ import org.slf4j.LoggerFactory;
  *  - exponential back-off
  */
 public class ManagedProcess implements Closeable {
+    
+    /**
+     * On Windows a Process Sandbox utility can be used which, at a minimum, should manage
+     * the clean up of child processes.
+     * 
+     * Expected usage:
+     * [--ppid PARENT_PROCESS_ID] args...
+     * 
+     * (non-final to allow runtime changes)
+     */
+    public static String PROCESS_SANDBOX = "ProcessSandbox.exe";
     
     private static AtomicLong s_instanceCounter = new AtomicLong();
     
@@ -584,14 +597,33 @@ public class ManagedProcess implements Closeable {
         String workingStr = _working;
         
         try {
-            List<String> command = _command;
-            
+            List<String> origCommand = _command;
+
             // ensure enough arguments (at least 1)
-            if (command == null || command.size() == 0)
+            if (origCommand == null || origCommand.size() == 0)
                 throw new RuntimeException("No launch arguments were provided.");
             
-            ProcessBuilder processBuilder = new ProcessBuilder(command);
+            List<String> command; // the command list that will be used            
             
+            // if on Windows, use the ProcessSandbox.exe utility if it can be found...            
+            File processSandboxFile = resolveProcessSandbox(origCommand);
+
+            if (processSandboxFile != null) {
+                // prepend the sandbox and the arguments it needs
+                ArrayList<String> list = new ArrayList<String>();
+                list.add(processSandboxFile.getAbsolutePath());
+                list.add("--ppid");
+                list.add(String.valueOf(Nodel.getPID()));
+                list.addAll(origCommand);
+
+                command = list;
+            } else {
+                // just use the original
+                command = origCommand;
+            }
+
+            ProcessBuilder processBuilder = new ProcessBuilder(command);
+
             // set the working directory if it's specified, or to the node's root
             if (!Strings.isNullOrEmpty(workingStr)) {
                 File workingDir = new File(workingStr);
@@ -666,6 +698,44 @@ public class ManagedProcess implements Closeable {
             
             safeClose(process);
         }
+    }
+
+    /**
+     * (convenience instance method for Windows environment)
+     * 
+     * Returns null if could not locate the process sandbox otherwise
+     * attempts to resolves it using some rules.
+     * 1) next to the EXE itself
+     * 2) within the node root folder
+     * 3) within the host root folder
+     * 
+     * (origCommand list will have at least one item)
+     */
+    private File resolveProcessSandbox(List<String> origCommand) {
+        File result;
+
+        // ... next to the executable itself (which might be missing path info)
+
+        // can the EXE be located?
+        File processExe = new File(origCommand.get(0));
+        if (processExe.exists()) {
+            result = new File(processExe.getParent(), PROCESS_SANDBOX);
+            if (result.exists())
+                return result;
+        }
+
+        // ... in the node root?
+        result = new File(_parentNode.getRoot(), PROCESS_SANDBOX);
+        if (result.exists())
+            return result;
+
+        // ... in the host root?
+        result = new File(Nodel.getHostPath(), PROCESS_SANDBOX);
+        if (result.exists())
+            return result;
+
+        // ...else
+        return null;
     }
 
     /**
