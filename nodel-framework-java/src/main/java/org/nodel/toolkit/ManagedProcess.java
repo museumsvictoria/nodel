@@ -48,6 +48,17 @@ import org.slf4j.LoggerFactory;
  */
 public class ManagedProcess implements Closeable {
     
+    /**
+     * On Windows a Process Sandbox utility can be used which, at a minimum, should manage
+     * the clean up of child processes.
+     * 
+     * Expected usage:
+     * [--ppid PARENT_PROCESS_ID] args...
+     * 
+     * (non-final to allow runtime changes)
+     */
+    public static String PROCESS_SANDBOX = "ProcessSandbox.exe";
+    
     private static AtomicLong s_instanceCounter = new AtomicLong();
     
     /**
@@ -592,25 +603,10 @@ public class ManagedProcess implements Closeable {
             if (origCommand == null || origCommand.size() == 0)
                 throw new RuntimeException("No launch arguments were provided.");
             
-            // if on Windows, use the ProcessSandbox.exe utility if it can be found
-            // (try it in node root...)
-            final String PROCESS_SANDBOX = "ProcessSandbox.exe";
-            File processSandboxFile = new File(_parentNode.getRoot(), PROCESS_SANDBOX);
-            if (!processSandboxFile.exists()) {
-                // otherwise is it next to the executable we're trying to run
-                // (which might not have any path information)
-                File processExe = new File(origCommand.get(0));
-                if (processExe.exists()) {
-                    processSandboxFile = new File(processExe.getParent(), PROCESS_SANDBOX);
-                    if (!processSandboxFile.exists())
-                        processSandboxFile = null;
-                } else {
-                    // doesn't have any path information, so can't do anything
-                    processSandboxFile = null;
-                }
-            }
-
-            List<String> command; // the command list that will be used
+            List<String> command; // the command list that will be used            
+            
+            // if on Windows, use the ProcessSandbox.exe utility if it can be found...            
+            File processSandboxFile = resolveProcessSandbox(origCommand);
 
             if (processSandboxFile != null) {
                 // prepend the sandbox and the arguments it needs
@@ -621,7 +617,6 @@ public class ManagedProcess implements Closeable {
                 list.addAll(origCommand);
 
                 command = list;
-
             } else {
                 // just use the original
                 command = origCommand;
@@ -703,6 +698,44 @@ public class ManagedProcess implements Closeable {
             
             safeClose(process);
         }
+    }
+
+    /**
+     * (convenience instance method for Windows environment)
+     * 
+     * Returns null if could not locate the process sandbox otherwise
+     * attempts to resolves it using some rules.
+     * 1) next to the EXE itself
+     * 2) within the node root folder
+     * 3) within the host root folder
+     * 
+     * (origCommand list will have at least one item)
+     */
+    private File resolveProcessSandbox(List<String> origCommand) {
+        File result;
+
+        // ... next to the executable itself (which might be missing path info)
+
+        // can the EXE be located?
+        File processExe = new File(origCommand.get(0));
+        if (processExe.exists()) {
+            result = new File(processExe.getParent(), PROCESS_SANDBOX);
+            if (result.exists())
+                return result;
+        }
+
+        // ... in the node root?
+        result = new File(_parentNode.getRoot(), PROCESS_SANDBOX);
+        if (result.exists())
+            return result;
+
+        // ... in the host root?
+        result = new File(Nodel.getHostPath(), PROCESS_SANDBOX);
+        if (result.exists())
+            return result;
+
+        // ...else
+        return null;
     }
 
     /**
