@@ -1139,7 +1139,7 @@ var buildFormEvents = function(name, action, data){
         }
       }
     } else if (charCode != 9) {
-      if(e.ctrlKey || e.altKey) return false;
+      if(e.ctrlKey || e.altKey) return true;
       // if the field has a value, set the filter to this value
       if($(this).val().length >0) filter = {filter:$(this).val()};
       else filter = '';
@@ -1205,7 +1205,7 @@ var buildFormEvents = function(name, action, data){
         }
       }
     } else if (charCode != 9) {
-      if(e.ctrlKey || e.altKey) return false;
+      if(e.ctrlKey || e.altKey) return true;
       // abort any requests in progress
       if(req) req.abort();
       var ele = this;
