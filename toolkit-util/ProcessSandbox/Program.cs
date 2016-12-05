@@ -10,7 +10,7 @@ using System.Threading;
 /// This program is a simple launcher that uses native Windows Job objects to prevent
 /// child processes from being orphaned should itself or its parent die.
 /// 
-/// It waits for its child process to finish, and then it does.
+/// Using minimal threads and resources, it waits for its child process or parent (if specified) to finish, and then it dies.
 /// </summary>
 namespace ProcessSandbox
 {
@@ -46,7 +46,9 @@ namespace ProcessSandbox
 
                 // determine this (self) and parent processes
                 Process self = Process.GetCurrentProcess();
-                Process parent = ppid > 0 ? Process.GetProcessById((int)ppid) : null;
+
+                // (for parent, need to use 'OpenProcess' API for waitable handle. Managed Process class does not always provide one.)
+                IntPtr parent = ppid > 0 ? OpenProcess(ProcessSecurityAndAccessRights_SYNCHRONIZE, true, (int)ppid) : IntPtr.Zero;
 
                 // establish a job object and add itself
                 Job job = new Job();
@@ -71,13 +73,20 @@ namespace ProcessSandbox
                 toWaitOn.Add(IntPtrToManualResetEvent(child.Handle));
 
                 // ... and parent (if specified)
-                if (parent != null)
-                    toWaitOn.Add(IntPtrToManualResetEvent(parent.Handle));
+                if (parent != IntPtr.Zero)
+                    toWaitOn.Add(IntPtrToManualResetEvent(parent));
 
                 // wait on either
-                WaitHandle.WaitAny(toWaitOn.ToArray());
+                int signalledElement = WaitHandle.WaitAny(toWaitOn.ToArray());
 
-                // wait for child to die (is redundant by no harm)...
+                if (signalledElement > 0)
+                {
+                    // the parent stopped (likely unexpectidly)
+                    // so kill the child and quickly die
+                    child.Kill();
+                }
+
+                // wait for child to die (is redundant but no harm)...
                 child.WaitForExit();
 
                 // and pick up exit code to actually exit with
@@ -95,7 +104,7 @@ namespace ProcessSandbox
                 catch { }
 
                 // produce a response message (for possible JSON consumption) and quit
-                Console.WriteLine("{\"event\": \"LaunchFailure\", \"arg\": \""+ JSONEscape(exc.Message + " (" + exc.GetType()+ ")") + "\"}");
+                Console.WriteLine("{\"event\": \"LaunchFailure\", \"arg\": \"" + JSONEscape(exc.Message + " (" + exc.GetType() + ")") + "\"}");
                 return;
             }
 
@@ -290,6 +299,15 @@ namespace ProcessSandbox
             GroupInformation = 11
         }
 
+        public static uint ProcessSecurityAndAccessRights_SYNCHRONIZE = 0x00100000;
+
+        [DllImport("kernel32.dll")]
+        public static extern IntPtr OpenProcess(
+          uint dwDesiredAccess,
+          bool bInheritHandle,
+          int dwProcessId
+        );
+
         #endregion
 
         #region (convenience functions)
@@ -330,4 +348,3 @@ namespace ProcessSandbox
 
     }
 }
-

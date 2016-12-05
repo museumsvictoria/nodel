@@ -15,6 +15,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
 
+import org.nodel.Environment;
 import org.nodel.Handler;
 import org.nodel.Handlers;
 import org.nodel.SimpleName;
@@ -519,6 +520,13 @@ public class Nodel {
         }
 
         s_hardLinksAddresses = list;
+    }
+    
+    /**
+     * Gets the PID of the current process.
+     */
+    public static int getPID() {
+        return Environment.instance().getPID();
     }
 
 }
