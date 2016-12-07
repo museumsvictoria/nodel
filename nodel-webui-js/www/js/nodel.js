@@ -249,7 +249,7 @@ var init = function() {
         var template = '';
         if (typeof form.schema !== "undefined") {
           var schema = {type: "object", properties: {arg: form.schema}};
-          if(typeof schema.properties.arg.title == "undefined") schema.properties.arg.title = form.name + " properties";
+          if(typeof schema.properties.arg.title == "undefined") schema.properties.arg.title = '';
           template = buildFormSchema(schema);
         }
         // if the action does not have any fields (it only has a submit button), set it to display inline
@@ -309,7 +309,7 @@ var init = function() {
         var template = '';
         if (typeof form.schema !== "undefined") {
           var schema = {type: "object", properties: {arg: form.schema}};
-          if(typeof schema.properties.arg.title == "undefined") schema.properties.arg.title = form.name + " properties";
+          if(typeof schema.properties.arg.title == "undefined") schema.properties.arg.title = '';
           template = buildFormSchema(schema);
         }
         // if the event does not have any fields (it only has a submit button), set it to display inline
@@ -829,7 +829,7 @@ var updateLogs = function(){
 
 var parseLog = function(value, noanimate) {
   if (typeof(noanimate) === 'undefined') noanimate = false;
-  if (value.source == 'local') $('#' + value.type + '_' + encodr(value.alias)).trigger('updatedata', {"arg": value.arg});
+  if ((typeof value.arg !== 'undefined') && (value.source == 'local')) $('#' + value.type + '_' + encodr(value.alias)).trigger('updatedata', {"arg": value.arg});
   // if the activity is a local event or action, and the display is not set to animate, highlight the action button
   if ((value.source == 'local') && (!noanimate)) $('#' + value.type + '_' + encodr(value.alias) + ' button span').stop(true, true).css({'color': opts.local[value.type].colour}).animate({'color': '#bbb'}, 10000);
   // construct the activity log entry
@@ -951,7 +951,10 @@ var buildFormEvents = function(name, action, data){
   var req = 0;
   var reqs = [];
   $('#'+name).on('updatedata', function(evt, newdata) {
-    if(!$(this).hasClass('active')) $.observable(data).setProperty(newdata);
+    if(!$(this).hasClass('active')) {
+      $.observable(data).setProperty(newdata);
+      $('#'+name).trigger('updated');
+    }
   });
   // handle submit validation
   $('#'+name).on('click', '.'+action, function() {
@@ -1086,12 +1089,12 @@ var buildFormEvents = function(name, action, data){
   });
   // handle updates to forms
   $('#'+name).on('ready updated', function() {
-    var root = this;
+    var root = this.id;
     // initialise unset objects
     $(this).find('.addobj').each(function(){
       var v = $.view(this);
       $.observable(v.data).setProperty(this.id, {});
-      $(root).trigger('updated');
+      $('#'+root).trigger('updated');
     });
     // initialise jqCron and set the current value
     $.when($(this).find('input.cron').each(function() {
@@ -1392,9 +1395,8 @@ var buildFormSchema = function(data, key, parent) {
   var cls = '';
   var group = '';
   // field group is always the parent
-  if(parent) group = parent;
-  // if there is a parent, set the new parent to be the current parent plus the current field key
-  if(parent) {
+  if(parent) { 
+    group = parent;
     parent = parent + '.' + key;
   }
   // otherwise, set the parent to the field key (or none)
@@ -1407,7 +1409,7 @@ var buildFormSchema = function(data, key, parent) {
   if(data.format) xtr.push(data.format);
   if(xtr.length!==0) cls = ' class="'+xtr.join(' ')+'"';
   // determine placeholder value
-  var placeholder = data.hint ? data.hint : '';
+  var placeholder = data.hint ? htmlEncode(data.hint) : '';
   // format according to the field type
   switch(data.type) {
     // format an object
