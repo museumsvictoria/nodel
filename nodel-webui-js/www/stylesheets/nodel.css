@@ -53,7 +53,7 @@ div.block {
 	background: rgba(0,0,0,0.025);
 	padding: 0px;
 	margin-bottom: 20px;
-	overflow: auto;
+	overflow: hidden;
 }
 
 div.block form {
