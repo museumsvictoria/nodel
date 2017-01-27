@@ -116,6 +116,10 @@ public class JSONStreamReader {
                             inQuotes = true;
                         
                     } else if (c == '{') {
+                        // got opening brace but we might be in quotes
+                        if (inQuotes)
+                            continue;
+
                         // raise nesting level
                         level++;
                         
