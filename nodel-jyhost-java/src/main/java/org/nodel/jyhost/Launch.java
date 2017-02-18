@@ -9,6 +9,7 @@ package org.nodel.jyhost;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.PrintWriter;
 import java.io.RandomAccessFile;
 import java.net.Inet4Address;
 import java.net.InetAddress;
@@ -21,7 +22,9 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
+import org.joda.time.DateTime;
 import org.nodel.StartupException;
+import org.nodel.Threads;
 import org.nodel.Version;
 import org.nodel.core.Nodel;
 import org.nodel.host.BootstrapConfig;
@@ -106,19 +109,49 @@ public class Launch {
      * Console launch entry-point.
      */
     public static void main(String[] args) throws IOException, JSONException, StartupException {
-        Launch launch = new Launch(args);
-        
-        System.out.println("Nodel [Jython] v" + VERSION + " is running.");
-        System.out.println();
-        System.out.println("Press Enter to initiate a shutdown.");
-        System.out.println();
-        System.in.read();
-        
-        System.out.println("Shutdown initiated...");
-        
-        launch.shutdown();
-        
-        System.out.println("Finished.");
+        try {
+            Launch launch = new Launch(args);
+
+            System.out.println("Nodel [Jython] v" + VERSION + " is running.");
+            System.out.println();
+            System.out.println("Press Enter to initiate a shutdown.");
+            System.out.println();
+            
+            tryReadFromConsole();
+
+            System.out.println("Shutdown initiated...");
+
+            launch.shutdown();
+
+            System.out.println("Finished.");
+            
+        } catch (Exception exc) {
+            // dump to file first before throwing
+            
+            try (PrintWriter pw = new PrintWriter(new File("_lastError.txt"))) {
+                pw.println(DateTime.now());
+                exc.printStackTrace(pw);
+            }
+
+            throw exc;
+        }
+    }
+    
+    /**
+     * In some console-less environments (e.g. javaw.exe), stdin may be invalid but should not
+     * prevent start up.
+     */
+    private static void tryReadFromConsole() {
+        try {
+            System.in.read();
+
+        } catch (IOException exc) {
+            // unlikely this will be seen anywhere but dump anyway
+            System.err.println("(Running in console-less mode. To terminate process, kill manually or via /diagnostics)");
+
+            // no signals available so just sleep
+            Threads.sleep(Long.MAX_VALUE);
+        }
     }
     
     /**

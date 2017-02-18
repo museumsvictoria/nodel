@@ -22,3 +22,4 @@
 /nodel-framework-java/src/main/resources/org/nodel/build.json
 .lastHTTPPort
 _instance.lock
+_lastError.txt
