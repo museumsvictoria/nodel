@@ -25,8 +25,8 @@ button span {
 	padding-right: 10px;
 }
 
-button {
-	margin-right: 5px;
+button, input[type=button] {
+	margin: 0 10px 10px 0;
 }
 
 fieldset {
@@ -53,7 +53,7 @@ div.block {
 	background: rgba(0,0,0,0.025);
 	padding: 0px;
 	margin-bottom: 20px;
-	overflow: auto;
+	overflow: hidden;
 }
 
 div.block form {
@@ -63,6 +63,7 @@ div.block form {
 div.block h6 {
 	padding: 10px 15px;
 	cursor: pointer;
+	min-height: 21px;
 }
 
 div.block h6::after {
@@ -77,13 +78,22 @@ div.block h6.contract::after {
 }
 
 div.block > div {
-	padding: 0px 15px 10px;
+	padding: 10px 15px 10px;
 	display: none;
 	overflow: auto;
+	border-top: 5px solid rgba(255,255,255,0.5); 
 }
 
 div.block hr {
 	margin-top: 0;
+}
+
+form > div.block {
+	margin-bottom: 10px;
+}
+
+div.unfloat:not(:last-child) > form {
+	margin-bottom: 20px;
 }
 
 input[type="text"], input[type="password"], input[type="range"], input[type="time"], input[type="password"], input[type="email"], input[type="number"], input[type="date"], input[type="time"], input[type="date-time"], textarea, select {
