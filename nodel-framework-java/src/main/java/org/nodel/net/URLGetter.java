@@ -19,9 +19,12 @@ import org.apache.http.auth.UsernamePasswordCredentials;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.client.methods.HttpRequestBase;
+import org.apache.http.conn.params.ConnManagerParams;
 import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.auth.BasicScheme;
 import org.apache.http.impl.client.DefaultHttpClient;
+import org.apache.http.params.HttpConnectionParams;
+import org.apache.http.params.HttpParams;
 import org.nodel.Strings;
 import org.nodel.io.Stream;
 import org.nodel.json.JSONObject;
@@ -44,25 +47,15 @@ public class URLGetter {
                                 Map<String, String> headers, String reference, String contentType, 
                                 String post, 
                                 Integer connectTimeout, Integer readTimeout) throws IOException {
-        
+        // construct the full URL (includes query string)
         String fullURL = buildQueryString(urlStr, query);
 
         // (out of scope for clean up purposes)
         InputStream inputStream = null;
-        // OutputStream outputStream = null;
 
         try {
-            HttpRequestBase request;
-
-            if (post == null)
-                request = new HttpGet(fullURL);
-            else
-                request = new HttpPost(fullURL);
-
-            // URLConnection urlConn = url.openConnection();
-
-            // urlConn.setConnectTimeout(connectTimeout != null ? connectTimeout : DEFAULT_CONNECTTIMEOUT);
-            // urlConn.setReadTimeout(readTimeout != null ? readTimeout : DEFAULT_READTIMEOUT);
+            // 'get' or 'post'?
+            HttpRequestBase request = (post == null ? new HttpGet(fullURL) : new HttpPost(fullURL));
 
             // set 'Content-Type' header
             if (!Strings.isNullOrEmpty(contentType))
@@ -83,6 +76,24 @@ public class URLGetter {
             if (!Strings.isNullOrEmpty(username))
                 applySecurity(httpClient, request, username, !Strings.isNullOrEmpty(password) ? password : "");
             
+            // set any timeouts that apply
+            if (connectTimeout != null || readTimeout != null) {
+                // copy the params
+                HttpParams params = httpClient.getParams().copy();
+                
+                int actualConnTimeout = connectTimeout != null ? connectTimeout : DEFAULT_CONNECTTIMEOUT;
+                int actualReadTimeout = readTimeout != null ? readTimeout : DEFAULT_READTIMEOUT;
+
+                // there are a few places where timeouts can be set within this framework
+                // (this may be more than needed)
+                params.setLongParameter(ConnManagerParams.TIMEOUT, actualConnTimeout);
+                HttpConnectionParams.setConnectionTimeout(params, actualConnTimeout);
+                HttpConnectionParams.setSoTimeout(params, actualReadTimeout);
+                ConnManagerParams.setTimeout(params, actualConnTimeout);
+                
+                request.setParams(params);
+            }
+
             // perform the request
             HttpResponse httpResponse;
             httpResponse = httpClient.execute(request);

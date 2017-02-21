@@ -870,7 +870,23 @@ public class ManagedToolkit {
                 _logger.warn("HTTP client connection manager may not have shutdown cleanly", exc);
             }
         }
-    }    
+    }
+    
+    /**
+     * The basic base parameters for the HTTP client will be created once.
+     */
+    private static HttpParams createBaseHTTPParams() {
+        BasicHttpParams params = new BasicHttpParams();
+        HttpProtocolParams.setVersion(params, HttpVersion.HTTP_1_1);
+        HttpProtocolParams.setContentCharset(params, HTTP.UTF_8);
+
+        params.setLongParameter(ConnManagerParams.TIMEOUT, 15000);
+        HttpConnectionParams.setConnectionTimeout(params, 15000);
+        HttpConnectionParams.setSoTimeout(params, 15000);
+        ConnManagerParams.setTimeout(params, 15000);
+
+        return params;
+    }
     
     /**
      * A very simple URL getter. queryArgs, contentType, postData are all optional.
@@ -880,19 +896,9 @@ public class ManagedToolkit {
     public String getURL(String urlStr, Map<String, String> query, String username, String password, Map<String, String> headers, String reference, String contentType, String post, Integer connectTimeout, Integer readTimeout) throws IOException {
         synchronized (_lock) {
             if (_httpClient == null) {
-                // _httpClient = new DefaultHttpClient();
-                // _httpClient.getAuthSchemes().register("ntlm", NTLMSchemeFactory.instance());
-
-                HttpParams params = new BasicHttpParams();
-                HttpProtocolParams.setVersion(params, HttpVersion.HTTP_1_1);
-                HttpProtocolParams.setContentCharset(params, HTTP.UTF_8);
-
-                params.setLongParameter(ConnManagerParams.TIMEOUT, 10000);
-                HttpConnectionParams.setConnectionTimeout(params, 10000);
-                HttpConnectionParams.setSoTimeout(params, 10000);
-                ConnManagerParams.setTimeout(params, 10000);
-
-                _httpClient = new DefaultHttpClient(params);
+                _httpClient = new DefaultHttpClient(createBaseHTTPParams());
+                
+                // add support for NTLM
                 _httpClient.getAuthSchemes().register("ntlm", NTLMSchemeFactory.instance());
             }
         }
