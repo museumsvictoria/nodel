@@ -8,14 +8,7 @@ import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.atomic.AtomicLong;
 
-import org.apache.http.HttpVersion;
-import org.apache.http.conn.params.ConnManagerParams;
 import org.apache.http.impl.client.DefaultHttpClient;
-import org.apache.http.params.BasicHttpParams;
-import org.apache.http.params.HttpConnectionParams;
-import org.apache.http.params.HttpParams;
-import org.apache.http.params.HttpProtocolParams;
-import org.apache.http.protocol.HTTP;
 import org.joda.time.DateTime;
 import org.nodel.Handler;
 import org.nodel.SimpleName;
@@ -35,8 +28,7 @@ import org.nodel.host.BaseDynamicNode;
 import org.nodel.host.Binding;
 import org.nodel.host.LogEntry;
 import org.nodel.io.Stream;
-import org.nodel.net.NTLMSchemeFactory;
-import org.nodel.net.URLGetter;
+import org.nodel.net.NodelHTTPClient;
 import org.nodel.reflection.Objects;
 import org.nodel.reflection.Serialisation;
 import org.nodel.threading.CallbackQueue;
@@ -857,7 +849,7 @@ public class ManagedToolkit {
      * The re-useable client for this toolkit instance.
      * (lazily created)
      */
-    private DefaultHttpClient _httpClient;
+    private NodelHTTPClient _httpClient;
     
     /**
      * Release the http client if it was created.
@@ -866,26 +858,11 @@ public class ManagedToolkit {
         if (_httpClient != null) {
             try {
                 _httpClient.getConnectionManager().shutdown();
+                
             } catch (Exception exc) {
                 _logger.warn("HTTP client connection manager may not have shutdown cleanly", exc);
             }
         }
-    }
-    
-    /**
-     * The basic base parameters for the HTTP client will be created once.
-     */
-    private static HttpParams createBaseHTTPParams() {
-        BasicHttpParams params = new BasicHttpParams();
-        HttpProtocolParams.setVersion(params, HttpVersion.HTTP_1_1);
-        HttpProtocolParams.setContentCharset(params, HTTP.UTF_8);
-
-        params.setLongParameter(ConnManagerParams.TIMEOUT, 15000);
-        HttpConnectionParams.setConnectionTimeout(params, 15000);
-        HttpConnectionParams.setSoTimeout(params, 15000);
-        ConnManagerParams.setTimeout(params, 15000);
-
-        return params;
     }
     
     /**
@@ -895,15 +872,11 @@ public class ManagedToolkit {
      */
     public String getURL(String urlStr, Map<String, String> query, String username, String password, Map<String, String> headers, String reference, String contentType, String post, Integer connectTimeout, Integer readTimeout) throws IOException {
         synchronized (_lock) {
-            if (_httpClient == null) {
-                _httpClient = new DefaultHttpClient(createBaseHTTPParams());
-                
-                // add support for NTLM
-                _httpClient.getAuthSchemes().register("ntlm", NTLMSchemeFactory.instance());
-            }
+            if (_httpClient == null)
+                _httpClient = new NodelHTTPClient();
         }
         
-        return URLGetter.getURL(_httpClient, urlStr, query, username, password, headers, reference, contentType, post, connectTimeout, readTimeout);
+        return _httpClient.makeRequest(urlStr, query, username, password, headers, reference, contentType, post, connectTimeout, readTimeout);
     }
 
     /**
