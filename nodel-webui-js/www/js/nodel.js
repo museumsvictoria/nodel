@@ -114,13 +114,11 @@ function removeNulls(obj){
 
 // html special character encoder
 function htmlEncode(value) {
-  if(typeof value == "undefined") return '';
-  else {
-    var specialchr = {'"': '&quot;', '&': '&amp;', "'": '&#39;', '/': '&#47;', '<': '&lt;', '>': '&gt;'};
-    return value.replace(/[\"&'\/<>]/g, function (a) {
-      return specialchr[a];
-    });
-  }
+  var specialchr = {'"': '&quot;', '&': '&amp;', "'": '&#39;', '/': '&#47;', '<': '&lt;', '>': '&gt;'};
+  value = String(value);
+  return value.replace(/[\"&'\/<>]/g, function (a) {
+    return specialchr[a];
+  });
 }
 
 // customised jquery ajax function for posting JSON
@@ -1409,7 +1407,7 @@ var buildFormSchema = function(data, key, parent) {
   if(data.format) xtr.push(data.format);
   if(xtr.length!==0) cls = ' class="'+xtr.join(' ')+'"';
   // determine placeholder value
-  var placeholder = data.hint ? htmlEncode(data.hint) : '';
+  var placeholder = typeof data.hint != "undefined" ? htmlEncode(data.hint) : '';
   // format according to the field type
   switch(data.type) {
     // format an object
@@ -1506,34 +1504,34 @@ var buildFormSchema = function(data, key, parent) {
           case 'node':
           case 'action':
           case 'event':
-            set = '<div class="field"><label for="field_'+parent+'{{:#getIndex()}}"'+cls+'>'+htmlEncode(data.title)+'</label><input id="field_'+parent+'{{:#getIndex()}}" title="'+htmlEncode(data.desc)+'" type="text" data-group="'+group+'" data-link="'+link+'"'+cls+' /></div>';
+            set = '<div class="field"><label for="field_'+parent+'{{:#getIndex()}}"'+cls+'>'+htmlEncode(data.title)+'</label><input placeholder="'+placeholder+'" id="field_'+parent+'{{:#getIndex()}}" title="'+htmlEncode(data.desc)+'" type="text" data-group="'+group+'" data-link="'+link+'"'+cls+' /></div>';
             break;
           // file fields have a hidden upload element, progress indicator and 'browse' button
           case 'file':
-            set = '<div class="field"><label for="field_'+parent+'{{:#getIndex()}}"'+cls+'>'+htmlEncode(data.title)+'</label><input id="field_'+parent+'{{:#getIndex()}}" title="'+htmlEncode(data.desc)+'" type="text" data-link="'+link+'"'+cls+' disabled /><input title="browse" class="browse" type="button" value="Browse"/><input class="upload" type="file" /><progress value="0" max="100"></progress></div>';
+            set = '<div class="field"><label for="field_'+parent+'{{:#getIndex()}}"'+cls+'>'+htmlEncode(data.title)+'</label><input placeholder="'+placeholder+'" id="field_'+parent+'{{:#getIndex()}}" title="'+htmlEncode(data.desc)+'" type="text" data-link="'+link+'"'+cls+' disabled /><input title="browse" class="browse" type="button" value="Browse"/><input class="upload" type="file" /><progress value="0" max="100"></progress></div>';
             break;
           // format a time
           case 'time':
             // time is rendered as html5 time type
-            set = '<div class="field"><label for="field_'+parent+'{{:#getIndex()}}"'+cls+'>'+htmlEncode(data.title)+'</label><input id="field_'+parent+'{{:#getIndex()}}" title="'+htmlEncode(data.desc)+'" type="time" data-link="'+link+'"'+cls+' /></div>';
+            set = '<div class="field"><label for="field_'+parent+'{{:#getIndex()}}"'+cls+'>'+htmlEncode(data.title)+'</label><input placeholder="'+placeholder+'" id="field_'+parent+'{{:#getIndex()}}" title="'+htmlEncode(data.desc)+'" type="time" data-link="'+link+'"'+cls+' /></div>';
             break;
           // format a date
           case 'date':
             // date is rendered as html5 date type
-            set = '<div class="field"><label for="field_'+parent+'{{:#getIndex()}}"'+cls+'>'+htmlEncode(data.title)+'</label><input id="field_'+parent+'{{:#getIndex()}}" title="'+htmlEncode(data.desc)+'" type="date" data-link="'+link+'"'+cls+' /></div>';
+            set = '<div class="field"><label for="field_'+parent+'{{:#getIndex()}}"'+cls+'>'+htmlEncode(data.title)+'</label><input placeholder="'+placeholder+'" id="field_'+parent+'{{:#getIndex()}}" title="'+htmlEncode(data.desc)+'" type="date" data-link="'+link+'"'+cls+' /></div>';
             break;
           // format a date-time
           case 'date-time':
             // date-time is rendered as html5 datetime type
-            set = '<div class="field"><label for="field_'+parent+'{{:#getIndex()}}"'+cls+'>'+htmlEncode(data.title)+'</label><input id="field_'+parent+'{{:#getIndex()}}" title="'+htmlEncode(data.desc)+'" type="datetime" data-link="'+link+'"'+cls+' /></div>';
+            set = '<div class="field"><label for="field_'+parent+'{{:#getIndex()}}"'+cls+'>'+htmlEncode(data.title)+'</label><input placeholder="'+placeholder+'" id="field_'+parent+'{{:#getIndex()}}" title="'+htmlEncode(data.desc)+'" type="datetime" data-link="'+link+'"'+cls+' /></div>';
             break;
           // format a password
           case 'password':
-            set = '<div class="field"><label for="field_'+parent+'{{:#getIndex()}}"'+cls+'>'+htmlEncode(data.title)+'</label><input id="field_'+parent+'{{:#getIndex()}}" title="'+htmlEncode(data.desc)+'" type="password" data-link="'+link+'"'+cls+' /></div>';
+            set = '<div class="field"><label for="field_'+parent+'{{:#getIndex()}}"'+cls+'>'+htmlEncode(data.title)+'</label><input placeholder="'+placeholder+'" id="field_'+parent+'{{:#getIndex()}}" title="'+htmlEncode(data.desc)+'" type="password" data-link="'+link+'"'+cls+' /></div>';
             break;
           // format a color
           case 'color':
-            set = '<div class="field"><label for="field_'+parent+'{{:#getIndex()}}"'+cls+'>'+htmlEncode(data.title)+'</label><input id="field_'+parent+'{{:#getIndex()}}" title="'+htmlEncode(data.desc)+'" type="color" data-link="'+link+'"'+cls+' /></div>';
+            set = '<div class="field"><label for="field_'+parent+'{{:#getIndex()}}"'+cls+'>'+htmlEncode(data.title)+'</label><input placeholder="'+placeholder+'" id="field_'+parent+'{{:#getIndex()}}" title="'+htmlEncode(data.desc)+'" type="color" data-link="'+link+'"'+cls+' /></div>';
             break;
           // basic renderer for any other elements
           default:
