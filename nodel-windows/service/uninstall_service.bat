@@ -1,7 +1,7 @@
 @echo off
 echo Unregistering the "NodelHostsvc" service...
 pause
-NodelHostsvc.exe //DS
+..\NodelHostsvc.exe //DS
 
 echo Done!
 pause
