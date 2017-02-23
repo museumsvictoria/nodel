@@ -1,5 +1,5 @@
 @echo off
-SET RELEASE=nodelhost-dev-2.1.1-rev234.jar
+SET RELEASE=nodelhost-dev-2.1.1-rev238
 echo. Nodel Host Windows Service installer
 echo.
 echo. (Press Ctrl-C to stop at any time)
@@ -13,7 +13,9 @@ echo Checking Java architechture...
 pause
 
 java -d64 -version 2> nul
+if ERRORLEVEL 1 goto GotJava86
 if ERRORLEVEL 0 goto GotJava64
+
 
 :GotJava86
 echo (Java 32-bit)
@@ -33,8 +35,8 @@ goto CopyJAR
 
 
 :CopyJAR
-echo Copying versioned JAR to static JAR for static entry-point... (%RELEASE%)
-copy ..\%RELEASE% ..\nodelhost.jar /Y
+echo Copying versioned JAR to static JAR for static entry-point... (%RELEASE%.jar)
+copy ..\%RELEASE%.jar ..\nodelhost.jar /Y
 echo ...copy done!
 echo.
 
@@ -69,7 +71,7 @@ pause
 GOTO END
 
 :NoNodelHostJar
-echo Please ensure latest version of Nodel Host release exists in "latestVersion" folder (e.g. "%RELEASE%")
+echo Please ensure latest version of Nodel Host release exists in "latestVersion" folder (e.g. "%RELEASE%.jar")
 echo (one can be downloaded from https://github.com/museumsvictoria/nodel)
 pause
 GOTO END
