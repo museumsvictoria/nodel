@@ -23,3 +23,7 @@
 .lastHTTPPort
 _instance.lock
 _lastError.txt
+/nodel-webui-js/.classpath
+/nodel-webui-js/.project
+/nodel-webui-js/.settings
+/nodel-webui-js/bin
