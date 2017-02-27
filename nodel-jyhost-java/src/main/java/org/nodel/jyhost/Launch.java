@@ -73,6 +73,7 @@ public class Launch {
     
     /**
      * The root directory this program will use.
+     * (overriden by bootstrap)
      */
     private File _root = new File(".");
     
@@ -91,19 +92,36 @@ public class Launch {
      */
     private static String[] s_processArgs;
     
+    /**
+     * (see full constructor) 
+     */
     public Launch() throws StartupException, IOException, JSONException {
+        this(null, null);
+    }
+    
+    /**
+     * (see full constructor) 
+     */
+    public Launch(String[] args) throws StartupException, IOException, JSONException {
+        this(null, args);
+    }
+    
+    /**
+     * @param working A non-default working directory instead of "." (current folder)
+     * @param args A set of arguments (normally from the command-line) 
+     */
+    public Launch(File workingDirectory, String[] args) throws StartupException, IOException, JSONException {
+        if (workingDirectory != null)
+            _root = workingDirectory;
+        
+        if (args != null)
+            s_processArgs = args;
+
         bootstrap();
         
         start();
     }
     
-    public Launch(String[] args) throws StartupException, IOException, JSONException {
-        s_processArgs = args;
-        
-        bootstrap();
-        
-        start();
-    } // (method)
     
     /**
      * Console launch entry-point.
@@ -215,6 +233,9 @@ public class Launch {
     } // (method)
 
 	private void start() throws IOException {
+        // immediately prevent unintended duplicate instances 
+        createHostInstanceLockOrFail();
+	    
         // check for multihomed host
         if (_bootstrapConfig.getNetworkInterface() == null) {
             checkForMultihoming(null);
@@ -288,9 +309,6 @@ public class Launch {
             if (lastHTTPPort != Nodel.getHTTPPort())
                 Stream.writeFully(lastHTTPPortCache, String.valueOf(Nodel.getHTTPPort()));
 
-            // prevent unintended duplicate instances
-            createHostInstanceLockOrFail();
-
             System.out.println("    (web interface started on port " + Nodel.getHTTPPort() + ")\n");
             _logger.info("HTTP interface bound to TCP port " + Nodel.getHTTPPort());
 
@@ -299,8 +317,8 @@ public class Launch {
         
         nodelHostHTTPD.setFirstChoiceDir(customContentDirectory);
         
-        // start the WebSocket server
-        NodelHostWebSocketServer nodelHostWSServer = new NodelHostWebSocketServer(0);
+        // start the WebSocket server (using bootstrap port override if specified)
+        NodelHostWebSocketServer nodelHostWSServer = new NodelHostWebSocketServer(_bootstrapConfig.getNodelHostWSPort());
         nodelHostWSServer.start(90000);
         _logger.info("Started WebSocket server on port " + nodelHostWSServer.getListeningPort());
         Nodel.setWebSocketPort(nodelHostWSServer.getListeningPort());

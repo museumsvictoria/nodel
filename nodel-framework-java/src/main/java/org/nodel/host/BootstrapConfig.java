@@ -42,6 +42,20 @@ public class BootstrapConfig {
         this.nodelHostPort = value;
     }
     
+
+    public final static int DEFAULT_NODELHOST_WSPORT = 0;
+
+    @Value(name = "NodelHostWSPort", title = "NodelHost websocket port", order = 200, required = true, desc = "(Short command arg '--wsPort')")
+    private int nodelHostWSPort = DEFAULT_NODELHOST_WSPORT;
+
+    public int getNodelHostWSPort() {
+        return this.nodelHostWSPort;
+    }
+
+    public void setNodelHostWSPort(int value) {
+        this.nodelHostWSPort = value;
+    }
+
     
     public final static String DEFAULT_NODELROOT_DIRECTORY = "nodes";
 
@@ -209,19 +223,19 @@ public class BootstrapConfig {
         if (args == null || args.length <= 1)
             // nothing to do
             return;
-        
+
         // specially handle list-type arguments
         Map<Character, List<String>> lists = new HashMap<Character, List<String>>();
-        
+
         for (int a = 0; a < args.length; a++) {
             String arg = args[a];
-            
+
             // the subsequent arg (if present)
             String nextArg = null;
 
-            if (a+1 < args.length)
-                nextArg = args[a+1];
-            
+            if (a + 1 < args.length)
+                nextArg = args[a + 1];
+
             if ("-p".equals(arg) || "--NodelHostPort".equalsIgnoreCase(arg)) {
                 this.nodelHostPort = Integer.parseInt(nextArg);
 
@@ -233,6 +247,9 @@ public class BootstrapConfig {
 
             } else if ("-l".equals(arg) || "--enableProgramLogging".equalsIgnoreCase(arg)) {
                 this.enableProgramLogging = true;
+
+            } else if ("--wsPort".equalsIgnoreCase(arg)) {
+                this.nodelHostWSPort = Integer.parseInt(nextArg);
 
             } else if ("--contentDirectory".equalsIgnoreCase(arg)) {
                 this.contentDirectory = nextArg;
@@ -248,14 +265,14 @@ public class BootstrapConfig {
 
             } else if ("--logsDirectory".equalsIgnoreCase(arg)) {
                 this.logsDirectory = nextArg;
-                
+
             } else if ("-I".equals(arg) || "--inclFilters".equalsIgnoreCase(arg)) {
                 List<String> list = lists.get('I');
                 if (list == null) {
                     list = new ArrayList<String>();
                     lists.put('I', list);
                 }
-                
+
                 list.add(nextArg);
             } else if ("-X".equals(arg) || "--exclFilters".equalsIgnoreCase(arg)) {
                 List<String> list = lists.get('X');
@@ -263,7 +280,7 @@ public class BootstrapConfig {
                     list = new ArrayList<String>();
                     lists.put('X', list);
                 }
-                
+
                 list.add(nextArg);
             } else if ("-h".equals(arg) || "--hardLinksAddresses".equalsIgnoreCase(arg)) {
                 List<String> list = lists.get('h');
