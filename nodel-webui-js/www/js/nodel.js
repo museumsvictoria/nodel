@@ -471,10 +471,10 @@ var init = function() {
   $('#nodenameval').keypress(function(e){
     if(e.keyCode == 13) {
       e.preventDefault();
-      $(this).trigger('blur');
+      $('#noderename').trigger('submit');
     }
   });
-  $('body').on('mousedown touchstart', '#noderenamesubmit', function() {
+  $('#noderename').on('submit', function() {
     var name = $('body').data('config').name;
     var newname = $('#nodenameval').val();
     if(name !== newname){
@@ -499,7 +499,8 @@ var init = function() {
     } else $('.noderename').hide();
     return false;
   });
-  $('body').on('mousedown touchstart', '#nodedeletesubmit', function() {
+  $('#nodedeletesubmit').on('mousedown touchstart', function(e) {
+    e.preventDefault();
     if(confirm("Are you sure?")) {
       $.getJSON('http://' + host + '/REST/nodes/' + encodeURIComponent(node) + '/remove?confirm=true', function () {
         window.location.href = 'http://' + host + '/';
@@ -685,7 +686,7 @@ var listNodes = function(){
   $('#newnodename').keypress(function(e) {
     if (e.keyCode == 13) {
       e.preventDefault();
-      $('#nodeaddsubmit').trigger('mousedown');
+      $('#nodeadd').trigger('submit');
     }
   });
   setInterval(function(){ $('#nodefilter').keyup(); }, 3000);
