@@ -663,7 +663,7 @@ var listNodes = function(){
     $('.nodeadd').hide();
     return false;
   });
-  $('#nodelist').on('mousedown touchstart', '#nodeaddsubmit', function() {
+  $('#nodeadd').on('submit', function(e) {
     var nodenameraw = $('#nodelist #newnodename').val();
     var nodename = {"value":nodenameraw};
     var req = $.getJSON('http://' + host + '/REST/newNode', nodename, function() {
