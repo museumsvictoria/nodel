@@ -23,6 +23,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
 import org.nodel.Exceptions;
+import org.nodel.Handler;
 import org.nodel.Threads;
 import org.nodel.core.Nodel;
 import org.nodel.discovery.NodelAutoDNS.ServiceItem;
@@ -99,26 +100,15 @@ public class NodelAdvertiser {
     private InetAddress _intf;
     
     /**
-     * (same as Java Callable but without Exceptions)
-     */
-    public interface Callable<V> {
-        
-        /**
-         * Calls a function (without throwing any exceptions) 
-         */
-        V call();
-    }    
-    
-    /**
      * (see setter)
      */
-    private Callable<Collection<ServiceItem>> _servicesSnapshotProvider;
+    private Handler.F0<Collection<ServiceItem>> _servicesSnapshotProvider;
     
     /**
      * Provides a snapshot of services to advertise.
      * (returned collection must be fully thread safe)
      */
-    public void setServicesSnapshotProvider(Callable<Collection<ServiceItem>> value) {
+    public void setServicesSnapshotProvider(Handler.F0<Collection<ServiceItem>> value) {
         _servicesSnapshotProvider = value;
     }
     
@@ -316,9 +306,9 @@ public class NodelAdvertiser {
             _recipient = recipient;
 
             // the service iterator
-            _serviceIterator = _servicesSnapshotProvider.call().iterator();
+            _serviceIterator = _servicesSnapshotProvider.handle().iterator();
         }
-        
+
         /**
          * Starts the responder. Wait a random amount of time to before
          * actually sending anything. Staggered responses assists with receiver

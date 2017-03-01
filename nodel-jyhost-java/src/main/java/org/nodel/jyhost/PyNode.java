@@ -143,14 +143,27 @@ public class PyNode extends BaseDynamicNode {
     private int webSocketPort = Nodel.getWebSocketPort();
     
     /**
+     * Holds the name filter.
+     */
+    private Handler.H1<String> _nameFilterHandler;
+    
+    /**
+     * If name filtering is in place (affects rename)
+     * (should throw an exception with details name filtering rules are broken)
+     */
+    public void setNameFilterHandler(Handler.H1<String> value) {
+        _nameFilterHandler = value;
+    }
+
+    /**
      * Create a new pyNode.
      */
     public PyNode(File root) throws IOException {
         super(root);
 
         init();
-    } // (constructor)
-    
+    }
+
     /**
      * Returns the Python interpreter related to this node.
      */
@@ -1374,6 +1387,9 @@ public class PyNode extends BaseDynamicNode {
 
         if (newNodeDir.exists())
             throw new RuntimeException("A node with the name '" + name + "' already exists.");
+        
+        // this will throw an exception if name filtering rules are broken
+        Handler.handle(_nameFilterHandler, name);
 
         if (!_root.renameTo(newNodeDir))
             throw new RuntimeException("The platform did not allow the renaming of the node folder for unspecified reasons.");

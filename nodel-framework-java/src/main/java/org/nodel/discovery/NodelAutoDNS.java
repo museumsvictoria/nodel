@@ -212,10 +212,10 @@ public class NodelAutoDNS extends AutoDNS {
         synchronized (_advertisementLock) {
             for (InetAddress newAddr : appeared) {
                 final NodelAdvertiser advertiser = new NodelAdvertiser(newAddr);
-                advertiser.setServicesSnapshotProvider(new NodelAdvertiser.Callable<Collection<ServiceItem>>() {
+                advertiser.setServicesSnapshotProvider(new Handler.F0<Collection<ServiceItem>>() {
 
                     @Override
-                    public Collection<ServiceItem> call() {
+                    public Collection<ServiceItem> handle() {
                         // return a thread-safe collection
                         return _services.values();
                     }
