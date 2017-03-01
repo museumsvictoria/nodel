@@ -186,16 +186,14 @@ public class NodelServers {
                 
             });
 
-		_channelServerSocket.setStartedHandler(new Handler.H1<Integer>() {
-            
-			@Override
-			public void handle(Integer port) {
-				logger.info("Channel server created. port:{}", port);
-            
-            AutoDNS.instance().setAdvertisementPort(port);
-        }
-        
-		});
+        _channelServerSocket.setStartedHandler(new Handler.H1<Integer>() {
+
+            @Override
+            public void handle(Integer port) {
+                onStarted(port);
+            }
+
+        });
 
 		_channelServerSocket.start();
         
@@ -205,8 +203,16 @@ public class NodelServers {
     } // (method)
     
     /**
-     * Attaches a failure handler. 
-     * (multicast event, delegate must not block)
+     * (started callback)
+     */
+    protected void onStarted(final Integer port) {
+        logger.info("Channel server created. port:{}", port);
+
+        Nodel.updateTCPPort(port);
+    }
+
+    /**
+     * Attaches a failure handler. (multicast event, delegate must not block)
      */
     public boolean attachFailureHandler(Handler.H1<Throwable> handler) {
         synchronized (_signal) {

@@ -11,16 +11,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.PrintWriter;
 import java.io.RandomAccessFile;
-import java.net.Inet4Address;
-import java.net.InetAddress;
-import java.net.InterfaceAddress;
-import java.net.NetworkInterface;
-import java.net.SocketException;
 import java.nio.channels.FileLock;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
 
 import org.joda.time.DateTime;
 import org.nodel.StartupException;
@@ -40,7 +31,6 @@ import org.nodel.jyhost.NodelHostHTTPD;
 import org.nodel.logging.slf4j.SimpleLogger;
 import org.nodel.reflection.Schema;
 import org.nodel.reflection.Serialisation;
-import org.nodel.reflection.Value;
 import org.python.core.Py;
 import org.python.core.PyDictionary;
 import org.python.core.PyList;
@@ -236,18 +226,12 @@ public class Launch {
         // immediately prevent unintended duplicate instances 
         createHostInstanceLockOrFail();
 	    
-        // check for multihomed host
-        if (_bootstrapConfig.getNetworkInterface() == null) {
-            checkForMultihoming(null);
-        } else {
-            Inet4Address addr = checkForMultihoming(_bootstrapConfig.getNetworkInterface());
-            Nodel.setInterfaceToUse(addr);
+        // opt-in interfaces
+        String[] interfaces = _bootstrapConfig.getNetworkInterfaces();
+        if (interfaces != null && interfaces.length > 0) {
+            Nodel.setInterfacesToUse(_bootstrapConfig.getNetworkInterfaces());
         }
         
-        // check if any "direct" hard links (assisted multicast using unicast) addresses have been set
-        if (_bootstrapConfig.getHardLinksAddresses() != null)
-            Nodel.setHardLinksAddresses(Arrays.asList(_bootstrapConfig.getHardLinksAddresses()));
-
         // check if advertisements should be disabled
         if (_bootstrapConfig.getDisableAdvertisements()) {
             Nodel.setDisableServerAdvertisements(true);
@@ -309,7 +293,6 @@ public class Launch {
             if (lastHTTPPort != Nodel.getHTTPPort())
                 Stream.writeFully(lastHTTPPortCache, String.valueOf(Nodel.getHTTPPort()));
 
-            System.out.println("    (web interface started on port " + Nodel.getHTTPPort() + ")\n");
             _logger.info("HTTP interface bound to TCP port " + Nodel.getHTTPPort());
 
             break;
@@ -372,85 +355,6 @@ public class Launch {
         if (_bootstrapConfig.getDisableAdvertisements())
             _logger.info("(advertisements are disabled)");       
     } // (method)
-    
-    /**
-     * Checks for a multihomed environment.
-     */
-    private Inet4Address checkForMultihoming(byte[] find) throws SocketException {
-        List<NetworkInterface> raw = Collections.list(NetworkInterface.getNetworkInterfaces());
-        List<NetworkInterface> filtered = new ArrayList<NetworkInterface>();
-        
-        List<Inet4Address> inet4Addresses = new ArrayList<Inet4Address>(); 
-        
-        for (final NetworkInterface inf : raw) {
-            if (inf.getMTU() <= 0 || 
-                !inf.isUp() ||
-                !inf.supportsMulticast())
-                continue;
-            
-            Inet4Address lastAddr = null;
-            
-            for(InetAddress addr : Collections.list(inf.getInetAddresses())) {
-                if (addr instanceof Inet4Address) {
-                    lastAddr = (Inet4Address) addr;
-                    inet4Addresses.add(lastAddr);
-                }
-            } // (for)
-            
-            if (lastAddr != null && find != null && isEqual(inf.getHardwareAddress(), find))
-                return lastAddr;
-            
-            filtered.add(inf);
-        } // (for)
-        
-        if (find == null && inet4Addresses.size() == 1) {
-            // all okay
-            _logger.info("This host does not appear to be multihomed; binding to only IPv4 interface (current address '" + inet4Addresses.get(0) + "')");
-            
-            return inet4Addresses.get(0); 
-        }        
-        
-        for (final NetworkInterface inf : filtered) {
-            Object wrapper = new Object() {
-                
-                @Value(name = "displayName")
-                public String displayName = inf.getDisplayName();
-
-                @Value(name = "hardwareAddr")
-                public byte[] hardwareAddr = inf.getHardwareAddress();
-
-                // JDK 7 only
-                // @Value
-                // public int index = inf.getIndex();
-
-                @Value(name = "addresses")
-                public List<InterfaceAddress> addresses = inf.getInterfaceAddresses();
-
-                @Value(name = "mtu")
-                public int mtu = inf.getMTU();
-
-                @Value(name = "name")
-                public String name = inf.getName();
-                
-            };
-
-            System.err.println(Serialisation.serialise(wrapper));
-        }
-        
-        System.err.println();
-        System.err.println("NOTE:");
-        if (find != null)
-            System.err.println("      Could not find specified network interface based on 'hardwareAddr'.");
-
-        System.err.println("      This host appears to be multihomed; a network interface must be chosen.");
-        System.err.println("      Please use a 'hardwareAddr' from one of the above adapters and update");
-        System.err.println("      your 'bootstrap.json' file.");
-        
-        System.exit(-1);
-        
-        // dead code:
-        return null;
-    } // (method)
 
     /**
      * (is never unlocked)
@@ -478,30 +382,6 @@ public class Launch {
                 throw new RuntimeException(message, exc);
         }
     }
-    
-    /**
-     * Compares two buffers
-     */
-    private static boolean isEqual(byte[] buffer1, byte[] buffer2) {
-        if (buffer1 == null)
-            if (buffer2 != null)
-                return false;
-        
-        if (buffer2 == null)
-            if (buffer1 != null)
-                return false;
-        
-        int length = buffer1.length;
-        
-        if (buffer2.length != length)
-            return false;
-        
-        for (int a=0; a<length; a++)
-            if (buffer1[a] != buffer2[a])
-                return false;
-        
-        return true;
-    } // (method)
 
     /**
      * Utility method to ensure a directory exist, failing if it's not possible

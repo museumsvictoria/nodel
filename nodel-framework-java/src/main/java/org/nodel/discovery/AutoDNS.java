@@ -9,7 +9,6 @@ package org.nodel.discovery;
 import java.io.Closeable;
 import java.io.IOException;
 import java.lang.reflect.Method;
-import java.net.InetAddress;
 import java.util.Collection;
 
 import org.nodel.SimpleName;
@@ -30,11 +29,6 @@ public abstract class AutoDNS implements Closeable {
     public final static String IMPL_SYSTEMPROP = "org.nodel.discovery.impl";
     
     public final static String IMPL_DEFAULT_METHOD = "instance";
-    
-    /**
-     * The interface to use when initialising mDNS.
-     */
-    protected static InetAddress s_interface;
     
     /**
      * The port to advertise.
@@ -137,19 +131,6 @@ public abstract class AutoDNS implements Closeable {
     @Override
     public abstract void close() throws IOException;
     
-    /**
-     * Sets the interface the mDNS service should bind to.
-     */
-    public static void setInterface(InetAddress inf) {
-        s_interface = inf;
-    }
-    
-    /**
-     * @see setInterface
-     */
-    public static InetAddress getInterface() {
-        return s_interface;
-    }    
     
     /**
      * (singleton, thread-safe, non-blocking)

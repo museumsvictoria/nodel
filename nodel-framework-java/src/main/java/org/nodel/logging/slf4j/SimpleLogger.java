@@ -58,7 +58,7 @@ public class SimpleLogger extends BaseLogger {
 
     static {
         DEFAULT_LEVELMAP.put("org.nodel.http.NanoHTTPD", Level.INFO);
-        DEFAULT_LEVELMAP.put("org.nodel.discovery.NodelAutoDNS", Level.INFO);
+        DEFAULT_LEVELMAP.put("org.nodel.discovery", Level.INFO);
         DEFAULT_LEVELMAP.put("org.nodel.toolkit.ManagedTCP", Level.INFO);
     }
     
@@ -68,7 +68,7 @@ public class SimpleLogger extends BaseLogger {
     private final static Collection<String> DEFAULT_GROUPS = new ArrayList<String>();
     
     static {
-        DEFAULT_GROUPS.add("org.nodel.discovery.NodelAutoDNS");
+        DEFAULT_GROUPS.add("org.nodel.discovery");
         DEFAULT_GROUPS.add("org.nodel.toolkit.ManagedTCP");
     }
     
@@ -100,9 +100,23 @@ public class SimpleLogger extends BaseLogger {
     private final static Level DEFAULT_STDERR_LEVEL = Level.WARN;
     
     /**
-     * The current standard error level.
+     * (see public setter)
      */
     private static Level s_stderr_level = DEFAULT_STDERR_LEVEL;
+
+    /**
+     * The current standard error level.
+     */
+    public static void setStdErrLevel(Level level) {
+        s_stderr_level = level;
+    }
+
+    /**
+     * (see public setter)
+     */
+    public static Level getStdErrLevel() {
+        return s_stderr_level;
+    }
 
     /**
      * (default)
@@ -110,9 +124,23 @@ public class SimpleLogger extends BaseLogger {
     private final static Level DEFAULT_NODEL_LEVEL = Level.WARN;
 
     /**
-     * The current nodel (via org.nodel.logging) level
+     * (see public setter)
      */
     private static Level s_nodel_level = DEFAULT_NODEL_LEVEL;
+
+    /**
+     * The current nodel (via org.nodel.logging) level
+     */
+    public static void setNodelLevel(Level level) {
+        s_nodel_level = level;
+    }
+    
+    /**
+     * (see public setter)
+     */
+    public static Level getNodelLevel() {
+        return s_nodel_level;
+    }
 
     /**
      * Locking for file writing.
@@ -210,6 +238,10 @@ public class SimpleLogger extends BaseLogger {
         if (level != null) {
             super.currentLogLevel = level;
         }
+    }
+    
+    public Level getLevel() {
+        return super.currentLogLevel;
     }
     
     /**
@@ -338,7 +370,7 @@ public class SimpleLogger extends BaseLogger {
                         return;
                     
                     // force maintenance...
-                    SimpleLoggerFactory.requestMaintenance();
+                    SimpleLoggerFactory.shared().requestMaintenance();
                     
                     // ... and recheck
                     spaceAvailable = folder.getUsableSpace();

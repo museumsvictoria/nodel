@@ -20,7 +20,7 @@ import org.joda.time.DateTime;
 import org.nodel.Environment;
 import org.nodel.Threads;
 import org.nodel.core.Nodel;
-import org.nodel.discovery.NodelAutoDNS;
+import org.nodel.discovery.Discovery;
 import org.nodel.reflection.Serialisation;
 import org.nodel.reflection.Service;
 import org.nodel.reflection.Value;
@@ -115,14 +115,14 @@ public class Diagnostics {
             _logger.warn("This runtime did not allow the creation of threads; this may or may not present a problem. Will continue..." + suffix);
         }
 
-        this.registerCounter("Discovery multicast.Receives", NodelAutoDNS.MulticastInOpsMeasurement(), true);
-        this.registerCounter("Discovery multicast.Receive bytes", NodelAutoDNS.MulticastInDataMeasurement(), true);
-        this.registerCounter("Discovery multicast.Sends", NodelAutoDNS.MulticastOutOpsMeasurement(), true);
-        this.registerCounter("Discovery multicast.Send bytes", NodelAutoDNS.MulticastOutDataMeasurement(), true);
-        this.registerCounter("Discovery unicast.Receives", NodelAutoDNS.UnicastInOpsMeasurement(), true);
-        this.registerCounter("Discovery unicast.Receive bytes", NodelAutoDNS.UnicastInDataMeasurement(), true);
-        this.registerCounter("Discovery unicast.Sends", NodelAutoDNS.UnicastOutOpsMeasurement(), true);
-        this.registerCounter("Discovery unicast.Send bytes", NodelAutoDNS.UnicastOutDataMeasurement(), true);
+        this.registerCounter("Discovery multicast.Receives", Discovery.MulticastInOpsMeasurement(), true);
+        this.registerCounter("Discovery multicast.Receive bytes", Discovery.MulticastInDataMeasurement(), true);
+        this.registerCounter("Discovery multicast.Sends", Discovery.MulticastOutOpsMeasurement(), true);
+        this.registerCounter("Discovery multicast.Send bytes", Discovery.MulticastOutDataMeasurement(), true);
+        this.registerCounter("Discovery unicast.Receives", Discovery.UnicastInOpsMeasurement(), true);
+        this.registerCounter("Discovery unicast.Receive bytes", Discovery.UnicastInDataMeasurement(), true);
+        this.registerCounter("Discovery unicast.Sends", Discovery.UnicastOutOpsMeasurement(), true);
+        this.registerCounter("Discovery unicast.Send bytes", Discovery.UnicastOutDataMeasurement(), true);
 
         // dump the environment
         _logger.info("Environment dump: {}", Serialisation.serialise(this));
@@ -200,9 +200,9 @@ public class Diagnostics {
         return Nodel.getHostingRule();
     }
 
-    @Value(name = "httpAddress", title = "HTTP address", desc = "The address of the HTTP server.")
-    public String httpAddress() {
-        return Nodel.getHTTPAddress();
+    @Value(name = "httpAddresses", title = "HTTP address", desc = "The address of the HTTP server.")
+    public String[] httpAddresses() {
+        return Nodel.getHTTPAddresses();
     }
 
     @Service(name = "gc", title = "Garbage collect", desc = "Perform a 'garbage collect' operation; not necessarily stable.")

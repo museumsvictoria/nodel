@@ -1,5 +1,8 @@
 package org.nodel.discovery;
 
+import java.net.DatagramPacket;
+import java.net.SocketAddress;
+
 /* 
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -8,6 +11,7 @@ package org.nodel.discovery;
 
 import java.util.List;
 
+import org.nodel.io.UTF8Charset;
 import org.nodel.reflection.Serialisation;
 import org.nodel.reflection.Value;
 
@@ -64,5 +68,26 @@ public class NameServicesChannelMessage {
     public String toString() {
         return Serialisation.serialise(this);
     }
+    
+    /**
+     * Converts into a packet. 
+     */
+    public DatagramPacket intoPacket(SocketAddress to) {
+        byte[] bytes = Serialisation.serialise(this).getBytes(UTF8Charset.instance());
 
-} // (class)
+        DatagramPacket packet = new DatagramPacket(bytes, bytes.length);
+        packet.setSocketAddress(to);
+
+        return packet;
+    }
+
+    /**
+     * Constructs from a DatagramPacket.
+     */
+    public static NameServicesChannelMessage fromPacket(DatagramPacket dp) {
+        String packetString = new String(dp.getData(), 0, dp.getLength(), UTF8Charset.instance());
+
+        return (NameServicesChannelMessage) Serialisation.coerceFromJSON(NameServicesChannelMessage.class, packetString);
+    }
+
+}

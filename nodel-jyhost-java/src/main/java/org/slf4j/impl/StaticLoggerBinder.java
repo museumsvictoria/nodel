@@ -68,7 +68,7 @@ public class StaticLoggerBinder implements LoggerFactoryBinder {
     private final ILoggerFactory loggerFactory;
 
     private StaticLoggerBinder() {
-        loggerFactory = new SimpleLoggerFactory();
+        loggerFactory = SimpleLoggerFactory.shared();
     }
 
     public ILoggerFactory getLoggerFactory() {
