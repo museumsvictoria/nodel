@@ -624,7 +624,7 @@ public class NodelHostHTTPD extends NanoHTTPD {
             return nanoResponse;
             
         } catch (Exception exc) {
-            _logger.warn("Unexpected exception during PySP filter.", exc);
+            _logger.warn("Unexpected exception during PySP filter handling URI:" + uri, exc);
 
             return prepareExceptionMessageResponse(HTTP_INTERNALERROR, exc, params.contains("trace"));
             
