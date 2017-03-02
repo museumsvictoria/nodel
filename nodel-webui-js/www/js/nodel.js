@@ -441,7 +441,7 @@ var init = function() {
     } else $('.advancededitor').slideUp();
   });
   // watch for clicks on all group or object block titles
-  $('body').on('mousedown touchstart', '.block h6', function() {
+  $('body').on('mousedown touchstart', '.block h6:not(#remote div.block div.block h6)', function() {
     // show or hide the contents
     $(this).toggleClass('contract').next('div').finish().slideToggle('slow');
     return false;
