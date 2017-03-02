@@ -712,6 +712,10 @@ public class PyNode extends BaseDynamicNode {
                         trackFunction("main()");
 
                         _python.exec("main()");
+                        
+                        // process after "after main functions"
+                        PyFunction processAfterMainFunctions = (PyFunction) _globals.get(Py.java2py("_processAfterMainFunctions"));
+                        processAfterMainFunctions.__call__();                        
 
                         // nothing went wrong, kick off toolkit
                         _toolkit.enable();

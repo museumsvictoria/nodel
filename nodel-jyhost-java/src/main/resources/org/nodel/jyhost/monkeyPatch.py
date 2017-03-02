@@ -228,3 +228,18 @@ def lookup_remote_action(name):
 # Looks up a remote event by simple name
 def lookup_remote_event(name):
     return _toolkit.getRemoteEvent(name)
+
+    
+# node life-cycle functions:
+  
+# for functions to be called after main has executed
+_nodel_afterMainFunctions = []
+
+def _processAfterMainFunctions():
+    for f in _nodel_afterMainFunctions:
+        f()
+
+# decorates functions that should be called after 'main' completes
+def after_main(f):
+    _nodel_afterMainFunctions.append(f)
+
