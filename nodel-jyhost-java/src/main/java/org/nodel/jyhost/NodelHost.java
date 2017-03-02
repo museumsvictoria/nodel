@@ -368,7 +368,7 @@ public class NodelHost {
      * Same as 'shouldBeIncluded' but throws exception with naming conflict error details.
      */
     public void testNameFilters(String name) {
-        if (shouldBeIncluded(name)) {
+        if (!shouldBeIncluded(name)) {
             String[] ins = _origInclFilters == null ? new String[] {} : _origInclFilters;
             String[] outs = _origExclFilters == null ? new String[] {} : _origExclFilters;
             throw new RuntimeException("Name rejected because this node host applies node filtering (includes: " +
