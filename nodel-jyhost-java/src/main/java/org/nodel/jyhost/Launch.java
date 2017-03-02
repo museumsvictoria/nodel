@@ -29,6 +29,7 @@ import org.nodel.json.JSONObject;
 import org.nodel.jyhost.NodelHost;
 import org.nodel.jyhost.NodelHostHTTPD;
 import org.nodel.logging.slf4j.SimpleLogger;
+import org.nodel.reflection.Objects;
 import org.nodel.reflection.Schema;
 import org.nodel.reflection.Serialisation;
 import org.python.core.Py;
@@ -212,12 +213,12 @@ public class Launch {
         _bootstrapConfig.overrideWith(s_processArgs);
         
         // provide the REST API schema too
-        String apiSchema = Serialisation.serialise(Schema.getSchemaObject(NodelHostHTTPD.RESTModel.class), 4);
+        Object apiSchema = Schema.getSchemaObject(NodelHostHTTPD.RESTModel.class);
         File apiSchemaFile = new File(_root, "_API" + "_schema.json");
-        String existing = apiSchemaFile.exists() ? Stream.readFully(apiSchemaFile) : null;
-        if (!apiSchema.equals(existing))
+        Object existing = apiSchemaFile.exists() ? Serialisation.deserialise(Object.class, Stream.readFully(apiSchemaFile)) : null;
+        if (Objects.sameValue(apiSchema, existing))
             // update the file
-            Stream.writeFully(apiSchemaFile, apiSchema);
+            Stream.writeFully(apiSchemaFile, Serialisation.serialise(apiSchema, 4));
 
         initLogging();
     } // (method)
@@ -242,15 +243,15 @@ public class Launch {
         _logger.info("Nodel [Jython] is starting... version=" + VERSION);
 
         // Only relative paths will be allowed
-
+        
         // verify the content directory exists (or can be created)
-        File contentDirectory = prepareDirectory("content", _root, _bootstrapConfig.getContentDirectory());
+        File embeddedContentDirectory = prepareDirectory("embedded content", _root, _bootstrapConfig.getContentDirectory());
 
         // prepare 'custom' which holds user and admin folders
         File customRoot = prepareDirectory("custom", _root, "custom");
 
         // prepare 'custom content' which holds custom content files (used as first preference)
-        File customContentDirectory = prepareDirectory("custom content", customRoot, _bootstrapConfig.getContentDirectory());
+        File customContentDirectory = prepareDirectory("custom content", customRoot, "content");
 
         // now the kick off the httpd end-point arbitrary bound or by port request
         NodelHostHTTPD nodelHostHTTPD = null;
@@ -268,7 +269,7 @@ public class Launch {
         // or one attempt to bind to a requested one.
         for (int a = 0; a < 2; a++) {
             try {
-                nodelHostHTTPD = new NodelHostHTTPD(tryPort, contentDirectory);
+                nodelHostHTTPD = new NodelHostHTTPD(tryPort, embeddedContentDirectory);
                 
             } catch (Exception exc) {
                 // port would be in use
@@ -317,16 +318,16 @@ public class Launch {
             }
         }
 
-        if (!VERSION.equalsIgnoreCase(version)) {
-            // different versions, so flush and extract
-            _logger.info("Previous version (if any) is different to current version. Cleaning out contents of package folders (if present) and extracting current...");
+        // extract the embedded content if different versions or content directory is empty
+        if (!VERSION.equalsIgnoreCase(version) || embeddedContentDirectory.list().length == 0) {
+            _logger.info("Previous version (if any) is different to current version or the embedded content folder is empty. Cleaning out contents of package folders (if present) and extracting current...");
 
             long deleted;
 
-            deleted = Files.tryFlushDir(contentDirectory);
+            deleted = Files.tryFlushDir(embeddedContentDirectory);
             _logger.info("For 'content', flushed " + deleted + " file(s).");
 
-            extractEmbeddedPackage("content", contentDirectory);
+            extractEmbeddedPackage("content", embeddedContentDirectory);
 
             _logger.info("'admin' and 'content' packages have been extracted.");
             

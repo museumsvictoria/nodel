@@ -80,7 +80,7 @@ public class BootstrapConfig {
         this.nodelRoot = value;
     }    
     
-    public final static String DEFAULT_CONTENT_DIRECTORY = "content";
+    public final static String DEFAULT_CONTENT_DIRECTORY = ".nodel/webui_cache";
 
     @Value(name = "contentDirectory", title = "Content directory", order = 300, required = true)
     private String contentDirectory = DEFAULT_CONTENT_DIRECTORY;
@@ -91,19 +91,6 @@ public class BootstrapConfig {
 
     public void setContentDirectory(String value) {
         this.contentDirectory = value;
-    }
-
-    public final static String DEFAULT_CONFIG_DIRECTORY = "config";
-
-    @Value(name = "configDirectory", title = "Config directory", order = 400, required = true)
-    private String configDirectory = DEFAULT_CONFIG_DIRECTORY;
-
-    public String getConfigDirectory() {
-        return this.configDirectory;
-    }
-
-    public void setConfigDirectory(String value) {
-        this.configDirectory = value;
     }
 
     public final static String DEFAULT_CACHE_DIRECTORY = "cache";
@@ -241,9 +228,6 @@ public class BootstrapConfig {
 
             } else if ("--contentDirectory".equalsIgnoreCase(arg)) {
                 this.contentDirectory = nextArg;
-
-            } else if ("--configDirectory".equalsIgnoreCase(arg)) {
-                this.configDirectory = nextArg;
 
             } else if ("--cacheDirectory".equalsIgnoreCase(arg)) {
                 this.cacheDirectory = nextArg;
