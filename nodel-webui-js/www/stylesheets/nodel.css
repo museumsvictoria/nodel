@@ -422,9 +422,10 @@ label.required:after, button.caution:after {
   padding: 0;
 }
 
-#remote {
+#remote > div.block {
   position: relative;
 }
+
 @media only screen and (max-width: 767px) {
   #remote > div.block div.block:nth-of-type(1) div.field label {
     display: none;
