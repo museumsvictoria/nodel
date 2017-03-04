@@ -24,6 +24,7 @@ import java.util.concurrent.ConcurrentMap;
 
 import org.nodel.Exceptions;
 import org.nodel.Handler;
+import org.nodel.Random;
 import org.nodel.Threads;
 import org.nodel.core.Nodel;
 import org.nodel.discovery.NodelAutoDNS.ServiceItem;
@@ -321,7 +322,7 @@ public class NodelAdvertiser {
             if (randomResponseDelay > 333)
                 delay = randomResponseDelay;
             
-            int timeToWait = Discovery.random().nextInt(delay);
+            int timeToWait = Random.shared().nextInt(delay);
             
             Discovery.timerThread().schedule(new TimerTask() {
 

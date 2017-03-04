@@ -20,6 +20,7 @@ import java.util.concurrent.atomic.AtomicLong;
 
 import org.nodel.DateTimes;
 import org.nodel.Handler;
+import org.nodel.Random;
 import org.nodel.SimpleName;
 import org.nodel.core.NodeAddress;
 import org.nodel.discovery.TopologyWatcher.ChangeHandler;
@@ -172,7 +173,7 @@ public class NodelAutoDNS extends AutoDNS {
                 handleProbeTimer();
             }
 
-        }, (long) (5000 + Discovery.random().nextDouble() * 5000), PROBE_PERIOD);        
+        }, (long) (5000 + Random.shared().nextDouble() * 5000), PROBE_PERIOD);        
 
         _logger.info("Nodel discovery services started. probePeriod:{}, stalePeriodAllowed:{}",
                 DateTimes.formatShortDuration(PROBE_PERIOD), DateTimes.formatShortDuration(STALE_TIME));

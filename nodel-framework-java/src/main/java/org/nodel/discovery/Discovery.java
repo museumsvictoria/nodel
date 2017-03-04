@@ -9,7 +9,6 @@ package org.nodel.discovery;
 import java.net.DatagramPacket;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
-import java.util.Random;
 import java.util.concurrent.atomic.AtomicLong;
 
 import org.nodel.diagnostics.AtomicLongMeasurementProvider;
@@ -41,18 +40,6 @@ public class Discovery {
      */
     public static final InetSocketAddress GROUP_SOCKET_ADDRESS = new InetSocketAddress(MDNS_GROUP, Discovery.MDNS_PORT);
     
-    /**
-     * (convenience)
-     */
-    private Random _random = new Random();
-    
-    /**
-     * Convenience package function.
-     */
-    public static Random random() {
-        return instance()._random;
-    }
-
     /**
      * (see public method)
      */
