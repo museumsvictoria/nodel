@@ -252,6 +252,8 @@ public class Launch {
 
         // prepare 'custom content' which holds custom content files (used as first preference)
         File customContentDirectory = prepareDirectory("custom content", customRoot, "content");
+        
+        File recipesRoot = prepareDirectory("recipes", _root, _bootstrapConfig.recipesRoot);
 
         // now the kick off the httpd end-point arbitrary bound or by port request
         NodelHostHTTPD nodelHostHTTPD = null;
@@ -339,7 +341,7 @@ public class Launch {
         // fire up pyNode console
         File nodelRoot = prepareDirectory("nodelRoot", _root, _bootstrapConfig.getNodelRoot());
 
-        _nodelHost = new NodelHost(nodelRoot, _bootstrapConfig.getInclFilters(), _bootstrapConfig.getExclFilters());
+        _nodelHost = new NodelHost(nodelRoot, _bootstrapConfig.getInclFilters(), _bootstrapConfig.getExclFilters(), recipesRoot);
 
         nodelHostHTTPD.setNodeHost(_nodelHost);
 

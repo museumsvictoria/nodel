@@ -27,6 +27,7 @@ import org.nodel.core.NodelClients.NodeURL;
 import org.nodel.diagnostics.AtomicLongMeasurementProvider;
 import org.nodel.diagnostics.Diagnostics;
 import org.nodel.discovery.AdvertisementInfo;
+import org.nodel.io.Files;
 import org.nodel.reflection.Serialisation;
 import org.nodel.threading.ThreadPool;
 import org.nodel.threading.TimerTask;
@@ -93,6 +94,11 @@ public class NodelHost {
     private File _root;
     
     /**
+     * Holds the recipe root directory to present like of nodes to be based on.
+     */
+    private File _recipesRoot;    
+    
+    /**
      * Additional roots (see 'root')
      */
     private List<File> _otherRoots = new ArrayList<File>();
@@ -133,17 +139,15 @@ public class NodelHost {
         }
 
     };
-    
+
     /**
      * Constructs a new NodelHost and returns immediately.
      */
-    public NodelHost(File root, String[] inclFilters, String[] exclFilters) {
-        if (root == null)
-            _root = new File(".");
-        else
-            _root = root;
+    public NodelHost(File root, String[] inclFilters, String[] exclFilters, File recipesRoot) {
+        _root = (root == null ? new File(".") : root);
+        _recipesRoot = recipesRoot;
         
-        _logger.info("NodelHost initialised. root='{}'", root.getAbsolutePath());
+        _logger.info("NodelHost initialised. root='{}', recipesRoot='{}'", root.getAbsolutePath(), recipesRoot.getAbsoluteFile());
         
         Nodel.setHostPath(new File(".").getAbsolutePath());
         Nodel.setNodesRoot(_root.getAbsolutePath());
@@ -344,24 +348,38 @@ public class NodelHost {
     /**
      * Creates a new node.
      */
-    public void newNode(String name) {
+    public void newNode(String name, String base) {
         if (Strings.isNullOrEmpty(name))
             throw new RuntimeException("No node name was provided");
 
         testNameFilters(name);
 
         // if here, name does not break any filtering rules
-
+        
+        // since the node may contain multiple files, create the node using in an 'atomic' way using
+        // a temporary folder
+        
         // TODO: should be able to select a node
         File newNodeDir = new File(_root, name);
 
         if (newNodeDir.exists())
             throw new RuntimeException("A node with the name '" + name + "' already exists.");
 
-        if (!newNodeDir.mkdir())
-            throw new RuntimeException("The platform did not allow the creation of the node folder for unspecified reasons.");
-
-        // the folder is created!
+        if (Strings.isNullOrEmpty(base)) {
+            // not based on existing node, so just create an empty folder
+            // and the node will do the rest
+            if (!newNodeDir.mkdir())
+                throw new RuntimeException("The platform did not allow the creation of the node folder for unspecified reasons.");
+            
+        } else {
+            // based on an existing node, so copy everything over
+            File baseDir = new File(_recipesRoot, base.replace('/', File.separatorChar));
+            if (!baseDir.exists())
+                throw new RuntimeException("Could not locate base recipe (" + base + ")");
+            
+            // copy the entire folder
+            Files.copyDir(baseDir, newNodeDir);
+        }
     }
 
     /**
@@ -433,6 +451,41 @@ public class NodelHost {
 
         return include;
     }
+    
+    /**
+     * Returns a list of recipe paths.
+     */
+    public List<String> getRecipes() {
+        List<String> scriptPaths = new ArrayList<>();
+        
+        searchForScripts(scriptPaths, "", _recipesRoot);
+        
+        return scriptPaths;
+    }
+    
+    /**
+     * Returns a list of folders that have scripts in them
+     * (recursive helper)
+     */
+    private static void searchForScripts(List<String> result, String path, File root) {
+        for (File item : root.listFiles()) {
+            if (item.isHidden())
+                continue;
+            
+            if (item.isDirectory())
+                searchForScripts(result, String.format("%s/%s", path, item.getName()), item);
+            
+            if (item.isFile() && item.getName().equalsIgnoreCase("script.py")) {
+                result.add(path);
+
+                // no need to search any further
+                return;
+            }
+            
+            // otherwise skip
+        }
+    }
+    
     
     public Collection<AdvertisementInfo> getAdvertisedNodes() {
         return Nodel.getAllNodes();

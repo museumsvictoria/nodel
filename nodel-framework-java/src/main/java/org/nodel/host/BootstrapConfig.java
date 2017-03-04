@@ -184,6 +184,14 @@ public class BootstrapConfig {
         this.exclFilters = exclude;
     }
     
+
+    public final static String DEFAULT_RECIPESROOT_DIRECTORY = "recipes";
+
+    @Value(name = "recipesRoot", title = "Recipes directory", order = 1300, required = false, 
+            desc="(command-line arg '--recipes')")
+    public String recipesRoot = DEFAULT_RECIPESROOT_DIRECTORY;
+    
+    
     /**
      * Overrides current instances fields with command-line like ones.
      * TODO: ideally this should be a generic command-line args parser via Serialisation class and ValueInfos.
@@ -237,6 +245,9 @@ public class BootstrapConfig {
 
             } else if ("--logsDirectory".equalsIgnoreCase(arg)) {
                 this.logsDirectory = nextArg;
+
+            } else if ("--recipes".equalsIgnoreCase(arg)) {
+                this.recipesRoot = nextArg;
 
             } else if ("-I".equals(arg) || "--inclFilter".equalsIgnoreCase(arg)) {
                 List<String> list = lists.get('I');
