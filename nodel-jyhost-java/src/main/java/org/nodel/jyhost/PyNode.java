@@ -1422,19 +1422,30 @@ public class PyNode extends BaseDynamicNode {
         _logger.info("This node has been deleted. It will close down.");
     }
 
+    /**
+     * (end-point)
+     */
+    private FilesEndPoint _files = new FilesEndPoint(_root);
+    
+    /**
+     * An end-point that support simple file management.
+     */
+    @Service(name="files")
+    public FilesEndPoint files() { return _files;}
+    
     protected void injectError(String source, Throwable th) {
-        String excValue = th.toString(); 
+        String excValue = th.toString();
         _logger.info(source + " - " + excValue);
         _errReader.inject(source + " - " + excValue);
     }
-    
+
     /**
      * Outside callers can inject error messages related to this node.
      */
     protected void notifyOfError(Exception exc) {
         _errReader.inject(exc.toString());
     }
-    
+
     /**
      * Permanently shuts down the node.
      */
@@ -1442,21 +1453,21 @@ public class PyNode extends BaseDynamicNode {
         synchronized (_signal) {
             if (_closed)
                 return;
-            
+
             _closed = true;
-            
+
             _logger.info("Closing node...");
-            
+
             cleanupBindings();
-            
+
             cleanupInterpreter();
-            
+
             super.close();
-            
+
             // stuff
         }
     } // (method)
-    
+
     /**
      * Tracks dead (never-ending) functions.
      * Done just after 'try' section.
@@ -1476,25 +1487,25 @@ public class PyNode extends BaseDynamicNode {
             _activeFunctions.remove(functionKey);
         }
     }
-    
+
     /**
      * Waits no longer than 10s to try and get a reentrant lock.
      * Starts off sharing one lock, but may need more if nodes lock up or take too long to initialise.
      */
     private ReentrantLock getAReentrantLock() throws InterruptedException {
         ReentrantLock lock = null;
-        
+
         for (;;) {
             if (lock != null && lock.tryLock(10, TimeUnit.SECONDS)) {
                 return lock;
-                
+
             } else {
                 // refresh the lock if its the same one
                 synchronized (s_globalLock) {
                     if (lock == null)
                         // should get here first iteration
                         lock = s_currentGlobalRentrantLock;
-                    
+
                     else if (lock == s_currentGlobalRentrantLock) {
                         // won't get here the first iteration
                         s_currentGlobalRentrantLock = new ReentrantLock();
@@ -1503,12 +1514,12 @@ public class PyNode extends BaseDynamicNode {
 
                         lock = s_currentGlobalRentrantLock;
                     }
-                    
+
                     // otherwise the lock is different to what was previously used,
                     // so try lock on that one
                 }
             }
         }
-    }    
+    }
 
 } // (class)

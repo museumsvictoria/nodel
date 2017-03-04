@@ -308,11 +308,18 @@ public class NodelHostHTTPD extends NanoHTTPD {
                 else
                     throw new UnknownServiceException("Unexpected method - '" + method + "'");
 
-                String targetAsJSON = Serialisation.serialise(target);
+                // check if the target is an HTTP directive
+                Response resp;
+                if (target instanceof Response) {
+                    resp = (Response) target;
+
+                } else {
+                    // otherwise serialise the target into JSON
+                    String targetAsJSON = Serialisation.serialise(target);
+                    resp = new Response(HTTP_OK, "application/json; charset=utf-8", targetAsJSON);
+                }
 
                 // adjust the response headers for script compatibility
-
-                Response resp = new Response(HTTP_OK, "application/json; charset=utf-8", targetAsJSON);
                 resp.addHeader("Access-Control-Allow-Origin", "*");
 
                 return resp;
