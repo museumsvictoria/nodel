@@ -94,11 +94,6 @@ public class NodelHost {
     private File _root;
     
     /**
-     * Holds the recipe root directory to present like of nodes to be based on.
-     */
-    private File _recipesRoot;    
-    
-    /**
      * Additional roots (see 'root')
      */
     private List<File> _otherRoots = new ArrayList<File>();
@@ -145,7 +140,8 @@ public class NodelHost {
      */
     public NodelHost(File root, String[] inclFilters, String[] exclFilters, File recipesRoot) {
         _root = (root == null ? new File(".") : root);
-        _recipesRoot = recipesRoot;
+        
+        _recipes = new RecipesEndPoint(recipesRoot);
         
         _logger.info("NodelHost initialised. root='{}', recipesRoot='{}'", root.getAbsolutePath(), recipesRoot.getAbsoluteFile());
         
@@ -344,11 +340,21 @@ public class NodelHost {
             }
         } // (for)
     }
+    
+    /**
+     * (init. in constructor)
+     */
+    private RecipesEndPoint _recipes;
+    
+    /**
+     * The Recipes end-point 
+     */
+    public RecipesEndPoint recipes() { return _recipes; }
 
     /**
      * Creates a new node.
      */
-    public void newNode(String name, String base) {
+    public void newNode(String base, String name) {
         if (Strings.isNullOrEmpty(name))
             throw new RuntimeException("No node name was provided");
 
@@ -359,7 +365,7 @@ public class NodelHost {
         // since the node may contain multiple files, create the node using in an 'atomic' way using
         // a temporary folder
         
-        // TODO: should be able to select a node
+        // TODO: should be able to select which root is applicable
         File newNodeDir = new File(_root, name);
 
         if (newNodeDir.exists())
@@ -372,11 +378,12 @@ public class NodelHost {
                 throw new RuntimeException("The platform did not allow the creation of the node folder for unspecified reasons.");
             
         } else {
-            // based on an existing node, so copy everything over
-            File baseDir = new File(_recipesRoot, base.replace('/', File.separatorChar));
+            // based on an existing node (from recipes folder or self nodes)
+            File baseDir = new File(_recipes.getRoot(), base.replace('/', File.separatorChar));
+
             if (!baseDir.exists())
                 throw new RuntimeException("Could not locate base recipe (" + base + ")");
-            
+
             // copy the entire folder
             Files.copyDir(baseDir, newNodeDir);
         }
@@ -452,39 +459,7 @@ public class NodelHost {
         return include;
     }
     
-    /**
-     * Returns a list of recipe paths.
-     */
-    public List<String> getRecipes() {
-        List<String> scriptPaths = new ArrayList<>();
-        
-        searchForScripts(scriptPaths, "", _recipesRoot);
-        
-        return scriptPaths;
-    }
-    
-    /**
-     * Returns a list of folders that have scripts in them
-     * (recursive helper)
-     */
-    private static void searchForScripts(List<String> result, String path, File root) {
-        for (File item : root.listFiles()) {
-            if (item.isHidden())
-                continue;
-            
-            if (item.isDirectory())
-                searchForScripts(result, String.format("%s/%s", path, item.getName()), item);
-            
-            if (item.isFile() && item.getName().equalsIgnoreCase("script.py")) {
-                result.add(path);
 
-                // no need to search any further
-                return;
-            }
-            
-            // otherwise skip
-        }
-    }
     
     
     public Collection<AdvertisementInfo> getAdvertisedNodes() {

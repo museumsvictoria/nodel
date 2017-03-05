@@ -103,8 +103,8 @@ public class NodelHostHTTPD extends NanoHTTPD {
         }
         
         @Service(name = "recipes", order = 1, title = "Recipes", desc = "Recipes that new nodes can be based on", genericClassA = String.class)
-        public List<String> recipes() {
-            return _nodelHost.getRecipes();
+        public RecipesEndPoint recipes() {
+            return _nodelHost.recipes();
         }
         
         @Value(name = "started", title = "Started", desc = "When the host started.")
@@ -149,8 +149,8 @@ public class NodelHostHTTPD extends NanoHTTPD {
         }
 
         @Service(name = "newNode", order = 7, title = "New node", desc = "Creates a new node.")
-        public void newNode(String name, @Param(name = "base") String base) {
-            _nodelHost.newNode(name, base);
+        public void newNode(@Param(name = "base") String base, String name) {
+            _nodelHost.newNode(base, name);
         }
         
         @Service(name = "toolkit", title = "Toolkit", desc = "The toolkit reference.")
