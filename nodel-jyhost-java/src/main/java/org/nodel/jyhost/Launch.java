@@ -102,48 +102,49 @@ public class Launch {
      * @param args A set of arguments (normally from the command-line) 
      */
     public Launch(File workingDirectory, String[] args) throws StartupException, IOException, JSONException {
-        if (workingDirectory != null)
-            _root = workingDirectory;
-        
-        if (args != null)
-            s_processArgs = args;
+        try {
+            if (workingDirectory != null)
+                _root = workingDirectory;
 
-        bootstrap();
-        
-        start();
+            if (args != null)
+                s_processArgs = args;
+
+            bootstrap();
+
+            start();
+            
+        } catch (Exception exc) {
+            // dump to file first before throwing
+
+            try (PrintWriter pw = new PrintWriter(new File("_lastError.txt"))) {
+                pw.println(DateTime.now());
+                exc.printStackTrace(pw);
+
+                pw.flush();
+            }
+
+            throw exc;
+        }
     }
-    
     
     /**
      * Console launch entry-point.
      */
     public static void main(String[] args) throws IOException, JSONException, StartupException {
-        try {
-            Launch launch = new Launch(args);
+        Launch launch = new Launch(args);
 
-            System.out.println("Nodel [Jython] v" + VERSION + " is running.");
-            System.out.println();
-            System.out.println("Press Enter to initiate a shutdown.");
-            System.out.println();
-            
-            tryReadFromConsole();
+        System.out.println("Nodel [Jython] v" + VERSION + " is running.");
+        System.out.println();
+        System.out.println("Press Enter to initiate a shutdown.");
+        System.out.println();
 
-            System.out.println("Shutdown initiated...");
+        tryReadFromConsole();
 
-            launch.shutdown();
+        System.out.println("Shutdown initiated...");
 
-            System.out.println("Finished.");
-            
-        } catch (Exception exc) {
-            // dump to file first before throwing
-            
-            try (PrintWriter pw = new PrintWriter(new File("_lastError.txt"))) {
-                pw.println(DateTime.now());
-                exc.printStackTrace(pw);
-            }
+        launch.shutdown();
 
-            throw exc;
-        }
+        System.out.println("Finished.");
     }
     
     /**
