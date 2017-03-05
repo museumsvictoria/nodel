@@ -119,6 +119,11 @@ public class NodelHostHTTPD extends NanoHTTPD {
         public List<NodeURL> nodeURLs(@Param(name = "filter", title = "Filter", desc = "Optional string filter.") String filter) throws IOException {
             return _nodelHost.getNodeURLs(filter);
         }
+        
+        @Service(name = "nodeURLs", order = 6, title = "Node URLs", desc = "Returns the addresses of all advertised nodes.")
+        public List<NodeURL> nodeURLsForNode(@Param(name = "name") SimpleName name) throws IOException {
+            return _nodelHost.getNodeURLsForNode(name);
+        }
 
         @Service(name = "logs", title = "Logs", desc = "Detailed program logs.")
         public LogEntry[] getLogs(

@@ -245,10 +245,9 @@ public class Nodel {
     
     /**
      * Returns all the advertised nodes.
-     * @throws IOException 
      */
     public static List<NodeURL> getNodeURLs() throws IOException {
-        return NodelClients.instance().getNodeURLs();
+        return NodelClients.instance().getAllNodesURLs();
     }
     
     /**
@@ -256,19 +255,26 @@ public class Nodel {
      */
     public static List<NodeURL> getNodeURLs(String filter) throws IOException {
         List<NodeURL> urls = Nodel.getNodeURLs();
-        
+
         if (Strings.isNullOrEmpty(filter))
             return urls;
-        
+
         String lcFilter = filter.toLowerCase();
-        
+
         ArrayList<NodeURL> filteredList = new ArrayList<NodeURL>();
         for (NodeURL url : urls) {
             if (url.node.getOriginalName().toLowerCase().contains(lcFilter))
-            filteredList.add(url);
+                filteredList.add(url);
         }
-        
+
         return filteredList;
+    }
+    
+    /**
+     * Gets a node's URLs
+     */
+    public static List<NodeURL> getNodeURLsForNode(SimpleName name) throws IOException {
+        return NodelClients.instance().getNodeURLs(name);
     }
     
     /**

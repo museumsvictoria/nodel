@@ -446,6 +446,10 @@ public class NodelHost {
         return Nodel.getNodeURLs(filter);
     }
     
+    public List<NodeURL> getNodeURLsForNode(SimpleName name) throws IOException {
+        return Nodel.getNodeURLsForNode(name);
+    }    
+    
     /**
      * Permanently shuts down this nodel host
      */
