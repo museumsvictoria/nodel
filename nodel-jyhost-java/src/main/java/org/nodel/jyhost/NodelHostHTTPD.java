@@ -120,7 +120,7 @@ public class NodelHostHTTPD extends NanoHTTPD {
             return _nodelHost.getNodeURLs(filter);
         }
         
-        @Service(name = "nodeURLs", order = 6, title = "Node URLs", desc = "Returns the addresses of all advertised nodes.")
+        @Service(name = "nodeURLsForNode", order = 6, title = "Node URLs", desc = "Returns the addresses of all advertised nodes.")
         public List<NodeURL> nodeURLsForNode(@Param(name = "name") SimpleName name) throws IOException {
             return _nodelHost.getNodeURLsForNode(name);
         }
