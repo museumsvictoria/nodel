@@ -869,13 +869,16 @@ public class ManagedToolkit {
      * 
      * Safe timeouts are used to avoid non-responsive servers being able to hold up connections indefinitely.
      */
-    public String getURL(String urlStr, Map<String, String> query, String username, String password, Map<String, String> headers, String reference, String contentType, String post, Integer connectTimeout, Integer readTimeout) throws IOException {
+    public String getURL(String urlStr, Map<String, String> query, String username, String password, Map<String, String> headers, String reference, String contentType, String post,
+            Integer connectTimeout, Integer readTimeout,
+            String proxyAddress, String proxyUsername, String proxyPassword) throws IOException {
         synchronized (_lock) {
             if (_httpClient == null)
                 _httpClient = new NodelHTTPClient();
         }
-        
-        return _httpClient.makeRequest(urlStr, query, username, password, headers, reference, contentType, post, connectTimeout, readTimeout);
+
+        return _httpClient.makeRequest(urlStr, query, username, password, headers, reference, contentType, post, connectTimeout, readTimeout,
+                proxyAddress, proxyUsername, proxyPassword);
     }
 
     /**

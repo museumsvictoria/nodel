@@ -19,6 +19,7 @@ import java.util.concurrent.atomic.AtomicLong;
 
 import org.apache.http.Header;
 import org.apache.http.HttpEntity;
+import org.apache.http.HttpHost;
 import org.apache.http.HttpResponse;
 import org.apache.http.HttpVersion;
 import org.apache.http.StatusLine;
@@ -33,6 +34,7 @@ import org.apache.http.client.params.ClientPNames;
 import org.apache.http.client.params.CookiePolicy;
 import org.apache.http.conn.ClientConnectionManager;
 import org.apache.http.conn.params.ConnManagerParams;
+import org.apache.http.conn.params.ConnRoutePNames;
 import org.apache.http.conn.scheme.PlainSocketFactory;
 import org.apache.http.conn.scheme.Scheme;
 import org.apache.http.conn.scheme.SchemeRegistry;
@@ -164,10 +166,11 @@ public class NodelHTTPClient extends DefaultHttpClient {
                          String username, String password, 
                          Map<String, String> headers, String reference, String contentType, 
                          String post, 
-                         Integer connectTimeout, Integer readTimeout) throws IOException {
+                         Integer connectTimeout, Integer readTimeout,
+                         String proxyAddress, String proxyUsername, String proxyPassword) throws IOException {
         // record rate of new connections
         s_attemptRate.incrementAndGet();
-        
+
         // construct the full URL (includes query string)
         String fullURL = buildQueryString(urlStr, query);
 
@@ -179,6 +182,10 @@ public class NodelHTTPClient extends DefaultHttpClient {
             
             // 'get' or 'post'?
             HttpRequestBase request = (post == null ? new HttpGet(fullURL) : new HttpPost(fullURL));
+            
+            // used if special parameters will be set up
+            // (created only once)
+            HttpParams params = null;
 
             // set 'Content-Type' header
             if (!Strings.isNullOrEmpty(contentType))
@@ -202,7 +209,8 @@ public class NodelHTTPClient extends DefaultHttpClient {
             // set any timeouts that apply
             if (connectTimeout != null || readTimeout != null) {
                 // copy the params
-                HttpParams params = this.getParams().copy();
+                if (params == null)
+                    params = this.getParams().copy();
                 
                 int actualConnTimeout = connectTimeout != null ? connectTimeout : DEFAULT_CONNECTTIMEOUT;
                 int actualReadTimeout = readTimeout != null ? readTimeout : DEFAULT_READTIMEOUT;
@@ -213,9 +221,44 @@ public class NodelHTTPClient extends DefaultHttpClient {
                 HttpConnectionParams.setConnectionTimeout(params, actualConnTimeout);
                 HttpConnectionParams.setSoTimeout(params, actualReadTimeout);
                 ConnManagerParams.setTimeout(params, actualConnTimeout);
-                
-                request.setParams(params);
             }
+            
+            // using a proxy?
+            if (proxyAddress != null) {
+                // copy the params
+                if (params == null)
+                    params = this.getParams().copy();                
+                
+                String[] proxyAddressParts = proxyAddress.split(":");
+                if (proxyAddressParts.length != 2)
+                    throw new IllegalArgumentException("Proxy address is not in form host:port");
+
+                String proxyHost = proxyAddressParts[0];
+                int proxyPort;
+                try {
+                    proxyPort = Integer.parseInt(proxyAddressParts[1]);
+                    
+                } catch (Exception exc) {
+                    throw new IllegalArgumentException("Port specified was not a number.");
+                }
+
+                // set proxy credentials if provided
+                if (proxyUsername != null) {
+                    if (proxyPassword == null)
+                        throw new IllegalArgumentException("Proxy user");
+                        
+                    this.getCredentialsProvider().setCredentials(new AuthScope(proxyHost, proxyPort),
+                            new UsernamePasswordCredentials(proxyUsername, proxyPassword));
+                }
+
+                // force the proxy
+                HttpHost proxy = new HttpHost(proxyHost, proxyPort);
+                this.getParams().setParameter(ConnRoutePNames.DEFAULT_PROXY, proxy);
+            }
+            
+            // use the new params (based on copy)
+            if (params != null)
+                request.setParams(params);
 
             // perform the request
             HttpResponse httpResponse;
