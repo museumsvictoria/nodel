@@ -114,6 +114,7 @@ function removeNulls(obj){
 
 // html special character encoder
 function htmlEncode(value) {
+  value = typeof value == "undefined"? '': value;
   var specialchr = {'"': '&quot;', '&': '&amp;', "'": '&#39;', '/': '&#47;', '<': '&lt;', '>': '&gt;'};
   value = String(value);
   return value.replace(/[\"&'\/<>]/g, function (a) {
