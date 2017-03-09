@@ -9,19 +9,13 @@ package org.nodel.jyhost;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.PrintWriter;
 import java.io.RandomAccessFile;
-import java.net.Inet4Address;
-import java.net.InetAddress;
-import java.net.InterfaceAddress;
-import java.net.NetworkInterface;
-import java.net.SocketException;
 import java.nio.channels.FileLock;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
 
+import org.joda.time.DateTime;
 import org.nodel.StartupException;
+import org.nodel.Threads;
 import org.nodel.Version;
 import org.nodel.core.Nodel;
 import org.nodel.host.BootstrapConfig;
@@ -35,9 +29,9 @@ import org.nodel.json.JSONObject;
 import org.nodel.jyhost.NodelHost;
 import org.nodel.jyhost.NodelHostHTTPD;
 import org.nodel.logging.slf4j.SimpleLogger;
+import org.nodel.reflection.Objects;
 import org.nodel.reflection.Schema;
 import org.nodel.reflection.Serialisation;
-import org.nodel.reflection.Value;
 import org.python.core.Py;
 import org.python.core.PyDictionary;
 import org.python.core.PyList;
@@ -70,6 +64,7 @@ public class Launch {
     
     /**
      * The root directory this program will use.
+     * (overriden by bootstrap)
      */
     private File _root = new File(".");
     
@@ -88,37 +83,85 @@ public class Launch {
      */
     private static String[] s_processArgs;
     
+    /**
+     * (see full constructor) 
+     */
     public Launch() throws StartupException, IOException, JSONException {
-        bootstrap();
-        
-        start();
+        this(null, null);
     }
     
+    /**
+     * (see full constructor) 
+     */
     public Launch(String[] args) throws StartupException, IOException, JSONException {
-        s_processArgs = args;
-        
-        bootstrap();
-        
-        start();
-    } // (method)
+        this(null, args);
+    }
+    
+    /**
+     * @param working A non-default working directory instead of "." (current folder)
+     * @param args A set of arguments (normally from the command-line) 
+     */
+    public Launch(File workingDirectory, String[] args) throws StartupException, IOException, JSONException {
+        try {
+            if (workingDirectory != null)
+                _root = workingDirectory;
+
+            if (args != null)
+                s_processArgs = args;
+
+            bootstrap();
+
+            start();
+            
+        } catch (Exception exc) {
+            // dump to file first before throwing
+
+            try (PrintWriter pw = new PrintWriter(new File("_lastError.txt"))) {
+                pw.println(DateTime.now());
+                exc.printStackTrace(pw);
+
+                pw.flush();
+            }
+
+            throw exc;
+        }
+    }
     
     /**
      * Console launch entry-point.
      */
     public static void main(String[] args) throws IOException, JSONException, StartupException {
         Launch launch = new Launch(args);
-        
+
         System.out.println("Nodel [Jython] v" + VERSION + " is running.");
         System.out.println();
         System.out.println("Press Enter to initiate a shutdown.");
         System.out.println();
-        System.in.read();
-        
+
+        tryReadFromConsole();
+
         System.out.println("Shutdown initiated...");
-        
+
         launch.shutdown();
-        
+
         System.out.println("Finished.");
+    }
+    
+    /**
+     * In some console-less environments (e.g. javaw.exe), stdin may be invalid but should not
+     * prevent start up.
+     */
+    private static void tryReadFromConsole() {
+        try {
+            System.in.read();
+
+        } catch (IOException exc) {
+            // unlikely this will be seen anywhere but dump anyway
+            System.err.println("(Running in console-less mode. To terminate process, kill manually or via /diagnostics)");
+
+            // no signals available so just sleep
+            Threads.sleep(Long.MAX_VALUE);
+        }
     }
     
     /**
@@ -171,29 +214,26 @@ public class Launch {
         _bootstrapConfig.overrideWith(s_processArgs);
         
         // provide the REST API schema too
-        String apiSchema = Serialisation.serialise(Schema.getSchemaObject(NodelHostHTTPD.RESTModel.class), 4);
+        Object apiSchema = Schema.getSchemaObject(NodelHostHTTPD.RESTModel.class);
         File apiSchemaFile = new File(_root, "_API" + "_schema.json");
-        String existing = apiSchemaFile.exists() ? Stream.readFully(apiSchemaFile) : null;
-        if (!apiSchema.equals(existing))
+        Object existing = apiSchemaFile.exists() ? Serialisation.deserialise(Object.class, Stream.readFully(apiSchemaFile)) : null;
+        if (Objects.sameValue(apiSchema, existing))
             // update the file
-            Stream.writeFully(apiSchemaFile, apiSchema);
+            Stream.writeFully(apiSchemaFile, Serialisation.serialise(apiSchema, 4));
 
         initLogging();
     } // (method)
 
 	private void start() throws IOException {
-        // check for multihomed host
-        if (_bootstrapConfig.getNetworkInterface() == null) {
-            checkForMultihoming(null);
-        } else {
-            Inet4Address addr = checkForMultihoming(_bootstrapConfig.getNetworkInterface());
-            Nodel.setInterfaceToUse(addr);
+        // immediately prevent unintended duplicate instances 
+        createHostInstanceLockOrFail();
+	    
+        // opt-in interfaces
+        String[] interfaces = _bootstrapConfig.getNetworkInterfaces();
+        if (interfaces != null && interfaces.length > 0) {
+            Nodel.setInterfacesToUse(_bootstrapConfig.getNetworkInterfaces());
         }
         
-        // check if any "direct" hard links (assisted multicast using unicast) addresses have been set
-        if (_bootstrapConfig.getHardLinksAddresses() != null)
-            Nodel.setHardLinksAddresses(Arrays.asList(_bootstrapConfig.getHardLinksAddresses()));
-
         // check if advertisements should be disabled
         if (_bootstrapConfig.getDisableAdvertisements()) {
             Nodel.setDisableServerAdvertisements(true);
@@ -204,15 +244,15 @@ public class Launch {
         _logger.info("Nodel [Jython] is starting... version=" + VERSION);
 
         // Only relative paths will be allowed
-
+        
         // verify the content directory exists (or can be created)
-        File contentDirectory = prepareDirectory("content", _root, _bootstrapConfig.getContentDirectory());
+        File embeddedContentDirectory = prepareDirectory("embedded content", _root, _bootstrapConfig.getContentDirectory());
 
         // prepare 'custom' which holds user and admin folders
         File customRoot = prepareDirectory("custom", _root, "custom");
 
         // prepare 'custom content' which holds custom content files (used as first preference)
-        File customContentDirectory = prepareDirectory("custom content", customRoot, _bootstrapConfig.getContentDirectory());
+        File customContentDirectory = prepareDirectory("custom content", customRoot, "content");
 
         // now the kick off the httpd end-point arbitrary bound or by port request
         NodelHostHTTPD nodelHostHTTPD = null;
@@ -230,7 +270,7 @@ public class Launch {
         // or one attempt to bind to a requested one.
         for (int a = 0; a < 2; a++) {
             try {
-                nodelHostHTTPD = new NodelHostHTTPD(tryPort, contentDirectory);
+                nodelHostHTTPD = new NodelHostHTTPD(tryPort, embeddedContentDirectory);
                 
             } catch (Exception exc) {
                 // port would be in use
@@ -255,10 +295,6 @@ public class Launch {
             if (lastHTTPPort != Nodel.getHTTPPort())
                 Stream.writeFully(lastHTTPPortCache, String.valueOf(Nodel.getHTTPPort()));
 
-            // prevent unintended duplicate instances
-            createHostInstanceLockOrFail();
-
-            System.out.println("    (web interface started on port " + Nodel.getHTTPPort() + ")\n");
             _logger.info("HTTP interface bound to TCP port " + Nodel.getHTTPPort());
 
             break;
@@ -266,8 +302,8 @@ public class Launch {
         
         nodelHostHTTPD.setFirstChoiceDir(customContentDirectory);
         
-        // start the WebSocket server
-        NodelHostWebSocketServer nodelHostWSServer = new NodelHostWebSocketServer(0);
+        // start the WebSocket server (using bootstrap port override if specified)
+        NodelHostWebSocketServer nodelHostWSServer = new NodelHostWebSocketServer(_bootstrapConfig.getNodelHostWSPort());
         nodelHostWSServer.start(90000);
         _logger.info("Started WebSocket server on port " + nodelHostWSServer.getListeningPort());
         Nodel.setWebSocketPort(nodelHostWSServer.getListeningPort());
@@ -283,16 +319,16 @@ public class Launch {
             }
         }
 
-        if (!VERSION.equalsIgnoreCase(version)) {
-            // different versions, so flush and extract
-            _logger.info("Previous version (if any) is different to current version. Cleaning out contents of package folders (if present) and extracting current...");
+        // extract the embedded content if different versions or content directory is empty
+        if (!VERSION.equalsIgnoreCase(version) || embeddedContentDirectory.list().length == 0) {
+            _logger.info("Previous version (if any) is different to current version or the embedded content folder is empty. Cleaning out contents of package folders (if present) and extracting current...");
 
             long deleted;
 
-            deleted = Files.tryFlushDir(contentDirectory);
+            deleted = Files.tryFlushDir(embeddedContentDirectory);
             _logger.info("For 'content', flushed " + deleted + " file(s).");
 
-            extractEmbeddedPackage("content", contentDirectory);
+            extractEmbeddedPackage("content", embeddedContentDirectory);
 
             _logger.info("'admin' and 'content' packages have been extracted.");
             
@@ -321,85 +357,6 @@ public class Launch {
         if (_bootstrapConfig.getDisableAdvertisements())
             _logger.info("(advertisements are disabled)");       
     } // (method)
-    
-    /**
-     * Checks for a multihomed environment.
-     */
-    private Inet4Address checkForMultihoming(byte[] find) throws SocketException {
-        List<NetworkInterface> raw = Collections.list(NetworkInterface.getNetworkInterfaces());
-        List<NetworkInterface> filtered = new ArrayList<NetworkInterface>();
-        
-        List<Inet4Address> inet4Addresses = new ArrayList<Inet4Address>(); 
-        
-        for (final NetworkInterface inf : raw) {
-            if (inf.getMTU() <= 0 || 
-                !inf.isUp() ||
-                !inf.supportsMulticast())
-                continue;
-            
-            Inet4Address lastAddr = null;
-            
-            for(InetAddress addr : Collections.list(inf.getInetAddresses())) {
-                if (addr instanceof Inet4Address) {
-                    lastAddr = (Inet4Address) addr;
-                    inet4Addresses.add(lastAddr);
-                }
-            } // (for)
-            
-            if (lastAddr != null && find != null && isEqual(inf.getHardwareAddress(), find))
-                return lastAddr;
-            
-            filtered.add(inf);
-        } // (for)
-        
-        if (find == null && inet4Addresses.size() == 1) {
-            // all okay
-            _logger.info("This host does not appear to be multihomed; binding to only IPv4 interface (current address '" + inet4Addresses.get(0) + "')");
-            
-            return inet4Addresses.get(0); 
-        }        
-        
-        for (final NetworkInterface inf : filtered) {
-            Object wrapper = new Object() {
-                
-                @Value(name = "displayName")
-                public String displayName = inf.getDisplayName();
-
-                @Value(name = "hardwareAddr")
-                public byte[] hardwareAddr = inf.getHardwareAddress();
-
-                // JDK 7 only
-                // @Value
-                // public int index = inf.getIndex();
-
-                @Value(name = "addresses")
-                public List<InterfaceAddress> addresses = inf.getInterfaceAddresses();
-
-                @Value(name = "mtu")
-                public int mtu = inf.getMTU();
-
-                @Value(name = "name")
-                public String name = inf.getName();
-                
-            };
-
-            System.err.println(Serialisation.serialise(wrapper));
-        }
-        
-        System.err.println();
-        System.err.println("NOTE:");
-        if (find != null)
-            System.err.println("      Could not find specified network interface based on 'hardwareAddr'.");
-
-        System.err.println("      This host appears to be multihomed; a network interface must be chosen.");
-        System.err.println("      Please use a 'hardwareAddr' from one of the above adapters and update");
-        System.err.println("      your 'bootstrap.json' file.");
-        
-        System.exit(-1);
-        
-        // dead code:
-        return null;
-    } // (method)
 
     /**
      * (is never unlocked)
@@ -427,30 +384,6 @@ public class Launch {
                 throw new RuntimeException(message, exc);
         }
     }
-    
-    /**
-     * Compares two buffers
-     */
-    private static boolean isEqual(byte[] buffer1, byte[] buffer2) {
-        if (buffer1 == null)
-            if (buffer2 != null)
-                return false;
-        
-        if (buffer2 == null)
-            if (buffer1 != null)
-                return false;
-        
-        int length = buffer1.length;
-        
-        if (buffer2.length != length)
-            return false;
-        
-        for (int a=0; a<length; a++)
-            if (buffer1[a] != buffer2[a])
-                return false;
-        
-        return true;
-    } // (method)
 
     /**
      * Utility method to ensure a directory exist, failing if it's not possible

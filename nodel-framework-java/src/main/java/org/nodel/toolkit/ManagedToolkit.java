@@ -1,19 +1,9 @@
 package org.nodel.toolkit;
 
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.io.OutputStream;
-import java.io.OutputStreamWriter;
-import java.io.UnsupportedEncodingException;
-import java.net.HttpURLConnection;
-import java.net.URL;
-import java.net.URLConnection;
-import java.net.URLEncoder;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.atomic.AtomicLong;
@@ -37,6 +27,7 @@ import org.nodel.host.BaseDynamicNode;
 import org.nodel.host.Binding;
 import org.nodel.host.LogEntry;
 import org.nodel.io.Stream;
+import org.nodel.net.NodelHTTPClient;
 import org.nodel.reflection.Objects;
 import org.nodel.reflection.Serialisation;
 import org.nodel.threading.CallbackQueue;
@@ -852,116 +843,44 @@ public class ManagedToolkit {
     }
     
     // Safe URL timeouts are optimised for servers that are likely available and responsive.
-
-    private final static int DEFAULT_CONNECTTIMEOUT = 10000;
-    private final static int DEFAULT_READTIMEOUT = 15000;
+    
+    /**
+     * The re-useable client for this toolkit instance.
+     * (lazily created)
+     */
+    private NodelHTTPClient _httpClient;
+    
+    /**
+     * Release the http client if it was created.
+     */
+    private void releaseHttpClient() {
+        if (_httpClient != null) {
+            try {
+                _httpClient.getConnectionManager().shutdown();
+                
+            } catch (Exception exc) {
+                _logger.warn("HTTP client connection manager may not have shutdown cleanly", exc);
+            }
+        }
+    }
     
     /**
      * A very simple URL getter. queryArgs, contentType, postData are all optional.
      * 
      * Safe timeouts are used to avoid non-responsive servers being able to hold up connections indefinitely.
      */
-    public String getURL(String urlStr, Map<String, String> query, Map<String, String> headers, String reference, String contentType, String post, Integer connectTimeout, Integer readTimeout) throws IOException {
-        // build up query string if args given
-        StringBuilder queryArg = null;
-        if (query != null) {
-            StringBuilder sb = new StringBuilder();
-
-            for (Entry<String, String> entry : query.entrySet()) {
-                String key = entry.getKey();
-                String value = entry.getValue();
-
-                if (Strings.isNullOrEmpty(key) || Strings.isNullOrEmpty(value))
-                    continue;
-
-                if (sb.length() > 0)
-                    sb.append('&');
-
-                sb.append(urlEncode(key))
-                  .append('=')
-                  .append(urlEncode(value));
-            }
-            
-            if (sb.length() > 0)
-                queryArg = sb;
+    public String getURL(String urlStr, Map<String, String> query, String username, String password, Map<String, String> headers, String reference, String contentType, String post,
+            Integer connectTimeout, Integer readTimeout,
+            String proxyAddress, String proxyUsername, String proxyPassword) throws IOException {
+        synchronized (_lock) {
+            if (_httpClient == null)
+                _httpClient = new NodelHTTPClient();
         }
 
-        String fullURL;
-        if (queryArg == null)
-            fullURL = urlStr;
-        else
-            fullURL = String.format("%s?%s", urlStr, queryArg);
-
-        URL url = null;
-
-        // (out of scope for clean up purposes)
-        InputStream inputStream = null;
-        OutputStream outputStream = null;
-
-        try {
-            url = new URL(fullURL);
-
-            URLConnection urlConn = url.openConnection();
-
-            urlConn.setConnectTimeout(connectTimeout != null ? connectTimeout : DEFAULT_CONNECTTIMEOUT);
-            urlConn.setReadTimeout(readTimeout != null ? readTimeout : DEFAULT_READTIMEOUT);
-
-            if (urlConn instanceof HttpURLConnection) {
-                HttpURLConnection httpConn = (HttpURLConnection) urlConn;
-
-                if (!Strings.isNullOrEmpty(contentType)) {
-                    httpConn.setRequestProperty("Content-Type", contentType);
-                }
-
-                // add (or override) any request headers
-                if (headers != null) {
-                    for (Entry<String, String> entry : headers.entrySet()) {
-                        httpConn.setRequestProperty(entry.getKey(), entry.getValue());
-                    }
-                }
-
-                if (!Strings.isNullOrEmpty(post)) {
-                    httpConn.setDoOutput(true);
-                    httpConn.setRequestMethod("POST");
-
-                    outputStream = urlConn.getOutputStream();
-                    OutputStreamWriter osw = new OutputStreamWriter(outputStream);
-
-                    // push out the post data first
-                    osw.write(post, 0, post.length());
-                    osw.flush();
-                }
-            }
-
-            // get the returned stream
-            String encoding = urlConn.getContentEncoding();
-            inputStream = urlConn.getInputStream();
-
-            InputStreamReader isr = null;
-
-            if (!Strings.isNullOrEmpty(encoding)) {
-                try {
-                    // try the encoding
-                    isr = new InputStreamReader(inputStream, encoding);
-                    
-                } catch (UnsupportedEncodingException exc) {
-                    // consume and fall through...
-                }
-            }
-
-            // no encoding specified or could not find encoding, so try without an encoding 
-            if (isr == null)
-                isr = new InputStreamReader(inputStream);
-
-            String data = Stream.readFully(isr);
-            return data;
-
-        } finally {
-            Stream.safeClose(inputStream);
-            Stream.safeClose(outputStream);
-        }
+        return _httpClient.makeRequest(urlStr, query, username, password, headers, reference, contentType, post, connectTimeout, readTimeout,
+                proxyAddress, proxyUsername, proxyPassword);
     }
-    
+
     /**
      * Permanently cleans up this instance of the toolkit and related
      * resources.
@@ -986,9 +905,11 @@ public class ManagedToolkit {
             releaseProcesses();
             
             releaseNodes();
+            
+            releaseHttpClient();
         }
     }
-    
+
     /**
      * Encodes simple objects into a JSON string.
      */
@@ -1052,17 +973,6 @@ public class ManagedToolkit {
         return DateTime.parse(str);
     }
 
-    /**
-     * (exception-less, convenience function)
-     */
-    private static String urlEncode(String value) {
-        try {
-            return URLEncoder.encode(value, "UTF-8");
-        } catch (UnsupportedEncodingException e) {
-            throw new RuntimeException(e);
-        }
-    }
-    
     /**
      * (convenience function)
      */

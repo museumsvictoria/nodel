@@ -218,25 +218,22 @@ public class Nodel {
     } // (method)
     
     /**
-     * The interface Nodel will bind to.
+     * The interfaces Nodel will bind to.
      */
-    private static InetAddress interfaceToUse;
+    private static String[] interfacesToUse;
 
     /**
-     * Gets the interface that Nodel will bind to.
+     * Gets the interfaces that Nodel will bind to (or null if automatic binding should be done)
      */
-    public static InetAddress getInterfaceToUse() {
-        return interfaceToUse;
+    public static String[] getInterfacesToUse() {
+        return interfacesToUse;
     }
     
     /**
      * Sets the interface that Nodel should bind to.
      */
-    public static void setInterfaceToUse(InetAddress inetAddr) {
-        interfaceToUse = inetAddr;
-        
-        // immediately update the MDNS interface
-        AutoDNS.setInterface(inetAddr);
+    public static void setInterfacesToUse(String[] intfs) {
+        interfacesToUse = intfs;
     }
     
     /**
@@ -248,10 +245,9 @@ public class Nodel {
     
     /**
      * Returns all the advertised nodes.
-     * @throws IOException 
      */
     public static List<NodeURL> getNodeURLs() throws IOException {
-        return NodelClients.instance().getNodeURLs();
+        return NodelClients.instance().getAllNodesURLs();
     }
     
     /**
@@ -259,20 +255,46 @@ public class Nodel {
      */
     public static List<NodeURL> getNodeURLs(String filter) throws IOException {
         List<NodeURL> urls = Nodel.getNodeURLs();
-        
+
         if (Strings.isNullOrEmpty(filter))
             return urls;
-        
+
         String lcFilter = filter.toLowerCase();
-        
+
         ArrayList<NodeURL> filteredList = new ArrayList<NodeURL>();
         for (NodeURL url : urls) {
             if (url.node.getOriginalName().toLowerCase().contains(lcFilter))
-            filteredList.add(url);
+                filteredList.add(url);
         }
-        
+
         return filteredList;
-    }    
+    }
+    
+    /**
+     * Gets a node's URLs
+     */
+    public static List<NodeURL> getNodeURLsForNode(SimpleName name) throws IOException {
+        return NodelClients.instance().getNodeURLs(name);
+    }
+    
+    /**
+     * (see public getter / setter)
+     */
+    private static int s_tcpPort = 0; // e.g. "tcp://IP_ADDR:PORT"
+
+    /**
+     * The TCP port (native Nodel) for this environment.
+     */
+    public static int getTCPPort() {
+        return s_tcpPort;
+    }
+    
+    /**
+     * Sets the TCP address for this environment.
+     */
+    public static void updateTCPPort(int port) {
+        s_tcpPort = port;
+    }
     
     /**
      * (see public getter / setter)
@@ -292,15 +314,37 @@ public class Nodel {
     public static void setHTTPPort(int value) {
         httpPort = value;
     }
-    
-    public static String s_httpAddress;
 
-    public static void updateHTTPAddress(String httpAddress) {
-        s_httpAddress = httpAddress;
+    /**
+     * (see public getter / setter)
+     */
+    private static String[] s_httpAddresses = new String[] { String.format("http://127.0.0.1") };
+    
+    /**
+     * (see public getter / setter)
+     */
+    private static String[] s_httpNodeAddresses = new String[] { String.format("http://127.0.0.1/node") };
+
+    /**
+     * Updated by host environment.
+     */
+    public static void updateHTTPAddresses(String[] httpAddress, String[] httpNodeAddress) {
+        s_httpAddresses = httpAddress;
+        s_httpNodeAddresses = httpNodeAddress;
     }
     
-    public static String getHTTPAddress() {
-        return s_httpAddress;
+    /**
+     * The server's HTTP address for this host environment.
+     */
+    public static String[] getHTTPAddresses() {
+        return s_httpAddresses;
+    }
+    
+    /**
+     * A node's HTTP address for this host environment.
+     */
+    public static String[] getHTTPNodeAddress() {
+        return s_httpNodeAddresses;
     }
     
     /**

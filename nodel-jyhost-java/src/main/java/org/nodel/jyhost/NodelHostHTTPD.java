@@ -14,6 +14,7 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.io.StringWriter;
+import java.net.InetAddress;
 import java.net.UnknownServiceException;
 import java.util.AbstractMap;
 import java.util.Collection;
@@ -26,10 +27,12 @@ import java.util.concurrent.atomic.AtomicLong;
 import org.joda.time.DateTime;
 import org.nodel.SimpleName;
 import org.nodel.Strings;
+import org.nodel.core.Nodel;
 import org.nodel.core.NodelClients.NodeURL;
 import org.nodel.diagnostics.Diagnostics;
 import org.nodel.discovery.AdvertisementInfo;
 import org.nodel.discovery.AutoDNS;
+import org.nodel.discovery.TopologyWatcher;
 import org.nodel.host.BaseNode;
 import org.nodel.host.NanoHTTPD;
 import org.nodel.io.Stream;
@@ -116,6 +119,11 @@ public class NodelHostHTTPD extends NanoHTTPD {
         public List<NodeURL> nodeURLs(@Param(name = "filter", title = "Filter", desc = "Optional string filter.") String filter) throws IOException {
             return _nodelHost.getNodeURLs(filter);
         }
+        
+        @Service(name = "nodeURLsForNode", order = 6, title = "Node URLs", desc = "Returns the addresses of all advertised nodes.")
+        public List<NodeURL> nodeURLsForNode(@Param(name = "name") SimpleName name) throws IOException {
+            return _nodelHost.getNodeURLsForNode(name);
+        }
 
         @Service(name = "logs", title = "Logs", desc = "Detailed program logs.")
         public LogEntry[] getLogs(
@@ -172,6 +180,43 @@ public class NodelHostHTTPD extends NanoHTTPD {
     
     public NodelHostHTTPD(int port, File directory) throws IOException {
         super(port, directory, false);
+
+        // update with actual listening port
+        Nodel.setHTTPPort(getListeningPort());
+        
+        // and watch for future interface changes
+        TopologyWatcher.shared().addOnChangeHandler(new TopologyWatcher.ChangeHandler() {
+
+            @Override
+            public void handle(List<InetAddress> appeared, List<InetAddress> disappeared) {
+                handleTopologyChange(appeared, disappeared);
+            }
+
+        });
+    }
+
+    /**
+     * When the interfaces topology changes, the public IP address might change too.
+     */
+    private void handleTopologyChange(List<InetAddress> appeared, List<InetAddress> disappeared) {
+        InetAddress[] addresses = TopologyWatcher.shared().getInterfaces();
+        
+        String[] httpAddresses = new String[addresses.length];
+        String[]  httpNodeAddresses = new String[addresses.length];
+
+        for (int a = 0; a < addresses.length; a++) {
+            httpAddresses[a] = String.format("http://%s:%s%s", addresses[a].getHostAddress(), Nodel.getHTTPPort(), Nodel.getHTTPSuffix());
+            httpNodeAddresses[a] = String.format("http://%s:%s", addresses[a].getHostAddress(), Nodel.getHTTPPort());
+        }
+
+        Nodel.updateHTTPAddresses(httpAddresses, httpNodeAddresses);
+
+        for (InetAddress newly : appeared) {
+            System.out.println("    (web interface available at " + String.format("http://%s:%s", newly.getHostAddress(), Nodel.getHTTPPort()) + ")\n");
+        }
+
+        for (InetAddress gone : disappeared)
+            System.out.println("    (" + gone.getHostAddress() + " interface disappeared)");
     }
     
     /**
@@ -624,7 +669,7 @@ public class NodelHostHTTPD extends NanoHTTPD {
             return nanoResponse;
             
         } catch (Exception exc) {
-            _logger.warn("Unexpected exception during PySP filter.", exc);
+            _logger.warn("Unexpected exception during PySP filter handling URI:" + uri, exc);
 
             return prepareExceptionMessageResponse(HTTP_INTERNALERROR, exc, params.contains("trace"));
             

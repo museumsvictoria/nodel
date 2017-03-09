@@ -229,17 +229,21 @@ public class TCPChannelServer extends ChannelServer {
             this._signal.notify();
         }
         
+        // on single thread so can create a reusable character buffer that will grow if necessarily
+        StringBuilder sb = new StringBuilder(256);        
+        
         // enter the main loop
         try {
             while (this._enabled) {
+                // always reset the buffer
+                sb.setLength(0);
 
                 // receive the JSON stream
-                String jsonString = _reader.readJSONMessage();
-                if (jsonString == null)
+                if (!_reader.readJSONMessage(sb))
                     throw new EOFException("Unexpectedly reached the end of the stream.");
-                
+
                 // retrieve the message delivered to this channel server
-                ChannelMessage message = (ChannelMessage) Serialisation.coerceFromJSON(ChannelMessage.class, jsonString);
+                ChannelMessage message = (ChannelMessage) Serialisation.coerceFromJSON(ChannelMessage.class, sb);
                 
                 super.handleMessage(message);
             } // (while)

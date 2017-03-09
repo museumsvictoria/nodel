@@ -42,23 +42,24 @@ public class Serialisation {
     /**
      * Convenience method: coerces from a JSON.
      */
-    public static Object coerceFromJSON(Object dstObjOrClass, String json) {
+    public static Object coerceFromJSON(Object dstObjOrClass, CharSequence json) {
         return coerceFromJSON(dstObjOrClass, json, null, null, false);
     }
     
     /**
      * Coerces a JSON string into a destination class (providing generics hints and other serialisation rules).
      */    
-    public static Object coerceFromJSON(Object dstObjOrClass, String json, Class<?> genericClassA, Class<?> genericClassB) {
+    public static Object coerceFromJSON(Object dstObjOrClass, CharSequence json, Class<?> genericClassA, Class<?> genericClassB) {
         return coerceFromJSON(dstObjOrClass, json, genericClassA, genericClassB, false);
     }
     
     /**
      * Coerces a JSON string into a destination class (providing generics hints and other serialisation rules).
      */
-    public static Object coerceFromJSON(Object dstObjOrClass, String json, Class<?> genericClassA, Class<?> genericClassB, boolean treatEmptyStringsAsNull) {
+    public static Object coerceFromJSON(Object dstObjOrClass, CharSequence json, Class<?> genericClassA, Class<?> genericClassB, boolean treatEmptyStringsAsNull) {
         try {
-            JSONObject jsonObject = new JSONObject(json);
+            // unfortunately a String instead of a CharSequence has to be used for this JSON-library
+            JSONObject jsonObject = new JSONObject(json.toString());
 
             return coerce(dstObjOrClass, jsonObject, null, genericClassA, genericClassB, treatEmptyStringsAsNull);
         } catch (JSONException exc) {

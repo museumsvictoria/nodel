@@ -84,12 +84,14 @@ def date_parse(s):
     return _toolkit.parseDate(s)
 
 # Simple URL retriever (supports POST)
-def get_url(url, query=None, headers=None, reference=None, contentType=None, post=None, connectTimeout=10, readTimeout=15):
-  return _toolkit.getURL(url, query, headers, reference, contentType, post, long(connectTimeout*1000), long(readTimeout*1000))
+def get_url(url, query=None, username=None, password=None, headers=None, reference=None, contentType=None, post=None, connectTimeout=10, readTimeout=15,
+            proxyAddress=None, proxyUsername=None, proxyPassword=None):
+  return _toolkit.getURL(url, query, username, password, headers, reference, contentType, post, long(connectTimeout*1000), long(readTimeout*1000), proxyAddress, proxyUsername, proxyPassword)
 
 # DEPRECATED (same as above)
-def getURL(url, query=None, headers=None, reference=None, contentType=None, post=None, connectTimeout=10, readTimeout=15):
-  return _toolkit.getURL(url, query, headers, reference, contentType, post, long(connectTimeout*1000), long(readTimeout*1000))
+def getURL(url, query=None, username=None, password=None, headers=None, reference=None, contentType=None, post=None, connectTimeout=10, readTimeout=15, 
+            proxyAddress=None, proxyUsername=None, proxyPassword=None):
+  return _toolkit.getURL(url, query, username, password, headers, reference, contentType, post, long(connectTimeout*1000), long(readTimeout*1000), proxyAddress, proxyUsername, proxyPassword)
 
 # A managed TCP connection that attempts to stay open (includes instrumentation)
 def TCP(dest=None, connected=None, received=None, sent=None, disconnected=None, timeout=None, sendDelimiters='\n', receiveDelimiters='\r\n', binaryStartStopFlags=None):
@@ -228,3 +230,18 @@ def lookup_remote_action(name):
 # Looks up a remote event by simple name
 def lookup_remote_event(name):
     return _toolkit.getRemoteEvent(name)
+
+    
+# node life-cycle functions:
+  
+# for functions to be called after main has executed
+_nodel_afterMainFunctions = []
+
+def _processAfterMainFunctions():
+    for f in _nodel_afterMainFunctions:
+        f()
+
+# decorates functions that should be called after 'main' completes
+def after_main(f):
+    _nodel_afterMainFunctions.append(f)
+

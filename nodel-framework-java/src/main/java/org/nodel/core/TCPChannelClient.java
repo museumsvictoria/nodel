@@ -158,19 +158,23 @@ public class TCPChannelClient extends ChannelClient {
             // good time to update the event interests table.
             syncActionAndEventHandlerTable();            
         }
-        
+
         // fire connected event
-        onConnected();        
-        
+        onConnected();
+
+        // on single thread so can create a reusable character buffer that will grow if necessarily
+        StringBuilder sb = new StringBuilder(256);
+
         for (;;) {
+            // always reset the buffer
+            sb.setLength(0);
+
             // receive the JSON stream
-            String jsonString = _reader.readJSONMessage();
-            
-            if (jsonString == null)
+            if (!_reader.readJSONMessage(sb))
                 throw new EOFException("Stream ended abruptly.");
             
             // retrieve the message delivered to this channel server
-            ChannelMessage message = (ChannelMessage) Serialisation.coerceFromJSON(ChannelMessage.class, jsonString);
+            ChannelMessage message = (ChannelMessage) Serialisation.coerceFromJSON(ChannelMessage.class, sb);
             
             handleMessage(message);
         } // (while)

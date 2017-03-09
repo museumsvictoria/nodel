@@ -32,11 +32,6 @@ public class JSONStreamReader {
     private static int _sizeLimit = 10 * 1024 * 1024;
     
     /**
-     * Initial capacity of the string builder. 
-     */
-    private static int START_CAPACITY = 256;
-    
-    /**
      * The base reader.
      */
     private Reader _reader;
@@ -58,9 +53,7 @@ public class JSONStreamReader {
      * (not thread safe)
      * @throws IOException 
      */
-    public String readJSONMessage() throws IOException {
-        StringBuilder sb = new StringBuilder(START_CAPACITY);
-        
+    public boolean readJSONMessage(StringBuilder sb) throws IOException {
         boolean gotOpening = false;
         boolean inQuotes = false;
         boolean escaping = false;
@@ -70,7 +63,7 @@ public class JSONStreamReader {
         while (true) {
             int rawChar = _reader.read();
             if (rawChar < 0)
-                return null;
+                return false;
 
             char c = (char) rawChar;
             
@@ -116,9 +109,13 @@ public class JSONStreamReader {
                             inQuotes = true;
                         
                     } else if (c == '{') {
+                        // got opening brace but we might be in quotes
+                        if (inQuotes)
+                            continue;
+
                         // raise nesting level
                         level++;
-                        
+
                     } else if (c == '}') {
                         // got closing brace but we might be in quotes
                         if (inQuotes)
@@ -135,7 +132,7 @@ public class JSONStreamReader {
         } // (while)
         
         // return the contents
-        return sb.toString();
+        return true;
     } // (method)
     
     /**

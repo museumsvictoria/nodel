@@ -54,7 +54,7 @@ function updateDiagnostics() {
         $('#uptime').text(moment(diagnostics.startTime).from(now, true));
         $('#started').text(moment(diagnostics.startTime).format('D-MMM-YYYY HH:mm:ss'));
         $('#hostname').text(diagnostics.hostname);
-        $('#httpAddress').text(diagnostics.httpAddress);
+        $('#httpAddresses').text(diagnostics.httpAddresses);
         $('#hostPath').text(diagnostics.hostPath);
         $('#nodesRoot').text(diagnostics.nodesRoot);
         $('#hostingRule').text(diagnostics.hostingRule);

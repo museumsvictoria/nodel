@@ -17,6 +17,7 @@ import java.io.OutputStream;
 import java.io.PrintStream;
 import java.io.PrintWriter;
 import java.io.UnsupportedEncodingException;
+import java.net.BindException;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
@@ -39,6 +40,7 @@ import org.nodel.diagnostics.CountableOutputStream;
 import org.nodel.diagnostics.Diagnostics;
 import org.nodel.diagnostics.SharableMeasurementProvider;
 import org.nodel.io.UTF8Charset;
+import org.nodel.io.UnexpectedIOException;
 import org.nodel.net.Credentials;
 import org.nodel.threading.ThreadPool;
 import org.slf4j.Logger;
@@ -372,7 +374,14 @@ public class NanoHTTPD {
 
         this.myTcpPort = port;
         this.myRootDir = wwwroot;
-        this.myServerSocket = new ServerSocket(myTcpPort);
+        try {
+            this.myServerSocket = new ServerSocket(myTcpPort);
+            
+        } catch (BindException exc) {
+            // wrap up within a sensible, descriptive exception 
+            throw new UnexpectedIOException("Cannot bind to TCP port " + myTcpPort + "; another process must already be bound to the port", exc);
+        }
+        
         this.allowBrowsing = allowBrowsing;
     }
 
@@ -1295,6 +1304,7 @@ public class NanoHTTPD {
                 "htm		text/html " + 
                 "html		text/html " + 
                 "xml		text/xml " + 
+                "xsl        text/xsl " +
                 "txt		text/plain;charset=utf-8 " + 
                 "asc		text/plain " + 
                 "gif		image/gif "+ 

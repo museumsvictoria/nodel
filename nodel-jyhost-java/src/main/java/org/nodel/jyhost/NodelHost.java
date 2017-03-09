@@ -121,6 +121,18 @@ public class NodelHost {
      * (will/must never be null)
      */
     private List<String[]> _exclTokensFilters = Collections.emptyList();
+
+    /**
+     * (callback for testing name filtering)
+     */
+    private Handler.H1<String> _nameFilterCallback = new Handler.H1<String>() {
+
+        @Override
+        public void handle(String value) {
+            testNameFilters(value);
+        }
+
+    };
     
     /**
      * Constructs a new NodelHost and returns immediately.
@@ -280,6 +292,7 @@ public class NodelHost {
                 
                 try {
                     PyNode node = new PyNode(entry.getValue());
+                    node.setNameFilterHandler(_nameFilterCallback);
                     
                     // count the new node
                     s_nodesCounter.incrementAndGet();
@@ -334,13 +347,10 @@ public class NodelHost {
     public void newNode(String name) {
         if (Strings.isNullOrEmpty(name))
             throw new RuntimeException("No node name was provided");
-        
-        if (!shouldBeIncluded(name)) {
-            String[] ins = _origInclFilters == null ? new String[] {} : _origInclFilters;
-            String[] outs = _origExclFilters == null ? new String[] {} : _origExclFilters;
-            throw new RuntimeException("Name rejected because this node host applies node filtering (includes: " + 
-                    Serialisation.serialise(ins) + ", excludes: " + Serialisation.serialise(outs) + ")");
-        }
+
+        testNameFilters(name);
+
+        // if here, name does not break any filtering rules
 
         // TODO: should be able to select a node
         File newNodeDir = new File(_root, name);
@@ -352,6 +362,18 @@ public class NodelHost {
             throw new RuntimeException("The platform did not allow the creation of the node folder for unspecified reasons.");
 
         // the folder is created!
+    }
+
+    /**
+     * Same as 'shouldBeIncluded' but throws exception with naming conflict error details.
+     */
+    public void testNameFilters(String name) {
+        if (!shouldBeIncluded(name)) {
+            String[] ins = _origInclFilters == null ? new String[] {} : _origInclFilters;
+            String[] outs = _origExclFilters == null ? new String[] {} : _origExclFilters;
+            throw new RuntimeException("Name rejected because this node host applies node filtering (includes: " +
+                    Serialisation.serialise(ins) + ", excludes: " + Serialisation.serialise(outs) + ")");
+        }
     }
 
     /**
@@ -423,6 +445,10 @@ public class NodelHost {
     public List<NodeURL> getNodeURLs(String filter) throws IOException {
         return Nodel.getNodeURLs(filter);
     }
+    
+    public List<NodeURL> getNodeURLsForNode(SimpleName name) throws IOException {
+        return Nodel.getNodeURLsForNode(name);
+    }    
     
     /**
      * Permanently shuts down this nodel host

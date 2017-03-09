@@ -10,6 +10,7 @@ import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
@@ -241,7 +242,7 @@ public class NodelClients {
      * Events handler(s) for wiring faults occur.
      */
     protected Handlers.H1<Throwable> onWiringFault = new Handlers.H1<Throwable>();
-    
+
     /**
      * Private constructor.
      */
@@ -875,10 +876,25 @@ public class NodelClients {
 
     } // (class)
     
-    protected List<NodeURL> getNodeURLs() throws IOException {
-        Collection<AdvertisementInfo> list = AutoDNS.instance().list();
+    /**
+     * Gets the URLs of *all* the nodes. 
+     */
+    protected List<NodeURL> getAllNodesURLs() throws IOException {
+        return getNodeURLs(null);
+    }
+
+    /**
+     * Gets the URLs of a node.
+     */
+    protected List<NodeURL> getNodeURLs(SimpleName name) throws IOException {
+        Collection<AdvertisementInfo> list;
+        if (name == null)
+            list = AutoDNS.instance().list();
+        else
+            list = Arrays.asList(AutoDNS.instance().resolve(name));
+
         List<NodeURL> nodeURLs = new ArrayList<NodeURL>();
-        
+
         for(AdvertisementInfo service : list) {
             for(String address : service.addresses) {
                 if (address.toLowerCase().startsWith("http://")) {
@@ -893,14 +909,7 @@ public class NodelClients {
         }
         
         // sort them the list
-        Collections.sort(nodeURLs, new Comparator<NodeURL>() {
-
-            @Override
-            public int compare(NodeURL o1, NodeURL o2) {
-                return o1.node.getReducedForMatchingName().compareTo(o2.node.getReducedForMatchingName());
-            }
-            
-        });
+        Collections.sort(nodeURLs, s_nodeURLComparator);
         
         return nodeURLs;
     }
@@ -916,6 +925,18 @@ public class NodelClients {
         } catch (Exception exc) {
         }
     } // (method)
+    
+    /**
+     * (static callback)
+     */
+    private static Comparator<? super NodeURL> s_nodeURLComparator = new Comparator<NodeURL>() {
+
+        @Override
+        public int compare(NodeURL o1, NodeURL o2) {
+            return o1.node.getReducedForMatchingName().compareTo(o2.node.getReducedForMatchingName());
+        }
+
+    };    
     
     /**
      * Performs URL encoding on a string. (exception-less)
