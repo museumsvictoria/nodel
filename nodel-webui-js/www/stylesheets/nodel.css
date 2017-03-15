@@ -366,3 +366,71 @@ label.required:after, button.caution:after {
 * {
 	-webkit-tap-highlight-color: rgba(0,0,0,0);
 }
+
+#remote > div.block div.block div.object {
+  display: block;
+}
+
+#remote > div.block div.block h6::after {
+  content: '';
+}
+
+#remote > div.block div.block h6 {
+  float: left;
+  width: 180px;
+  cursor: default;
+  padding: 0 15px;
+}
+
+#remote > div.block div.block > div {
+  border-top: none;
+  padding: 0;
+}
+
+#remote > div.block div.block {
+  padding: 5px;
+  margin-bottom: 0;
+}
+
+#remote > div.block div.block:nth-of-type(even) {
+  background: transparent;
+}
+
+#remote > div.block div.block div.object {
+  display: flex;
+}
+
+#remote > div.block div.block div.field {
+  width: 100%;
+}
+
+#remote > div.block div.block div.field label {
+  display: none;
+}
+
+#remote > div.block div.block:nth-of-type(1) div.field label {
+  display: block;
+  position: absolute;
+  top: 10px;
+}
+
+#remote > div.block div.block div.field input {
+  margin-bottom: 0;
+}
+
+#remote > div.block > div {
+  padding: 0;
+}
+
+#remote > div.block {
+  position: relative;
+}
+
+@media only screen and (max-width: 767px) {
+  #remote > div.block div.block:nth-of-type(1) div.field label {
+    display: none;
+  }
+  #remote > div.block div.block div.object {
+    display: block;
+  }
+}
