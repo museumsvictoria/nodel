@@ -1,5 +1,14 @@
-// set global ajax timeout and disable cache
-$.ajaxSetup({timeout: 30000, cache: false});
+// set global ajax timeout, disable cache and override JSON parser
+$.ajaxSetup({
+  timeout: 30000, 
+  cache: false, 
+  converters: { 
+    "text json": function (jsonString) {
+      var jsonObj = JSON.parse(jsonString);
+      return jsonObj;
+    }
+  }
+});
 
 // set globals
 var adv = false;
