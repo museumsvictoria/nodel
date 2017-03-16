@@ -367,6 +367,10 @@ label.required:after, button.caution:after {
 	-webkit-tap-highlight-color: rgba(0,0,0,0);
 }
 
+#remote div.block {
+  overflow: visible;
+}
+
 #remote > div.block div.block div.object {
   display: block;
 }
