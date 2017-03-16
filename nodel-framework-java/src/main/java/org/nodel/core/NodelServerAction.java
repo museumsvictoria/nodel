@@ -12,12 +12,15 @@ import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
 
 import org.joda.time.DateTime;
+import org.nodel.Handler;
 import org.nodel.SimpleName;
 import org.nodel.Strings;
+import org.nodel.Handler.H1;
 import org.nodel.host.Binding;
 import org.nodel.reflection.Param;
 import org.nodel.reflection.Service;
 import org.nodel.reflection.Value;
+import org.nodel.threading.CallbackQueue;
 
 public class NodelServerAction implements Closeable {
     
@@ -63,6 +66,26 @@ public class NodelServerAction implements Closeable {
     protected NodelPoint _actionPoint;
 
     protected ActionRequestHandler _handler;
+    
+    /**
+     * To match threading of wild environment.
+     */
+    private CallbackQueue _callbackQueue;
+    
+    /**
+     * To match threading of wild environment.
+     */
+    private Handler.H0 _threadStateHandler;
+    
+    /**
+     * To match threading of wild environment.
+     */
+    private H1<Exception> _exceptionHandler;
+    
+    /**
+     * For other in-process 'call' handlers that may be interested in this action.
+     */
+    private AtomicReference<Handler.H1<Object>[]> _callHandlers = new AtomicReference<Handler.H1<Object>[]>();
 
     private boolean _closed;
 
@@ -96,6 +119,15 @@ public class NodelServerAction implements Closeable {
         
         _fullSchema = prepareFullSchema();        
     }
+    
+    /**
+     * Sets fields which control the threading environment.
+     */
+    public void setThreadingEnvironment(CallbackQueue callbackQueue, Handler.H0 threadStateHandler, Handler.H1<Exception> exceptionHandler) {
+        _callbackQueue = callbackQueue;
+        _threadStateHandler = threadStateHandler;
+        _exceptionHandler = exceptionHandler;
+    }    
     
     private Map<String, Object> prepareFullSchema() {
         Map<String, Object> schema = new LinkedHashMap<String, Object>();
@@ -220,19 +252,87 @@ public class NodelServerAction implements Closeable {
         return _handler;
     }
 
-    @Service(name = "call", title = "Call", desc = "Invokes this action.")
-    public void call(@Param(name = "arg", title = "Argument") Object arg) {
-        if (_handler != null)
-            _handler.handleActionRequest(arg);
-    }
-
     /**
      * (without any argument)
      */
     public void call() {
-        if (_handler != null)
-            _handler.handleActionRequest(null);
+        call(null);
     }
+    
+    @Service(name = "call", title = "Call", desc = "Invokes this action.")
+    public void call(@Param(name = "arg", title = "Argument") final Object arg) {
+        if (_handler != null)
+            _handler.handleActionRequest(arg);
+        
+        // snap-shot of handlers
+        final H1<Object>[] handlers = _callHandlers.get();
+        
+        // if there are some handlers, use the Channel Client thread-pool (treat as though remote events)
+        if (handlers != null) {
+            ChannelClient.getThreadPool().execute(new Runnable() {
+
+                @Override
+                public void run() {
+                    // set up thread state
+                    if (_threadStateHandler != null)
+                        _threadStateHandler.handle();
+                    
+                    Exception lastExc = null;
+                    
+                    // call handlers one after the other
+                    for (Handler.H1<Object> handler : handlers) {
+                        if (_callbackQueue != null)
+                            _callbackQueue.handle(handler, arg, _exceptionHandler);
+                        else {
+                            try {
+                                Handler.tryHandle(handler, arg);
+                            } catch (Exception exc) {
+                                lastExc = exc;
+                            }
+                        }
+                    } // (for)
+                    
+                    if (lastExc != null) {
+                        // let the thread-pool exception handler deal with it
+                        throw new RuntimeException("Emit handler", lastExc);
+                    }
+                }
+
+            });
+        }        
+    }    
+    
+    /**
+     * Attaches an in-process call handler (will arrive on same thread as .call() call)
+     */
+    @SuppressWarnings("unchecked")
+    public void addCallHandler(Handler.H1<Object> handler) {
+        if (handler == null)
+            throw new IllegalArgumentException("No emit handler given.");
+        
+        H1<Object>[] current = _callHandlers.get();
+
+        // grow array 'lock-lessly'
+        for (;;) {
+            H1<Object>[] value;
+            if (current == null) {
+                value = (H1<Object>[]) new Handler.H1<?>[] { handler };
+            } else {
+                // make space for one more
+                int currentSize = current.length;
+                value = (H1<Object>[]) new Handler.H1<?>[currentSize + 1];
+
+                // copy all and set the last one
+                System.arraycopy(current, 0, value, 0, currentSize);
+                value[current.length] = handler;
+            }
+            
+            if(_callHandlers.compareAndSet(current, value))
+                break;
+            
+            // otherwise keep trying
+        }
+    }    
 
     /**
      * Releases this action from the Nodel framework.

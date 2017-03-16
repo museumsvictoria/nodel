@@ -888,7 +888,7 @@ public class PyNode extends BaseDynamicNode {
             // (Nodel layer)
             //String title, String desc, String group, String caution, Map<String, Object> argSchema
             NodelServerAction serverAction = new NodelServerAction(_name.getOriginalName(), entry.getKey().getReducedName(), binding);
-            
+            serverAction.setThreadingEnvironment(_callbackQueue, _threadStateHandler, _emitExceptionHandler);
             serverAction.registerAction(new ActionRequestHandler() {
 
                 @Override
