@@ -1191,6 +1191,7 @@ var buildFormEvents = function(name, action, data){
   $('#'+name).on('keydown', 'input.event, input.action', function(e) {
     var charCode = e.charCode || e.keyCode;
     if((charCode == 40) || (charCode == 38) || (charCode == 13)) {
+      if(($(this).siblings('div.autocomplete[data-target="'+$(this).attr('id')+'"]').length == 0) && (charCode == 13)) return true;
       e.preventDefault();
       // is an arrow down or up, so pick an item from the autocomplete box
       var ele = $(this).siblings('div.autocomplete[data-target="'+$(this).attr('id')+'"]');
