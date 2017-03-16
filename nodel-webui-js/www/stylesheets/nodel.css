@@ -297,7 +297,7 @@ label.required:after, button.caution:after {
 
 .autocomplete {
   position: absolute;
-  margin-top: -20px;
+  margin-top: 0px;
   background: white;
   min-width: 100px;
   padding: 0;
