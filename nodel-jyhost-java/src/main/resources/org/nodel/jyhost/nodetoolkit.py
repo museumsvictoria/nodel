@@ -234,6 +234,8 @@ def lookup_remote_action(name):
 def lookup_remote_event(name):
     return nodetoolkit.getRemoteEvent(name)
 
+def lookup_parameter(name):
+    return nodetoolkit.lookupParameter(name)
     
 # node life-cycle functions:
   
@@ -247,4 +249,7 @@ def processAfterMainFunctions():
 # decorates functions that should be called after 'main' completes
 def after_main(f):
     _nodel_afterMainFunctions.append(f)
+
+    return f
+
 

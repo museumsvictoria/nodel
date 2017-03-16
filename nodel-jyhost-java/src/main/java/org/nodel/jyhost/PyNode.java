@@ -714,7 +714,7 @@ public class PyNode extends BaseDynamicNode {
                         
                         // process after "after main functions"
                         PyFunction processAfterMainFunctions = (PyFunction) _globals.get(Py.java2py("processAfterMainFunctions"));
-                        processAfterMainFunctions.__call__();                        
+                        processAfterMainFunctions.__call__();
 
                         // nothing went wrong, kick off toolkit
                         _toolkit.enable();
@@ -1260,7 +1260,7 @@ public class PyNode extends BaseDynamicNode {
             
             _python.set(paramName, value);
             
-            _parameters.add(new ParameterEntry(name));
+            _parameters.put(name, new ParameterEntry(name, value));
 
             _logger.info("Created parameter '{}' in script (initial value '{}').", paramName, value);
         } // (for)
