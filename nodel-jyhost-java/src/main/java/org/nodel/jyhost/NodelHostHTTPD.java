@@ -155,9 +155,9 @@ public class NodelHostHTTPD extends NanoHTTPD {
         
         @Service(name = "toolkit", title = "Toolkit", desc = "The toolkit reference.")
         public Info getToolkitReference() throws IOException {
-            try (InputStream moneyPatchStream = PyNode.class.getResourceAsStream("monkeyPatch.py")) {
+            try (InputStream nodetoolkitStream = PyNode.class.getResourceAsStream("nodetoolkit.py")) {
                 Info info = new Info();
-                info.script = Stream.readFully(moneyPatchStream);
+                info.script = Stream.readFully(nodetoolkitStream);
                 return info;
             }
         }
