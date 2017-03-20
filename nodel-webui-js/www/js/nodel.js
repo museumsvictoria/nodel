@@ -16,6 +16,7 @@ var rld = false;
 var poll = false;
 var tim = 0;
 var opts = {};
+var unicodematch = new XRegExp("[^\\p{L}\\p{N}]", "gi");
 
 // override json parse and stringify
 var json_parse = JSON.parse;
@@ -837,6 +838,22 @@ var updateLogs = function(){
 };
 
 var parseLog = function(value, noanimate) {
+  if(value.type == "eventBinding"){
+    var eleb = $("input.node[data-group]").filter(function() {
+      return "EVENTS"+value.alias.replace(unicodematch,'').toUpperCase() === decodr($(this).data('group')).replace(unicodematch,'').toUpperCase();
+    }).closest('div.block');
+    if(value.arg == 'Wired') eleb.removeClass('unwired').addClass('wired');
+    else eleb.removeClass('wired').addClass('unwired');
+    eleb.children('h6').attr('title',value.arg);
+  }
+  if(value.type == "actionBinding"){
+    var eleb = $("input.node[data-group]").filter(function() {
+      return "ACTIONS"+value.alias.replace(unicodematch,'').toUpperCase() === decodr($(this).data('group')).replace(unicodematch,'').toUpperCase();
+    }).closest('div.block');
+    if(value.arg == 'Wired') eleb.removeClass('unwired').addClass('wired');
+    else eleb.removeClass('wired').addClass('unwired');
+    eleb.children('h6').attr('title',value.arg);
+  }
   if (typeof(noanimate) === 'undefined') noanimate = false;
   if ((typeof value.arg !== 'undefined') && (value.source == 'local')) $('#' + value.type + '_' + encodr(value.alias)).trigger('updatedata', {"arg": value.arg});
   // if the activity is a local event or action, and the display is not set to animate, highlight the action button
