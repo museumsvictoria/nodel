@@ -257,7 +257,7 @@ public class NodelHostHTTPD extends NanoHTTPD {
 
             // check if properly formed URI is being used i.e. ends with slash
             if (parts.length == 2 && !uri.endsWith("/"))
-                return prepareRedirectResponse(uri + "/");
+                return prepareRedirectResponse(encodeUri(uri + "/"));
 
             File nodeRoot = node.getRoot();
             root = new File(nodeRoot, "content");
