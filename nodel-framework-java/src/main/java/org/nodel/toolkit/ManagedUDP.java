@@ -715,7 +715,7 @@ public class ManagedUDP implements Closeable {
         return str.getBytes(UTF8Charset.instance());
     }
     
-    /**
+     /**
      * Assumes a UTF-8 encoded buffer, otherwise uses
      * raw conversion if anything less than \x08 is found which would be very unusual in a
      * UTF-8 string (0x09 is TAB)
@@ -725,13 +725,15 @@ public class ManagedUDP implements Closeable {
         // this looks for a zero-byte
         
         for (int a = 0; a < len; a++) {
-            byte b = buffer[a];
+            int i = (buffer[a] & 0xff);
             
-            if (b < 9)
+            // any signs of a binary protocol?
+            if (i < '\t')
                 return binaryBufferToString(buffer, len);
         }
         
-        // if we're here, there are no 'NUL' bytes, so put it through the UTF8 decoder.
+        // if we're here, there are no very low-level bytes (text protocol likely instead of binary/raw), so should 
+        // be safe to put through the UTF8 decoder
         return new String(buffer, 0, len, UTF8Charset.instance());
     }
     
