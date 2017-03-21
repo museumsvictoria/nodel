@@ -1487,16 +1487,16 @@ var buildFormSchema = function(data, key, parent) {
           opt[lvalue.title]=keys;
         });
         // add conditionally displayed delete, up and down buttons (accounting for a minimum number of items)
-        if(data.minItems) set= '{^{for '+parent+'}}<span>'+set+'{^{if #parent.data.length > '+data.minItems+'}}<input type="button" class="delete" id="'+parent+'{{:#getIndex()}}" value="Delete" />{{/if}}{^{if #getIndex() > 0}}<input type="button" class="up" id="up_'+parent+'{{:#getIndex()}}" value="&#x25b2;" />{{/if}}{^{if #getIndex() < #parent.data.length-1}}<input type="button" class="down" id="down_'+parent+'{{:#getIndex()}}" value="&#x25bc;" /><hr/>{{/if}}</span>{{/for}}';
-        else set= '{^{for '+parent+'}}<span>'+set+'<input type="button" class="delete" id="'+parent+'{{:#getIndex()}}" value="Delete" />{^{if #getIndex() > 0}}<input type="button" class="up" id="up_'+parent+'{{:#getIndex()}}" value="&#x25b2;" />{{/if}}{^{if #getIndex() < #parent.data.length-1}}<input type="button" class="down" id="down_'+parent+'{{:#getIndex()}}" value="&#x25bc;" /><hr/>{{/if}}</span>{{/for}}';
+        if(data.minItems) set= '{^{for '+link+'}}<span>'+set+'{^{if #parent.data.length > '+data.minItems+'}}<input type="button" class="delete" id="'+parent+'{{:#getIndex()}}" value="Delete" />{{/if}}{^{if #getIndex() > 0}}<input type="button" class="up" id="up_'+parent+'{{:#getIndex()}}" value="&#x25b2;" />{{/if}}{^{if #getIndex() < #parent.data.length-1}}<input type="button" class="down" id="down_'+parent+'{{:#getIndex()}}" value="&#x25bc;" /><hr/>{{/if}}</span>{{/for}}';
+        else set= '{^{for '+link+'}}<span>'+set+'<input type="button" class="delete" id="'+parent+'{{:#getIndex()}}" value="Delete" />{^{if #getIndex() > 0}}<input type="button" class="up" id="up_'+parent+'{{:#getIndex()}}" value="&#x25b2;" />{{/if}}{^{if #getIndex() < #parent.data.length-1}}<input type="button" class="down" id="down_'+parent+'{{:#getIndex()}}" value="&#x25bc;" /><hr/>{{/if}}</span>{{/for}}';
         // create an 'add' button for each of the object types
         var buttons = '';
         $.each(opt, function(e, i) {
           buttons+= '<input type="button" class="add" id="'+parent+'" data-seed="'+i.join(',')+'" value="Add '+e+'" />';
         });
         // add conditionally displayed add buttons (accounting for a maximm number of items)
-        if(data.maxItems) set+= '{^{if '+parent+'}}{^{if '+parent+'.length < '+data.maxItems+'}}{^{if '+parent+'.length != 0}}<hr/>{{/if}}'+buttons+'{{/if}}{{/if}}';
-        else set+= '{^{if '+parent+'}}{^{if '+parent+'.length > 0}}<hr/>{{/if}}'+buttons+'{{/if}}';
+        if(data.maxItems) set+= '{^{if '+link+'}}{^{if '+parent+'.length < '+data.maxItems+'}}{^{if '+parent+'.length != 0}}<hr/>{{/if}}'+buttons+'{{/if}}{{/if}}';
+        else set+= '{^{if '+link+'}}{^{if '+parent+'.length > 0}}<hr/>{{/if}}'+buttons+'{{/if}}';
         // if this isn't a root object, add a block element wrapper
         if(key) set = '<div class="block array"><h6>'+htmlEncode(data.title)+'</h6><div>'+set+'</div></div>';
         // if the array can contain only one object
@@ -1504,11 +1504,11 @@ var buildFormSchema = function(data, key, parent) {
         // render the object
         get=buildFormSchema(data.items, null, null);
         // add conditionally displayed delete, up and down buttons (accounting for a minimum number of items)
-        if(data.minItems) set= '{^{for '+parent+'}}<span>'+get+'{^{if #parent.data.length > '+data.minItems+'}}<input type="button" class="delete" id="'+parent+'{{:#getIndex()}}" value="Delete" />{{/if}}{^{if #getIndex() > 0}}<input type="button" class="up" id="up_'+parent+'{{:#getIndex()}}" value="&#x25b2;" />{{/if}}{^{if #getIndex() < #parent.data.length-1}}<input type="button" class="down" id="down_'+parent+'{{:#getIndex()}}" value="&#x25bc;" /><hr/>{{/if}}</span>{{/for}}';
-        else set= '{^{for '+parent+'}}<span>'+get+'<input type="button" class="delete" id="'+parent+'{{:#getIndex()}}" value="Delete" />{^{if #getIndex() > 0}}<input type="button" class="up" id="up_'+parent+'{{:#getIndex()}}" value="&#x25b2;" />{{/if}}{^{if #getIndex() < #parent.data.length-1}}<input type="button" class="down" id="down_'+parent+'{{:#getIndex()}}" value="&#x25bc;" /><hr/>{{/if}}</span>{{/for}}';
+        if(data.minItems) set= '{^{for '+link+'}}<span>'+get+'{^{if #parent.data.length > '+data.minItems+'}}<input type="button" class="delete" id="'+parent+'{{:#getIndex()}}" value="Delete" />{{/if}}{^{if #getIndex() > 0}}<input type="button" class="up" id="up_'+parent+'{{:#getIndex()}}" value="&#x25b2;" />{{/if}}{^{if #getIndex() < #parent.data.length-1}}<input type="button" class="down" id="down_'+parent+'{{:#getIndex()}}" value="&#x25bc;" /><hr/>{{/if}}</span>{{/for}}';
+        else set= '{^{for '+link+'}}<span>'+get+'<input type="button" class="delete" id="'+parent+'{{:#getIndex()}}" value="Delete" />{^{if #getIndex() > 0}}<input type="button" class="up" id="up_'+parent+'{{:#getIndex()}}" value="&#x25b2;" />{{/if}}{^{if #getIndex() < #parent.data.length-1}}<input type="button" class="down" id="down_'+parent+'{{:#getIndex()}}" value="&#x25bc;" /><hr/>{{/if}}</span>{{/for}}';
         // add conditionally displayed add button (accounting for a maximum number of items)
-        if(data.maxItems) set+= '{^{if '+parent+'}}{^{if '+parent+'.length < '+data.maxItems+'}}{^{if '+parent+'.length != 0}}<hr/>{{/if}}<input type="button" class="add" id="'+parent+'" value="Add" />{{/if}}{{/if}}';
-        else set+= '{^{if '+parent+'}}{^{if '+parent+'.length > 0}}<hr/>{{/if}}{{/if}}<input type="button" class="add" id="'+parent+'" value="Add" />';
+        if(data.maxItems) set+= '{^{if '+link+'}}{^{if '+parent+'.length < '+data.maxItems+'}}{^{if '+parent+'.length != 0}}<hr/>{{/if}}<input type="button" class="add" id="'+parent+'" value="Add" />{{/if}}{{/if}}';
+        else set+= '{^{if '+link+'}}{^{if '+parent+'.length > 0}}<hr/>{{/if}}{{/if}}<input type="button" class="add" id="'+parent+'" value="Add" />';
         // if this isn't a root object, add a block element wrapper
         if(key) set = '<div class="block array"><h6>'+htmlEncode(data.title)+'</h6><div>'+set+'</div></div>';
       }
