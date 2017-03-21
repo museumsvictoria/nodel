@@ -870,7 +870,7 @@ public class NanoHTTPD {
                         buffer[bIndex++] = (byte) ' ';
                         break;
                     case '%':
-                        buffer[bIndex++] = (byte) Integer.parseInt(str.substring(i + 1, i + 3), 16);
+                        buffer[bIndex++] = (byte) (Integer.parseInt(str.substring(i + 1, i + 3), 16) & 0xff);
                         i += 2;
                         break;
                     default:
