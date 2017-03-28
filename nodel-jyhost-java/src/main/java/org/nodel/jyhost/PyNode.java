@@ -554,6 +554,7 @@ public class PyNode extends BaseDynamicNode {
         
         // append the Node's root directory to the path
         pySystemState.path.append(new PyString(_root.getAbsolutePath()));
+        pySystemState.path.append(new PyString(_metaRoot.getAbsolutePath()));
         Py.setSystemState(pySystemState);
         
         _globals = new PyDictionary();
@@ -622,15 +623,13 @@ public class PyNode extends BaseDynamicNode {
             try {
                 lock = getAReentrantLock();
                 
-                trackFunction("(monkey patching)");
-
-                // ...and apply monkey patching
-                try (InputStream moneyPatchStream = PyNode.class.getResourceAsStream("monkeyPatch.py")) {
-                    _python.execfile(moneyPatchStream);
-                }
+                trackFunction("(toolkit injection)");
+                
+                // use this import to provide a toolkit directly into the script
+                _python.exec("from nodetoolkit import *");
                 
             } finally {
-                untrackFunction("(monkey patching)");
+                untrackFunction("(toolkit injection)");
                 
                 if (lock != null)
                     lock.unlock();
@@ -714,8 +713,8 @@ public class PyNode extends BaseDynamicNode {
                         _python.exec("main()");
                         
                         // process after "after main functions"
-                        PyFunction processAfterMainFunctions = (PyFunction) _globals.get(Py.java2py("_processAfterMainFunctions"));
-                        processAfterMainFunctions.__call__();                        
+                        PyFunction processAfterMainFunctions = (PyFunction) _globals.get(Py.java2py("processAfterMainFunctions"));
+                        processAfterMainFunctions.__call__();
 
                         // nothing went wrong, kick off toolkit
                         _toolkit.enable();
@@ -759,7 +758,7 @@ public class PyNode extends BaseDynamicNode {
      * 
      * (suppressed 'resource' because it gets cleaned up using 'Stream.safeClose' in this method.
      */
-    private void injectToolkit() {
+    private void injectToolkit() throws IOException {
         // toolkit and callback queue are cleaned up by 'cleanupInterpreter'
 
         _pySystemState = Py.getSystemState();
@@ -791,9 +790,23 @@ public class PyNode extends BaseDynamicNode {
                 }
                 
             });
-
-        // inject the toolkit
+        
+        // write out the toolkit (if it's new or updated)
+        try (InputStream toolkitIS = PyNode.class.getResourceAsStream("nodetoolkit.py")) {
+            File existing = new File(_metaRoot, "nodetoolkit.py");
+            String toolkit = Stream.readFully(toolkitIS);
+            if (!existing.exists() || (!Stream.tryReadFully(existing).equals(toolkit))) {
+                Stream.writeFully(existing, toolkit);
+            }
+        }
+        
+        // inject the toolkit into global context
         _python.set("_toolkit", _toolkit);
+        
+        // inject into 'sys'
+        _pySystemState.__setattr__("nodetoolkit", Py.java2py(_toolkit));
+        
+        
     }
 
     /**
@@ -1247,7 +1260,7 @@ public class PyNode extends BaseDynamicNode {
             
             _python.set(paramName, value);
             
-            _parameters.add(new ParameterEntry(name));
+            _parameters.put(name, new ParameterEntry(name, value));
 
             _logger.info("Created parameter '{}' in script (initial value '{}').", paramName, value);
         } // (for)

@@ -26,6 +26,7 @@ import org.nodel.core.NodelServerEvent;
 import org.nodel.host.BaseDynamicNode;
 import org.nodel.host.Binding;
 import org.nodel.host.LogEntry;
+import org.nodel.host.BaseNode.ParameterEntry;
 import org.nodel.io.Stream;
 import org.nodel.net.NodelHTTPClient;
 import org.nodel.reflection.Objects;
@@ -816,6 +817,14 @@ public class ManagedToolkit {
      */
     public NodelClientEvent getRemoteEvent(String name) {
         return _node.getRemoteEvents().get(new SimpleName(name));
+    }
+    
+    /**
+     * Looks up a parameter value using SimpleName resolution.
+     */
+    public Object lookupParameter(String name) {
+        ParameterEntry result = _node.getParameters().get(new SimpleName(name));
+        return (result != null ? result.value : null);
     }
 
     /**

@@ -3,7 +3,6 @@ package org.nodel.host;
 import java.io.Closeable;
 import java.io.File;
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -788,7 +787,7 @@ public abstract class BaseNode implements Closeable {
         _remoteActions.clear();
         
         // release previous params
-        for (ParameterEntry entry : _parameters) {
+        for (ParameterEntry entry : _parameters.values()) {
             _logger.info("Releasing parameter " + entry.name);
         }
         
@@ -971,16 +970,26 @@ public abstract class BaseNode implements Closeable {
     /**
      * The parameters
      */
-    protected List<ParameterEntry> _parameters = new ArrayList<ParameterEntry>();
+    protected Map<SimpleName, ParameterEntry> _parameters = new LinkedHashMap<>();
     
-    protected class ParameterEntry {
-        
+    public class ParameterEntry {
+
         public SimpleName name;
         
-        public ParameterEntry(SimpleName name) {
+        public Object value;
+
+        public ParameterEntry(SimpleName name, Object value) {
             this.name = name;
+            this.value = value;
         }
-    }    
+    }
+    
+    /**
+     * Public access to parameters. 
+     */
+    public Map<SimpleName, ParameterEntry> getParameters() {
+        return _parameters;
+    }
 
     /**
      * Outside callers can inject error messages related to this node.

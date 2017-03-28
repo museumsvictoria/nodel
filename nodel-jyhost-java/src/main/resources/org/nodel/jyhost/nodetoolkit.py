@@ -1,3 +1,5 @@
+from sys import nodetoolkit
+
 # This scripting toolkit is injected into the 
 # scripting environment.
 # 
@@ -15,48 +17,49 @@ def RemoteAction(schemaDictOrJSONorTitle = None):
 def Parameter(schemaDictOrJSONorTitle = None):
     return schemaDictOrJSONorTitle;
 
-# _toolkit: Native toolkit (injected)
+# nodetoolkit: Native toolkit (injected)
+_toolkit = nodetoolkit
 
 # A general console with:
 # .log(...)    - light verbose text
 # .info(...)   - blue text
 # .error(...)  - red text
 # .warn(...)   - orange text
-console = _toolkit.getConsole()
+console = nodetoolkit.getConsole()
 
 
 # Simple JSON encoder
 def json_encode(obj):
-  return _toolkit.jsonEncode(obj)
+  return nodetoolkit.jsonEncode(obj)
 
 # Simple JSON decoder
 def json_decode(json):
-  return _toolkit.jsonDecode(json)
+  return nodetoolkit.jsonDecode(json)
 
 # Tests whether two objects are effectively the same value (safely deeply inspects both objects)
 # (collections, arrays, maps, dicts sets, etc. are all normalised and made "comparable" where possible)
 def same_value(obj1, obj2):
-  return _toolkit.sameValue(obj1, obj2)
+  return nodetoolkit.sameValue(obj1, obj2)
 
 # Schedules a function to be called immediately or delayed
 def call(func, delay=0, complete=None, error=None):
-  _toolkit.call(False, func, long(delay*1000), complete, error)
+  nodetoolkit.call(False, func, long(delay*1000), complete, error)
 
 # DEPRECATED (use 'call' and optional args)
 def call_delayed(delay, func, complete=None, error=None):
-  _toolkit.call(False, func, long(delay*1000), complete, error)
+  nodetoolkit.call(False, func, long(delay*1000), complete, error)
 
 # Schedules a function to be called in a thread-safe manner
 def call_safe(func, delay=0, complete=None, error=None):
-  _toolkit.call(True, func, long(delay*1000), complete, error)
+  nodetoolkit.call(True, func, long(delay*1000), complete, error)
 
 # Returns an atomically incrementing long integer.  
 def next_seq():
-    return _toolkit.nextSequenceNumber()
+    return nodetoolkit.nextSequenceNumber()
 
 # Returns a high-precision atomically incrementing clock in milliseconds
 def system_clock():
-    return _toolkit.systemClockInMillis();
+    return nodetoolkit.systemClockInMillis();
 
 # Note: for DateTime functions:
 #
@@ -69,37 +72,37 @@ def system_clock():
  
 # 'now' timestamp (based on excellent JODATIME library)
 def date_now():
-    return _toolkit.dateNow()
+    return nodetoolkit.dateNow()
 
 # a timestamp at another time (based on excellent JODATIME library)
 def date_at(year, month, day, hour, minute, second=0, millisecond=0):
-    return _toolkit.dateAt(year, month, day, hour, minute, second, millisecond)
+    return nodetoolkit.dateAt(year, month, day, hour, minute, second, millisecond)
    
 # a timestamp based on a millisecond offset (JODATIME library)
 def date_instant(millis):
-    return _toolkit.dateAtInstant(millis)
+    return nodetoolkit.dateAtInstant(millis)
 
 # parses a date string e.g. '2016-06-13T08:17:11.836-04:00'
 def date_parse(s):
-    return _toolkit.parseDate(s)
+    return nodetoolkit.parseDate(s)
 
 # Simple URL retriever (supports POST)
 def get_url(url, query=None, username=None, password=None, headers=None, reference=None, contentType=None, post=None, connectTimeout=10, readTimeout=15,
             proxyAddress=None, proxyUsername=None, proxyPassword=None):
-  return _toolkit.getURL(url, query, username, password, headers, reference, contentType, post, long(connectTimeout*1000), long(readTimeout*1000), proxyAddress, proxyUsername, proxyPassword)
+  return nodetoolkit.getURL(url, query, username, password, headers, reference, contentType, post, long(connectTimeout*1000), long(readTimeout*1000), proxyAddress, proxyUsername, proxyPassword)
 
 # DEPRECATED (same as above)
 def getURL(url, query=None, username=None, password=None, headers=None, reference=None, contentType=None, post=None, connectTimeout=10, readTimeout=15, 
             proxyAddress=None, proxyUsername=None, proxyPassword=None):
-  return _toolkit.getURL(url, query, username, password, headers, reference, contentType, post, long(connectTimeout*1000), long(readTimeout*1000), proxyAddress, proxyUsername, proxyPassword)
+  return nodetoolkit.getURL(url, query, username, password, headers, reference, contentType, post, long(connectTimeout*1000), long(readTimeout*1000), proxyAddress, proxyUsername, proxyPassword)
 
 # A managed TCP connection that attempts to stay open (includes instrumentation)
 def TCP(dest=None, connected=None, received=None, sent=None, disconnected=None, timeout=None, sendDelimiters='\n', receiveDelimiters='\r\n', binaryStartStopFlags=None):
-  return _toolkit.createTCP(dest, connected, received, sent, disconnected, timeout, sendDelimiters, receiveDelimiters, binaryStartStopFlags);
+  return nodetoolkit.createTCP(dest, connected, received, sent, disconnected, timeout, sendDelimiters, receiveDelimiters, binaryStartStopFlags);
 
 # A managed UDP connection for sending or receiving UDP (includes instrumentation)
 def UDP(source='0.0.0.0:0', dest=None, ready=None, received=None, sent=None, intf=None):
-  return _toolkit.createUDP(source, dest, ready, received, sent, intf);
+  return nodetoolkit.createUDP(source, dest, ready, received, sent, intf);
   
 # A managed processes that attempts to stay executed (includes instrumentation)
 def Process(command, # the command line and arguments
@@ -114,7 +117,7 @@ def Process(command, # the command line and arguments
            sendDelimiters='\n', receiveDelimiters='\r\n', # default delimiters
            working=None, # working directory
            mergeErr=False):
-  return _toolkit.createProcess(command, 
+  return nodetoolkit.createProcess(command, 
                                 started, stdout, stdin, stderr, stopped, timeout, sendDelimiters, receiveDelimiters,
                                 working, mergeErr)
 
@@ -129,7 +132,7 @@ def quick_process(command,
                   timeoutInSeconds=0, # if positive, kills the process on timeout
                   working=None,   # the working directory
                   mergeErr=False):# merge  stderr into the stdout for convenience
-    return _toolkit.createQuickProcess(command, stdinPush, 
+    return nodetoolkit.createQuickProcess(command, stdinPush, 
                                        started, finished, 
                                        long(timeoutInSeconds * 1000), working, mergeErr)
 
@@ -142,12 +145,12 @@ def quick_process(command,
 #
 # queue.request(lambda: udp.send('?'), lambda arg: console.info('RECV UDP %s' % arg)) 
 def request_queue(received=None, sent=None, timeout=None):
-    return _toolkit.createRequestQueue(received, sent, timeout)
+    return nodetoolkit.createRequestQueue(received, sent, timeout)
 
 # A general purpose timer class for repeating timers
 class Timer:
   def __init__(self, func, intervalInSeconds, firstDelayInSeconds=0, stopped=False):
-      self.wrapper = _toolkit.createTimer(func, long(firstDelayInSeconds * 1000), long(intervalInSeconds * 1000), stopped)
+      self.wrapper = nodetoolkit.createTimer(func, long(firstDelayInSeconds * 1000), long(intervalInSeconds * 1000), stopped)
       
   def setDelayAndInterval(self, delayInSeconds, intervalInSeconds):
       self.wrapper.setDelayAndInterval(long(delayInSeconds * 1000), long(intervalInSeconds * 1000))
@@ -181,67 +184,72 @@ class Timer:
 
 # Create a node (on-the-fly)
 def Node(nodeName):
-    return _toolkit.createNode(nodeName)
+    return nodetoolkit.createNode(nodeName)
 
 # Creates a node based on the name of an existing node (on-the-fly)
 def Subnode(baseName):
-    return _toolkit.createSubnode(baseName)
+    return nodetoolkit.createSubnode(baseName)
   
 # Releases a node created with Node() or Subnode() and related resources.
 def release_node(node):
-  return _toolkit.releaseNode(node)
+  return nodetoolkit.releaseNode(node)
 
 # DEPRECATED (see above)  
 def releaseNode(node):
-  return _toolkit.releaseNode(node)
+  return nodetoolkit.releaseNode(node)
 
 # Creates a local signal (on-the-fly)
 def Signal(name, metadata=None):
-    return _toolkit.createEvent(name, metadata)
+    return nodetoolkit.createEvent(name, metadata)
 
 # (see Signal)
 def Event(name, metadata=None):
-    return _toolkit.createEvent(name, metadata)
+    return nodetoolkit.createEvent(name, metadata)
   
 # Creates a local action (on-the-fly)    
 def Action(name, handler, metadata=None):
-	return _toolkit.createAction(name, handler, metadata)
-	
+  return nodetoolkit.createAction(name, handler, metadata)
+  
 # Creates remote action
 def create_remote_action(name, metadata=None, suggestedNode=None, suggestedAction=None):
-    return _toolkit.createRemoteAction(name, metadata, suggestedNode, suggestedAction)
+    return nodetoolkit.createRemoteAction(name, metadata, suggestedNode, suggestedAction)
     
 # Creates a remote event
 def create_remote_event(name, handler, metadata=None, suggestedNode=None, suggestedEvent=None):
-    return _toolkit.createRemoteEvent(name, handler, metadata, suggestedNode, suggestedEvent)
+    return nodetoolkit.createRemoteEvent(name, handler, metadata, suggestedNode, suggestedEvent)
 
 # Looks up a local action by simple name
 def lookup_local_action(name):
-    return _toolkit.getLocalAction(name)
+    return nodetoolkit.getLocalAction(name)
 
 # Looks up a local event by simple name
 def lookup_local_event(name):
-    return _toolkit.getLocalEvent(name)
+    return nodetoolkit.getLocalEvent(name)
     
 # Looks up a remote action by simple name
 def lookup_remote_action(name):
-    return _toolkit.getRemoteAction(name)
+    return nodetoolkit.getRemoteAction(name)
 
 # Looks up a remote event by simple name
 def lookup_remote_event(name):
-    return _toolkit.getRemoteEvent(name)
+    return nodetoolkit.getRemoteEvent(name)
 
+def lookup_parameter(name):
+    return nodetoolkit.lookupParameter(name)
     
 # node life-cycle functions:
   
 # for functions to be called after main has executed
 _nodel_afterMainFunctions = []
 
-def _processAfterMainFunctions():
+def processAfterMainFunctions():
     for f in _nodel_afterMainFunctions:
         f()
 
 # decorates functions that should be called after 'main' completes
 def after_main(f):
     _nodel_afterMainFunctions.append(f)
+
+    return f
+
 
