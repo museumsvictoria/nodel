@@ -297,7 +297,7 @@ label.required:after, button.caution:after {
 
 .autocomplete {
   position: absolute;
-  margin-top: -20px;
+  margin-top: 0px;
   background: white;
   min-width: 100px;
   padding: 0;
@@ -367,6 +367,10 @@ label.required:after, button.caution:after {
 	-webkit-tap-highlight-color: rgba(0,0,0,0);
 }
 
+#remote div.block {
+  overflow: visible;
+}
+
 #remote > div.block div.block div.object {
   display: block;
 }
@@ -392,10 +396,34 @@ label.required:after, button.caution:after {
   margin-bottom: 0;
 }
 
+#remote > div.block div.block:after { 
+   content: " ";
+   display: block; 
+   height: 0; 
+   clear: both;
+}
 #remote > div.block div.block:nth-of-type(even) {
   background: transparent;
 }
 
+#remote > div.block div.block > h6:before {
+  content: '↔';
+  padding-right: 5px;
+}
+
+#remote > div.block div.block.wired > h6:before {
+  color: rgb(155, 237, 0);
+}
+
+#remote > div.block div.block.unwired > h6:before {
+  color: rgb(255, 106, 0);
+}
+/*
+#remote > div.block div.block.unwired input, #remote > div.block div.block.unwired > h6 {
+  border-color: rgba(255, 106, 0, 0.25);
+  color: rgb(255, 106, 0);
+}
+*/
 #remote > div.block div.block div.object {
   display: flex;
 }
