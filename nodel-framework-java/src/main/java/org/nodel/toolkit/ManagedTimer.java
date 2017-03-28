@@ -47,7 +47,7 @@ public class ManagedTimer implements Closeable {
     private TimerTask _timerTask;
     
     /**
-     * Delay value to use when started.
+     * First delay to use (one-time use only, reset using 'setDelay')
      */
     private long _delay;
     
@@ -129,6 +129,10 @@ public class ManagedTimer implements Closeable {
             if (delay > 0) {
                  // use delay for next schedule
                 _timerTask = _timerThread.schedule(timerTask, delay);
+                
+                // reset first delay
+                _delay = 0;
+                
             } else {
                 if (interval > 0)
                     // use interval
@@ -190,17 +194,13 @@ public class ManagedTimer implements Closeable {
      * this timer has even been started, a first delay applies.
      */
     public void start() {
-        synchronized(_lock) {
+        synchronized (_lock) {
             if (_currentDelay > 0 || _currentInterval > 0)
                 // has started, nothing to do
                 return;
-            
-            if (_timerTask == null)
-                // has never ever started, so supply first delay
-                scheduleTimer(_delay, _interval);
-            else
-                // has previously been started, supply interval only
-                scheduleTimer(0, _interval);
+
+            // ('delay' is always cleared on use. 'setDelay___' resets)
+            scheduleTimer(_delay, _interval);
         }
     }
     
