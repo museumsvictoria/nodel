@@ -100,7 +100,12 @@ public class NodelHostHTTPD extends NanoHTTPD {
         @Value(name = "nodes", order = 1, title = "Nodes", desc = "All the managed nodes.", genericClassA = SimpleName.class, genericClassB = BaseNode.class)
         public Map<SimpleName, BaseNode> getNodes() {
             return BaseNode.getNodes();
-        }        
+        }
+        
+        @Service(name = "recipes", order = 1, title = "Recipes", desc = "Recipes that new nodes can be based on", genericClassA = String.class)
+        public RecipesEndPoint recipes() {
+            return _nodelHost.recipes();
+        }
         
         @Value(name = "started", title = "Started", desc = "When the host started.")
         public DateTime __started = DateTime.now();
@@ -149,8 +154,8 @@ public class NodelHostHTTPD extends NanoHTTPD {
         }
 
         @Service(name = "newNode", order = 7, title = "New node", desc = "Creates a new node.")
-        public void newNode(String name) {
-            _nodelHost.newNode(name);
+        public void newNode(@Param(name = "base") String base, String name) {
+            _nodelHost.newNode(base, name);
         }
         
         @Service(name = "toolkit", title = "Toolkit", desc = "The toolkit reference.")
@@ -308,11 +313,18 @@ public class NodelHostHTTPD extends NanoHTTPD {
                 else
                     throw new UnknownServiceException("Unexpected method - '" + method + "'");
 
-                String targetAsJSON = Serialisation.serialise(target);
+                // check if the target is an HTTP directive
+                Response resp;
+                if (target instanceof Response) {
+                    resp = (Response) target;
+
+                } else {
+                    // otherwise serialise the target into JSON
+                    String targetAsJSON = Serialisation.serialise(target);
+                    resp = new Response(HTTP_OK, "application/json; charset=utf-8", targetAsJSON);
+                }
 
                 // adjust the response headers for script compatibility
-
-                Response resp = new Response(HTTP_OK, "application/json; charset=utf-8", targetAsJSON);
                 resp.addHeader("Access-Control-Allow-Origin", "*");
 
                 return resp;

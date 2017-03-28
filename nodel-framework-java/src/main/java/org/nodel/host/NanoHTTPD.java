@@ -39,6 +39,7 @@ import org.nodel.diagnostics.CountableInputStream;
 import org.nodel.diagnostics.CountableOutputStream;
 import org.nodel.diagnostics.Diagnostics;
 import org.nodel.diagnostics.SharableMeasurementProvider;
+import org.nodel.io.Stream;
 import org.nodel.io.UTF8Charset;
 import org.nodel.io.UnexpectedIOException;
 import org.nodel.net.Credentials;
@@ -235,7 +236,7 @@ public class NanoHTTPD {
     /**
      * HTTP response. Return one of these from serve().
      */
-    public class Response {
+    public static class Response {
         /**
          * Default constructor: response = HTTP_OK, data = mime = 'null'
          */
@@ -968,14 +969,15 @@ public class NanoHTTPD {
                 }
                 out.flush();
                 out.close();
-                if (data != null)
-                    data.close();
             } catch (IOException ioe) {
                 // Couldn't write? No can do.
                 try {
                     mySocket.close();
                 } catch (Throwable t) {
                 }
+            } finally {
+                // make sure 'data' stream is always cleaned up regardless
+                Stream.safeClose(data);
             }
         }
     }

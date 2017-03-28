@@ -27,6 +27,7 @@ import org.nodel.core.NodelClients.NodeURL;
 import org.nodel.diagnostics.AtomicLongMeasurementProvider;
 import org.nodel.diagnostics.Diagnostics;
 import org.nodel.discovery.AdvertisementInfo;
+import org.nodel.io.Files;
 import org.nodel.reflection.Serialisation;
 import org.nodel.threading.ThreadPool;
 import org.nodel.threading.TimerTask;
@@ -133,17 +134,16 @@ public class NodelHost {
         }
 
     };
-    
+
     /**
      * Constructs a new NodelHost and returns immediately.
      */
-    public NodelHost(File root, String[] inclFilters, String[] exclFilters) {
-        if (root == null)
-            _root = new File(".");
-        else
-            _root = root;
+    public NodelHost(File root, String[] inclFilters, String[] exclFilters, File recipesRoot) {
+        _root = (root == null ? new File(".") : root);
         
-        _logger.info("NodelHost initialised. root='{}'", root.getAbsolutePath());
+        _recipes = new RecipesEndPoint(recipesRoot);
+        
+        _logger.info("NodelHost initialised. root='{}', recipesRoot='{}'", root.getAbsolutePath(), recipesRoot.getAbsoluteFile());
         
         Nodel.setHostPath(new File(".").getAbsolutePath());
         Nodel.setNodesRoot(_root.getAbsolutePath());
@@ -340,28 +340,53 @@ public class NodelHost {
             }
         } // (for)
     }
+    
+    /**
+     * (init. in constructor)
+     */
+    private RecipesEndPoint _recipes;
+    
+    /**
+     * The Recipes end-point 
+     */
+    public RecipesEndPoint recipes() { return _recipes; }
 
     /**
      * Creates a new node.
      */
-    public void newNode(String name) {
+    public void newNode(String base, String name) {
         if (Strings.isNullOrEmpty(name))
             throw new RuntimeException("No node name was provided");
 
         testNameFilters(name);
 
         // if here, name does not break any filtering rules
-
-        // TODO: should be able to select a node
+        
+        // since the node may contain multiple files, create the node using in an 'atomic' way using
+        // a temporary folder
+        
+        // TODO: should be able to select which root is applicable
         File newNodeDir = new File(_root, name);
 
         if (newNodeDir.exists())
             throw new RuntimeException("A node with the name '" + name + "' already exists.");
 
-        if (!newNodeDir.mkdir())
-            throw new RuntimeException("The platform did not allow the creation of the node folder for unspecified reasons.");
+        if (Strings.isNullOrEmpty(base)) {
+            // not based on existing node, so just create an empty folder
+            // and the node will do the rest
+            if (!newNodeDir.mkdir())
+                throw new RuntimeException("The platform did not allow the creation of the node folder for unspecified reasons.");
+            
+        } else {
+            // based on an existing node (from recipes folder or self nodes)
+            File baseDir = new File(_recipes.getRoot(), base.replace('/', File.separatorChar));
 
-        // the folder is created!
+            if (!baseDir.exists())
+                throw new RuntimeException("Could not locate base recipe (" + base + ")");
+
+            // copy the entire folder
+            Files.copyDir(baseDir, newNodeDir);
+        }
     }
 
     /**
@@ -433,6 +458,9 @@ public class NodelHost {
 
         return include;
     }
+    
+
+    
     
     public Collection<AdvertisementInfo> getAdvertisedNodes() {
         return Nodel.getAllNodes();
