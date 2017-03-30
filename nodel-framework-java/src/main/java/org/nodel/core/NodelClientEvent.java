@@ -165,7 +165,7 @@ public class NodelClientEvent {
                 handlePersistRequest();
             }
 
-        }, PERSIST_PERIOD);
+        }, PERSIST_PERIOD, PERSIST_PERIOD);
     }    
     
     /**

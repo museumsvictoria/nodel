@@ -205,7 +205,7 @@ public class NodelServerEvent implements Closeable {
                 handlePersistRequest();
             }
 
-        }, PERSIST_PERIOD);
+        }, PERSIST_PERIOD, PERSIST_PERIOD);
     }
     
     @Value(name = "name", title = "Name", desc = "The name.", order = 1)
