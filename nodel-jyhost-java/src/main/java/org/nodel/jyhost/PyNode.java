@@ -1007,7 +1007,7 @@ public class PyNode extends BaseDynamicNode {
             });
             addLocalEvent(nodelServerEvent);
             
-            String varName = "local_event_" + eventBinding.getKey().getReducedName();
+            String varName = "local_event_" + eventBinding.getKey().getOriginalName();
             _python.set(varName, nodelServerEvent);
                         
             if (sb.length() > 0)
