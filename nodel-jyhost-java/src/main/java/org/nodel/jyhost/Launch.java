@@ -366,17 +366,20 @@ public class Launch {
     @SuppressWarnings("resource")
     private void createHostInstanceLockOrFail() throws RuntimeException {
         Exception exc = null;
+        
+        File lockFile = new File("_instance.lock");
 
         try {
-            _hostInstanceLock = new RandomAccessFile(new File("_instance.lock"), "rw").getChannel().tryLock();
+            _hostInstanceLock = new RandomAccessFile(lockFile, "rw").getChannel().tryLock();
             
         } catch (IOException ioExc) {
             exc = ioExc;
         }
         
         if (_hostInstanceLock == null) {
-            String message = "Could not create a Nodel host instance lock. There might already be another one managing the same set of nodes.";
-            
+            String message = "Could not create a Nodel host instance lock in the designated working directory (" + lockFile.getAbsolutePath() + ")." +
+                    " Is another host running there? Are there file permissions issues?";
+    
             System.err.println(message);
 
             // include cause exception if one exists
