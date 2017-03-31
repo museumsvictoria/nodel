@@ -487,7 +487,7 @@ public class PyNode extends BaseDynamicNode {
                     config = (NodeConfig) Serialisation.coerceFromJSON(NodeConfig.class, Stream.readFully(_configFile));
                     applyConfig(config);
                     
-                    _fileModifiedHash = lastModifiedHash; 
+                    _fileModifiedHash = lastModifiedHash;
                     
                     _logger.info("Config updated successfully.");
                 }
@@ -688,49 +688,57 @@ public class PyNode extends BaseDynamicNode {
             // log a message to the console and the program log
             String msg;
             if (!hasErrors) {
-                msg = "Python and Node script loaded (took " + DateTimes.formatPeriod(startTime) + "); calling 'main'...";
+                msg = "(Python and Node script loaded in " + DateTimes.formatPeriod(startTime) + "; calling 'main'...)";
                 _outReader.inject(msg);
                 _logger.info(msg);
             } else {
-                msg = "Python and Node script loaded with errors (took " + DateTimes.formatPeriod(startTime) + "); calling 'main'...";
+                msg = "(Python and Node script loaded with errors (took " + DateTimes.formatPeriod(startTime) + "); calling 'main'...)";
                 _errReader.inject(msg);
                 _logger.warn(msg);
             }
             
             try {
-                if (_python.get("main") == null) {
-                    msg = "(no 'main' method to call)";
+                lock = null;
+                try {
+                    lock = getAReentrantLock();
 
-                    // nothing could have gone wrong, kick off toolkit
-                    _toolkit.enable();
-                } else {
-                    lock = null;
-                    try {
-                        lock = getAReentrantLock();
+                    trackFunction("main()");
+                    
+                    // for logging
+                    boolean mainCalled = false;
 
-                        trackFunction("main()");
-
+                    if (_python.get("main") != null) {
                         _python.exec("main()");
-                        
-                        // process after "after main functions"
-                        PyFunction processAfterMainFunctions = (PyFunction) _globals.get(Py.java2py("processAfterMainFunctions"));
-                        processAfterMainFunctions.__call__();
-
-                        // nothing went wrong, kick off toolkit
-                        _toolkit.enable();
-
-                        msg = "'main' completed cleanly.";
-                    } finally {
-                        untrackFunction("main()");
-                        
-                        if (lock != null)
-                            lock.unlock();
+                        mainCalled = true;
                     }
+                    
+                    // handle @after_main functions (if present)
+                    PyFunction processAfterMainFunctions = (PyFunction) _globals.get(Py.java2py("processAfterMainFunctions"));
+                    long fnCount = processAfterMainFunctions.__call__().asLong();
+
+                    // nothing went wrong, kick off toolkit
+                    _toolkit.enable();
+
+                    // prepare a sensible message
+                    if (mainCalled && fnCount == 0)
+                        msg = "('main' completed cleanly)";
+                    else if (mainCalled && fnCount > 0)
+                        msg = "('main' and '@after_main' function" + (fnCount == 1 ? "" : "s") + " completed cleanly)";
+                    else if (fnCount > 0)
+                        msg = "('@after_main' function" + (fnCount == 1 ? "" : "s") + " completed cleanly)";
+                    else
+                        msg = "(no 'main' to call)";
+
+                    _logger.info(msg);
+                    _outReader.inject(msg);
+
+                } finally {
+                    untrackFunction("main()");
+
+                    if (lock != null)
+                        lock.unlock();
                 }
                 
-                _logger.info(msg);
-                _outReader.inject(msg);
-
                 // config has changed, so update creation time
                 synchronized (_signal) {
                     _started = DateTime.now();
@@ -815,11 +823,11 @@ public class PyNode extends BaseDynamicNode {
     private void cleanupInterpreter() {
         if (_python != null) {
             _logger.info("Cleaning up previous interpreter...");
-            _outReader.inject("Closing this interpreter...");
+            _outReader.inject("(closing this interpreter...)");
 
             _python.cleanup();
             
-            String message = "Clean up complete.";
+            String message = "(clean up complete)";
             _logger.info(message);
             _outReader.inject(message);
         }

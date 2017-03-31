@@ -245,6 +245,8 @@ _nodel_afterMainFunctions = []
 def processAfterMainFunctions():
     for f in _nodel_afterMainFunctions:
         f()
+        
+    return len(_nodel_afterMainFunctions)
 
 # decorates functions that should be called after 'main' completes
 def after_main(f):
