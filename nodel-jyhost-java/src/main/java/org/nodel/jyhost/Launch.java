@@ -367,7 +367,7 @@ public class Launch {
     private void createHostInstanceLockOrFail() throws RuntimeException {
         Exception exc = null;
         
-        File lockFile = new File("_instance.lock");
+        File lockFile = new File(_root, "_instance.lock");
 
         try {
             _hostInstanceLock = new RandomAccessFile(lockFile, "rw").getChannel().tryLock();
