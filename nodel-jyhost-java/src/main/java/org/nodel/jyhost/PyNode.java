@@ -66,6 +66,7 @@ import org.nodel.threading.TimerTask;
 import org.nodel.toolkit.Console;
 import org.nodel.toolkit.ManagedToolkit;
 import org.python.core.Py;
+import org.python.core.PyBaseCode;
 import org.python.core.PyDictionary;
 import org.python.core.PyException;
 import org.python.core.PyFunction;
@@ -970,8 +971,14 @@ public class PyNode extends BaseDynamicNode {
             }
             
             PyFunction pyFunction = (PyFunction) pyObject;
+            PyBaseCode code = (PyBaseCode) pyFunction.func_code;
 
-            PyObject pyResult = pyFunction.__call__(Py.java2py(arg));
+            // only support either 0 or 1 args
+            PyObject pyResult;
+            if (code.co_argcount == 0)
+                pyResult = pyFunction.__call__();
+            else
+                pyResult = pyFunction.__call__(Py.java2py(arg));
             
             return pyResult;
 
@@ -1223,14 +1230,19 @@ public class PyNode extends BaseDynamicNode {
             PyObject pyObject = _globals.get(Py.java2py(functionName));
             if (!(pyObject instanceof PyFunction)) {
                 _logger.warn("Python interpreter function resolution failed when it should not have. name:'{}', class:{} value:{}", 
-                        functionName, pyObject == null? null: pyObject.getClass(), pyObject);
-                
+                        functionName, pyObject == null ? null : pyObject.getClass(), pyObject);
+
                 throw new IllegalStateException("Event handling failure (internal server error) - '" + functionName + "'");
             }
-            
-            PyFunction pyFunction = (PyFunction) pyObject;
 
-            pyFunction.__call__(Py.java2py(arg));            
+            PyFunction pyFunction = (PyFunction) pyObject;
+            PyBaseCode code = (PyBaseCode) pyFunction.func_code;
+
+            // only support either 0 or 1 args
+            if (code.co_argcount == 0)
+                pyFunction.__call__();
+            else
+                pyFunction.__call__(Py.java2py(arg));
 
         } catch (Exception exc) {
             String message = "Remote event handling failed - " + exc;

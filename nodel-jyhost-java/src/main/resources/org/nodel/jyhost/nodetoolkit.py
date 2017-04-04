@@ -199,15 +199,26 @@ def releaseNode(node):
   return nodetoolkit.releaseNode(node)
 
 # Creates a local signal (on-the-fly)
+# RESERVED FOR FUTURE DIFFERENTIATION FROM EVENT
 def Signal(name, metadata=None):
     return nodetoolkit.createEvent(name, metadata)
 
 # (see Signal)
+# DEPRECATED - use 'create_local_event' or '@local_event'
 def Event(name, metadata=None):
     return nodetoolkit.createEvent(name, metadata)
+
+# create a local event
+def create_local_event(name, metadata=None):
+  return nodetoolkit.createEvent(name, metadata)
   
 # Creates a local action (on-the-fly)    
+# DEPRECATED - use 'create_local_action' or '@local_action'
 def Action(name, handler, metadata=None):
+  return nodetoolkit.createAction(name, handler, metadata)
+
+# creates a local action
+def create_local_action(name, handler, metadata=None):
   return nodetoolkit.createAction(name, handler, metadata)
   
 # Creates remote action
@@ -217,6 +228,29 @@ def create_remote_action(name, metadata=None, suggestedNode=None, suggestedActio
 # Creates a remote event
 def create_remote_event(name, handler, metadata=None, suggestedNode=None, suggestedEvent=None):
     return nodetoolkit.createRemoteEvent(name, handler, metadata, suggestedNode, suggestedEvent)
+
+# Function decorators for convenience
+# (Tag functions with '@___')
+def local_action(metadata):
+  def wrap(handler):
+    if handler.func_code.co_argcount == 0:
+      return nodetoolkit.createAction(handler.func_name, lambda arg: handler(), metadata)
+    else:
+      return nodetoolkit.createAction(handler.func_name, handler, metadata)
+
+  return wrap
+
+def remote_event(metadata, suggestedNode=None, suggestedEvent=None):
+  def wrap(handler):
+    if handler.func_code.co_argcount == 0:
+      return nodetoolkit.createRemoteEvent(handler.func_name, lambda arg: handler(), metadata, suggestedNode, suggestedEvent)
+    else:
+      return nodetoolkit.createRemoteEvent(handler.func_name, handler, metadata, suggestedNode, suggestedEvent)
+
+  return wrap
+
+
+# <!-- Look up functions
 
 # Looks up a local action by simple name
 def lookup_local_action(name):
@@ -234,8 +268,10 @@ def lookup_remote_action(name):
 def lookup_remote_event(name):
     return nodetoolkit.getRemoteEvent(name)
 
+# Looks up a parameter by simple name
 def lookup_parameter(name):
     return nodetoolkit.lookupParameter(name)
+
     
 # node life-cycle functions:
   
@@ -253,5 +289,3 @@ def after_main(f):
     _nodel_afterMainFunctions.append(f)
 
     return f
-
-
