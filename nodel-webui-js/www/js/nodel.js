@@ -167,6 +167,7 @@ $(function() {
         $('#nodename').text(data.name);
         if(data.desc) $('#nodename').after('<p>'+htmlEncode(data.desc)+'</p>');
         $('.logo img').attr('title', 'Nodel '+data.nodelVersion);
+        $('.logo a').attr('href','/?filter='+encodeURIComponent(node));
         if((typeof preinit !== "undefined") && ($.isFunction(preinit))){ preinit(data); }
         $('body').data('config',data);
         // begin node UI initialisation
@@ -602,12 +603,21 @@ var listNodes = function(){
   // set the initial display limit to 50
   $('#nodefilter').data('num', 50);
   // get the list of nodes from the host
-  req = $.getJSON('http://'+host+'/REST/nodeURLs', function(data) {
+  var srch = getParameterByName('filter');
+  if(srch.length > 0) {
+    filter = {filter:srch};
+    $('#nodefilter').val(srch);
+    var re = new RegExp("(.*)("+srch+")(.*)","ig");
+  } else filter = '';
+  req = $.getJSON('http://'+host+'/REST/nodeURLs', filter, function(data) {
     // ensure the list is empty
     $('#nodelist ul').empty();
     // for each node, create an entry in the list until the display limit is reached
     $.each(data, function(key, value) {
-      $('#nodelist ul').append('<li><a href="'+value.address+'">'+value.node+'</a></li>');
+      if(srch.length > 0){
+        var val = value.node.replace(re, '$1<strong>$2</strong>$3')
+      } else var val = value.node;
+      $('#nodelist ul').append('<li><a href="'+value.address+'">'+val+'</a></li>');
       return key < $('#nodefilter').data('num')-1;
     });
     // if the list goes over the display limit, add a 'more' link
