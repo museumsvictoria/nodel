@@ -211,12 +211,13 @@ label.required:after, button.caution:after {
 
 .nodeadd .close, .noderename .close {
 	position: absolute;
-	top: 0;
-	right: 5px;
+	top: -5px;
+	right: 0;
 	font-weight: 900;
 	pointer-events: auto;
 	color: rgb(124,124,124);
 	cursor: pointer;
+  padding: 10px;
 }
 
 .nodeadd, .noderename {
