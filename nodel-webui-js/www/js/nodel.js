@@ -167,6 +167,7 @@ $(function() {
         $('#nodename').text(data.name);
         if(data.desc) $('#nodename').after('<p>'+htmlEncode(data.desc)+'</p>');
         $('.logo img').attr('title', 'Nodel '+data.nodelVersion);
+        $('.logo a').attr('href','/?filter='+encodeURIComponent(node));
         if((typeof preinit !== "undefined") && ($.isFunction(preinit))){ preinit(data); }
         $('body').data('config',data);
         // begin node UI initialisation
@@ -218,19 +219,18 @@ var init = function() {
     });
   });
   $('#params').on('ready', function(){
-    $('#paraams').find('h1, h2, h3, h4, h5, h6, p, legend, label, button').attr('unselectable','on').addClass('disableselect').bind('selectstart', function(){ return false; });
+    $('#params').find('h1, h2, h3, h4, h5, h6, p, legend, label, button').attr('unselectable','on').addClass('disableselect').bind('selectstart', function(){ return false; });
   });
-  $('#remote').on('ready', function(){
-    $('#remote').find('h1, h2, h3, h4, h5, h6, p, legend, label, button').attr('unselectable','on').addClass('disableselect').bind('selectstart', function(){ return false; });
-  });
+  var remote_list = ['remote'];
   var actions_list = [];
   var events_list = [];
-  $('#actions, #events').on('ready', function(evt){
+  $('#remote, #actions, #events').on('ready', function(evt){
+    remote_list = jQuery.grep(remote_list, function(value){return value != evt.target.id;});
     actions_list = jQuery.grep(actions_list, function(value){return value != evt.target.id;});
     events_list = jQuery.grep(events_list, function(value){return value != evt.target.id;});
-    if(actions_list.length == 0 && events_list.length == 0) {
+    if(remote_list.length == 0 && actions_list.length == 0 && events_list.length == 0) {
       updateLogs();
-      $('#actions, #events').find('h1, h2, h3, h4, h5, h6, p, legend, label, button').attr('unselectable','on').addClass('disableselect').bind('selectstart', function(){ return false; });
+      $('#remote, #actions, #events').find('h1, h2, h3, h4, h5, h6, p, legend, label, button').attr('unselectable','on').addClass('disableselect').bind('selectstart', function(){ return false; });
     }
   });
   if($('#actions').length) {
@@ -452,28 +452,30 @@ var init = function() {
     } else $('.advancededitor').slideUp();
   });
   // watch for clicks on all group or object block titles
-  $('body').on('mousedown touchstart', '.block h6:not(#remote div.block div.block h6)', function() {
+  $('body').on('click', '.block h6:not(#remote div.block div.block h6)', function() {
     // show or hide the contents
     $(this).toggleClass('contract').next('div').finish().slideToggle('slow');
     return false;
   });
   // watch for clicks on all section titles set to expand
-  $('body').on('mousedown touchstart', 'h4.expand', function() {
+  $('body').on('click', 'h4.expand', function() {
     // show the contents of every group or object
     $(this).parent().find('.block h6').next('div').slideDown('slow');
+    $(this).parent().find('.block h6').addClass('contract');
     // set the section to contract on next click
     $(this).removeClass('expand').addClass('contract');
     return false;
   });
   // watch for clicks on all section titles set to contract
-  $('body').on('mousedown touchstart', 'h4.contract', function() {
+  $('body').on('click', 'h4.contract', function() {
     // hide the contents of every group or object
     $(this).parent().find('.block h6').next('div').slideUp('slow');
+    $(this).parent().find('.block h6').removeClass('contract');
     // set the section to expand on next click
     $(this).removeClass('contract').addClass('expand');
     return false;
   });
-  $('body').on('mousedown touchstart', '#nodename', function() {
+  $('body').on('click', '#nodename', function() {
     $('.noderename').show();
     $('#nodenameval').val($('body').data('config').name).focus();
     /*$('#nodename').html('&nbsp;');*/
@@ -510,7 +512,7 @@ var init = function() {
     } else $('.noderename').hide();
     return false;
   });
-  $('#nodedeletesubmit').on('mousedown touchstart', function(e) {
+  $('#nodedeletesubmit').on('click', function(e) {
     e.preventDefault();
     if(confirm("Are you sure?")) {
       $.getJSON('http://' + host + '/REST/nodes/' + encodeURIComponent(node) + '/remove?confirm=true', function () {
@@ -602,12 +604,21 @@ var listNodes = function(){
   // set the initial display limit to 50
   $('#nodefilter').data('num', 50);
   // get the list of nodes from the host
-  req = $.getJSON('http://'+host+'/REST/nodeURLs', function(data) {
+  var srch = getParameterByName('filter');
+  if(srch.length > 0) {
+    filter = {filter:srch};
+    $('#nodefilter').val(srch);
+    var re = new RegExp("(.*)("+srch+")(.*)","ig");
+  } else filter = '';
+  req = $.getJSON('http://'+host+'/REST/nodeURLs', filter, function(data) {
     // ensure the list is empty
     $('#nodelist ul').empty();
     // for each node, create an entry in the list until the display limit is reached
     $.each(data, function(key, value) {
-      $('#nodelist ul').append('<li><a href="'+value.address+'">'+value.node+'</a></li>');
+      if(srch.length > 0){
+        var val = value.node.replace(re, '$1<strong>$2</strong>$3')
+      } else var val = value.node;
+      $('#nodelist ul').append('<li><a href="'+value.address+'">'+val+'</a></li>');
       return key < $('#nodefilter').data('num')-1;
     });
     // if the list goes over the display limit, add a 'more' link
@@ -630,7 +641,7 @@ var listNodes = function(){
     }
   });
   // watch for 'more' to be clicked, add 25 to the limit and refresh the list
-  $('#nodelist').on('mousedown touchstart', '#listmore', function() {
+  $('#nodelist').on('click', '#listmore', function() {
     $('#nodefilter').data('num', $('#nodefilter').data('num')+25);
     $('#nodefilter').keyup();
     return false;
@@ -666,7 +677,7 @@ var listNodes = function(){
       }
     });
   });
-  $('#nodelist').on('mousedown touchstart', '#nodeaddnew', function() {
+  $('#nodelist').on('click', '#nodeaddnew', function() {
     $('.nodeadd').show();
     $('#newnodename').focus();
     return false;
