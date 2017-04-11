@@ -219,19 +219,18 @@ var init = function() {
     });
   });
   $('#params').on('ready', function(){
-    $('#paraams').find('h1, h2, h3, h4, h5, h6, p, legend, label, button').attr('unselectable','on').addClass('disableselect').bind('selectstart', function(){ return false; });
+    $('#params').find('h1, h2, h3, h4, h5, h6, p, legend, label, button').attr('unselectable','on').addClass('disableselect').bind('selectstart', function(){ return false; });
   });
-  $('#remote').on('ready', function(){
-    $('#remote').find('h1, h2, h3, h4, h5, h6, p, legend, label, button').attr('unselectable','on').addClass('disableselect').bind('selectstart', function(){ return false; });
-  });
+  var remote_list = ['remote'];
   var actions_list = [];
   var events_list = [];
-  $('#actions, #events').on('ready', function(evt){
+  $('#remote, #actions, #events').on('ready', function(evt){
+    remote_list = jQuery.grep(remote_list, function(value){return value != evt.target.id;});
     actions_list = jQuery.grep(actions_list, function(value){return value != evt.target.id;});
     events_list = jQuery.grep(events_list, function(value){return value != evt.target.id;});
-    if(actions_list.length == 0 && events_list.length == 0) {
+    if(remote_list.length == 0 && actions_list.length == 0 && events_list.length == 0) {
       updateLogs();
-      $('#actions, #events').find('h1, h2, h3, h4, h5, h6, p, legend, label, button').attr('unselectable','on').addClass('disableselect').bind('selectstart', function(){ return false; });
+      $('#remote, #actions, #events').find('h1, h2, h3, h4, h5, h6, p, legend, label, button').attr('unselectable','on').addClass('disableselect').bind('selectstart', function(){ return false; });
     }
   });
   if($('#actions').length) {
