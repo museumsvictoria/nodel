@@ -888,10 +888,12 @@ public class NodelClients {
      */
     protected List<NodeURL> getNodeURLs(SimpleName name) throws IOException {
         Collection<AdvertisementInfo> list;
-        if (name == null)
+        if (name == null) {
             list = AutoDNS.instance().list();
-        else
-            list = Arrays.asList(AutoDNS.instance().resolve(name));
+        } else {
+            AdvertisementInfo result = AutoDNS.instance().resolve(name);
+            list = result != null ? Arrays.asList(result) : Collections.<AdvertisementInfo>emptyList();
+        }
 
         List<NodeURL> nodeURLs = new ArrayList<NodeURL>();
 
