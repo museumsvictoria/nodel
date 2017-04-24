@@ -677,7 +677,7 @@ var listNodes = function(){
       }
     });
   });
-  $('#nodelist').on('click', '#nodeaddnew', function() {
+  $('#nodelist').on('click', '#nodeaddnewblank', function() {
     $('#nodeaddblank').parent().show();
     $('#newblanknodename').focus();
     return false;
