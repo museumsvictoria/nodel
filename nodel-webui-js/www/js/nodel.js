@@ -678,20 +678,50 @@ var listNodes = function(){
     });
   });
   $('#nodelist').on('click', '#nodeaddnew', function() {
-    $('.nodeadd').show();
-    $('#newnodename').focus();
+    $('#nodeaddblank').parent().show();
+    $('#newblanknodename').focus();
+    return false;
+  });
+  $('#nodelist').on('click', '#nodeaddnewrecipe', function() {
+    $('#nodeaddrecipe').children('button').prop('disabled', true);
+    $('#recipesource').prop('disabled', true);
+    $('#recipesource').empty();
+    $('#nodeaddrecipe').parent().show();
+    $('#newrecipenodename').focus();
+    var req = $.getJSON('http://' + host + '/REST/recipes/list', function(data) {
+      if (data.length > 0) {
+        $.each(data, function(i, value) {
+          var readme = (typeof value.readme == 'undefined') ? "" : value.readme;
+          $('#recipesource').append('<option value="' + value.path + '" title="' + readme + '">' + value.path + '</option>');
+        });
+        $('#nodeaddrecipe').children('button').prop('disabled', false);
+        $('#recipesource').prop('disabled', false);
+      } else {
+        $('#recipesource').append('<option value="error">-- no recipes available --</option>');
+      }
+    }).error(function(req){
+      if(req.statusText!="abort"){
+        var error = 'Error retrieveing node recipe list';
+        if(req.responseText) {
+          var message = JSON.parse(req.responseText);
+          error = error + '<br/>' + message['message'];
+        }
+        dialog(error,'error');
+        $('#recipesource').append('<option value="error">-- no recipes available --</option>');
+      }
+    });
     return false;
   });
   $('#nodelist').on('mousedown touchstart', '.close', function() {
     $('.nodeadd').hide();
     return false;
   });
-  $('#nodeadd').on('submit', function(e) {
-    var nodenameraw = $('#nodelist #newnodename').val();
+  $('#nodeaddblank').on('submit', function(e) {
+    var nodenameraw = $('#nodelist #newblanknodename').val();
     var nodename = {"value":nodenameraw};
     var req = $.getJSON('http://' + host + '/REST/newNode', nodename, function() {
       $('.nodeadd').hide();
-      $('#nodeaddnew').prop('disabled', true);
+      $('#nodeaddblank').children('button').prop('disabled', true);
       checkRedirect('http://' + host + '/nodes/' + encodeURIComponent(nodenameraw));
     }).error(function(req){
       if(req.statusText!="abort"){
@@ -705,12 +735,34 @@ var listNodes = function(){
     });
     return false;
   });
-  $('#newnodename').keypress(function(e) {
+  $('#nodeaddrecipe').on('submit', function(e) {
+    var nodenameraw = $('#nodelist #newrecipenodename').val();
+    var nodename = {"value":nodenameraw, "base":$('#nodelist #recipesource').val()};
+    var req = $.getJSON('http://' + host + '/REST/newNode', nodename, function() {
+      $('.nodeadd').hide();
+      $('#nodeaddblank').children('button').prop('disabled', true);
+      checkRedirect('http://' + host + '/nodes/' + encodeURIComponent(nodenameraw));
+    }).error(function(req){
+      if(req.statusText!="abort"){
+        var error = 'Node add failed';
+        if(req.responseText) {
+          var message = JSON.parse(req.responseText);
+          error = error + '<br/>' + message['message'];
+        }
+        dialog(error,'error');
+      }
+    });
+    return false;
+  });
+  $('#newblanknodename').keypress(function(e) {
     if (e.keyCode == 13) {
       e.preventDefault();
-      $('#nodeadd').trigger('submit');
+      $('#nodeaddblank').trigger('submit');
     }
   });
+  $('#recipesource').on('change', function(e) {
+    $('#recipesource').prop('title', $('#recipesource').find(":selected").prop('title'));
+  })
   setInterval(function(){ $('#nodefilter').keyup(); }, 3000);
 };
 
