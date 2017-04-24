@@ -75,8 +75,8 @@ task fatJar(type: Jar) {
 
 task unversioned(dependsOn:'fatJar', type: Copy) {
     from(new File(buildDir, 'distributions/standalone')) {
-	    rename '.*($version)*', 'nodelhost.jar'
-	}
+        rename '.*($version)*', 'nodelhost.jar'
+    }
 
     into new File(buildDir, 'distributions/standalone')
 }
@@ -91,5 +91,8 @@ dependencies {
     compile 'commons-daemon:commons-daemon:1.0.15'
     compile 'org.slf4j:slf4j-api:1.7.10'
     compile 'org.python:jython-standalone:2.5.4-rc1'
+
+    // convenience dependency: required *only* for 'recipe sync'
+    compile 'org.eclipse.jgit:org.eclipse.jgit:4.4.0.201606011500-rc2'
 }
 
