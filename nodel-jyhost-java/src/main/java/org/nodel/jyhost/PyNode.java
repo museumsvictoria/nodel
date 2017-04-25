@@ -144,23 +144,21 @@ public class PyNode extends BaseDynamicNode {
     private int webSocketPort = Nodel.getWebSocketPort();
     
     /**
-     * Holds the name filter.
+     * (init. in constructor)
      */
-    private Handler.H1<String> _nameFilterHandler;
+    private NodelHost _nodelHost;
     
-    /**
-     * If name filtering is in place (affects rename)
-     * (should throw an exception with details name filtering rules are broken)
-     */
-    public void setNameFilterHandler(Handler.H1<String> value) {
-        _nameFilterHandler = value;
+    public NodelHost getNodelHost() {
+        return _nodelHost;
     }
-
+    
     /**
      * Create a new pyNode.
      */
-    public PyNode(File root) throws IOException {
+    public PyNode(NodelHost nodelHost, File root) throws IOException {
         super(root);
+        
+        _nodelHost = nodelHost;
 
         init();
     }
@@ -231,12 +229,12 @@ public class PyNode extends BaseDynamicNode {
             scriptInfo.modified = new DateTime(_scriptFile.lastModified());
             scriptInfo.script = Stream.readFully(_scriptFile); 
             return scriptInfo;
-        } // (method)
+        }
         
         @Service(name = "raw", title = "Raw script", desc = "Retrieves the actual .py script itself.", contentType = "text/plain")
         public String getRawScript() throws IOException {
             return Stream.readFully(_scriptFile);
-        } // (method)        
+        }
         
         @Service(name = "save", title = "Save", desc = "Saves the script.")
         public void save(@Param(name = "script", title = "Script", desc = "The script text.") String script) throws IOException {
@@ -1426,13 +1424,31 @@ public class PyNode extends BaseDynamicNode {
             throw new RuntimeException("A node with the name '" + name + "' already exists.");
         
         // this will throw an exception if name filtering rules are broken
-        Handler.handle(_nameFilterHandler, name);
+        _nodelHost.testNameFilters(name);
 
         if (!_root.renameTo(newNodeDir))
             throw new RuntimeException("The platform did not allow the renaming of the node folder for unspecified reasons.");
 
         // the folder should have been renamed!
         _logger.info("This node has been renamed. It will close down and restart under a new name shortly.");
+    }
+    
+    /**
+     * Renames the node.
+     */
+    @Service(name = "update", title = "Updates", desc = "Updates a node from a recipe.")
+    public void update(@Param(name = "path") String path) {
+        if (Strings.isNullOrEmpty(path))
+            throw new RuntimeException("No recipe path name was provided");
+
+        File baseDir = _nodelHost.recipes().getRecipeFolder(path);
+
+        if (baseDir == null)
+            throw new RuntimeException("A recipe with path \"" + path + "\" could not be found.");
+        
+        Files.updateDir(baseDir, _root);
+
+        _logger.info("This node has been update (basePath={})", path);
     }
     
     /**

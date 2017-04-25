@@ -18,6 +18,7 @@ import org.nodel.StartupException;
 import org.nodel.Threads;
 import org.nodel.Version;
 import org.nodel.core.Nodel;
+import org.nodel.diagnostics.Diagnostics;
 import org.nodel.host.BootstrapConfig;
 import org.nodel.host.NanoHTTPD;
 import org.nodel.io.Files;
@@ -310,6 +311,9 @@ public class Launch {
         _logger.info("Started WebSocket server on port " + nodelHostWSServer.getListeningPort());
         Nodel.setWebSocketPort(nodelHostWSServer.getListeningPort());
         
+        // if this is the first time launch has run
+        boolean firstTime = false;
+        
         // retrieve '.version' file to determine whether embedded packages need to be extracted
         String version = null;
         File versionFile = new File(_root, ".version");
@@ -319,6 +323,8 @@ public class Launch {
             } catch (Exception exc) {
                 // ignore
             }
+        } else {
+            firstTime = true;
         }
 
         // extract the embedded content if different versions or content directory is empty
@@ -357,8 +363,41 @@ public class Launch {
         _logger.info("All interfaces and end-points have been successfully launched. httpPort=" + nodelHostHTTPD.getPort());
 
         if (_bootstrapConfig.getDisableAdvertisements())
-            _logger.info("(advertisements are disabled)");       
+            _logger.info("(advertisements are disabled)");
+        
+        if (firstTime)
+            firstTimePrep();
     } // (method)
+
+    /**
+     * If this is the very first time Nodel has started, extract the recipe manager.
+     */
+    private void firstTimePrep() {
+        _logger.info("This the first run ever; extracting 'first_node.py' if no other nodes exist");
+
+        // only continue if some nodes exist
+        if (_nodelHost.getRoot().list().length > 0)
+            return;
+
+        String nodeName = String.format("%s (HTTP %s)",
+                Diagnostics.shared().hostname(), Nodel.getHTTPPort());
+
+        // create folder (designated temporary) for later rename
+        File nodeFolder = new File(_nodelHost.getRoot(), "_tmpFirstNode");
+        nodeFolder.mkdirs();
+
+        // write out the toolkit (if it's new or updated)
+        try (InputStream is = PyNode.class.getResourceAsStream("first_node.py")) {
+            File file = new File(nodeFolder, "script.py");
+            Stream.writeFully(is, file);
+
+        } catch (Exception exc) {
+            // ignore
+        }
+
+        // rename (move) last to avoid file write collision
+        nodeFolder.renameTo(new File(_nodelHost.getRoot(), "Nodel Recipes Sync for " + nodeName));
+    }
 
     /**
      * (is never unlocked)

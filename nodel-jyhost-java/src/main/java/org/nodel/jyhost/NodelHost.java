@@ -88,10 +88,16 @@ public class NodelHost {
     private boolean _closed;
     
     /**
-     * Holds the root directory that contains the other nodes, typically 'nodes'.
-     * (initialised in constructor.)
+     * (see public getter, init. in constructor.)
      */
     private File _root;
+    
+    /**
+     * Holds the root directory that contains the other nodes, typically 'nodes'.
+     */
+    public File getRoot() {
+        return _root;
+    }
     
     /**
      * Additional roots (see 'root')
@@ -122,18 +128,6 @@ public class NodelHost {
      * (will/must never be null)
      */
     private List<String[]> _exclTokensFilters = Collections.emptyList();
-
-    /**
-     * (callback for testing name filtering)
-     */
-    private Handler.H1<String> _nameFilterCallback = new Handler.H1<String>() {
-
-        @Override
-        public void handle(String value) {
-            testNameFilters(value);
-        }
-
-    };
 
     /**
      * Constructs a new NodelHost and returns immediately.
@@ -291,8 +285,7 @@ public class NodelHost {
                 _logger.info("Spinning up node " + entry.getKey() + "...");
                 
                 try {
-                    PyNode node = new PyNode(entry.getValue());
-                    node.setNameFilterHandler(_nameFilterCallback);
+                    PyNode node = new PyNode(this, entry.getValue());
                     
                     // count the new node
                     s_nodesCounter.incrementAndGet();
@@ -375,14 +368,14 @@ public class NodelHost {
             // not based on existing node, so just create an empty folder
             // and the node will do the rest
             if (!newNodeDir.mkdir())
-                throw new RuntimeException("The platform did not allow the creation of the node folder for unspecified reasons.");
+                throw new RuntimeException("The platform did not allow the creation of the node folder for unspecified reasons (security issues?).");
             
         } else {
             // based on an existing node (from recipes folder or self nodes)
-            File baseDir = new File(_recipes.getRoot(), base.replace('/', File.separatorChar));
+            File baseDir = _recipes.getRecipeFolder(base);
 
-            if (!baseDir.exists())
-                throw new RuntimeException("Could not locate base recipe (" + base + ")");
+            if (baseDir == null)
+                throw new RuntimeException("Could not locate base recipe - " + base);
 
             // copy the entire folder
             Files.copyDir(baseDir, newNodeDir);

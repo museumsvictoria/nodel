@@ -1,10 +1,19 @@
-'''This node is automatically created for convenience and can be safely deleted or disabled once in production.'''
-#
-# This node clones the official nodel-recipes repository at: github.com/museumsvictoria/github
-#
-# Once cloned, new nodes can be easily created or updated based on the latest recipes.
-#
-# Deleting this node does not delete the actual recipes repository.
+'''This node pulls down the latest offical Nodel recipes. It is automatically created for convenience on first run and can be safely deleted or disabled once in production. Please see console and script for more information.'''
+
+GREETING = '''
+
+This node clones the official nodel-recipes repository at: 
+- github.com/museumsvictoria/github
+
+Once cloned, new nodes can be easily created or updated based on the latest recipes.
+
+Deleting this node does not delete the actual recipes repository.
+
+This node will refresh the recipes repository every 72 hours (differences only).
+
+'''
+
+console.warn(GREETING)
 
 from org.nodel.jyhost import NodelHost
 from org.eclipse.jgit.api import Git
@@ -17,7 +26,7 @@ param_repository = Parameter({'title': 'Repository', 'schema': {'type': 'object'
         'uri': {'type': 'string', 'hint': DEFAULT_URI, 'order': 2}}}})
 
 # sync every 72 hours, first after 10 seconds
-sync_every_day = Timer(lambda: lookup_local_action("sync").call(), 72*3600, 10)
+Timer(lambda: lookup_local_action("SyncNow").call(), 72*3600, 10)
 
 # the internet address
 uri = DEFAULT_URI
@@ -32,8 +41,10 @@ def main():
     uri = param_repository.get('uri') or DEFAULT_URI
     name = param_repository.get('name') or DEFAULT_NAME
     folder = File(NodelHost.instance().recipes().getRoot(), name)
+    
+  console.info('Clone and pull folder: "%s"' % folder.getAbsolutePath())
 
-def local_action_Sync(arg=None):
+def local_action_SyncNow(arg=None):
   sync()
 
 def sync():

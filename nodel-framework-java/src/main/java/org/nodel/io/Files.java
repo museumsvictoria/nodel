@@ -175,5 +175,39 @@ public class Files {
             throw exc;
         }
     } // (method)
+    
+    /**
+     * Recursively updates a directory (best-effort only).
+     * 'src' and must already exist as directories. 'dst' will be created as necessary.
+     */
+    public static void updateDir(File srcDir, File dstDir) {
+        if (!srcDir.exists() || !srcDir.isDirectory())
+            throw new RuntimeException("Source directory not found or is not a directory - " + srcDir.getName());
 
-} // (class)
+        boolean isNew = false;
+        
+        if (!dstDir.exists()) {
+            dstDir.mkdirs();
+            isNew = true;
+        }
+        
+        if (!dstDir.exists() || !dstDir.isDirectory())
+            throw new RuntimeException("Could not create destination directory - " + dstDir.getAbsolutePath());
+
+        for (File item : srcDir.listFiles()) {
+            if (item.isFile())
+                copy(item, new File(dstDir, item.getName()));
+
+            else if (item.isDirectory())
+                updateDir(item, new File(dstDir, item.getName()));
+
+            // else neither a file nor folder
+            // (should never be possible; continue regardless)
+        }
+
+        // re-timestamp if it's a brand new directory (best effort; not critical if timestamp can not be copied)
+        if (isNew)
+            dstDir.setLastModified(srcDir.lastModified());
+    } // (method)    
+
+}

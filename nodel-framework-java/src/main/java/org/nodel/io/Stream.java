@@ -171,6 +171,28 @@ public class Stream {
             if (osw != null)
                 osw.close();
         }
+    }
+    
+    /**
+     * Reads an entire InputStream, writing to file.
+     */
+    public static void writeFully(InputStream is, File outFile) {
+        try(FileOutputStream fos = new FileOutputStream(outFile)) {
+            byte[] buffer = new byte[10240];
+            
+            while(true) {
+                int count = is.read(buffer, 0, buffer.length);
+                if (count <= 0)
+                    break;
+                
+                fos.write(buffer,  0, count);
+            }
+            
+            safeClose(is);
+            
+        } catch (IOException exc) {
+            throw new UnexpectedIOException(exc);
+        }
     }    
 
     /**
