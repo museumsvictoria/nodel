@@ -677,24 +677,19 @@ var listNodes = function(){
       }
     });
   });
-  $('#nodelist').on('click', '#nodeaddnewblank', function() {
-    $('#nodeaddblank').parent().show();
-    $('#newblanknodename').focus();
-    return false;
-  });
-  $('#nodelist').on('click', '#nodeaddnewrecipe', function() {
-    $('#nodeaddrecipe').children('button').prop('disabled', true);
+  $('#nodelist').on('click', '#nodeaddnew', function() {
+    $('#nodeaddrecipe').prop('disabled', true);
     $('#recipesource').prop('disabled', true);
     $('#recipesource').empty();
-    $('#nodeaddrecipe').parent().show();
-    $('#newrecipenodename').focus();
+    $('.nodeadd').show();
+    $('#newnodename').focus();
     var req = $.getJSON('http://' + host + '/REST/recipes/list', function(data) {
       if (data.length > 0) {
         $.each(data, function(i, value) {
           var readme = (typeof value.readme == 'undefined') ? "" : value.readme;
           $('#recipesource').append('<option value="' + value.path + '" title="' + readme + '">' + value.path + '</option>');
         });
-        $('#nodeaddrecipe').children('button').prop('disabled', false);
+        $('#nodeaddrecipe').prop('disabled', false);
         $('#recipesource').prop('disabled', false);
       } else {
         $('#recipesource').append('<option value="error">-- no recipes available --</option>');
@@ -716,8 +711,8 @@ var listNodes = function(){
     $('.nodeadd').hide();
     return false;
   });
-  $('#nodeaddblank').on('submit', function(e) {
-    var nodenameraw = $('#nodelist #newblanknodename').val();
+  $('#nodeaddblank').on('click', function(e) {
+    var nodenameraw = $('#nodelist #newnodename').val();
     var nodename = {"value":nodenameraw};
     var req = $.getJSON('http://' + host + '/REST/newNode', nodename, function() {
       $('.nodeadd').hide();
@@ -735,12 +730,11 @@ var listNodes = function(){
     });
     return false;
   });
-  $('#nodeaddrecipe').on('submit', function(e) {
-    var nodenameraw = $('#nodelist #newrecipenodename').val();
+  $('#nodeaddrecipe').on('click', function(e) {
+    var nodenameraw = $('#nodelist #newnodename').val();
     var nodename = {"value":nodenameraw, "base":$('#nodelist #recipesource').val()};
     var req = $.getJSON('http://' + host + '/REST/newNode', nodename, function() {
       $('.nodeadd').hide();
-      $('#nodeaddblank').children('button').prop('disabled', true);
       checkRedirect('http://' + host + '/nodes/' + encodeURIComponent(nodenameraw));
     }).error(function(req){
       if(req.statusText!="abort"){
@@ -754,10 +748,10 @@ var listNodes = function(){
     });
     return false;
   });
-  $('#newblanknodename').keypress(function(e) {
+  $('#nodeadd').keypress(function(e) {
     if (e.keyCode == 13) {
       e.preventDefault();
-      $('#nodeaddblank').trigger('submit');
+      $('#nodeaddblank').trigger('click');
     }
   });
   $('#recipesource').on('change', function(e) {
@@ -1312,11 +1306,11 @@ var buildFormEvents = function(name, action, data){
       // check if this this is an action or event
       var type = $(this).hasClass("event") ? 'events' : 'actions';
       // set the filter to the node name
-      var filter = {filter:lnode};
+      var filter = {'name':lnode};
       // if the field has a value
       if(($(this).val().length >0)) {
         // get the node list
-        req = $.getJSON('http://'+host+'/REST/nodeURLs',filter, function(data) {
+        req = $.getJSON('http://'+host+'/REST/nodeURLsForNode',filter, function(data) {
           // if one or more nodes is found
           if(data.length > 0){
             var len = 0;
