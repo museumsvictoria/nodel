@@ -82,30 +82,22 @@
 			</form>
 			<div id="nodelist">
 				<h4>Network</h4>
-				<button id="nodeaddnewblank">Add node</button>
+        <button id="nodeaddnew">Add node</button>
 				<div class="nodeadd">
-					<form id="nodeaddblank" action="#">
+					<form id="nodeadd" action="#">
 						<span class="close">X</span>
-						<label for="newblanknodename">Node name</label>
-						<input type="text" id="newblanknodename">
-						<button type="submit">Add</button>
-					</form>
-				</div>
-        <button id="nodeaddnewrecipe">Add node from recipe</button>
-				<div class="nodeadd">
-					<form id="nodeaddrecipe" action="#">
-						<span class="close">X</span>
-						<label for="newrecipenodename">Node name</label>
-						<input type="text" id="newrecipenodename">
+						<label for="newnodename">Node name</label>
+						<input type="text" id="newnodename">
             <select id="recipesource" title="" disabled></select>
-						<button type="submit" disabled>Add</button>
+            <button id="nodeaddblank" type="submit">Add blank</button>
+						<button id="nodeaddrecipe" type="submit" disabled>Add from recipe</button>
 					</form>
 				</div>
 				<hr/> 
 				<form id="nodesearch" action="#">
 				  <label for="nodefilter">Node search</label>
 				  <input type="text" id="nodefilter" autofocus>
-        		</form>
+        </form>
 				<ul></ul>
 			</div>
 		</div>
