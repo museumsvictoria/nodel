@@ -215,7 +215,7 @@ var init = function() {
         eval('$.templates({'+form+'Template: template})');
         // fill the template with data
         buildForm(form, form, [],'save', true);
-      } else $('#'+form).trigger('ready').replaceWith('<h5 class="pad">None</h5>');
+      } else $('#'+form).replaceWith('<h5 class="pad">None</h5>');
     });
   });
   $('#params').on('ready', function(){
@@ -353,17 +353,159 @@ var init = function() {
       }
     });
   }
-  // define the script form schema
-  var scriptSchema = JSON.parse('{"type":"object","required":false,"properties":{ "script": { "type":"string", "title":"Script", "required":false, "format":"long" }}}');
-  // build the form template
-  var get = buildFormSchema(scriptSchema);
-  var template = get;
-  // add a save button to the template
-  template += '<button class="save">Save</button>';
-  // add the template to jsviews
-  $.templates({script_editorTemplate: template});
-  // fill the template with data
-  buildForm('script', 'script_editor', [],'save', true);
+  // editor
+  $('#picker').on('update', function() {
+    var picker = $('#picker');
+    picker.empty();
+    picker.append('<option value="" selected disabled hidden></option>');
+    $.getJSON('http://' + host + '/REST/nodes/' + encodeURIComponent(node) + '/files', "", function (data) {
+      data.sort(function(a, b){
+          if (a['path'] == b['path']) return 0;
+          if (a['path'] > b['path']) return 1;
+          else return -1;
+      });
+      $.each(data, function(i, file){
+        if(allowed.indexOf(file['path'].split('.').pop()) > -1) picker.append('<option>'+ file['path']+'</option>');
+      });
+      if((typeof picker.data('goto') !== 'undefined') && (picker.data('goto') != '')) {
+        picker.val(picker.data('goto'));
+        picker.trigger('change');
+        picker.data('goto','');
+      }
+    }).fail(function (data) {
+      dialog("Error retrieving file list", "error");
+    });
+  });
+  $('#script_default').on('click', function() {
+    $('#picker').val("script.py");
+    $('#picker').trigger('change');
+  });
+  $('#picker').on('change', function() {
+    $('#script_save, #script_delete').prop("disabled",true);
+    editor.setOption('readOnly', 'nocursor');
+    var path = $('#picker').val();
+    $('#script_editor').data('path', path);
+    $.get('http://' + host + '/REST/nodes/' + encodeURIComponent(node) + '/files/contents?path=' +encodeURIComponent(path), function (data) {
+      switch(path.split('.').pop()){
+        //'sh'
+        case 'js':
+        case 'json':
+          editor.setOption("mode", "javascript");
+          break;
+        case 'xml':
+        case 'html':
+        case 'htm':
+          editor.setOption("mode", "xml");
+          break;
+        case 'css':
+          editor.setOption("mode", "css");
+          break;
+        case 'java':
+          editor.setOption("mode", "clike");
+          break;
+        case 'groovy':
+          editor.setOption("mode", "groovy");
+          break;
+        case 'sql':
+          editor.setOption("mode", "sql");
+          break;
+        case 'sh':
+          editor.setOption("mode", "shell");
+          break;
+        case 'py':
+        default:
+          editor.setOption("mode", "python");
+      }
+      editor.getDoc().setValue(data);
+      editor.setOption('readOnly', false);
+      $('#script_save, #script_delete').prop("disabled",false);
+    }).fail(function(e){
+      dialog("Error loading file: "+path, "error");
+    });
+  });
+  $('#script_save').on('click', function() {
+    $('#script_save, #script_delete').prop("disabled",true);
+    editor.setOption('readOnly', 'nocursor');
+    editor.save();
+    var path = $('#script_editor').data('path');
+    // use different method to save main script
+    if(path == 'script.py') {
+      url = 'http://' + host + '/REST/nodes/' + encodeURIComponent(node) + '/script/save';
+      payload = JSON.stringify({'script': $('#field_script').val() });
+      $.postJSON(url, payload, function (data) {
+        dialog("File saved: "+path);
+      }).fail(function(e){
+        dialog("Error saving file: "+path, "error");
+      }).always(function(){
+        editor.setOption('readOnly', false);
+        $('#script_save, #script_delete').prop("disabled",false); 
+      });
+    } else {
+      url = 'http://' + host + '/REST/nodes/' + encodeURIComponent(node) + '/files/save?path=' +encodeURIComponent(path);
+      payload = $('#field_script').val();
+      $.ajax({url:url, type:"POST", data:payload, contentType:"application/octet-stream", success: function (data) {
+        dialog("File saved: "+path);
+      }}).fail(function(e){
+        dialog("Error saving file: "+path, "error");
+      }).always(function(){
+        editor.setOption('readOnly', false);
+        $('#script_save, #script_delete').prop("disabled",false); 
+      });
+    }
+  });
+  $('#script_delete').on('click', function() {
+    $('#script_save, #script_delete').prop("disabled", true);
+    editor.setOption('readOnly', 'nocursor');
+    var path = $('#script_editor').data('path');
+    if((path != 'script.py') && (confirm("Are you sure?"))) {
+      $.get('http://' + host + '/REST/nodes/' + encodeURIComponent(node) + '/files/delete?path=' +encodeURIComponent(path), function (data) {
+        editor.getDoc().setValue('');
+        $('#picker').val('');
+        dialog("File deleted: "+path);
+        $('#picker').trigger('update');
+      }).fail(function(e){
+        dialog("Error deleting file: "+path, "error");
+      });
+    } else {
+      $('#script_save, #script_delete').prop("disabled", false);
+      editor.setOption('readOnly', false);
+    }
+  });
+  $('#script_add').on('click', function() {
+    $('.scriptadd').show();
+    $('#scriptnameval').focus();
+  });
+  $('.scriptadd').on('mousedown touchstart', '.close', function() {
+    $('.scriptadd').hide();
+    return false;
+  });
+  $('#scriptsubmit').on('click', function(e) {
+    e.preventDefault();
+    var path = $('#scriptnameval').val();
+    if(allowed.indexOf(path.split('.').pop()) > -1) {
+      var url = 'http://' + host + '/REST/nodes/' + encodeURIComponent(node) + '/files/save?path=' +encodeURIComponent(path);
+      $.ajax({url:url, type:"POST", data:'', contentType:"application/octet-stream", success: function (data) {
+        $('.scriptadd').hide();
+        dialog('File added');
+        $('#picker').data('goto', path);
+        $('#picker').trigger('update');
+      }}).fail(function (req) {
+        if (req.statusText != "abort") {
+          var error = 'File add failed';
+          if (req.responseText) {
+            var message = JSON.parse(req.responseText);
+            error = error + '<br/>' + message['message'];
+          }
+          dialog(error, 'error');
+        }
+        $('.scriptadd').hide();
+      });
+      return false;
+    } else {
+      dialog('Invalid file name, must end with: ' + allowed.join(', '), 'error');
+    }
+  });
+  $('#picker').trigger('update');
   // check if reload has not been disabled (via query string) then begin checking if the page should be refreshed (node has restarted)
   if(!rld) checkReload();
   // set the target for the console form (if it exists)
@@ -436,11 +578,6 @@ var init = function() {
       $('#events input, #events button').prop('disabled',true);
       $('#events .array').addClass('disabled');
     }
-  });
-  // watch for the editor form to be rendered
-  $('#script_editor').on('ready', function() {
-    // if 'advanced mode' and 'display editor' are already enabled, load the editor
-    if($('#advancedmode').prop('checked') && $('#showeditor').prop('checked')) loadEditor();
   });
   // watch for the 'display editor' checkbox to be changed
   $('#showeditor').change(function(){
@@ -542,6 +679,8 @@ var init = function() {
   });
 };
 
+var editor;
+var allowed = ['py','xml','js','json','html','htm','css','java','groovy','sql','sh'];
 // function to load the code editor
 var loadEditor = function() {
   // ensure the editor has not been loaded already and the form exists
@@ -558,12 +697,8 @@ var loadEditor = function() {
       tabMode: "shift",
       matchBrackets: true,
       foldGutter: true,
+      readOnly: "nocursor",
       gutters: ["CodeMirror-linenumbers", "CodeMirror-foldgutter"]
-    });
-    // ensure the editor form is updated as changes are made
-    editor.on("change", function() {
-      editor.save();
-      $('#field_script').trigger('change');
     });
     // attach the 'resize' function to the code editing window
     $('.CodeMirror-scrollbar-filler').on('mousedown', function(ele) {
@@ -584,7 +719,7 @@ var loadEditor = function() {
       if (event.ctrlKey || event.metaKey) {
         if (String.fromCharCode(event.which).toLowerCase() == 's') {
           event.preventDefault();
-          $(this).find('button').click();
+          $(this).find('#script_save').click();
         }
       }
     });

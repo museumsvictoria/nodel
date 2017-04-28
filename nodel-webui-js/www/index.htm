@@ -43,6 +43,12 @@
 	<script src="js/foldgutter.js"></script>
 	<script src="js/matchbrackets.js"></script>
 	<script src="js/python.js"></script>
+	<script src="js/javascript.js"></script>
+	<script src="js/xml.js"></script>
+  <script src="js/css.js"></script>
+  <script src="js/clike.js"></script>
+  <script src="js/groovy.js"></script>
+  <script src="js/sql.js"></script>
 	<script src="js/dialog.js"></script>
 	<script src="js/searchcursor.js"></script>
 	<script src="js/search.js"></script>
@@ -70,11 +76,11 @@
 			<form class="init" id="advanced" action="#">
 				<fieldset>
 					<legend>Advanced mode</legend>
-					<label for="advancedmode">
+					<label for="advancedmode" class="float unfloat">
 						<input type="checkbox" id="advancedmode" value="enable">
 						<span>Enabled</span>
 					</label>
-					<label for="showeditor" class="advanced">
+					<label for="showeditor" class="advanced float unfloat">
 						<input type="checkbox" id="showeditor" value="enable">
 						<span>Display Editor</span>
 					</label>
@@ -103,12 +109,44 @@
 		</div>
 	</div>
   <div class="container advancededitor">
-		<div class="sixteen columns">
-			<h4>Editor</h4>
-			<hr/>
-			<form id="script_editor" action="#">
-			</form>
-		</div>
+    <div class="row">
+      <div class="sixteen columns">
+        <h4>Editor</h4>
+        <hr/>
+      </div>
+    </div>
+    <div class="row">
+      <div class="flex">
+        <div class="boxstretch">
+          <select id="picker"></select>
+        </div>
+        <div class="boxshrink">
+          <button id="script_delete" type="button" disabled>Delete</button>
+          <button id="script_add" type="button">Add</button>
+          <div class="scriptadd">
+            <form id="script_addform" action="#">
+              <span class="close">X</span>
+              <label for="scriptnameval">File name</label>
+              <input type="text" id="scriptnameval">
+              <button type="submit" id="scriptsubmit">Add</button>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="row">
+      <div class="sixteen columns">
+        <button id="script_default" type="button">Edit script.py</button>
+      </div>
+    </div>
+    <div class="row">
+      <div class="sixteen columns">
+        <form id="script_editor" action="#">
+          <textarea id="field_script" class="long"></textarea>
+          <button id="script_save" type="button" disabled>Save</button>
+        </form>
+      </div>
+    </div>
 	</div>
 	<div class="container advanced">
     <div class="sixteen columns">
