@@ -88,10 +88,15 @@ public class FilesEndPoint {
             File file = new File(_root, path);
 
             if (!file.exists()) {
-                // new file, so make sure its directory exists first
-                if (!file.getParentFile().mkdirs())
-                    throw new RuntimeException("Could not create directory for file " + path);
+                // new file, so make sure its parent directory exists first
 
+                File parent = file.getParentFile();
+
+                if (!parent.exists() && parent.mkdirs()) {
+                    // sometimes .mkdirs "succeeds" but returns false, so double-check...
+                    if (!parent.exists())
+                        throw new RuntimeException("Could not create parents directories for file " + path);
+                }
             }
 
             tmpDst = Files.getTmpFile(file);
@@ -110,7 +115,7 @@ public class FilesEndPoint {
             
             // delete the existing file if is exists
             if (file.exists() && !file.delete())
-                throw new RuntimeException("Could not copy over file - locking?");
+                throw new RuntimeException("Could not copy over file - locking? permissions?");
 
             // and then overwrite it (rename)
             if (!tmpDst.renameTo(file))
