@@ -48,6 +48,28 @@ progress, input.upload {
 	text-indent: -20px;
 }
 
+div.row {
+  margin-bottom: 0;
+}
+
+div.flex {
+  margin: 0 10px;
+  display: flex;
+}
+
+div.boxstretch {
+  flex: 1;
+  margin-right: 5px;
+}
+
+div.boxshrink {
+  flex: 0 auto;
+}
+
+div.boxshrink button {
+  margin: 0;
+}
+
 div.block {
 	background: #f9f9f9;
 	background: rgba(0,0,0,0.025);
@@ -130,10 +152,6 @@ button[disabled], input[type="submit"][disabled], input[type="reset"][disabled],
 	display: none;
 }
 
-.CodeMirror {
-	margin-bottom: 20px;
-}
-
 hr {
 	margin-bottom: 10px;
 }
@@ -209,7 +227,7 @@ label.required:after, button.caution:after {
   pointer-events: auto;
 }
 
-.nodeadd .close, .noderename .close {
+.nodeadd .close, .noderename .close, .scriptadd .close {
 	position: absolute;
 	top: -5px;
 	right: 0;
@@ -220,7 +238,7 @@ label.required:after, button.caution:after {
   padding: 10px;
 }
 
-.nodeadd, .noderename {
+.nodeadd, .noderename, .scriptadd {
 	background: white;
 	position: absolute;
 	padding: 20px;
@@ -233,7 +251,12 @@ label.required:after, button.caution:after {
 	z-index: 888;
 }
 
-.nodeadd form, .nodeadd form button, .noderename form, .noderename form button {
+.scriptadd {
+  left: auto;
+  right: 15px;
+}
+
+.nodeadd form, .nodeadd form button, .noderename form, .noderename form button, .scriptadd form, .scriptadd form button {
 	margin-bottom: 0;
 }
 
@@ -251,7 +274,7 @@ label.required:after, button.caution:after {
 	position: relative;
 }
 
-.advanced, .advancededitor, .init, #nodelist, .noderename, .nodeadd {
+.advanced, .advancededitor, .init, #nodelist, .noderename, .nodeadd, .scriptadd {
 	display: none;
 }
 
@@ -354,14 +377,28 @@ label.required:after, button.caution:after {
 	max-width: 100%;
 }
 
+.CodeMirror {
+	margin-bottom: 10px;
+  border: 1px solid #ccc;
+  border-radius: 2px;
+}
+
 .CodeMirror-scrollbar-filler {
   display: block !important;
   cursor: s-resize;
   background: #fff url(data:image/gif;base64,R0lGODlhEQARAKIAAP///9fX13x8fH19fdvb29bW1vX19QAAACH5BAAAAAAALAAAAAARABEAAAMvCLrcEC4uKCOt7eK5c2daF1bD85XmJizFhiojsyprTC+oPQO7LRGBYLAgLAYJhgQAOw==);
+  height: 16px !important;
+  width: 16px !important;
 }
 .CodeMirror-dialog input {
   margin-bottom: 0;
   display: inline;
+}
+.CodeMirror-vscrollbar {
+  bottom: 17px !important;
+}
+.CodeMirror-hscrollbar {
+  right: 17px !important;
 }
 
 * {
@@ -461,5 +498,8 @@ label.required:after, button.caution:after {
   }
   #remote > div.block div.block div.object {
     display: block;
+  }
+  div.flex {
+    margin: 0;
   }
 }
