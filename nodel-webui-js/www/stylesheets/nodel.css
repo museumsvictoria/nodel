@@ -1,3 +1,18 @@
+body {
+  position: relative;
+}
+
+.overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(255,255,255,0.6);
+  z-index: 99;
+  display: none;
+}
+
 .disableselect {
 	-webkit-touch-callout: none;
 	-moz-user-select: -moz-none;
@@ -199,6 +214,11 @@ label.required:after, button.caution:after {
 }
 
 .dialog div.info {
+	border: 1px solid rgba(0,0,255,0.2);
+	background: rgb(240,240,255);
+}
+
+.dialog div.success {
 	border: 1px solid rgba(0,255,0,0.2);
 	background: rgb(240,255,240);
 }
