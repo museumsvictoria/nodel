@@ -892,6 +892,9 @@ var listNodes = function(){
   $('#recipesource').on('change', function(e) {
     $('#recipesource').prop('title', $('#recipesource').find(":selected").prop('title'));
   })
+  $('#nodefilterback').on('click', function(e) {
+    $("#nodefilter").val($("#nodefilter").val().substring(0, $("#nodefilter").val().lastIndexOf(" ")));
+  });
   setInterval(function(){ $('#nodefilter').keyup(); }, 3000);
 };
 

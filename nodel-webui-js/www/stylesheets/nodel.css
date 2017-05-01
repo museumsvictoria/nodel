@@ -270,16 +270,21 @@ label.required:after, button.caution:after {
 	position: absolute;
 }
 
-.nodedetails {
+.nodedetails, #nodelist, .nodefiltergrp {
 	position: relative;
+}
+
+#nodefilterback {
+  position: absolute;
+  top: 0;
+  right: 0;
+  padding: 3px 7px;
+  text-decoration: none;
+  cursor: default;
 }
 
 .advanced, .advancededitor, .init, #nodelist, .noderename, .nodeadd, .scriptadd {
 	display: none;
-}
-
-#nodelist {
-	position: relative;
 }
 
 .error, .err {
@@ -370,7 +375,7 @@ label.required:after, button.caution:after {
 	height: 100px;
 	overflow: auto;
 	box-sizing: border-box;
-	white-space: pre; nowrap;
+	white-space: pre;
 }
 
 #exec {
