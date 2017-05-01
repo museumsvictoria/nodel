@@ -505,7 +505,6 @@ var init = function() {
       dialog('Invalid file name, must end with: ' + allowed.join(', '), 'error');
     }
   });
-  $('#picker').trigger('update');
   // check if reload has not been disabled (via query string) then begin checking if the page should be refreshed (node has restarted)
   if(!rld) checkReload();
   // set the target for the console form (if it exists)
@@ -685,6 +684,7 @@ var allowed = ['py','xml','js','json','html','htm','css','java','groovy','sql','
 var loadEditor = function() {
   // ensure the editor has not been loaded already and the form exists
   if((typeof editor === "undefined") && ($('#field_script').length)){
+    $('#picker').trigger('update');
     // load the codemirror library, setting to 'python' syntax highlighting mode
     editor = CodeMirror.fromTextArea(document.getElementById("field_script"), {
       mode: {
