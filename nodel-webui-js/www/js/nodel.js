@@ -215,7 +215,7 @@ var init = function() {
         eval('$.templates({'+form+'Template: template})');
         // fill the template with data
         buildForm(form, form, [],'save', true);
-      } else $('#'+form).replaceWith('<h5 class="pad">None</h5>');
+      } else $('#'+form).trigger('ready').replaceWith('<h5 class="pad">None</h5>');
     });
   });
   $('#params').on('ready', function(){
