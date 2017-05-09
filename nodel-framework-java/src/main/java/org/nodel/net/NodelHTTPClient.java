@@ -33,7 +33,6 @@ import org.apache.http.client.methods.HttpRequestBase;
 import org.apache.http.client.params.ClientPNames;
 import org.apache.http.client.params.CookiePolicy;
 import org.apache.http.conn.ClientConnectionManager;
-import org.apache.http.conn.params.ConnManagerParams;
 import org.apache.http.conn.params.ConnRoutePNames;
 import org.apache.http.conn.scheme.PlainSocketFactory;
 import org.apache.http.conn.scheme.Scheme;
@@ -121,10 +120,8 @@ public class NodelHTTPClient extends DefaultHttpClient {
         
         HttpProtocolParams.setUserAgent(params, Nodel.getAgent());
 
-        params.setLongParameter(ConnManagerParams.TIMEOUT, 15000);
         HttpConnectionParams.setConnectionTimeout(params, 15000);
         HttpConnectionParams.setSoTimeout(params, 15000);
-        ConnManagerParams.setTimeout(params, 15000);
         
         // this suppresses some excessive logging related to cookies on some sites
         params.setParameter(ClientPNames.COOKIE_POLICY, CookiePolicy.BROWSER_COMPATIBILITY);
@@ -135,9 +132,11 @@ public class NodelHTTPClient extends DefaultHttpClient {
     @Override
     protected ClientConnectionManager createClientConnectionManager() {
         SchemeRegistry registry = new SchemeRegistry();
-        registry.register(new Scheme("http", PlainSocketFactory.getSocketFactory(), 80));
-        registry.register(new Scheme("https", SSLSocketFactory.getSocketFactory(), 443));
-        ThreadSafeClientConnManager connManager = new ThreadSafeClientConnManager(this.getParams(), registry);
+        
+        registry.register(new Scheme("http", 80, PlainSocketFactory.getSocketFactory()));
+        registry.register(new Scheme("https", 443, SSLSocketFactory.getSocketFactory()));
+        ThreadSafeClientConnManager connManager = new ThreadSafeClientConnManager(registry);
+        
         return connManager;
     }
     
@@ -183,10 +182,6 @@ public class NodelHTTPClient extends DefaultHttpClient {
             // 'get' or 'post'?
             HttpRequestBase request = (post == null ? new HttpGet(fullURL) : new HttpPost(fullURL));
             
-            // used if special parameters will be set up
-            // (created only once)
-            HttpParams params = null;
-
             // set 'Content-Type' header
             if (!Strings.isNullOrEmpty(contentType))
                 request.setHeader("Content-Type", contentType);
@@ -208,27 +203,17 @@ public class NodelHTTPClient extends DefaultHttpClient {
             
             // set any timeouts that apply
             if (connectTimeout != null || readTimeout != null) {
-                // copy the params
-                if (params == null)
-                    params = this.getParams().copy();
-                
                 int actualConnTimeout = connectTimeout != null ? connectTimeout : DEFAULT_CONNECTTIMEOUT;
                 int actualReadTimeout = readTimeout != null ? readTimeout : DEFAULT_READTIMEOUT;
 
                 // there are a few places where timeouts can be set within this framework
                 // (this may be more than needed)
-                params.setLongParameter(ConnManagerParams.TIMEOUT, actualConnTimeout);
-                HttpConnectionParams.setConnectionTimeout(params, actualConnTimeout);
-                HttpConnectionParams.setSoTimeout(params, actualReadTimeout);
-                ConnManagerParams.setTimeout(params, actualConnTimeout);
+                HttpConnectionParams.setConnectionTimeout(request.getParams(), actualConnTimeout);
+                HttpConnectionParams.setSoTimeout(request.getParams(), actualReadTimeout);
             }
             
             // using a proxy?
             if (proxyAddress != null) {
-                // copy the params
-                if (params == null)
-                    params = this.getParams().copy();                
-                
                 String[] proxyAddressParts = proxyAddress.split(":");
                 if (proxyAddressParts.length != 2)
                     throw new IllegalArgumentException("Proxy address is not in form host:port");
@@ -252,14 +237,11 @@ public class NodelHTTPClient extends DefaultHttpClient {
                 }
 
                 // force the proxy
+                // NOTE: 'Request params' are not used, instead the proxy applies to the HTTP client params
                 HttpHost proxy = new HttpHost(proxyHost, proxyPort);
                 this.getParams().setParameter(ConnRoutePNames.DEFAULT_PROXY, proxy);
             }
             
-            // use the new params (based on copy)
-            if (params != null)
-                request.setParams(params);
-
             // perform the request
             HttpResponse httpResponse;
             httpResponse = this.execute(request);
@@ -295,8 +277,6 @@ public class NodelHTTPClient extends DefaultHttpClient {
                 s_receiveRate.addAndGet(content.length());
             
             StatusLine statusLine = httpResponse.getStatusLine();
-            
-            entity.consumeContent();
             
             if (statusLine.getStatusCode() == HttpURLConnection.HTTP_OK) {
                 // 'OK' response

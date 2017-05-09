@@ -93,7 +93,7 @@ dependencies {
     compile 'org.slf4j:slf4j-api:1.7.10'
     compile 'org.python:jython-standalone:2.5.4-rc1'
 
-    // convenience dependency: required *only* for 'recipe sync'
-    compile 'org.eclipse.jgit:org.eclipse.jgit:4.4.1.201607150455-r'
+    // convenience dependency: required *only* for 'recipe sync' node
+    compile 'org.eclipse.jgit:org.eclipse.jgit:3.7.1.+'
 }
 
