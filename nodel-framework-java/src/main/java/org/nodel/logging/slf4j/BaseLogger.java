@@ -399,9 +399,9 @@ public abstract class BaseLogger extends MarkerIgnoringBase {
      * @param arg2
      */
     private void formatAndLog(Level level, String format, Object arg1, Object arg2) {
-        if (!isLevelEnabled(level)) {
+        if (!isLevelEnabled(level))
             return;
-        }
+        
         FormattingTuple tp = MessageFormatter.format(format, arg1, arg2);
         log(level, tp.getMessage(), tp.getThrowable());
     }
@@ -415,9 +415,9 @@ public abstract class BaseLogger extends MarkerIgnoringBase {
      *            a list of 3 ore more arguments
      */
     private void formatAndLog(Level level, String format, Object... arguments) {
-        if (!isLevelEnabled(level)) {
+        if (!isLevelEnabled(level))
             return;
-        }
+        
         FormattingTuple tp = MessageFormatter.arrayFormat(format, arguments);
         log(level, tp.getMessage(), tp.getThrowable());
     }
@@ -443,6 +443,9 @@ public abstract class BaseLogger extends MarkerIgnoringBase {
      * A simple implementation which logs messages of level TRACE according to the format outlined above.
      */
     public void trace(String msg) {
+        if (!isLevelEnabled(LOG_LEVEL_TRACE))
+            return;
+        
         log(LOG_LEVEL_TRACE, msg, null);
     }
 
@@ -481,6 +484,9 @@ public abstract class BaseLogger extends MarkerIgnoringBase {
      * A simple implementation which logs messages of level DEBUG according to the format outlined above.
      */
     public void debug(String msg) {
+        if (!isLevelEnabled(LOG_LEVEL_DEBUG))
+            return;
+        
         log(LOG_LEVEL_DEBUG, msg, null);
     }
 
@@ -519,6 +525,9 @@ public abstract class BaseLogger extends MarkerIgnoringBase {
      * A simple implementation which logs messages of level INFO according to the format outlined above.
      */
     public void info(String msg) {
+        if (!isLevelEnabled(LOG_LEVEL_INFO))
+            return;
+        
         log(LOG_LEVEL_INFO, msg, null);
     }
 
@@ -557,6 +566,9 @@ public abstract class BaseLogger extends MarkerIgnoringBase {
      * A simple implementation which always logs messages of level WARN according to the format outlined above.
      */
     public void warn(String msg) {
+        if (!isLevelEnabled(LOG_LEVEL_WARN))
+            return;
+        
         log(LOG_LEVEL_WARN, msg, null);
     }
 
@@ -595,6 +607,9 @@ public abstract class BaseLogger extends MarkerIgnoringBase {
      * A simple implementation which always logs messages of level ERROR according to the format outlined above.
      */
     public void error(String msg) {
+        if (!isLevelEnabled(LOG_LEVEL_ERROR))
+            return;
+        
         log(LOG_LEVEL_ERROR, msg, null);
     }
 
