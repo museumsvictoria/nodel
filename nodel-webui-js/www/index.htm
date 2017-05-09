@@ -56,6 +56,7 @@
 	<script src="js/nodel.js"></script>
 </head>
 <body>
+  <div class="overlay"></div>
 	<div class="dialog"></div>
   	<div class="notice"><div><span class="close">X</span><span class="msg"></span></div></div>
 	<div class="container">
@@ -102,7 +103,10 @@
 				<hr/> 
 				<form id="nodesearch" action="#">
 				  <label for="nodefilter">Node search</label>
-				  <input type="text" id="nodefilter" autofocus>
+				  <div class="nodefiltergrp">
+            <input type="text" id="nodefilter" autofocus>
+            <a id="nodefilterback">&#x21E4;</a>
+          </div>
         </form>
 				<ul></ul>
 			</div>
@@ -118,7 +122,7 @@
     <div class="row">
       <div class="flex">
         <div class="boxstretch">
-          <select id="picker"></select>
+          <select id="picker" data-goto="script.py"></select>
         </div>
         <div class="boxshrink">
           <button id="script_delete" type="button" disabled>Delete</button>

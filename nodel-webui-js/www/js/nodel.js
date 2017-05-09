@@ -215,7 +215,7 @@ var init = function() {
         eval('$.templates({'+form+'Template: template})');
         // fill the template with data
         buildForm(form, form, [],'save', true);
-      } else $('#'+form).replaceWith('<h5 class="pad">None</h5>');
+      } else $('#'+form).trigger('ready').replaceWith('<h5 class="pad">None</h5>');
     });
   });
   $('#params').on('ready', function(){
@@ -505,7 +505,6 @@ var init = function() {
       dialog('Invalid file name, must end with: ' + allowed.join(', '), 'error');
     }
   });
-  $('#picker').trigger('update');
   // check if reload has not been disabled (via query string) then begin checking if the page should be refreshed (node has restarted)
   if(!rld) checkReload();
   // set the target for the console form (if it exists)
@@ -685,6 +684,7 @@ var allowed = ['py','xml','js','json','html','htm','css','java','groovy','sql','
 var loadEditor = function() {
   // ensure the editor has not been loaded already and the form exists
   if((typeof editor === "undefined") && ($('#field_script').length)){
+    $('#picker').trigger('update');
     // load the codemirror library, setting to 'python' syntax highlighting mode
     editor = CodeMirror.fromTextArea(document.getElementById("field_script"), {
       mode: {
@@ -892,6 +892,9 @@ var listNodes = function(){
   $('#recipesource').on('change', function(e) {
     $('#recipesource').prop('title', $('#recipesource').find(":selected").prop('title'));
   })
+  $('#nodefilterback').on('click', function(e) {
+    $("#nodefilter").val($("#nodefilter").val().substring(0, $("#nodefilter").val().lastIndexOf(" ")));
+  });
   setInterval(function(){ $('#nodefilter').keyup(); }, 3000);
 };
 
@@ -907,8 +910,8 @@ var getParameterByName = function(name) {
 
 // function to display a message in a dialog box
 var dialog = function(message, type, duration){
-  // default to 'info' type
-  type = type || "info";
+  // default to 'success' type
+  type = type || "success";
   duration = duration || 3000;
   // clear any timer that was set to close the dialog
   clearTimeout($('.dialog').stop().data('timer'));
@@ -991,16 +994,15 @@ var updateLogs = function(){
           parseLog(value, noanimate);
         }
       });
-    }).always(function () {
-      // check again in one second
-      $('body').data('logs', setTimeout(function () {
-        updateLogs();
-      }, 1000));
+      online();
+    }).fail(function () {
+      offline();
     });
   } else {
     var wshost = "ws://"+document.location.hostname+":"+$('body').data('config')['webSocketPort']+"/nodes/"+node;
+    var socket = null;
     try{
-      var socket = new WebSocket(wshost);
+      socket = new WebSocket(wshost);
       socket.onopen = function(){
         console.log('Socket Status: '+socket.readyState+' (open)');
         online(socket);
@@ -1020,7 +1022,7 @@ var updateLogs = function(){
         offline();
       }
       socket.onerror = function(){
-        poll = true;
+        socket.close();
       }
     } catch(exception) {
       console.log('Error: '+exception);
@@ -1076,14 +1078,35 @@ var parseLog = function(value, noanimate) {
 };
 
 var online = function(socket){
-  $('body').data('timeout', setInterval(function() { socket.send('{}'); }, 1000));
-  console.log('online');
+  if(typeof socket !== 'undefined') $('body').data('timeout', setInterval(function() { socket.send('{}'); }, 1000));
+  else $('body').data('update', setTimeout(function() { updateLogs(); }, 1000));
+  if((typeof $('body').data('offline') !== 'undefined') && ($('body').data('offline'))){
+    console.log('online');
+    dialog('Online');
+    $('body').data('offline', false);
+    $('.overlay').fadeOut();
+  } else if (typeof $('body').data('offline') === 'undefined'){
+    $('body').data('offline', false);
+  }
 };
 
 var offline = function(){
   clearInterval($('body').data('timeout'));
   $('body').data('update', setTimeout(function() { updateLogs(); }, 1000));
-  console.log('offline');
+  if((typeof $('body').data('offline') === 'undefined') || (!$('body').data('offline'))){
+    console.log('offline');
+    if(typeof $('body').data('offline') === 'undefined'){
+      // websockets didn't connect first time, so switch to polling
+      dialog('Switching to polling mode','info');
+      $('body').data('offline', true);
+      $('.overlay').fadeIn();
+      poll = true;
+    } else {
+      dialog('Offline','error', -1);
+      $('body').data('offline', true);
+      $('.overlay').fadeIn();
+    }
+  };
 };
 
 // function to update the console
