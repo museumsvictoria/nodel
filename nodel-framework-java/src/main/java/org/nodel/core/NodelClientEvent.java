@@ -1,5 +1,7 @@
 package org.nodel.core;
 
+import java.util.List;
+
 /* 
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -10,6 +12,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import org.joda.time.DateTime;
 import org.nodel.Handler;
+import org.nodel.Handler.H1;
 import org.nodel.LockFreeList;
 import org.nodel.SimpleName;
 import org.nodel.host.Binding;
@@ -358,14 +361,16 @@ public class NodelClientEvent {
         _statusSeq = Nodel.getNextSeq();
         
         // get snapshot
-        final Handler.H1<BindingState>[] handlers = _bindingStateHandlers.items();
+        final List<H1<BindingState>> handlers = _bindingStateHandlers.items();
+        
+        final int handlerCount = handlers.size();
 
         // treat the first one as safe
-        if (handlers.length > 0)
-            Handler.handle(handlers[0], status);
+        if (handlerCount > 0)
+            Handler.handle(handlers.get(0), status);
 
         // treat the others as "wild"
-        if (handlers.length > 1) {
+        if (handlers.size() > 1) {
             ChannelClient.getThreadPool().execute(new Runnable() {
 
                 @Override
@@ -376,8 +381,8 @@ public class NodelClientEvent {
                     Exception lastExc = null;
 
                     // go through subsequent "wild" handlers
-                    for (int i = 1; i < handlers.length; i++) {
-                        Handler.H1<BindingState> handler = handlers[i];
+                    for (int i = 1; i < handlerCount; i++) {
+                        Handler.H1<BindingState> handler = handlers.get(i);
 
                         if (_callbackQueue != null) {
                             _callbackQueue.handle(handler, status, _exceptionHandler);

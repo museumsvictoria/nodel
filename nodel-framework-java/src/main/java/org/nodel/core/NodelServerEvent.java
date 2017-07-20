@@ -8,6 +8,7 @@ package org.nodel.core;
 
 import java.io.Closeable;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -314,10 +315,10 @@ public class NodelServerEvent implements Closeable {
         NodelServers.instance().emitEvent(this, arg);
         
         // snap-shot of handlers
-        final Handler.H1<Object>[] handlers = _emitHandlers.items();
+        final List<Handler.H1<Object>> handlers = _emitHandlers.items();
         
         // if there are some handlers, use the Channel Client thread-pool (treat as though remote events)
-        if (handlers.length > 0) {
+        if (handlers.size() > 0) {
             ChannelClient.getThreadPool().execute(new Runnable() {
 
                 @Override
