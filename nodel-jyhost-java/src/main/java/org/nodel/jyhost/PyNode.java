@@ -1168,6 +1168,9 @@ public class PyNode extends BaseDynamicNode {
                 continue;
 
             final NodelClientEvent nodelClientEvent = new NodelClientEvent(alias, new SimpleName(nodeName), new SimpleName(eventName));
+            
+            nodelClientEvent.setThreadingEnvironment(_callbackQueue, _threadStateHandler, _emitExceptionHandler);
+            
             nodelClientEvent.setHandler(new NodelEventHandler() {
                 
                 @Override
@@ -1177,7 +1180,7 @@ public class PyNode extends BaseDynamicNode {
                 
             });
             
-            nodelClientEvent.attachWiredStatusChanged(new Handler.H1<BindingState>() {
+            nodelClientEvent.addBindingStateHandler(new Handler.H1<BindingState>() {
 
                 @Override
                 public void handle(BindingState status) {

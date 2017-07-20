@@ -652,6 +652,26 @@ public abstract class ChannelClient {
         
         // will leave the timer to check for wiring faults in the background
     } // (method)
+    
+    /**
+     * Returns whether an event-point is wired within its channel.
+     */
+    public boolean isWiredEvent(SimpleName node, SimpleName event) {
+        synchronized (_signal) {
+            WiringPointEntry entry = _wiringPointsByNode.get(node);
+            return entry.events.contains(event);
+        }
+    }
+    
+    /**
+     * Returns whether an action-point is wired within its channel.
+     */
+    public boolean isWiredAction(SimpleName node, SimpleName action) {
+        synchronized (_signal) {
+            WiringPointEntry entry = _wiringPointsByNode.get(node);
+            return entry.actions.contains(action);
+        }
+    }
 
     /**
      * Sends a 'call' (invoke) message down the channel.

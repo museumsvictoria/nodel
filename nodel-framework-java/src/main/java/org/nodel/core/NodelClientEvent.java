@@ -10,11 +10,13 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import org.joda.time.DateTime;
 import org.nodel.Handler;
+import org.nodel.LockFreeList;
 import org.nodel.SimpleName;
 import org.nodel.host.Binding;
 import org.nodel.reflection.Objects;
 import org.nodel.reflection.Serialisation;
 import org.nodel.reflection.Value;
+import org.nodel.threading.CallbackQueue;
 import org.nodel.threading.ThreadPool;
 import org.nodel.threading.TimerTask;
 import org.nodel.threading.Timers;
@@ -32,6 +34,11 @@ public class NodelClientEvent {
      * The name (or alias) of this client event.
      */
     private SimpleName _name;
+    
+    /**
+     * To match threading of wild environment.
+     */
+    private CallbackQueue _callbackQueue;
     
     /**
      * Released or not.
@@ -70,9 +77,9 @@ public class NodelClientEvent {
     protected NodelEventHandler _handler;
     
     /**
-     * When wired status changes.
+     * When binding state changes, the first handler considered "safe", second and subsequent "wild".
      */
-    private Handler.H1<BindingState> _wiredStatusHandler;
+    private LockFreeList<Handler.H1<BindingState>> _bindingStateHandlers = new LockFreeList<>();
     
     /**
      * The last status.
@@ -118,6 +125,16 @@ public class NodelClientEvent {
      * In an unbound state.
      */
     private boolean _isUnbound;
+
+    /**
+     * (for context on callbacks)
+     */
+    private Handler.H0 _threadStateHandler;
+
+    /**
+     * (for context on callbacks)
+     */
+    private Handler.H1<Exception> _exceptionHandler;
 
     /**
      * Constructs a new Nodel Client to manage a single remote node.
@@ -244,7 +261,16 @@ public class NodelClientEvent {
     @Value(name = "statusTimestamp", title = "Status timestamp")
     public DateTime getStatusTimestamp() {
         return _statusTimestamp;
-    }    
+    }
+    
+    /**
+     * Sets the fields which control the threading context
+     */
+    public void setThreadingEnvironment(CallbackQueue callbackQueue, Handler.H0 threadStateHandler, Handler.H1<Exception> exceptionHandler) {
+        _callbackQueue = callbackQueue;
+        _threadStateHandler = threadStateHandler;
+        _exceptionHandler = exceptionHandler;
+    }
     
     /**
      * Sets the callback handler 
@@ -308,6 +334,74 @@ public class NodelClientEvent {
     }    
     
     /**
+     * Framework (first) and wild (subsequent) event handling.
+     */
+    public void addBindingStateHandler(Handler.H1<BindingState> handler) {
+        if (handler == null)
+            throw new IllegalArgumentException("Handler cannot be null.");
+
+        _bindingStateHandlers.add(handler);
+    }
+    
+    /**
+     * (called internally by framework)
+     */
+    void setBindingState(final BindingState status) {
+        BindingState last = _statusValue.getAndSet(status);
+
+        if (last == status)
+            return;
+        
+        _statusTimestamp = DateTime.now();
+
+        // must set sequence number last
+        _statusSeq = Nodel.getNextSeq();
+        
+        // get snapshot
+        final Handler.H1<BindingState>[] handlers = _bindingStateHandlers.items();
+
+        // treat the first one as safe
+        if (handlers.length > 0)
+            Handler.handle(handlers[0], status);
+
+        // treat the others as "wild"
+        if (handlers.length > 1) {
+            ChannelClient.getThreadPool().execute(new Runnable() {
+
+                @Override
+                public void run() {
+                    // set up thread context
+                    Handler.handle(_threadStateHandler);
+
+                    Exception lastExc = null;
+
+                    // go through subsequent "wild" handlers
+                    for (int i = 1; i < handlers.length; i++) {
+                        Handler.H1<BindingState> handler = handlers[i];
+
+                        if (_callbackQueue != null) {
+                            _callbackQueue.handle(handler, status, _exceptionHandler);
+
+                        } else {
+                            try {
+                                Handler.handle(handler, status);
+                            } catch (Exception exc) {
+                                lastExc = exc;
+                            }
+                        }
+                    } // (for)
+
+                    if (lastExc != null) {
+                        // let the thread-pool exception handler deal with it
+                        throw new RuntimeException("Emit handler", lastExc);
+                    }
+                }
+
+            });
+        }
+    }
+    
+    /**
      * Releases this binding.
      */
     public void close() {
@@ -316,33 +410,15 @@ public class NodelClientEvent {
         
         _closed = true;
         
+        _bindingStateHandlers.clear();
+        
         if (_persisterTimer != null)
             _persisterTimer.cancel();
         
         handlePersistRequest();
         
         NodelClients.instance().release(this);
-    }
-    
-    public void attachWiredStatusChanged(Handler.H1<BindingState> handler) {
-        if (handler == null)
-            throw new IllegalArgumentException("Handler cannot be null.");
-
-        _wiredStatusHandler = handler;
-    }
-
-    void setWiredStatus(BindingState status) {
-        BindingState last = _statusValue.getAndSet(status);
-
-        if (last != status && _wiredStatusHandler != null) {
-            _statusTimestamp = DateTime.now();
-
-            // must set sequence number last
-            _statusSeq = Nodel.getNextSeq();
-
-            _wiredStatusHandler.handle(status);
-        }
-    }
+    }    
 
     @Override
     public String toString() {

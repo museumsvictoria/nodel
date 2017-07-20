@@ -14,6 +14,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.joda.time.DateTime;
 import org.nodel.Handler;
 import org.nodel.Handler.H1;
+import org.nodel.LockFreeList;
 import org.nodel.SimpleName;
 import org.nodel.Strings;
 import org.nodel.host.Binding;
@@ -51,7 +52,7 @@ public class NodelServerEvent implements Closeable {
     /**
      * For other in-process 'emit' handlers that may be interested in this event.
      */
-    private AtomicReference<Handler.H1<Object>[]> _emitHandlers = new AtomicReference<Handler.H1<Object>[]>();
+    private LockFreeList<Handler.H1<Object>> _emitHandlers = new LockFreeList<>();
 
     private String _title;
 
@@ -313,10 +314,10 @@ public class NodelServerEvent implements Closeable {
         NodelServers.instance().emitEvent(this, arg);
         
         // snap-shot of handlers
-        final H1<Object>[] handlers = _emitHandlers.get();
+        final Handler.H1<Object>[] handlers = _emitHandlers.items();
         
         // if there are some handlers, use the Channel Client thread-pool (treat as though remote events)
-        if (handlers != null) {
+        if (handlers.length > 0) {
             ChannelClient.getThreadPool().execute(new Runnable() {
 
                 @Override
@@ -333,7 +334,7 @@ public class NodelServerEvent implements Closeable {
                             _callbackQueue.handle(handler, arg, _exceptionHandler);
                         else {
                             try {
-                                Handler.tryHandle(handler, arg);
+                                Handler.handle(handler, arg);
                             } catch (Exception exc) {
                                 lastExc = exc;
                             }
@@ -353,33 +354,8 @@ public class NodelServerEvent implements Closeable {
     /**
      * Attaches an in-process emit handler (will arrive on same thread as .emit() call)
      */
-    @SuppressWarnings("unchecked")
     public void addEmitHandler(Handler.H1<Object> handler) {
-        if (handler == null)
-            throw new IllegalArgumentException("No emit handler given.");
-        
-        H1<Object>[] current = _emitHandlers.get();
-
-        // grow array 'lock-lessly'
-        for (;;) {
-            H1<Object>[] value;
-            if (current == null) {
-                value = (H1<Object>[]) new Handler.H1<?>[] { handler };
-            } else {
-                // make space for one more
-                int currentSize = current.length;
-                value = (H1<Object>[]) new Handler.H1<?>[currentSize + 1];
-
-                // copy all and set the last one
-                System.arraycopy(current, 0, value, 0, currentSize);
-                value[current.length] = handler;
-            }
-            
-            if(_emitHandlers.compareAndSet(current, value))
-                break;
-            
-            // otherwise keep trying
-        }
+        _emitHandlers.add(handler);
     }
 
     /**
@@ -427,7 +403,7 @@ public class NodelServerEvent implements Closeable {
         if (_persisterTimer != null)
             _persisterTimer.cancel();
         
-        _emitHandlers.set(null);
+        _emitHandlers.clear();
         
         handlePersistRequest();
 

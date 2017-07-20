@@ -781,6 +781,7 @@ public class ManagedToolkit {
                 metadata.title = eventName;
 
             final NodelClientEvent clientEvent = new NodelClientEvent(new SimpleName(eventName), metadata, null, null);
+            clientEvent.setThreadingEnvironment(_callbackQueue, _threadStateHandler, _emitExceptionHandler);
             
             clientEvent.setHandler(new NodelEventHandler() {
                 
@@ -795,7 +796,7 @@ public class ManagedToolkit {
                 
             });
             
-            clientEvent.attachWiredStatusChanged(new Handler.H1<BindingState>() {
+            clientEvent.addBindingStateHandler(new Handler.H1<BindingState>() {
                 
                 @Override
                 public void handle(BindingState status) {
