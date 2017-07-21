@@ -87,7 +87,7 @@ public class NodelClientEvent {
     /**
      * The last status.
      */
-    private AtomicReference<BindingState> _statusValue = new AtomicReference<BindingState>(BindingState.Empty);
+    private AtomicReference<BindingState> _bindingState = new AtomicReference<BindingState>(BindingState.Empty);
     
     /**
      * Binding status sequence number
@@ -251,10 +251,15 @@ public class NodelClientEvent {
     }
     
     @Value(name = "status", title = "Status")
+    @Deprecated
     public BindingState getStatus() {
-        return _statusValue.get();
+        return _bindingState.get();
     }
     
+    @Value(name = "bindingState", title = "Binding state")
+    public BindingState getBindingState() {
+        return _bindingState.get();
+    }    
 
     @Value(name = "statusSeq", title = "Status sequence")
     public long getStatusSeqNum() {
@@ -350,7 +355,7 @@ public class NodelClientEvent {
      * (called internally by framework)
      */
     void setBindingState(final BindingState status) {
-        BindingState last = _statusValue.getAndSet(status);
+        BindingState last = _bindingState.getAndSet(status);
 
         if (last == status)
             return;

@@ -76,7 +76,7 @@ public class NodelClientAction {
     /**
      * When wired status changes.
      */
-    private Handler.H1<BindingState> wiredStatusHandler;
+    private Handler.H1<BindingState> bindingStateHandler;
     
     /**
      * The argument sequence
@@ -274,19 +274,19 @@ public class NodelClientAction {
         if (handler == null)
             throw new IllegalArgumentException("Handler cannot be null.");
         
-        this.wiredStatusHandler = handler; 
+        this.bindingStateHandler = handler; 
     } // (method)
     
-    void setWiredStatus(BindingState status) {
-        BindingState last = _bindingState.getAndSet(status);
+    void setBindingState(BindingState state) {
+        BindingState last = _bindingState.getAndSet(state);
         
-        if (last != status && this.wiredStatusHandler != null) {
+        if (last != state && this.bindingStateHandler != null) {
             _bindingStateTimestamp = DateTime.now();
             
             // set sequence number last
             _bindingStateSeq = Nodel.getNextSeq();
             
-            this.wiredStatusHandler.handle(status);
+            this.bindingStateHandler.handle(state);
         }
     }
 

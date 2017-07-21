@@ -447,7 +447,7 @@ public class NodelClients {
             // init wiring state
             ChannelClient channel = nodeEntry.channel;
             if (channel != null && channel.isWiredAction(actionBinding._node, actionBinding._action))
-                actionBinding.setWiredStatus(BindingState.Wired);
+                actionBinding.setBindingState(BindingState.Wired);
             
             // this will establish a connection regardless
             tryMaintainNode(nodeEntry);
@@ -548,7 +548,7 @@ public class NodelClients {
                 //  (actions...)
                 for (NodeEntry.ActionEntry entry : nodeEntry.actionEntries.values()) {
                     for (NodelClientAction binding : entry.bindings) {
-                        binding.setWiredStatus(BindingState.ResolutionFailure);
+                        binding.setBindingState(BindingState.ResolutionFailure);
                     }
                 }
                 
@@ -566,7 +566,7 @@ public class NodelClients {
                 //   (actions...)
                 for (NodeEntry.ActionEntry entry : nodeEntry.actionEntries.values()) {
                     for (NodelClientAction binding : entry.bindings) {
-                        binding.setWiredStatus(BindingState.Resolved);
+                        binding.setBindingState(BindingState.Resolved);
                     }
                 }
 
@@ -816,7 +816,7 @@ public class NodelClients {
                         if (actionEntry.actionPoint.getNode().equals(relatedNode) && actionEntry.actionPoint.getPoint().equals(presentAction)) {
                             // found a match
                             for (NodelClientAction binding : actionEntry.bindings) {
-                                binding.setWiredStatus(BindingState.Wired);
+                                binding.setBindingState(BindingState.Wired);
                             }
                         }
                     }
