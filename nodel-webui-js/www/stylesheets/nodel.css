@@ -61,6 +61,20 @@ progress, input.upload {
 #activity ul li {
 	padding-left: 20px;
 	text-indent: -20px;
+  word-wrap: break-word;
+  max-height: 120px;
+  overflow: hidden;
+  position: relative;
+}
+
+#activity ul li:after {
+  content:"";
+  position:absolute;
+  top:80px;
+  left:0;
+  height:40px;
+  width:100%;
+  background: linear-gradient(rgba(0,0,0,0), #fff);
 }
 
 div.row {
