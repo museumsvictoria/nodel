@@ -687,7 +687,7 @@ var init = function() {
 };
 
 var editor;
-var allowed = ['py','xml','js','json','html','htm','css','java','groovy','sql','sh'];
+var allowed = ['py','xml','xsl','js','json','html','htm','css','java','groovy','sql','sh'];
 // function to load the code editor
 var loadEditor = function() {
   // ensure the editor has not been loaded already and the form exists
