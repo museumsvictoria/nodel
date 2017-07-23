@@ -57,4 +57,4 @@ Credits
 =======
 
 * [Museums Victoria](http://museumvictoria.com.au)
-* [Lumicom](http://lumicom.com.au)
+* [Automatic](http://automatic.com.au)
