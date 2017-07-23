@@ -1,5 +1,5 @@
-apply plugin:'java'
-apply plugin:'application'
+apply plugin: 'java'
+apply plugin: 'application'
 apply plugin: 'maven'
 apply plugin: 'eclipse'
 
@@ -96,4 +96,3 @@ dependencies {
     // convenience dependency: required *only* for 'recipe sync' node
     compile 'org.eclipse.jgit:org.eclipse.jgit:3.7.1.+'
 }
-
