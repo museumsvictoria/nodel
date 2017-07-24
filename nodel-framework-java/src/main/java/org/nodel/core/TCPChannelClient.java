@@ -23,6 +23,7 @@ import org.nodel.diagnostics.Diagnostics;
 import org.nodel.diagnostics.LongSharableMeasurementProvider;
 import org.nodel.diagnostics.SharableMeasurementProvider;
 import org.nodel.reflection.Serialisation;
+import org.nodel.threading.TimerTask;
 
 /**
  * Manages a channel client, including connection, etc.
@@ -64,6 +65,13 @@ public class TCPChannelClient extends ChannelClient {
      * (locked around 'signal')
      */
     private Socket _socket;
+    
+    /**
+     * For periodical keep-alives to prevent graceful stale socket detection.
+     * (scheduled in 'processSocket' for 3 mins periods)
+     * (locked around 'signal')
+     */
+    private TimerTask _keepAliveTask;
 
     /**
      * (locked around 'signal')
@@ -74,7 +82,7 @@ public class TCPChannelClient extends ChannelClient {
      * (locked around 'signal')
      */
     private Writer _writer;
-    
+
     /**
      * Creates a new channel client which is responsible for connection and reconnection.
      * (does not block)
@@ -92,7 +100,7 @@ public class TCPChannelClient extends ChannelClient {
         _thread.setName(String.format("ChannelClient%03d", this._instance));
         _thread.setDaemon(true);
     } // (constructor)
-    
+
     /**
      * Starts the channel client. Should only be called after all event handlers are attached.
      */
@@ -139,9 +147,24 @@ public class TCPChannelClient extends ChannelClient {
         _logger.info("Thread run to completion.");
     } // (method)
     
+    /**
+     * (constant to represent a keep-alive operation)
+     */
+    private static final ChannelMessage KEEP_ALIVE = new ChannelMessage(); 
+    
     private void processSocket(Socket socket) throws IOException {
         synchronized (this._signal) {
             _socket = socket;
+            
+            // schedule a keep-alive every 3 minutes
+            _keepAliveTask = s_timerThread.schedule(s_threadPool, new TimerTask() {
+
+                @Override
+                public void run() {
+                    doSendMessage(KEEP_ALIVE);
+                }
+
+            }, 180000, 180000);
 
             // both 'input' and 'output' will be cleaned up via the
             // 'this.socket.close()'.
@@ -219,6 +242,14 @@ public class TCPChannelClient extends ChannelClient {
         }
 
         try {
+            if (message == KEEP_ALIVE) {
+                // writer will never be null
+                writer.write("\r\n");
+                writer.flush();
+                return;
+            }
+            
+            // otherwise, a normal message
             String jsonMessage = Serialisation.serialise(message, 4);
 
             int len = jsonMessage.length();
@@ -284,6 +315,9 @@ public class TCPChannelClient extends ChannelClient {
     public void close() {
         synchronized (this._signal) {
             _enabled = false;
+            
+            // shutdown timer
+            _keepAliveTask.cancel();
             
             // clean up and back-off if still enabled
             safeCleanup();

@@ -323,7 +323,12 @@ public class NodelClients {
             }
             
             // register every event binding for later cleanup purposes
-            eventEntry.bindings.add(eventBinding);            
+            eventEntry.bindings.add(eventBinding);
+
+            // init wiring state
+            ChannelClient channel = nodeEntry.channel;
+            if (channel != null && channel.isWiredEvent(eventBinding._node, eventBinding._event))
+                eventBinding.setBindingState(BindingState.Wired);
 
             tryMaintainNode(nodeEntry);
         }
@@ -439,6 +444,11 @@ public class NodelClients {
             // register every action binding for later cleanup purposes
             actionEntry.bindings.add(actionBinding);
             
+            // init wiring state
+            ChannelClient channel = nodeEntry.channel;
+            if (channel != null && channel.isWiredAction(actionBinding._node, actionBinding._action))
+                actionBinding.setBindingState(BindingState.Wired);
+            
             // this will establish a connection regardless
             tryMaintainNode(nodeEntry);
         }
@@ -538,14 +548,14 @@ public class NodelClients {
                 //  (actions...)
                 for (NodeEntry.ActionEntry entry : nodeEntry.actionEntries.values()) {
                     for (NodelClientAction binding : entry.bindings) {
-                        binding.setWiredStatus(BindingState.ResolutionFailure);
+                        binding.setBindingState(BindingState.ResolutionFailure);
                     }
                 }
                 
                 //  (events...)
                 for (NodeEntry.EventHandlerEntry entry : nodeEntry.eventHandlerEntries.values()) {
                     for (NodelClientEvent binding : entry.bindings) {
-                        binding.setWiredStatus(BindingState.ResolutionFailure);
+                        binding.setBindingState(BindingState.ResolutionFailure);
                     }
                 }              
                 
@@ -556,14 +566,14 @@ public class NodelClients {
                 //   (actions...)
                 for (NodeEntry.ActionEntry entry : nodeEntry.actionEntries.values()) {
                     for (NodelClientAction binding : entry.bindings) {
-                        binding.setWiredStatus(BindingState.Resolved);
+                        binding.setBindingState(BindingState.Resolved);
                     }
                 }
 
                 //   (events...)
                 for (NodeEntry.EventHandlerEntry entry : nodeEntry.eventHandlerEntries.values()) {
                     for (NodelClientEvent binding : entry.bindings) {
-                        binding.setWiredStatus(BindingState.Resolved);
+                        binding.setBindingState(BindingState.Resolved);
                     }
                 }
 
@@ -806,7 +816,7 @@ public class NodelClients {
                         if (actionEntry.actionPoint.getNode().equals(relatedNode) && actionEntry.actionPoint.getPoint().equals(presentAction)) {
                             // found a match
                             for (NodelClientAction binding : actionEntry.bindings) {
-                                binding.setWiredStatus(BindingState.Wired);
+                                binding.setBindingState(BindingState.Wired);
                             }
                         }
                     }
@@ -819,7 +829,7 @@ public class NodelClients {
                         if (eventEntry.eventPoint.getNode().equals(relatedNode) && eventEntry.eventPoint.getPoint().equals(presentEvent)) {
                             // found a match
                             for (NodelClientEvent binding : eventEntry.bindings) {
-                                binding.setWiredStatus(BindingState.Wired);
+                                binding.setBindingState(BindingState.Wired);
                             }
                         }
                     }

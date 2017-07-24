@@ -463,7 +463,7 @@ public abstract class BaseNode implements Closeable {
 
                 seq = remoteEvent.getStatusSeqNum();
                 if (seq >= from)
-                    batch.add(new LogEntry(seq, remoteEvent.getStatusTimestamp(), Source.remote, Type.eventBinding, remoteEvent.getName(), remoteEvent.getStatus()));
+                    batch.add(new LogEntry(seq, remoteEvent.getStatusTimestamp(), Source.remote, Type.eventBinding, remoteEvent.getName(), remoteEvent.getBindingState()));
 
             }
             
