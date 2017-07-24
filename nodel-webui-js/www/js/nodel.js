@@ -83,6 +83,14 @@ $.views.converters({
   // convert db to percentage
   dbToPerc: function (value) {
     return typeof value === "undefined" ? 0 : (Math.pow(10,value/80.04)*0.75)*100;
+  },
+  // convert object to string
+  objToStr: function (value) {
+    return JSON.stringify(value);
+  },
+  // convert string to object
+  strToObj: function (value) {
+    return JSON.parse(value);
   }
 });
 
@@ -679,7 +687,7 @@ var init = function() {
 };
 
 var editor;
-var allowed = ['py','xml','js','json','html','htm','css','java','groovy','sql','sh'];
+var allowed = ['py','xml','xsl','js','json','html','htm','css','java','groovy','sql','sh'];
 // function to load the code editor
 var loadEditor = function() {
   // ensure the editor has not been loaded already and the form exists
@@ -1744,6 +1752,10 @@ var buildFormSchema = function(data, key, parent) {
           // long fields are rendered as a textarea element
           case 'long':
             set = '<div class="field"><label for="field_'+parent+'{{:#getIndex()}}"'+cls+'>'+htmlEncode(data.title)+'</label><textarea placeholder="'+placeholder+'" id="field_'+parent+'{{:#getIndex()}}" title="'+htmlEncode(data.desc)+'" data-link="'+link+'"'+cls+'></textarea></div>';
+            break;
+          // json fields are rendered as a textarea element with json decode
+          case 'json':
+            set = '<div class="field"><label for="field_'+parent+'{{:#getIndex()}}"'+cls+'>'+htmlEncode(data.title)+'</label><textarea placeholder="'+placeholder+'" id="field_'+parent+'{{:#getIndex()}}" title="'+htmlEncode(data.desc)+'" data-link="{objToStr:' + link + ':strToObj}"'+cls+'></textarea></div>';
             break;
           // node, action and event fields render with an additional group attribute
           case 'node':
