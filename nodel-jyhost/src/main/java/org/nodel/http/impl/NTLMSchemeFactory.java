@@ -1,4 +1,4 @@
-package org.nodel.net;
+package org.nodel.http.impl;
 
 import org.apache.http.auth.AuthScheme;
 import org.apache.http.auth.AuthSchemeFactory;

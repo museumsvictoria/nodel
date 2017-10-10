@@ -1,4 +1,4 @@
-package org.nodel.net;
+package org.nodel.http.impl;
 
 import java.io.IOException;
 

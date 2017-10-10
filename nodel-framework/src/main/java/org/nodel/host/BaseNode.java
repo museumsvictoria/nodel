@@ -601,7 +601,7 @@ public abstract class BaseNode implements Closeable {
     }
     
     protected void removeLocalEvent(NodelServerEvent event) {
-        _localEvents.remove(event);
+        _localEvents.remove(event.getEvent());
     }
   
     /**

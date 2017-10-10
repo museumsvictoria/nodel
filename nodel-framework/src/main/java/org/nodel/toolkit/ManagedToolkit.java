@@ -29,6 +29,7 @@ import org.nodel.host.LogEntry;
 import org.nodel.host.BaseNode.ParameterEntry;
 import org.nodel.io.Stream;
 import org.nodel.net.NodelHTTPClient;
+import org.nodel.net.NodelHttpClientProvider;
 import org.nodel.reflection.Objects;
 import org.nodel.reflection.Serialisation;
 import org.nodel.threading.CallbackQueue;
@@ -866,7 +867,7 @@ public class ManagedToolkit {
     private void releaseHttpClient() {
         if (_httpClient != null) {
             try {
-                _httpClient.getConnectionManager().shutdown();
+                _httpClient.close();
                 
             } catch (Exception exc) {
                 _logger.warn("HTTP client connection manager may not have shutdown cleanly", exc);
@@ -884,7 +885,7 @@ public class ManagedToolkit {
             String proxyAddress, String proxyUsername, String proxyPassword) throws IOException {
         synchronized (_lock) {
             if (_httpClient == null)
-                _httpClient = new NodelHTTPClient();
+                _httpClient = NodelHttpClientProvider.instance().create();
         }
 
         return _httpClient.makeRequest(urlStr, query, username, password, headers, reference, contentType, post, connectTimeout, readTimeout,
