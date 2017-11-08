@@ -31,9 +31,6 @@ task gitRev(type:Exec) {
     }
 }
 
-sourceCompatibility = 1.7
-targetCompatibility = 1.7
-
 gitBranch.execute()
 gitRev.execute()
 gitId.execute()

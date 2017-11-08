@@ -15,9 +15,6 @@ buildscript {
     }
 }
 
-sourceCompatibility = 1.7
-targetCompatibility = 1.7
-
 def hostname = InetAddress.getLocalHost().getHostName().toUpperCase();
 
 def now = DateTime.now().toString();

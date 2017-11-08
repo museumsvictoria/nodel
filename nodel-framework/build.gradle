@@ -15,9 +15,6 @@ buildscript {
     }
 }
 
-sourceCompatibility = 1.7
-targetCompatibility = 1.7
-
 // this version is manually bumped
 def CONTROLLED_VERSION = "2.1.1"
 
