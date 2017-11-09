@@ -700,39 +700,67 @@ public class PyNode extends BaseDynamicNode {
                 lock = null;
                 try {
                     lock = getAReentrantLock();
-
-                    trackFunction("main()");
                     
-                    // for logging
-                    boolean mainCalled = false;
+                    // the commentary list for main-related
+                    List<String> commentary = new ArrayList<>(3);
 
+                    trackFunction("mains");
+                    
+                    // handle @before_main functions (if present)
+                    PyFunction processBeforeMainFunctions = (PyFunction) _globals.get(Py.java2py("processBeforeMainFunctions"));
+                    long beforeFnCount = processBeforeMainFunctions.__call__().asLong();
+                    
+                    if (beforeFnCount > 0)
+                        commentary.add("'@before_main' function" + (beforeFnCount == 1 ? "" : "s"));
+                    
+                    
                     if (_python.get("main") != null) {
                         _python.exec("main()");
-                        mainCalled = true;
+                        
+                        commentary.add("'main'");
                     }
                     
                     // handle @after_main functions (if present)
                     PyFunction processAfterMainFunctions = (PyFunction) _globals.get(Py.java2py("processAfterMainFunctions"));
-                    long fnCount = processAfterMainFunctions.__call__().asLong();
+                    long afterFnCount = processAfterMainFunctions.__call__().asLong();
+                    if (afterFnCount > 0)
+                        commentary.add("'@after_main' function" + (afterFnCount == 1 ? "" : "s"));
+                    
 
                     // nothing went wrong, kick off toolkit
                     _toolkit.enable();
-
-                    // prepare a sensible message
-                    if (mainCalled && fnCount == 0)
-                        msg = "('main' completed cleanly)";
-                    else if (mainCalled && fnCount > 0)
-                        msg = "('main' and '@after_main' function" + (fnCount == 1 ? "" : "s") + " completed cleanly)";
-                    else if (fnCount > 0)
-                        msg = "('@after_main' function" + (fnCount == 1 ? "" : "s") + " completed cleanly)";
-                    else
+                    
+                    // prepare a neat message to indicate clearly the entry-points of the script
+                    int commentarySize =commentary.size(); 
+                    if (commentarySize == 0) {
                         msg = "(no 'main' to call)";
-
+                        
+                    } else if(commentarySize == 1) {
+                        msg = String.format("(%s completed cleanly)", commentary.get(0));
+                        
+                    } else {
+                        StringBuilder sb = new StringBuilder().append("(");
+                        
+                        for (int a = 0; a < commentarySize; a++) {
+                            // neatly separate commentary
+                            if (a == commentarySize - 1)
+                                sb.append(" and ");
+                            else if (a > 0)
+                                sb.append(", ");
+                            
+                            sb.append(commentary.get(a));
+                        }
+                        
+                        sb.append(" completed cleanly)");
+                        
+                        msg = sb.toString();
+                    }
+                    
                     _logger.info(msg);
                     _outReader.inject(msg);
 
                 } finally {
-                    untrackFunction("main()");
+                    untrackFunction("mains");
 
                     if (lock != null)
                         lock.unlock();
@@ -820,13 +848,31 @@ public class PyNode extends BaseDynamicNode {
      * Cleans up the interpreter and the toolkit
      */
     private void cleanupInterpreter() {
+        String message;
+        
         if (_python != null) {
-            _logger.info("Cleaning up previous interpreter...");
-            _outReader.inject("(closing this interpreter...)");
+            message = "(closing this interpreter...)";
 
+            _logger.info(message);
+            _outReader.inject(message);
+            
+            try {
+                PyFunction processCleanupFunctions = (PyFunction) _globals.get(Py.java2py("processCleanupFunctions"));
+                long cleanupFnCount = processCleanupFunctions.__call__().asLong();
+                
+                if (cleanupFnCount > 0) {
+                    message = "('@at_cleanup' function" + (cleanupFnCount == 1 ? "" : "s") + " completed.)";
+                    _logger.info(message);
+                    _outReader.inject(message);
+                }
+            } catch (Exception exc) {
+                // upstream exception handling should mean we never get here, but just in case
+                _logger.warn("Unexpected exception during cleaning up; should be safe to ignore", exc);
+            }
+            
             _python.cleanup();
             
-            String message = "(clean up complete)";
+            message = "(clean up complete)";
             _logger.info(message);
             _outReader.inject(message);
         }

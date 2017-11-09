@@ -17,25 +17,36 @@ public class Strings {
     public static final String[] EmptyArray = new String[] {};
     
     /**
-     * Returns true if the value is null or empty (or full of spaces), false otherwise.
+     * Returns true if the value is null or empty (or full of common whitespace), false otherwise.
      */
     public static boolean isNullOrEmpty(String value) {
         if (value == null)
             return true;
-
-        if (value.isEmpty())
-            return true;
-
-        // check for any non-spaces
+        
+        // check length...
         int len = value.length();
+        
+        if (len == 0)
+            return true;
+        
+        // ...and then for any non common-whitespace
         for (int a = 0; a < len; a++) {
-            if (value.charAt(a) != ' ')
+            char c = value.charAt(a);
+            
+            if (c != ' ' && c != '\t' && c != '\r' && c != '\n')
                 return false;
         }
         
-        // was empty or all spaces
+        // was empty or all common whitespace
         return true;
-    } // (method)
+    }
+    
+    /**
+     * (shorthand for 'isNullOrEmpty')
+     */
+    public static boolean isBlank(String value) {
+        return isNullOrEmpty(value);
+    }
 
     /**
      * A safe, simple alphabetical compare function.

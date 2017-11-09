@@ -273,7 +273,23 @@ def lookup_parameter(name):
     return nodetoolkit.lookupParameter(name)
 
     
-# node life-cycle functions:
+# NODE LIFE-CYCLE FUNCTIONS:
+
+# for functions to be called before main has executed
+_nodel_beforeMainFunctions = []
+
+def processBeforeMainFunctions():
+    for f in _nodel_beforeMainFunctions:
+        f()
+        
+    return len(_nodel_beforeMainFunctions)
+
+# decorates functions that should be called after 'main' completes
+def before_main(f):
+    _nodel_beforeMainFunctions.append(f)
+
+    return f
+
   
 # for functions to be called after main has executed
 _nodel_afterMainFunctions = []
@@ -289,3 +305,33 @@ def after_main(f):
     _nodel_afterMainFunctions.append(f)
 
     return f
+
+# for functions to be called at cleanup (shutdown, restart, etc.)
+_nodel_atCleanupFunctions = []
+
+def processCleanupFunctions():
+    for f in _nodel_atCleanupFunctions:
+      try:
+        f()
+      finally:
+        pass
+        
+    return len(_nodel_atCleanupFunctions)
+
+# decorates functions that should be called at cleanup (shutdown, restart, etc.)
+def at_cleanup(f):
+    _nodel_atCleanupFunctions.append(f)
+
+    return f
+
+# CONVENIENCE FUNCTIONS
+
+# a convenient constant that can be used against most objects (arrays, dicts, sets, strings, etc.)
+from org.nodel.jyhost.PyToolkit import EmptyDict as EMPTY
+
+# Returns true if a string is blank (null, empty or all simple white-space incl. tab, CR, LN)
+from org.nodel.Strings import isBlank as is_blank
+
+# Returns false if there is at least one item within 'o', true otherwise
+def is_empty(obj):
+  return obj == None or len(obj) == 0
