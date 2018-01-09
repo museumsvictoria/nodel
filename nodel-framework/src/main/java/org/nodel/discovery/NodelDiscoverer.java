@@ -240,6 +240,13 @@ public class NodelDiscoverer {
             DatagramPacket dp = packet;
 
             try {
+                // Deep within dp.getSocketAddress() (used below and previously while logging), Java allowed 
+                // an exception to be thrown so it's best we gracefully handle this condition up-front instead of 
+                // crippling this thread
+                int port = dp.getPort();
+                if (port < 0 || port > 0xFFFF)
+                    throw new RuntimeException("Packet may be invalid (port was " + port + ")");
+                
                 // parse packet
                 NameServicesChannelMessage message = NameServicesChannelMessage.fromPacket(dp);
 
@@ -251,7 +258,7 @@ public class NodelDiscoverer {
                     break;
 
                 // log nested exception summary instead of stack-trace dump
-                _logger.warn("Error while handling received packet from {}: {}", dp.getSocketAddress(), Exceptions.formatExceptionGraph(exc));
+                _logger.warn("Error while handling received packet from host {}, port {}; details: {}", dp.getAddress(), dp.getPort(), Exceptions.formatExceptionGraph(exc));
                 
             } finally {
                 // make sure the packet is returned
