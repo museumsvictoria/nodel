@@ -250,7 +250,7 @@ public class QuickProcess implements Closeable {
             Handler.tryHandle(_onStarted, processID, _callbackExceptionHandler); 
             
             // anything to push out stdin?
-            if (!Strings.isNullOrEmpty(_stdinPush)) {
+            if (!Strings.isEmpty(_stdinPush)) {
                 stdin.write(_stdinPush.getBytes(UTF8Charset.instance()));
             }
             

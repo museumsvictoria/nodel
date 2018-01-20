@@ -17,9 +17,24 @@ public class Strings {
     public static final String[] EmptyArray = new String[] {};
     
     /**
+     * (use 'isEmpty' instead)
+     */
+    @Deprecated
+    public static boolean isNullOrEmpty(String value) {
+        return isEmpty(value);
+    }
+    
+    /**
+     * Returns true if the value is strictly null or has length zero.
+     */
+    public static boolean isEmpty(String value) {
+        return value == null || value.length() == 0;
+    }
+    
+    /**
      * Returns true if the value is null or empty (or full of common whitespace), false otherwise.
      */
-    public static boolean isNullOrEmpty(String value) {
+    public static boolean isBlank(String value) {
         if (value == null)
             return true;
         
@@ -39,13 +54,6 @@ public class Strings {
         
         // was empty or all common whitespace
         return true;
-    }
-    
-    /**
-     * (shorthand for 'isNullOrEmpty')
-     */
-    public static boolean isBlank(String value) {
-        return isNullOrEmpty(value);
     }
 
     /**

@@ -248,7 +248,8 @@ public class ApacheNodelHttpClient extends NodelHTTPClient {
                 String key = entry.getKey();
                 String value = entry.getValue();
 
-                if (Strings.isNullOrEmpty(key) || Strings.isNullOrEmpty(value))
+                // 'key' must have length, 'value' doesn't have to
+                if (Strings.isEmpty(key) || value == null)
                     continue;
 
                 if (sb.length() > 0)

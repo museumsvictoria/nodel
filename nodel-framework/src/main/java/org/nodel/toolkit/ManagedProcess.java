@@ -407,7 +407,7 @@ public class ManagedProcess implements Closeable {
             else
                 _receiveDelimiters = delims;
             
-            if (Strings.isNullOrEmpty(_receiveDelimiters))
+            if (Strings.isEmpty(_receiveDelimiters))
                 _mode = Modes.UnboundedRaw;
         }
     }
@@ -1078,7 +1078,7 @@ public class ManagedProcess implements Closeable {
      */
     public void request(String requestData, H1<String> responseHandler) {
         // don't bother doing anything if empty or missing
-        if (Strings.isNullOrEmpty(requestData))
+        if (Strings.isEmpty(requestData))
             return;
         
         queueRequest(requestData, _requestTimeout, responseHandler);
@@ -1266,7 +1266,7 @@ public class ManagedProcess implements Closeable {
      * Prepares a buffer for sending, null if it's not sendable.
      */
     private byte[] prepareBuffer(String data) {
-        if (Strings.isNullOrEmpty(data))
+        if (Strings.isEmpty(data))
             return null;
         
         // (data will be at least 1 character in length)
