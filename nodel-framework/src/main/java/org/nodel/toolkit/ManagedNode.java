@@ -61,7 +61,7 @@ public class ManagedNode extends BaseNode {
 
     };    
     
-    public ManagedNode(String name, CallbackQueue callbackQueue, Handler.H0 threadStateHandler) {
+    public ManagedNode(SimpleName name, CallbackQueue callbackQueue, Handler.H0 threadStateHandler) {
         super(name);
         
         _callbackQueue = callbackQueue;

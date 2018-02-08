@@ -561,7 +561,7 @@ public class ManagedToolkit {
             throw new IllegalArgumentException("Name cannot be empty");
 
         synchronized (_lock) {
-            ManagedNode node = new ManagedNode(name, _callbackQueue, _threadStateHandler);
+            ManagedNode node = new ManagedNode(new SimpleName(name), _callbackQueue, _threadStateHandler);
 
             _managedNodes.add(node);
 
@@ -577,7 +577,7 @@ public class ManagedToolkit {
             throw new IllegalArgumentException("Suffix cannot be empty");
 
         synchronized (_lock) {
-            ManagedNode node = new ManagedNode(_node.getName().getOriginalName() + " " + suffix, _callbackQueue, _threadStateHandler);
+            ManagedNode node = new ManagedNode(new SimpleName(Nodel.reduce(_node.getName().getOriginalName(), true) + " " + suffix), _callbackQueue, _threadStateHandler);
 
             _managedNodes.add(node);
 

@@ -155,8 +155,8 @@ public class PyNode extends BaseDynamicNode {
     /**
      * Create a new pyNode.
      */
-    public PyNode(NodelHost nodelHost, File root) throws IOException {
-        super(root);
+    public PyNode(NodelHost nodelHost, SimpleName name, File root) throws IOException {
+        super(name, root);
         
         _nodelHost = nodelHost;
 
@@ -1463,22 +1463,10 @@ public class PyNode extends BaseDynamicNode {
      * Renames the node.
      */
     @Service(name = "rename", title = "Rename", desc = "Renames a node.")
-    public void rename(String name) {
-        if (Strings.isNullOrEmpty(name))
-            throw new RuntimeException("No node name was provided");
-
-        File newNodeDir = new File(_root.getParentFile(), name);
-
-        if (newNodeDir.exists())
-            throw new RuntimeException("A node with the name '" + name + "' already exists.");
+    public void rename(SimpleName name) {
+        _nodelHost.renameNode(_root, name);
         
-        // this will throw an exception if name filtering rules are broken
-        _nodelHost.testNameFilters(name);
-
-        if (!_root.renameTo(newNodeDir))
-            throw new RuntimeException("The platform did not allow the renaming of the node folder for unspecified reasons.");
-
-        // the folder should have been renamed!
+        // would get here without any exceptions, the folder should have been renamed
         _logger.info("This node has been renamed. It will close down and restart under a new name shortly.");
     }
     

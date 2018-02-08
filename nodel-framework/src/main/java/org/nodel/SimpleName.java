@@ -7,7 +7,9 @@ package org.nodel;
  */
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Stack;
 
 import org.nodel.core.Nodel;
@@ -39,9 +41,9 @@ public class SimpleName {
     public SimpleName(String original) {
         _original = original;
         _reduced = Nodel.reduce(original);
-        _reducedForMatching = Nodel.reduceToLower(original);
+        _reducedForMatching = SimpleName.flatten(_reduced);
     } // (constructor)
-    
+     
     /**
      * Returns the original name used.
      */
@@ -267,6 +269,131 @@ public class SimpleName {
         }
 
         return list.toArray(new String[list.size()]);
+    }
+    
+    /**
+     * Holds the list of diacritics with associated ASCII "equivalent" (case sensitive)
+     * (kindly adopted from stackoverflow.com/questions/249087/how-do-i-remove-diacritics-accents-from-a-string-in-net)
+     */
+    private final static String[][] DIACRITICS_TOASCII_WITHCASE = {
+            { "äæǽ", "ae" }, { "öœ", "oe" }, { "ü", "ue" }, { "Ä", "Ae" }, { "Ü", "Ue" }, { "Ö", "Oe" },
+            { "ÀÁÂÃÄÅǺĀĂĄǍΑΆẢẠẦẪẨẬẰẮẴẲẶА", "A" }, { "àáâãåǻāăąǎªαάảạầấẫẩậằắẵẳặа", "a" },
+            { "Б", "B" }, { "б", "b" }, { "ÇĆĈĊČ", "C" }, { "çćĉċč", "c" }, { "Д", "D" },
+            { "д", "d" }, { "ÐĎĐΔ", "Dj" }, { "ðďđδ", "dj" }, { "ÈÉÊËĒĔĖĘĚΕΈẼẺẸỀẾỄỂỆЕЭ", "E" }, { "èéêëēĕėęěέεẽẻẹềếễểệеэ", "e" },
+            { "Ф", "F" }, { "ф", "f" }, { "ĜĞĠĢΓГҐ", "G" }, { "ĝğġģγгґ", "g" }, { "ĤĦ", "H" }, { "ĥħ", "h" }, { "ÌÍÎÏĨĪĬǏĮİΗΉΊΙΪỈỊИЫ", "I" },
+            { "ìíîïĩīĭǐįıηήίιϊỉịиыї", "i" }, { "Ĵ", "J" }, { "ĵ", "j" }, { "ĶΚК", "K" }, { "ķκк", "k" }, { "ĹĻĽĿŁΛЛ", "L" },
+            { "ĺļľŀłλл", "l" }, { "М", "M" }, { "м", "m" }, { "ÑŃŅŇΝН", "N" }, { "ñńņňŉνн", "n" },
+            { "ÒÓÔÕŌŎǑŐƠØǾΟΌΩΏỎỌỒỐỖỔỘỜỚỠỞỢО", "O" }, { "òóôõōŏǒőơøǿºοόωώỏọồốỗổộờớỡởợо", "o" }, { "П", "P" }, { "п", "p" },
+            { "ŔŖŘΡР", "R" }, { "ŕŗřρр", "r" }, { "ŚŜŞȘŠΣС", "S" }, { "śŝşșšſσςс", "s" }, { "ȚŢŤŦτТ", "T" }, { "țţťŧт", "t" }, { "ÙÚÛŨŪŬŮŰŲƯǓǕǗǙǛŨỦỤỪỨỮỬỰУ", "U" },
+            { "ùúûũūŭůűųưǔǖǘǚǜυύϋủụừứữửựу", "u" }, { "ÝŸŶΥΎΫỲỸỶỴЙ", "Y" }, { "ýÿŷỳỹỷỵй", "y" }, { "В", "V" }, { "в", "v" }, { "Ŵ", "W" }, { "ŵ", "w" },
+            { "ŹŻŽΖЗ", "Z" }, { "źżžζз", "z" }, { "ÆǼ", "AE" }, { "ß", "ss" }, { "Ĳ", "IJ" }, { "ĳ", "ij" }, { "Œ", "OE" }, { "ƒ", "f" },
+            { "ξ", "ks" }, { "π", "p" }, { "β", "v" }, { "μ", "m" }, { "ψ", "ps" }, { "Ё", "Yo" }, { "ё", "yo" }, { "Є", "Ye" },
+            { "є", "ye" }, { "Ї", "Yi" }, { "Ж", "Zh" }, { "ж", "zh" }, { "Х", "Kh" }, { "х", "kh" }, { "Ц", "Ts" }, { "ц", "ts" },
+            { "Ч", "Ch" }, { "ч", "ch" }, { "Ш", "Sh" }, { "ш", "sh" }, { "Щ", "Shch" }, { "щ", "shch" }, { "ЪъЬь", "" }, { "Ю", "Yu" }, { "ю", "yu" },
+            { "Я", "Ya" }, { "я", "ya" } };
+    
+    /**
+     * Initialised for quick runtime use. e.g. 'Crème Brûlée' -> 'creme brulee'
+     */
+    private static final Map<Character, String> s_diacritic_tolowerascii = new HashMap<>();
+    
+    static {
+        initDiacriticMap();
+    }
+    
+    private static void initDiacriticMap() {
+        for (String[] entry : DIACRITICS_TOASCII_WITHCASE) {
+            String diacritics = entry[0];
+            String lowerAscii = entry[1].toLowerCase();
+            
+            int len = diacritics.length();
+            
+            for (int a=0; a<len; a++) {
+                char diacritic = diacritics.charAt(a);
+                
+                s_diacritic_tolowerascii.put(diacritic, lowerAscii);
+            }
+        }
+    }
+    
+    /**
+     * Flattens for loose name matching
+     * 
+     * "Crème Brûlée" -> "cremebrulee"  
+     */    
+    public static String flatten(String name) {
+        return flatten(name, null);
+    }    
+    
+    /**
+     * (see 'flatten', with characters to passthrough)  
+     */
+    public static String flatten(String name, char[] passthrough) {
+        int len = name.length();
+        StringBuilder sb = new StringBuilder();
+        
+        for (int a = 0; a < len; a++) {
+            char c = name.charAt(a);
+            
+            // deal with "pass through" first
+            if (passthrough != null && isPresent(c, passthrough)) {
+                String flatDialect = s_diacritic_tolowerascii.get(c);
+                if (flatDialect != null)
+                    sb.append(flatDialect);
+                else
+                    sb.append(Character.toLowerCase(c));
+            }
+            
+            // spaces and most ASCII control codes
+            else if (c <= 32) {
+                continue;
+            }
+            
+            // else ASCII letters or digits and everything else (extended ASCII and Unicode)
+            else if (c > 127 || Character.isLetterOrDigit(c)) {
+                String flatDialect = s_diacritic_tolowerascii.get(c);
+                if (flatDialect != null)
+                    sb.append(flatDialect);
+                else
+                    sb.append(Character.toLowerCase(c));
+            }
+        }
+        
+        return sb.toString();
+    }
+    
+    /**
+     * Returns true if a character is present in a list of them (held within a string)
+     * ('chars' must be pre-checked)
+     * (convenience method)
+     */
+    public static boolean isPresent(char c, char[] chars) {
+        int len = chars.length;
+        for (int a = 0; a < len; a++) {
+            if (chars[a] == c)
+                return true;
+        }
+        return false;
+    }
+    
+    /**
+     * Flatten a char and appends into a string builder.
+     */
+    public static void flattenChar(char c, StringBuilder sb) {
+        // skip spaces and most ASCII control codes
+        if (c <= 32)
+            return;
+        
+        // include ASCII letters or digits and everything else
+        if (c > 127 || Character.isLetterOrDigit(c)) {
+            String flatDialect = s_diacritic_tolowerascii.get(c);
+            if (flatDialect != null)
+                sb.append(flatDialect);
+            else
+                sb.append(Character.toLowerCase(c));
+        }
+        
+        // ...skip the remaining ASCII symbols 
     }
     
 } // (class)

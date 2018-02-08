@@ -22,6 +22,10 @@ import org.nodel.core.NodelServerEvent;
  */
 public abstract class BaseDynamicNode extends BaseNode {
     
+    public BaseDynamicNode(SimpleName name, File root) throws IOException {
+        super(name, root);
+    }
+    
     public BaseDynamicNode(File root) throws IOException {
         super(root);
     }

@@ -175,7 +175,7 @@ $(function() {
         $('#nodename').text(data.name);
         if(data.desc) $('#nodename').after('<p>'+htmlEncode(data.desc)+'</p>');
         $('.logo img').attr('title', 'Nodel '+data.nodelVersion);
-        $('.logo a').attr('href','/?filter='+encodeURIComponent(node));
+        $('.logo a').attr('href','/?filter='+encodeURIComponent(data.name));
         if((typeof preinit !== "undefined") && ($.isFunction(preinit))){ preinit(data); }
         $('body').data('config',data);
         // begin node UI initialisation
