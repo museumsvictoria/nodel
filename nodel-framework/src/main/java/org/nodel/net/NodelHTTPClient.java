@@ -1,6 +1,8 @@
 package org.nodel.net;
 
 import java.io.Closeable;
+import java.net.HttpURLConnection;
+import java.util.HashMap;
 
 /* 
  * This Source Code Form is subject to the terms of the Mozilla Public
@@ -12,10 +14,12 @@ import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
+import org.nodel.Strings;
 import org.nodel.diagnostics.AtomicIntegerMeasurementProvider;
 import org.nodel.diagnostics.AtomicLongMeasurementProvider;
 import org.nodel.diagnostics.Diagnostics;
 import org.nodel.diagnostics.MeasurementProvider;
+import org.nodel.json.JSONObject;
 
 /**
  * An HTTP client with some sensible timeouts, support for NTLM and a multi-threaded connection manager. 
@@ -81,15 +85,90 @@ public abstract class NodelHTTPClient implements Closeable {
     protected final static int DEFAULT_READTIMEOUT = 15000;
     
     /**
+     * (see setter)
+     */
+    protected String _proxyAddress;
+    
+    /**
+     * (see setter)
+     */    
+    protected String _proxyUsername;
+    
+    /**
+     * (see setter)
+     */    
+    protected String _proxyPassword;
+    
+    /**
+     * (see setter)
+     */
+    public void setProxy(String address, String username, String password) {
+        _proxyAddress = address;
+        _proxyUsername = username;
+        _proxyPassword = password;
+    }
+    
+    /**
+     * (see setter)
+     */
+    protected boolean _ignoreSSL = false;
+    
+    /**
+     * Whether or not all SSL related issues should be ignored / allowed.
+     */
+    public void setIgnoreSSL(boolean value) {
+        _ignoreSSL = value;
+    }
+    
+    @SuppressWarnings("serial")
+    public class HTTPSimpleResponse extends HashMap<String, Object> {
+        
+        public int statusCode;
+        
+        public String reasonPhrase;
+        
+        public String content;
+        
+        @Override
+        public String toString() {
+            return String.format("[statusCode:%s; reasonPhrase:[%s]; %s header%s; %s]",
+                    statusCode, reasonPhrase, this.size(), this.size() != 1 ? "s" : "",
+                    content.length() == 0 ? "blank content" : "content length " + content.length());
+        }
+        
+    }
+    
+    
+    /**
      * A very simple URL getter. queryArgs, contentType, postData are all optional.
      * 
      * Safe timeouts are used to avoid non-responsive servers being able to hold up connections indefinitely.
      */
-    public abstract String makeRequest(String urlStr, Map<String, String> query, 
+    public abstract HTTPSimpleResponse makeRequest(String urlStr, Map<String, String> query, 
                          String username, String password, 
-                         Map<String, String> headers, String reference, String contentType, 
+                         Map<String, String> headers, String contentType, 
                          String post, 
-                         Integer connectTimeout, Integer readTimeout,
-                         String proxyAddress, String proxyUsername, String proxyPassword);
+                         Integer connectTimeout, Integer readTimeout);
     
+    /**
+     * Same as above except returns the content on HTTP_OK 
+     */
+    public String makeSimpleRequest(String urlStr, Map<String, String> query,
+                              String username, String password,
+                              Map<String, String> headers, String contentType, String post,
+                              Integer connectTimeout, Integer readTimeout) {
+        HTTPSimpleResponse response = makeRequest(urlStr, query, username, password, headers, contentType, post, connectTimeout, readTimeout);
+
+        if (response.statusCode == HttpURLConnection.HTTP_OK) {
+            // 'OK' response, just return content
+            return response.content;
+            
+        } else {
+            // non-OK, so raise an exception including the content
+            throw new RuntimeException(String.format("Server returned '%s' with content %s", 
+                    response.statusCode + " " + response.reasonPhrase, 
+                    Strings.isEmpty(response.content) ? "<empty>" : JSONObject.quote(response.content)));
+        }        
+    }
+
 }
