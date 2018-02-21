@@ -4,12 +4,19 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.UnsupportedEncodingException;
-import java.net.HttpURLConnection;
+import java.net.InetAddress;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URLEncoder;
+import java.net.UnknownHostException;
+import java.security.SecureRandom;
+import java.security.cert.CertificateException;
+import java.security.cert.X509Certificate;
 import java.util.Map;
 import java.util.Map.Entry;
+
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.X509TrustManager;
 
 import org.apache.http.Header;
 import org.apache.http.HttpEntity;
@@ -17,6 +24,8 @@ import org.apache.http.HttpHost;
 import org.apache.http.HttpResponse;
 import org.apache.http.StatusLine;
 import org.apache.http.auth.AuthScope;
+import org.apache.http.auth.AuthenticationException;
+import org.apache.http.auth.Credentials;
 import org.apache.http.auth.NTCredentials;
 import org.apache.http.auth.UsernamePasswordCredentials;
 import org.apache.http.client.CredentialsProvider;
@@ -24,16 +33,23 @@ import org.apache.http.client.config.RequestConfig;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.client.methods.HttpRequestBase;
+import org.apache.http.config.Registry;
+import org.apache.http.config.RegistryBuilder;
+import org.apache.http.conn.socket.ConnectionSocketFactory;
+import org.apache.http.conn.socket.PlainConnectionSocketFactory;
+import org.apache.http.conn.ssl.NoopHostnameVerifier;
+import org.apache.http.conn.ssl.SSLConnectionSocketFactory;
 import org.apache.http.entity.StringEntity;
+import org.apache.http.impl.auth.BasicScheme;
 import org.apache.http.impl.client.BasicCredentialsProvider;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClientBuilder;
 import org.apache.http.impl.client.HttpClients;
-import org.apache.http.impl.conn.DefaultProxyRoutePlanner;
+import org.apache.http.impl.conn.PoolingHttpClientConnectionManager;
 import org.nodel.Strings;
+import org.nodel.Version;
 import org.nodel.io.Stream;
 import org.nodel.io.UnexpectedIOException;
-import org.nodel.json.JSONObject;
 import org.nodel.net.NodelHTTPClient;
 
 public class ApacheNodelHttpClient extends NodelHTTPClient {
@@ -61,17 +77,22 @@ public class ApacheNodelHttpClient extends NodelHTTPClient {
      * 
      * (uses double-check singleton)
      */
-    private void tryInitHttpClient(String proxyAddress, String proxyUsername, String proxyPassword) {
+    private void lazyInit() {
         if (_httpClient == null) {
             synchronized (_lock) {
                 if (_httpClient != null)
                     return;
                 
-                HttpClientBuilder httpClientBuilder = HttpClients.custom()
+                HttpClientBuilder builder = HttpClients.custom()
+                        .setUserAgent("Nodel/" + Version.shared().version)
                         
                         // need to reference this later
                         .setDefaultCredentialsProvider(_credentialsProvider = new BasicCredentialsProvider())
                         
+                        // unrestricted connections
+                        .setMaxConnTotal(1000)
+                        .setMaxConnPerRoute(1000)
+                       
                         // default timeouts
                         .setDefaultRequestConfig(_requestConfig = RequestConfig.custom()
                                 .setConnectTimeout(DEFAULT_CONNECTTIMEOUT)
@@ -79,49 +100,104 @@ public class ApacheNodelHttpClient extends NodelHTTPClient {
                                 .build());
                 
                 // using a proxy?
-                if (proxyAddress != null) {
-                    String[] proxyAddressParts = proxyAddress.split(":");
-                    if (proxyAddressParts.length != 2)
-                        throw new IllegalArgumentException("Proxy address is not in form host:port");
-                    
-                    String proxyHost = proxyAddressParts[0];
-                    int proxyPort;
-                    try {
-                        proxyPort = Integer.parseInt(proxyAddressParts[1]);
-                        
-                    } catch (Exception exc) {
-                        throw new IllegalArgumentException("Proxy port specified was not a number.");
-                    }
-                    
-                    HttpHost proxy = new HttpHost(proxyHost, proxyPort);
-                    
-                    // set proxy credentials if provided
-                    if (proxyUsername != null) {
-                        if (proxyPassword == null)
-                            throw new IllegalArgumentException("Proxy user");
-                        
-                        _credentialsProvider.setCredentials(new AuthScope(proxy),
-                                new UsernamePasswordCredentials(proxyUsername, proxyPassword));
-                    }
-                    
-                    httpClientBuilder.setRoutePlanner(new DefaultProxyRoutePlanner(proxy));
-                }
+                if (!Strings.isBlank(_proxyAddress))
+                    builder.setProxy(prepareForProxyUse(_proxyAddress, _proxyUsername, _proxyPassword));
                 
-                _httpClient = httpClientBuilder.build();
+                // ignore all SSL verifications errors?
+                if (_ignoreSSL)
+                    prepareForNoSSL(builder);
+                
+                // build the client
+                _httpClient = builder.build();
             }
         }
     }
+
+    /**
+     * (convenience method) 
+     */
+    private HttpHost prepareForProxyUse(String proxyAddress, String proxyUsername, String proxyPassword) {
+        HttpHost proxy;
+        
+        String proxyHost = null;
+        int proxyPort = -1;
+        
+        try {
+            int lastIndexOfColon = proxyAddress.lastIndexOf(':');
+            proxyHost = proxyAddress.substring(0, lastIndexOfColon - 1);
+            proxyPort = Integer.parseInt(proxyAddress.substring(lastIndexOfColon + 1));
+        } catch (Exception ignore) {
+        }
+        
+        if (Strings.isBlank(proxyHost) || proxyPort <= 0)
+            throw new IllegalArgumentException("Proxy address is not in form host:port");
+        
+        proxy = new HttpHost(proxyHost, proxyPort);
+        
+        // using proxy credentials?
+        if (!Strings.isBlank(proxyUsername) && proxyPassword != null) {
+            String userPart = proxyUsername;
+            String domainPart = null;
+            int indexOfBackSlash = proxyUsername.indexOf('\\');
+            if (indexOfBackSlash > 0) {
+                domainPart = proxyUsername.substring(0, indexOfBackSlash);
+                userPart = proxyUsername.substring(Math.min(proxyUsername.length() - 1, indexOfBackSlash + 1));
+            }
+            AuthScope authScope = new AuthScope(proxyHost, proxyPort);
+            if (domainPart == null) {
+                _credentialsProvider.setCredentials(authScope, new UsernamePasswordCredentials(proxyUsername, proxyPassword));
+            } else {
+                // normally used with NTLM
+                _credentialsProvider.setCredentials(authScope, new NTCredentials(userPart, proxyPassword, getLocalHostName(), domainPart));
+            }
+        }
+        
+        return proxy;
+    }
+    
+    /**
+     * (convenience method)
+     */
+    private void prepareForNoSSL(HttpClientBuilder builder) {
+        try {
+            SSLContext sslContext = SSLContext.getInstance("TLS");
+            sslContext.init(null, new X509TrustManager[] { new X509TrustManager() {
+                
+                public void checkClientTrusted(X509Certificate[] chain, String authType) throws CertificateException {
+                }
+                
+                public void checkServerTrusted(X509Certificate[] chain, String authType) throws CertificateException {
+                }
+                
+                public X509Certificate[] getAcceptedIssuers() {
+                    return new X509Certificate[0];
+                }
+                
+            } }, new SecureRandom());
+            builder.setSSLContext(sslContext);
+            
+            SSLConnectionSocketFactory sslSocketFactory = new SSLConnectionSocketFactory(sslContext, new NoopHostnameVerifier());
+            builder.setSSLSocketFactory(sslSocketFactory);
+            
+            Registry<ConnectionSocketFactory> socketFactoryRegistry = RegistryBuilder.<ConnectionSocketFactory>create()
+                    .register("http", PlainConnectionSocketFactory.getSocketFactory())
+                    .register("https", sslSocketFactory)
+                    .build();
+            
+            PoolingHttpClientConnectionManager connMgr = new PoolingHttpClientConnectionManager(socketFactoryRegistry);
+            builder.setConnectionManager(connMgr);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }    
     
     @Override
-    public String makeRequest(String urlStr, Map<String, String> query, 
+    public HTTPSimpleResponse makeRequest(String urlStr, Map<String, String> query, 
                          String username, String password, 
-                         Map<String, String> headers, String reference, String contentType, 
+                         Map<String, String> headers, String contentType, 
                          String post, 
-                         Integer connectTimeout, Integer readTimeout,
-                         String proxyAddress, String proxyUsername, String proxyPassword) {
-        
-        // sets up proxy *only* if it's the first the request
-        tryInitHttpClient(proxyAddress, proxyUsername, proxyPassword);
+                         Integer connectTimeout, Integer readTimeout) {
+        lazyInit();
         
         // record rate of new connections
         s_attemptRate.incrementAndGet();
@@ -143,12 +219,12 @@ public class ApacheNodelHttpClient extends NodelHTTPClient {
         try {
             s_activeConnections.incrementAndGet();
             
-            // if username is supplied, apply security
-            if (!Strings.isBlank(username))
-                applySecurity(uri, username, !Strings.isEmpty(password) ? password : "");
-            
             // 'get' or 'post'?
             HttpRequestBase request = (post == null ? new HttpGet(uri) : new HttpPost(uri));
+            
+            // if username is supplied, apply security
+            if (!Strings.isBlank(username))
+                applySecurity(request, username, !Strings.isEmpty(password) ? password : "");            
             
             // set 'Content-Type' header
             if (!Strings.isBlank(contentType))
@@ -212,14 +288,16 @@ public class ApacheNodelHttpClient extends NodelHTTPClient {
             
             StatusLine statusLine = httpResponse.getStatusLine();
             
-            if (statusLine.getStatusCode() == HttpURLConnection.HTTP_OK) {
-                // 'OK' response
-                return content;
-            } else {
-                // raise an exception including the content
-                throw new IOException(String.format("Server returned '%s' with content %s", 
-                        statusLine, Strings.isEmpty(content) ? "<empty>" : JSONObject.quote(content)));
-            }
+            HTTPSimpleResponse result = new HTTPSimpleResponse();
+            result.content = content;
+            result.statusCode = statusLine.getStatusCode();
+            result.reasonPhrase = statusLine.getReasonPhrase();
+            
+            for (Header header : httpResponse.getAllHeaders())
+                result.put(header.getName(), header.getValue());
+            
+            return result;
+            
         } catch (IOException exc) {
             throw new UnexpectedIOException(exc);
             
@@ -279,35 +357,53 @@ public class ApacheNodelHttpClient extends NodelHTTPClient {
     
     /**
      * Applies security for a given HTTP request.
+     * @throws AuthenticationException 
      */
-    private void applySecurity(URI location, String username, String password) {
-        // in case of NTLM, check for "\" in username
+    private void applySecurity(HttpRequestBase httpRequest, String username, String password) {
+        Credentials creds;
+
+        // in case of NTLM, check for '\' in username
         String userPart = username;
         String domainPart = null;
         int indexOfBackSlash = username.indexOf('\\');
         if (indexOfBackSlash > 0) {
+            // NTLM
             domainPart = username.substring(0, indexOfBackSlash);
             userPart = username.substring(Math.min(username.length() - 1, indexOfBackSlash + 1));
-        }
 
-        if (domainPart == null) {
-            UsernamePasswordCredentials creds = new UsernamePasswordCredentials(username, password);
+            creds = new NTCredentials(userPart, password, getLocalHostName(), domainPart);
 
-            // basic or digest or whatever
-            _credentialsProvider.setCredentials(new AuthScope(location.getHost(), location.getPort(), AuthScope.ANY_SCHEME), creds);
-
-            // TODO: REMOVE IF UNNCESSARY
-            // httpRequest.addHeader(BasicScheme.authenticate(creds, "US-ASCII", false));
         } else {
-            // normally used with NTLM
-            _credentialsProvider.setCredentials(new AuthScope(location.getHost(), location.getPort(), AuthScope.ANY_SCHEME), 
-                    new NTCredentials(userPart, password, "WORKSTATION", domainPart));
+            // BasicAuth
+            creds = new UsernamePasswordCredentials(username, password);
+
+            // pre-emptive
+            try {
+                httpRequest.setHeader(new BasicScheme().authenticate(creds, httpRequest, null));
+            } catch (AuthenticationException e) {
+                throw new RuntimeException(e);
+            }
         }
+
+        _credentialsProvider.setCredentials(new AuthScope(httpRequest.getURI().getHost(), httpRequest.getURI().getPort()), creds);
     }    
 
     @Override
     public void close() throws IOException {
-        _httpClient.close();
-    }        
+        Stream.safeClose(_httpClient);
+    }
+    
+    // static convenience methods
+    
+    /**
+     * Returns the local host name (does not throw exceptions).
+     */
+    private static String getLocalHostName() {
+        try {
+            return InetAddress.getLocalHost().getHostName();
+        } catch (UnknownHostException exc) {
+            throw new UnexpectedIOException(exc);
+        }
+    }
     
 }
