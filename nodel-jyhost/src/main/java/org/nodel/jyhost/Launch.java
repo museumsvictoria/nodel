@@ -42,6 +42,7 @@ import org.python.core.adapter.PyObjectAdapter;
 import org.python.util.PythonInterpreter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.slf4j.impl.JDK14LoggingHandler;
 
 /**
  * Main program entry-point.
@@ -583,6 +584,11 @@ public class Launch {
 
             if (loggingDir != null)
                 System.out.println("    (file logging is enabled [" + loggingDir.getAbsolutePath() + "])\n");
+            
+            // deal with all the known third-party logging frameworks. They should all come 
+            // out at DEBUG level within slf4j 
+            
+            JDK14LoggingHandler.init();
             
         } catch (Exception exc) {
             System.err.println("Logging configuration failure; logging may or may not be functional.");
