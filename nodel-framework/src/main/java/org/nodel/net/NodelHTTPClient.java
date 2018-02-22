@@ -1,8 +1,9 @@
 package org.nodel.net;
 
 import java.io.Closeable;
+import java.io.UnsupportedEncodingException;
 import java.net.HttpURLConnection;
-import java.util.HashMap;
+import java.net.URLEncoder;
 
 /* 
  * This Source Code Form is subject to the terms of the Mozilla Public
@@ -11,6 +12,7 @@ import java.util.HashMap;
  */
 
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -120,24 +122,17 @@ public abstract class NodelHTTPClient implements Closeable {
         _ignoreSSL = value;
     }
     
-    @SuppressWarnings("serial")
-    public class HTTPSimpleResponse extends HashMap<String, Object> {
-        
-        public int statusCode;
-        
-        public String reasonPhrase;
-        
-        public String content;
-        
-        @Override
-        public String toString() {
-            return String.format("[statusCode:%s; reasonPhrase:[%s]; %s header%s; %s]",
-                    statusCode, reasonPhrase, this.size(), this.size() != 1 ? "s" : "",
-                    content.length() == 0 ? "blank content" : "content length " + content.length());
-        }
-        
-    }
+    /**
+     * (see setter)
+     */
+    protected boolean _ignoreRedirects;
     
+    /**
+     * Manually handle redirects
+     */
+    public void setIgnoreRedirects(boolean value) {
+        _ignoreRedirects = value;
+    }    
     
     /**
      * A very simple URL getter. queryArgs, contentType, postData are all optional.
@@ -169,6 +164,49 @@ public abstract class NodelHTTPClient implements Closeable {
                     response.statusCode + " " + response.reasonPhrase, 
                     Strings.isEmpty(response.content) ? "<empty>" : JSONObject.quote(response.content)));
         }        
+    }
+    
+    /**
+     * Builds up query string if args given, e.g. ...?name=My%20Name&surname=My%20Surname
+     */
+    public static String urlEncodeQuery(Map<String, String> query) {
+        if (query == null)
+            return null;
+        
+        StringBuilder sb = new StringBuilder();
+        
+        for (Entry<String, String> entry : query.entrySet()) {
+            String key = entry.getKey();
+            String value = entry.getValue();
+            
+            // 'key' must have length, 'value' doesn't have to
+            if (Strings.isEmpty(key) || value == null)
+                continue;
+            
+            if (sb.length() > 0)
+                sb.append('&');
+            
+            sb.append(urlEncode(key))
+                    .append('=')
+                    .append(urlEncode(value));
+        }
+        
+        if (sb.length() > 0)
+            return sb.toString();
+        else
+            return null;
+    }
+    
+    /**
+     * (exception-less, convenience function)
+     */
+    public static String urlEncode(String value) {
+        try {
+            return URLEncoder.encode(value, "UTF-8");
+            
+        } catch (UnsupportedEncodingException e) {
+            throw new RuntimeException(e);
+        }
     }
 
 }

@@ -3,11 +3,9 @@ package org.nodel.http.impl;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.io.UnsupportedEncodingException;
 import java.net.InetAddress;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.net.URLEncoder;
 import java.net.UnknownHostException;
 import java.security.SecureRandom;
 import java.security.cert.CertificateException;
@@ -21,7 +19,9 @@ import javax.net.ssl.X509TrustManager;
 import org.apache.http.Header;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpHost;
+import org.apache.http.HttpRequest;
 import org.apache.http.HttpResponse;
+import org.apache.http.ProtocolException;
 import org.apache.http.StatusLine;
 import org.apache.http.auth.AuthScope;
 import org.apache.http.auth.AuthenticationException;
@@ -29,10 +29,12 @@ import org.apache.http.auth.Credentials;
 import org.apache.http.auth.NTCredentials;
 import org.apache.http.auth.UsernamePasswordCredentials;
 import org.apache.http.client.CredentialsProvider;
+import org.apache.http.client.RedirectStrategy;
 import org.apache.http.client.config.RequestConfig;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.client.methods.HttpRequestBase;
+import org.apache.http.client.methods.HttpUriRequest;
 import org.apache.http.config.Registry;
 import org.apache.http.config.RegistryBuilder;
 import org.apache.http.conn.socket.ConnectionSocketFactory;
@@ -46,10 +48,12 @@ import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClientBuilder;
 import org.apache.http.impl.client.HttpClients;
 import org.apache.http.impl.conn.PoolingHttpClientConnectionManager;
+import org.apache.http.protocol.HttpContext;
 import org.nodel.Strings;
 import org.nodel.Version;
 import org.nodel.io.Stream;
 import org.nodel.io.UnexpectedIOException;
+import org.nodel.net.HTTPSimpleResponse;
 import org.nodel.net.NodelHTTPClient;
 
 public class ApacheNodelHttpClient extends NodelHTTPClient {
@@ -71,7 +75,7 @@ public class ApacheNodelHttpClient extends NodelHTTPClient {
      * Mainly used for adjusting timeouts
      */
     private RequestConfig _requestConfig;
-
+    
     /**
      * This needs to be done lazily because proxy can only be set up once
      * 
@@ -106,6 +110,10 @@ public class ApacheNodelHttpClient extends NodelHTTPClient {
                 // ignore all SSL verifications errors?
                 if (_ignoreSSL)
                     prepareForNoSSL(builder);
+                
+                // ignore all redirect codes
+                if (_ignoreRedirects)
+                    builder.setRedirectStrategy(IGNORE_ALL_REDIRECTS);
                 
                 // build the client
                 _httpClient = builder.build();
@@ -161,19 +169,7 @@ public class ApacheNodelHttpClient extends NodelHTTPClient {
     private void prepareForNoSSL(HttpClientBuilder builder) {
         try {
             SSLContext sslContext = SSLContext.getInstance("TLS");
-            sslContext.init(null, new X509TrustManager[] { new X509TrustManager() {
-                
-                public void checkClientTrusted(X509Certificate[] chain, String authType) throws CertificateException {
-                }
-                
-                public void checkServerTrusted(X509Certificate[] chain, String authType) throws CertificateException {
-                }
-                
-                public X509Certificate[] getAcceptedIssuers() {
-                    return new X509Certificate[0];
-                }
-                
-            } }, new SecureRandom());
+            sslContext.init(null, new X509TrustManager[] { IGNORE_SSL_TRUSTMANAGER }, new SecureRandom());
             builder.setSSLContext(sslContext);
             
             SSLConnectionSocketFactory sslSocketFactory = new SSLConnectionSocketFactory(sslContext, new NoopHostnameVerifier());
@@ -203,7 +199,13 @@ public class ApacheNodelHttpClient extends NodelHTTPClient {
         s_attemptRate.incrementAndGet();
         
         // construct the full URL (includes query string)
-        String fullURL = buildQueryString(urlStr, query);
+        String fullURL;
+        
+        String queryPart = urlEncodeQuery(query);
+        if (!Strings.isEmpty(queryPart))
+            fullURL = String.format("%s?%s", urlStr, queryPart);
+        else
+            fullURL = urlStr;
 
         // (out of scope for clean up purposes)
         InputStream inputStream = null;
@@ -294,7 +296,7 @@ public class ApacheNodelHttpClient extends NodelHTTPClient {
             result.reasonPhrase = statusLine.getReasonPhrase();
             
             for (Header header : httpResponse.getAllHeaders())
-                result.put(header.getName(), header.getValue());
+                result.addHeader(header.getName(), header.getValue());
             
             return result;
             
@@ -305,53 +307,6 @@ public class ApacheNodelHttpClient extends NodelHTTPClient {
             Stream.safeClose(inputStream);
             
             s_activeConnections.decrementAndGet();
-        }
-    }
-
-    /**
-     * Builds up query string if args given, e.g. ...?name=My%20Name&surname=My%20Surname
-     */
-    private static String buildQueryString(String urlStr, Map<String, String> query) {
-        StringBuilder queryArg = null;
-        if (query != null) {
-            StringBuilder sb = new StringBuilder();
-
-            for (Entry<String, String> entry : query.entrySet()) {
-                String key = entry.getKey();
-                String value = entry.getValue();
-
-                // 'key' must have length, 'value' doesn't have to
-                if (Strings.isEmpty(key) || value == null)
-                    continue;
-
-                if (sb.length() > 0)
-                    sb.append('&');
-
-                sb.append(urlEncode(key))
-                  .append('=')
-                  .append(urlEncode(value));
-            }
-            
-            if (sb.length() > 0)
-                queryArg = sb;
-        }
-
-        String fullURL;
-        if (queryArg == null)
-            fullURL = urlStr;
-        else
-            fullURL = String.format("%s?%s", urlStr, queryArg);
-        return fullURL;
-    }
-    
-    /**
-     * (exception-less, convenience function)
-     */
-    private static String urlEncode(String value) {
-        try {
-            return URLEncoder.encode(value, "UTF-8");
-        } catch (UnsupportedEncodingException e) {
-            throw new RuntimeException(e);
         }
     }
     
@@ -405,5 +360,40 @@ public class ApacheNodelHttpClient extends NodelHTTPClient {
             throw new UnexpectedIOException(exc);
         }
     }
+    
+    // convenience instances
+    
+    /**
+     * Ignores all SSL issues
+     */
+    private static X509TrustManager IGNORE_SSL_TRUSTMANAGER = new X509TrustManager() {
+        
+        public void checkClientTrusted(X509Certificate[] chain, String authType) throws CertificateException { }
+        
+        public void checkServerTrusted(X509Certificate[] chain, String authType) throws CertificateException { }
+        
+        public X509Certificate[] getAcceptedIssuers() {
+            return new X509Certificate[0];
+        }
+        
+    };
+    
+
+    /**
+     *  A redirect strategy used to ignore all redirect directives i.e. will be manually handled
+     */
+    private static RedirectStrategy IGNORE_ALL_REDIRECTS = new RedirectStrategy() {
+
+        @Override
+        public boolean isRedirected(HttpRequest request, HttpResponse response, HttpContext context) throws ProtocolException {
+            return false;
+        }
+
+        @Override
+        public HttpUriRequest getRedirect(HttpRequest request, HttpResponse response, HttpContext context) throws ProtocolException {
+            return null;
+        }
+        
+    };
     
 }

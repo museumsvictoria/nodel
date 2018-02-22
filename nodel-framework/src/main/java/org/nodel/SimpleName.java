@@ -34,13 +34,30 @@ public class SimpleName {
     private String _reducedForMatching;
     
     /**
-     * (private constructor)
+     * (constructor)
      */
     public SimpleName(String original) {
         _original = original;
         _reduced = Nodel.reduce(original);
         _reducedForMatching = Nodel.reduceToLower(original);
-    } // (constructor)
+    }
+    
+    /**
+     * (reserved for further handling)
+     */
+    public static SimpleName intoSimple(Object obj) {
+        if (obj instanceof SimpleName)
+            return (SimpleName) obj;
+        
+        else if (obj instanceof String)
+            return new SimpleName((String) obj);
+        
+        else if (obj != null)
+            return new SimpleName(obj.toString());
+        
+        else
+            return null;
+    }
     
     /**
      * Returns the original name used.
@@ -63,15 +80,27 @@ public class SimpleName {
         return _reducedForMatching;
     }
     
+    /**
+     * Allow comparison of strings too.
+     */
     @Override
     public boolean equals(Object obj) {
-        if (obj == null || !(obj instanceof SimpleName))
+        SimpleName other;
+        
+        if (obj instanceof String)
+            other = new SimpleName((String) obj);
+        
+        else if (obj instanceof SimpleName)
+            other = (SimpleName) obj;
+        
+        else if (obj == null)
             return false;
         
-        SimpleName other = (SimpleName) obj;
+        else
+            other = new SimpleName(obj.toString());
 
         return _reducedForMatching.equals(other._reducedForMatching);
-    } // (method)
+    }
     
     @Override
     public int hashCode() {
@@ -96,7 +125,7 @@ public class SimpleName {
             names[i] = list.get(i).getOriginalName();
 
         return names;
-    } // (method)
+    }
     
     /**
      * Returns a string array of reduced versions.
@@ -109,7 +138,7 @@ public class SimpleName {
             names[i] = list.get(i).getReducedName();
         
         return names; 
-    } // (method)
+    }
     
     /**
      * Returns a NodelName list from an array of names.
