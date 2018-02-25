@@ -36,14 +36,31 @@ public class SimpleName {
     private String _reducedForMatching;
     
     /**
-     * (private constructor)
+     * (constructor)
      */
     public SimpleName(String original) {
         _original = original;
         _reduced = Nodel.reduce(original);
         _reducedForMatching = SimpleName.flatten(_reduced);
-    } // (constructor)
+    }
      
+    /**
+     * (reserved for further handling)
+     */
+    public static SimpleName intoSimple(Object obj) {
+        if (obj instanceof SimpleName)
+            return (SimpleName) obj;
+        
+        else if (obj instanceof String)
+            return new SimpleName((String) obj);
+        
+        else if (obj != null)
+            return new SimpleName(obj.toString());
+        
+        else
+            return null;
+    }
+    
     /**
      * Returns the original name used.
      */
@@ -65,15 +82,27 @@ public class SimpleName {
         return _reducedForMatching;
     }
     
+    /**
+     * Allow comparison of strings too.
+     */
     @Override
     public boolean equals(Object obj) {
-        if (obj == null || !(obj instanceof SimpleName))
+        SimpleName other;
+        
+        if (obj instanceof String)
+            other = new SimpleName((String) obj);
+        
+        else if (obj instanceof SimpleName)
+            other = (SimpleName) obj;
+        
+        else if (obj == null)
             return false;
         
-        SimpleName other = (SimpleName) obj;
+        else
+            other = new SimpleName(obj.toString());
 
         return _reducedForMatching.equals(other._reducedForMatching);
-    } // (method)
+    }
     
     @Override
     public int hashCode() {
@@ -98,7 +127,7 @@ public class SimpleName {
             names[i] = list.get(i).getOriginalName();
 
         return names;
-    } // (method)
+    }
     
     /**
      * Returns a string array of reduced versions.
@@ -111,7 +140,7 @@ public class SimpleName {
             names[i] = list.get(i).getReducedName();
         
         return names; 
-    } // (method)
+    }
     
     /**
      * Returns a NodelName list from an array of names.
@@ -276,24 +305,24 @@ public class SimpleName {
      * (kindly adopted from stackoverflow.com/questions/249087/how-do-i-remove-diacritics-accents-from-a-string-in-net)
      */
     private final static String[][] DIACRITICS_TOASCII_WITHCASE = {
-            { "äæǽ", "ae" }, { "öœ", "oe" }, { "ü", "ue" }, { "Ä", "Ae" }, { "Ü", "Ue" }, { "Ö", "Oe" },
-            { "ÀÁÂÃÄÅǺĀĂĄǍΑΆẢẠẦẪẨẬẰẮẴẲẶА", "A" }, { "àáâãåǻāăąǎªαάảạầấẫẩậằắẵẳặа", "a" },
-            { "Б", "B" }, { "б", "b" }, { "ÇĆĈĊČ", "C" }, { "çćĉċč", "c" }, { "Д", "D" },
-            { "д", "d" }, { "ÐĎĐΔ", "Dj" }, { "ðďđδ", "dj" }, { "ÈÉÊËĒĔĖĘĚΕΈẼẺẸỀẾỄỂỆЕЭ", "E" }, { "èéêëēĕėęěέεẽẻẹềếễểệеэ", "e" },
-            { "Ф", "F" }, { "ф", "f" }, { "ĜĞĠĢΓГҐ", "G" }, { "ĝğġģγгґ", "g" }, { "ĤĦ", "H" }, { "ĥħ", "h" }, { "ÌÍÎÏĨĪĬǏĮİΗΉΊΙΪỈỊИЫ", "I" },
-            { "ìíîïĩīĭǐįıηήίιϊỉịиыї", "i" }, { "Ĵ", "J" }, { "ĵ", "j" }, { "ĶΚК", "K" }, { "ķκк", "k" }, { "ĹĻĽĿŁΛЛ", "L" },
-            { "ĺļľŀłλл", "l" }, { "М", "M" }, { "м", "m" }, { "ÑŃŅŇΝН", "N" }, { "ñńņňŉνн", "n" },
-            { "ÒÓÔÕŌŎǑŐƠØǾΟΌΩΏỎỌỒỐỖỔỘỜỚỠỞỢО", "O" }, { "òóôõōŏǒőơøǿºοόωώỏọồốỗổộờớỡởợо", "o" }, { "П", "P" }, { "п", "p" },
-            { "ŔŖŘΡР", "R" }, { "ŕŗřρр", "r" }, { "ŚŜŞȘŠΣС", "S" }, { "śŝşșšſσςс", "s" }, { "ȚŢŤŦτТ", "T" }, { "țţťŧт", "t" }, { "ÙÚÛŨŪŬŮŰŲƯǓǕǗǙǛŨỦỤỪỨỮỬỰУ", "U" },
-            { "ùúûũūŭůűųưǔǖǘǚǜυύϋủụừứữửựу", "u" }, { "ÝŸŶΥΎΫỲỸỶỴЙ", "Y" }, { "ýÿŷỳỹỷỵй", "y" }, { "В", "V" }, { "в", "v" }, { "Ŵ", "W" }, { "ŵ", "w" },
-            { "ŹŻŽΖЗ", "Z" }, { "źżžζз", "z" }, { "ÆǼ", "AE" }, { "ß", "ss" }, { "Ĳ", "IJ" }, { "ĳ", "ij" }, { "Œ", "OE" }, { "ƒ", "f" },
-            { "ξ", "ks" }, { "π", "p" }, { "β", "v" }, { "μ", "m" }, { "ψ", "ps" }, { "Ё", "Yo" }, { "ё", "yo" }, { "Є", "Ye" },
-            { "є", "ye" }, { "Ї", "Yi" }, { "Ж", "Zh" }, { "ж", "zh" }, { "Х", "Kh" }, { "х", "kh" }, { "Ц", "Ts" }, { "ц", "ts" },
-            { "Ч", "Ch" }, { "ч", "ch" }, { "Ш", "Sh" }, { "ш", "sh" }, { "Щ", "Shch" }, { "щ", "shch" }, { "ЪъЬь", "" }, { "Ю", "Yu" }, { "ю", "yu" },
-            { "Я", "Ya" }, { "я", "ya" } };
+            { "��?", "ae" }, { "��", "oe" }, { "�", "ue" }, { "�", "Ae" }, { "�", "Ue" }, { "�", "Oe" },
+            { "������?AAAA??????????????", "A" }, { "�����?aaaa�a??????????????", "a" },
+            { "?", "B" }, { "?", "b" }, { "�CCCC", "C" }, { "�cccc", "c" }, { "?", "D" },
+            { "?", "d" }, { "�D�?", "Dj" }, { "�ddd", "dj" }, { "����EEEEE????????????", "E" }, { "����eeeee?e??????????", "e" },
+            { "?", "F" }, { "?", "f" }, { "GGGGG??", "G" }, { "gggg???", "g" }, { "HH", "H" }, { "hh", "h" }, { "����IIIIII?????????", "I" },
+            { "����iiiiii??????????", "i" }, { "J", "J" }, { "j", "j" }, { "K??", "K" }, { "k??", "k" }, { "LLL?L??", "L" },
+            { "lll?l??", "l" }, { "?", "M" }, { "?", "m" }, { "�NNN??", "N" }, { "�nnn???", "n" },
+            { "����OOOOO�???O??????????????", "O" }, { "����ooooo�?�?????????????????", "o" }, { "?", "P" }, { "?", "p" },
+            { "RRR??", "R" }, { "rrr??", "r" }, { "SSS?�S?", "S" }, { "sss?�?s??", "s" }, { "?TTTt?", "T" }, { "?ttt?", "t" }, { "���UUUUUUUUUUUUU????????", "U" },
+            { "���uuuuuuuuuuuu???????????", "u" }, { "ݟY????????", "Y" }, { "��y?????", "y" }, { "?", "V" }, { "?", "v" }, { "W", "W" }, { "w", "w" },
+            { "ZZ�??", "Z" }, { "zz�??", "z" }, { "�?", "AE" }, { "�", "ss" }, { "?", "IJ" }, { "?", "ij" }, { "�", "OE" }, { "�", "f" },
+            { "?", "ks" }, { "p", "p" }, { "�", "v" }, { "�", "m" }, { "?", "ps" }, { "?", "Yo" }, { "?", "yo" }, { "?", "Ye" },
+            { "?", "ye" }, { "?", "Yi" }, { "?", "Zh" }, { "?", "zh" }, { "?", "Kh" }, { "?", "kh" }, { "?", "Ts" }, { "?", "ts" },
+            { "?", "Ch" }, { "?", "ch" }, { "?", "Sh" }, { "?", "sh" }, { "?", "Shch" }, { "?", "shch" }, { "????", "" }, { "?", "Yu" }, { "?", "yu" },
+            { "?", "Ya" }, { "?", "ya" } };
     
     /**
-     * Initialised for quick runtime use. e.g. 'Crème Brûlée' -> 'creme brulee'
+     * Initialised for quick runtime use. e.g. 'Cr�me Br�l�e' -> 'creme brulee'
      */
     private static final Map<Character, String> s_diacritic_tolowerascii = new HashMap<>();
     
@@ -319,7 +348,7 @@ public class SimpleName {
     /**
      * Flattens for loose name matching
      * 
-     * "Crème Brûlée" -> "cremebrulee"  
+     * "Cr�me Br�l�e" -> "cremebrulee"  
      */    
     public static String flatten(String name) {
         return flatten(name, null);

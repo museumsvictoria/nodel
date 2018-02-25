@@ -86,19 +86,21 @@ def date_instant(millis):
 def date_parse(s):
     return nodetoolkit.parseDate(s)
 
-# Simple URL retriever (supports POST)
-def get_url(url, query=None, username=None, password=None, headers=None, reference=None, contentType=None, post=None, connectTimeout=10, readTimeout=15,
-            proxyAddress=None, proxyUsername=None, proxyPassword=None):
-  return nodetoolkit.getURL(url, query, username, password, headers, reference, contentType, post, long(connectTimeout*1000), long(readTimeout*1000), proxyAddress, proxyUsername, proxyPassword)
+# Simple URL retriever (supports POST) where 'query' and 'headers' are dictionaries. 
+# If 'fullResponse', result is an object which includes 'statusCode', 'reason', 'content' and attributes made up of the response HTTP headers
+def get_url(url, query=None, username=None, password=None, headers=None, contentType=None, post=None, connectTimeout=10, readTimeout=15, fullResponse=False):
+  if fullResponse:
+    return nodetoolkit.getHttpClient().makeRequest(url, query, username, password, headers, contentType, post, long(connectTimeout*1000), long(readTimeout*1000))
+  else:
+    return nodetoolkit.getHttpClient().makeSimpleRequest(url, query, username, password, headers, contentType, post, long(connectTimeout*1000), long(readTimeout*1000))
 
 # DEPRECATED (same as above)
-def getURL(url, query=None, username=None, password=None, headers=None, reference=None, contentType=None, post=None, connectTimeout=10, readTimeout=15, 
-            proxyAddress=None, proxyUsername=None, proxyPassword=None):
-  return nodetoolkit.getURL(url, query, username, password, headers, reference, contentType, post, long(connectTimeout*1000), long(readTimeout*1000), proxyAddress, proxyUsername, proxyPassword)
+def getURL(url, query=None, username=None, password=None, headers=None, contentType=None, post=None, connectTimeout=10, readTimeout=15):
+  return nodetoolkit.getHttpClient().makeSimpleRequest(url, query, username, password, headers, contentType, post, long(connectTimeout*1000), long(readTimeout*1000))
 
 # A managed TCP connection that attempts to stay open (includes instrumentation)
 def TCP(dest=None, connected=None, received=None, sent=None, disconnected=None, timeout=None, sendDelimiters='\n', receiveDelimiters='\r\n', binaryStartStopFlags=None):
-  return nodetoolkit.createTCP(dest, connected, received, sent, disconnected, timeout, sendDelimiters, receiveDelimiters, binaryStartStopFlags);
+  return nodetoolkit.createTCP(dest, connected, received, sent, disconnected, timeout, sendDelimiters, receiveDelimiters, binaryStartStopFlags)
 
 # A managed UDP connection for sending or receiving UDP (includes instrumentation)
 def UDP(source='0.0.0.0:0', dest=None, ready=None, received=None, sent=None, intf=None):

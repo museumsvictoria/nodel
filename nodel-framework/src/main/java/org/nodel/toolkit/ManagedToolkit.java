@@ -867,7 +867,9 @@ public class ManagedToolkit {
     private void releaseHttpClient() {
         if (_httpClient != null) {
             try {
-                _httpClient.close();
+                synchronized (_lock) {
+                    _httpClient.close();
+                }
                 
             } catch (Exception exc) {
                 _logger.warn("HTTP client connection manager may not have shutdown cleanly", exc);
@@ -876,20 +878,27 @@ public class ManagedToolkit {
     }
     
     /**
+     * Lazily gets the HTTP client
+     */
+    public NodelHTTPClient getHttpClient() {
+        if (_httpClient == null) {
+            synchronized (_lock) {
+                if (_httpClient == null)
+                    _httpClient = NodelHttpClientProvider.instance().create();
+            }
+        }
+        return _httpClient;
+    }
+    
+    
+    /**
      * A very simple URL getter. queryArgs, contentType, postData are all optional.
      * 
      * Safe timeouts are used to avoid non-responsive servers being able to hold up connections indefinitely.
      */
-    public String getURL(String urlStr, Map<String, String> query, String username, String password, Map<String, String> headers, String reference, String contentType, String post,
-            Integer connectTimeout, Integer readTimeout,
-            String proxyAddress, String proxyUsername, String proxyPassword) throws IOException {
-        synchronized (_lock) {
-            if (_httpClient == null)
-                _httpClient = NodelHttpClientProvider.instance().create();
-        }
-
-        return _httpClient.makeRequest(urlStr, query, username, password, headers, reference, contentType, post, connectTimeout, readTimeout,
-                proxyAddress, proxyUsername, proxyPassword);
+    public String getURL(String urlStr, Map<String, String> query, String username, String password, Map<String, String> headers, String contentType, String post,
+            Integer connectTimeout, Integer readTimeout, boolean resultWithHeaders) throws IOException {
+        return getHttpClient().makeSimpleRequest(urlStr, query, username, password, headers, contentType, post, connectTimeout, readTimeout);
     }
 
     /**
