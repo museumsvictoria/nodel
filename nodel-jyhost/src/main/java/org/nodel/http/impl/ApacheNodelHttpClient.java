@@ -4,8 +4,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.net.InetAddress;
-import java.net.URI;
-import java.net.URISyntaxException;
 import java.net.UnknownHostException;
 import java.security.SecureRandom;
 import java.security.cert.CertificateException;
@@ -18,6 +16,7 @@ import javax.net.ssl.X509TrustManager;
 
 import org.apache.http.Header;
 import org.apache.http.HttpEntity;
+import org.apache.http.HttpEntityEnclosingRequest;
 import org.apache.http.HttpHost;
 import org.apache.http.HttpRequest;
 import org.apache.http.HttpResponse;
@@ -31,9 +30,14 @@ import org.apache.http.auth.UsernamePasswordCredentials;
 import org.apache.http.client.CredentialsProvider;
 import org.apache.http.client.RedirectStrategy;
 import org.apache.http.client.config.RequestConfig;
+import org.apache.http.client.methods.HttpDelete;
 import org.apache.http.client.methods.HttpGet;
+import org.apache.http.client.methods.HttpHead;
+import org.apache.http.client.methods.HttpOptions;
 import org.apache.http.client.methods.HttpPost;
+import org.apache.http.client.methods.HttpPut;
 import org.apache.http.client.methods.HttpRequestBase;
+import org.apache.http.client.methods.HttpTrace;
 import org.apache.http.client.methods.HttpUriRequest;
 import org.apache.http.config.Registry;
 import org.apache.http.config.RegistryBuilder;
@@ -188,10 +192,10 @@ public class ApacheNodelHttpClient extends NodelHTTPClient {
     }    
     
     @Override
-    public HTTPSimpleResponse makeRequest(String urlStr, Map<String, String> query, 
+    public HTTPSimpleResponse makeRequest(String urlStr, String method, Map<String, String> query, 
                          String username, String password, 
                          Map<String, String> headers, String contentType, 
-                         String post, 
+                         String body, 
                          Integer connectTimeout, Integer readTimeout) {
         lazyInit();
         
@@ -210,19 +214,11 @@ public class ApacheNodelHttpClient extends NodelHTTPClient {
         // (out of scope for clean up purposes)
         InputStream inputStream = null;
         
-        URI uri;
-        try {
-            uri = new URI(fullURL);
-            
-        } catch (URISyntaxException e) {
-            throw new RuntimeException(e);
-        }
+        boolean executed = false;
         
         try {
-            s_activeConnections.incrementAndGet();
-            
-            // 'get' or 'post'?
-            HttpRequestBase request = (post == null ? new HttpGet(uri) : new HttpPost(uri));
+            // GET, POST or other
+            HttpRequestBase request = selectHTTPbyMethod(method, body, fullURL);
             
             // if username is supplied, apply security
             if (!Strings.isBlank(username))
@@ -238,9 +234,12 @@ public class ApacheNodelHttpClient extends NodelHTTPClient {
                     request.setHeader(entry.getKey(), entry.getValue());
             }
             
-            if (!Strings.isEmpty(post)) {
-                HttpPost httpPost = (HttpPost) request;
-                httpPost.setEntity(new StringEntity(post));
+            if (!Strings.isEmpty(body)) {
+                if (!(request instanceof HttpEntityEnclosingRequest))
+                    throw new IllegalArgumentException("The HTTP method does not accept a body - " + method);
+                
+                HttpEntityEnclosingRequest httpWithBody = (HttpEntityEnclosingRequest) request;
+                httpWithBody.setEntity(new StringEntity(body));
             }
             
             // set any timeouts that apply
@@ -254,13 +253,17 @@ public class ApacheNodelHttpClient extends NodelHTTPClient {
                         .build());
             }
             
-            // perform the request
-            HttpResponse httpResponse;
-            httpResponse = _httpClient.execute(request);
+            // perform the request 
+            
+            // (and count it)
+            executed = true;
+            s_activeConnections.incrementAndGet();
+            
+            HttpResponse httpResponse = _httpClient.execute(request);
             
             // count the post now
-            if (!Strings.isEmpty(post))
-                s_sendRate.addAndGet(post.length());
+            if (!Strings.isEmpty(body))
+                s_sendRate.addAndGet(body.length());
             
             // safely get the response (regardless of response code for now)
             
@@ -306,9 +309,40 @@ public class ApacheNodelHttpClient extends NodelHTTPClient {
         } finally {
             Stream.safeClose(inputStream);
             
-            s_activeConnections.decrementAndGet();
+            if (executed)
+                s_activeConnections.decrementAndGet();
         }
     }
+    
+    /**
+     * (convenience function)
+     */
+    private static HttpRequestBase selectHTTPbyMethod(String method, String body, String url) {
+        // deal with in order of likelihood
+        if (Strings.isBlank(method) && Strings.isEmpty(body) || "GET".equals(method))
+            return new HttpGet(url);
+        
+        else if (Strings.isBlank(method) && !Strings.isEmpty(body) || "POST".equals(method))
+            return new HttpPost(url);
+        
+        else if ("DELETE".equals(method))
+            return new HttpDelete(url);
+        
+        else if ("HEAD".equals(method))
+            return new HttpHead(url);
+        
+        else if ("PUT".equals(method))
+            return new HttpPut(url);
+        
+        else if ("TRACE".equals(method))
+            return new HttpTrace(url);
+        
+        else if ("OPTIONS".equals(method))
+            return new HttpOptions(url);
+        
+        else
+            throw new IllegalArgumentException("Unknown HTTP method - " + method);
+    }    
     
     /**
      * Applies security for a given HTTP request.

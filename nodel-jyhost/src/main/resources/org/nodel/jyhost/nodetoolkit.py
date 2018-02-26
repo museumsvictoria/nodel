@@ -88,15 +88,15 @@ def date_parse(s):
 
 # Simple URL retriever (supports POST) where 'query' and 'headers' are dictionaries. 
 # If 'fullResponse', result is an object which includes 'statusCode', 'reason', 'content' and attributes made up of the response HTTP headers
-def get_url(url, query=None, username=None, password=None, headers=None, contentType=None, post=None, connectTimeout=10, readTimeout=15, fullResponse=False):
+def get_url(url, method=None, query=None, username=None, password=None, headers=None, contentType=None, post=None, connectTimeout=10, readTimeout=15, fullResponse=False):
   if fullResponse:
-    return nodetoolkit.getHttpClient().makeRequest(url, query, username, password, headers, contentType, post, long(connectTimeout*1000), long(readTimeout*1000))
+    return nodetoolkit.getHttpClient().makeRequest(url, method, query, username, password, headers, contentType, post, long(connectTimeout*1000), long(readTimeout*1000))
   else:
-    return nodetoolkit.getHttpClient().makeSimpleRequest(url, query, username, password, headers, contentType, post, long(connectTimeout*1000), long(readTimeout*1000))
+    return nodetoolkit.getHttpClient().makeSimpleRequest(url, method, query, username, password, headers, contentType, post, long(connectTimeout*1000), long(readTimeout*1000))
 
 # DEPRECATED (same as above)
-def getURL(url, query=None, username=None, password=None, headers=None, contentType=None, post=None, connectTimeout=10, readTimeout=15):
-  return nodetoolkit.getHttpClient().makeSimpleRequest(url, query, username, password, headers, contentType, post, long(connectTimeout*1000), long(readTimeout*1000))
+def getURL(url, method=None, query=None, username=None, password=None, headers=None, contentType=None, post=None, connectTimeout=10, readTimeout=15):
+  return nodetoolkit.getHttpClient().makeSimpleRequest(url, method, query, username, password, headers, contentType, post, long(connectTimeout*1000), long(readTimeout*1000))
 
 # A managed TCP connection that attempts to stay open (includes instrumentation)
 def TCP(dest=None, connected=None, received=None, sent=None, disconnected=None, timeout=None, sendDelimiters='\n', receiveDelimiters='\r\n', binaryStartStopFlags=None):
