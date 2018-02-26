@@ -139,7 +139,7 @@ public abstract class NodelHTTPClient implements Closeable {
      * 
      * Safe timeouts are used to avoid non-responsive servers being able to hold up connections indefinitely.
      */
-    public abstract HTTPSimpleResponse makeRequest(String urlStr, Map<String, String> query, 
+    public abstract HTTPSimpleResponse makeRequest(String urlStr, String method, Map<String, String> query, 
                          String username, String password, 
                          Map<String, String> headers, String contentType, 
                          String post, 
@@ -148,11 +148,11 @@ public abstract class NodelHTTPClient implements Closeable {
     /**
      * Same as above except returns the content on HTTP_OK 
      */
-    public String makeSimpleRequest(String urlStr, Map<String, String> query,
+    public String makeSimpleRequest(String urlStr, String method, Map<String, String> query,
                               String username, String password,
                               Map<String, String> headers, String contentType, String post,
                               Integer connectTimeout, Integer readTimeout) {
-        HTTPSimpleResponse response = makeRequest(urlStr, query, username, password, headers, contentType, post, connectTimeout, readTimeout);
+        HTTPSimpleResponse response = makeRequest(urlStr, method, query, username, password, headers, contentType, post, connectTimeout, readTimeout);
 
         if (response.statusCode == HttpURLConnection.HTTP_OK) {
             // 'OK' response, just return content

@@ -896,9 +896,9 @@ public class ManagedToolkit {
      * 
      * Safe timeouts are used to avoid non-responsive servers being able to hold up connections indefinitely.
      */
-    public String getURL(String urlStr, Map<String, String> query, String username, String password, Map<String, String> headers, String contentType, String post,
+    public String getURL(String urlStr, String method, Map<String, String> query, String username, String password, Map<String, String> headers, String contentType, String post,
             Integer connectTimeout, Integer readTimeout, boolean resultWithHeaders) throws IOException {
-        return getHttpClient().makeSimpleRequest(urlStr, query, username, password, headers, contentType, post, connectTimeout, readTimeout);
+        return getHttpClient().makeSimpleRequest(urlStr, method, query, username, password, headers, contentType, post, connectTimeout, readTimeout);
     }
 
     /**
