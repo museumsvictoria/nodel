@@ -102,12 +102,9 @@ public class Nodel {
             }
             
             // deal with '-- ___' and '// ___' comments
-            else if (c == '-' && lastChar == '-' || c == '/' && lastChar == '/') {
-                // remove last letter and ignore everything afterwards
-                sb.setLength(sb.length() - 1);
+            else if (c == '-' && lastChar == '-' || c == '/' && lastChar == '/')
+                // ignore everything afterwards
                 break;
-            
-            } 
             
             else if (removeCommentsOnly)
                 sb.append(c);
