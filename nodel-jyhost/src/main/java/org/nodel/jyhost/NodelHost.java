@@ -562,7 +562,7 @@ public class NodelHost {
      * 
      * NOTE: These are not allowed in Windows: \ / : * ? " < >|
      */
-    private final static char[] TREAT_AS_SAFE = " ()[]{}'&^$#@!`~;.+=-_".toCharArray();
+    private final static char[] TREAT_AS_SAFE = " ()[]{}'&^$#@!`~;.+=-_,".toCharArray();
     
     /**
      * Encodes a name into a multi-platform friendly version using URL encoding (%) as little as possible. 
