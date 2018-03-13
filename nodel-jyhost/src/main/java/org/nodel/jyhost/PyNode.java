@@ -1155,8 +1155,8 @@ public class PyNode extends BaseDynamicNode {
             
             // (Nodel layer)
             final NodelClientAction nodelAction = new NodelClientAction(action.getKey(),
-                    !Strings.isNullOrEmpty(nodeName) ? new SimpleName(nodeName) : null, 
-                    !Strings.isNullOrEmpty(actionName) ? new SimpleName(actionName) : null);
+                    !Strings.isBlank(nodeName) ? new SimpleName(nodeName) : null, 
+                    !Strings.isBlank(actionName) ? new SimpleName(actionName) : null);
 
             nodelAction.attachMonitor(new Handler.H1<Object>() {
                 
@@ -1209,7 +1209,7 @@ public class PyNode extends BaseDynamicNode {
             String nodeName = eventInfo.node;
             String eventName = eventInfo.event;
             
-            if (Strings.isNullOrEmpty(nodeName) || Strings.isNullOrEmpty(eventName))
+            if (Strings.isBlank(nodeName) || Strings.isBlank(eventName))
                 // skip for now
                 continue;
 
@@ -1388,7 +1388,7 @@ public class PyNode extends BaseDynamicNode {
             throw new RuntimeException("The interpreter has not been initialised yet.");
         
         // for keeping track of stuck threads
-        String functionKey = "eval" + (!Strings.isNullOrEmpty(source) ? "_" + source : "") + "_" + _funcSeqNumber.getAndIncrement();
+        String functionKey = "eval" + (!Strings.isBlank(source) ? "_" + source : "") + "_" + _funcSeqNumber.getAndIncrement();
         
         try {
             trackFunction(functionKey);
@@ -1426,7 +1426,7 @@ public class PyNode extends BaseDynamicNode {
         if (python == null)
             throw new RuntimeException("The interpreter has not been initialised yet.");
 
-        String functionKey = "exec" + (!Strings.isNullOrEmpty(source) ? "_" + source : "") + "_" + _funcSeqNumber.getAndIncrement();
+        String functionKey = "exec" + (!Strings.isBlank(source) ? "_" + source : "") + "_" + _funcSeqNumber.getAndIncrement();
 
         try {
             trackFunction(functionKey);
@@ -1447,7 +1447,7 @@ public class PyNode extends BaseDynamicNode {
 
             op.waitForResultOrThrowException();
         } catch (Exception exc) {
-            String message = "exec " + (!Strings.isNullOrEmpty(source) ? "_" + source : "") + "- " + exc;
+            String message = "exec " + (!Strings.isBlank(source) ? "_" + source : "") + "- " + exc;
             _logger.info(message);
             _errReader.inject(message);
             
@@ -1475,7 +1475,7 @@ public class PyNode extends BaseDynamicNode {
      */
     @Service(name = "update", title = "Updates", desc = "Updates a node from a recipe.")
     public void update(@Param(name = "path") String path) {
-        if (Strings.isNullOrEmpty(path))
+        if (Strings.isBlank(path))
             throw new RuntimeException("No recipe path name was provided");
 
         File baseDir = _nodelHost.recipes().getRecipeFolder(path);
