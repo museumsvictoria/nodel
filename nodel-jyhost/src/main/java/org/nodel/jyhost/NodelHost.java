@@ -8,15 +8,17 @@ package org.nodel.jyhost;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.UnsupportedEncodingException;
+import java.net.URLEncoder;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
 
 import org.nodel.Handler;
@@ -28,6 +30,7 @@ import org.nodel.diagnostics.AtomicLongMeasurementProvider;
 import org.nodel.diagnostics.Diagnostics;
 import org.nodel.discovery.AdvertisementInfo;
 import org.nodel.io.Files;
+import org.nodel.io.UTF8Charset;
 import org.nodel.reflection.Serialisation;
 import org.nodel.threading.ThreadPool;
 import org.nodel.threading.TimerTask;
@@ -108,6 +111,11 @@ public class NodelHost {
      * Reflects the current running node configuration.
      */
     private Map<SimpleName, PyNode> _nodeMap = Collections.synchronizedMap(new HashMap<SimpleName, PyNode>());
+    
+    /**
+     * The node folders in use.
+     */
+    private Map<SimpleName, File> _nodeFolders = new HashMap<>();
     
     /**
      * As specified by user.
@@ -242,33 +250,38 @@ public class NodelHost {
         
         // get all directories
         // (do this outside synchronized loop because it is IO dependent)
-        Map<SimpleName, File> currentFolders = new HashMap<SimpleName, File>();
+        Map<SimpleName, File> currentFolders = new HashMap<>();
         
         checkRoot(currentFolders, _root);
         for (File root : _otherRoots)
             checkRoot(currentFolders, root);
 
         synchronized (_signal) {
-            // find all those that are not in current node map
-            Map<SimpleName,File> newFolders = new HashMap<SimpleName,File>();
+            // find all those that are not in current folder list
+            Map<SimpleName, File> newFolders = new HashMap<>();
             
             for(Entry<SimpleName, File> entry : currentFolders.entrySet()) {
-                if (!_nodeMap.containsKey(entry.getKey())) {
-                    newFolders.put(entry.getKey(), entry.getValue());
+                SimpleName name = entry.getKey();
+                File folder = entry.getValue();
+                if (!_nodeFolders.containsValue((folder))) {
+                    newFolders.put(name, folder);
                 }
-            } // (for)
+            }
             
             // find all those not in the new map
-            Set<SimpleName> deletedNodes = new HashSet<SimpleName>();
+            Map<File, SimpleName> deletedFolders = new HashMap<>();
             
-            for(SimpleName name : _nodeMap.keySet()) {
-                if (!currentFolders.containsKey(name))
-                    deletedNodes.add(name);
-            } // (for)
+            for(Entry<SimpleName, File> existing : _nodeFolders.entrySet()) {
+                SimpleName existingName = existing.getKey();
+                File existingFolder = existing.getValue();
+                
+                if (!currentFolders.containsValue(existingFolder))
+                    deletedFolders.put(existingFolder, existingName);
+            }
             
             // stop all the removed nodes
             
-            for (SimpleName name : deletedNodes) {
+            for (SimpleName name : deletedFolders.values()) {
                 PyNode node = _nodeMap.get(name);
                 
                 _logger.info("Stopping and removing node '{}'", name);
@@ -278,20 +291,25 @@ public class NodelHost {
                 s_nodesCounter.decrementAndGet();
                 
                 _nodeMap.remove(name);
+                _nodeFolders.remove(name);
             } // (for)
             
             // start all the new nodes
             for (Entry<SimpleName, File> entry : newFolders.entrySet()) {
-                _logger.info("Spinning up node " + entry.getKey() + "...");
+                SimpleName name = entry.getKey();
+                File folder = entry.getValue();
+                
+                _logger.info("Spinning up node " + name + "...");
                 
                 try {
-                    PyNode node = new PyNode(this, entry.getValue());
+                    PyNode node = new PyNode(this, name, folder);
                     
                     // count the new node
                     s_nodesCounter.incrementAndGet();
                     
                     // place into the map
                     _nodeMap.put(entry.getKey(), node);
+                    _nodeFolders.put(name, folder);
                     
                 } catch (Exception exc) {
                     _logger.warn("Node creation failed; ignoring." + exc);
@@ -313,10 +331,21 @@ public class NodelHost {
     } // (method)
 
     private void checkRoot(Map<SimpleName, File> currentFolders, File root) {
-        for (File file : root.listFiles()) {
+        File[] files = root.listFiles();
+        
+        // cannot assume the order is stable
+        Arrays.sort(files, new Comparator<File>() {
+
+            @Override
+            public int compare(File o1, File o2) {
+                return o1.getName().compareTo(o2.getName());
+            }});
+        
+        for (File file : files) {
             // only include directories
             if (file.isDirectory()) {
                 String filename = file.getName();
+                SimpleName name = decodeFilenameIntoName(filename);
                 
                 // skip '_*' nodes...
                 if (!filename.startsWith("_")
@@ -327,9 +356,13 @@ public class NodelHost {
                         && !filename.startsWith(".")
 
                         // apply any applicable inclusion / exclusion filters
-                        && shouldBeIncluded(filename))
+                        && shouldBeIncluded(name)
+                        
+                        // node names might reduce to the same thing, so select first one only
+                        && !currentFolders.containsKey(name)) {
                     
-                    currentFolders.put(new SimpleName(file.getName()), file);
+                    currentFolders.put(name, file);
+                }
             }
         } // (for)
     }
@@ -347,10 +380,7 @@ public class NodelHost {
     /**
      * Creates a new node.
      */
-    public void newNode(String base, String name) {
-        if (Strings.isNullOrEmpty(name))
-            throw new RuntimeException("No node name was provided");
-
+    public void newNode(String base, SimpleName name) {
         testNameFilters(name);
 
         // if here, name does not break any filtering rules
@@ -359,12 +389,12 @@ public class NodelHost {
         // a temporary folder
         
         // TODO: should be able to select which root is applicable
-        File newNodeDir = new File(_root, name);
+        File newNodeDir = new File(_root, encodeIntoSafeFilename(name));
 
-        if (newNodeDir.exists())
+        if (_nodeMap.containsKey(name) || newNodeDir.exists())
             throw new RuntimeException("A node with the name '" + name + "' already exists.");
 
-        if (Strings.isNullOrEmpty(base)) {
+        if (base == null) {
             // not based on existing node, so just create an empty folder
             // and the node will do the rest
             if (!newNodeDir.mkdir())
@@ -385,7 +415,7 @@ public class NodelHost {
     /**
      * Same as 'shouldBeIncluded' but throws exception with naming conflict error details.
      */
-    public void testNameFilters(String name) {
+    public void testNameFilters(SimpleName name) {
         if (!shouldBeIncluded(name)) {
             String[] ins = _origInclFilters == null ? new String[] {} : _origInclFilters;
             String[] outs = _origExclFilters == null ? new String[] {} : _origExclFilters;
@@ -397,9 +427,7 @@ public class NodelHost {
     /**
      * Processes a name through inclusion and exclusion lists. (convenience instance function)
      */
-    public boolean shouldBeIncluded(String name) {
-        SimpleName simpleName = new SimpleName(name);
-        
+    public boolean shouldBeIncluded(SimpleName simpleName) {
         // using filtering? 
         boolean filteringIn = false;
 
@@ -452,7 +480,24 @@ public class NodelHost {
         return include;
     }
     
-
+    /**
+     * Renames a node.
+     */
+    public void renameNode(File root, SimpleName name) {
+        if (name == null)
+            throw new RuntimeException("No node name was provided");
+        
+        File newNodeDir = new File(_root, NodelHost.encodeIntoSafeFilename(name));
+        
+        if (newNodeDir.exists())
+            throw new RuntimeException("A node with the name '" + name + "' already exists.");
+        
+        // this will throw an exception if name filtering rules are broken
+        testNameFilters(name);
+        
+        if (!root.renameTo(newNodeDir))
+            throw new RuntimeException("The platform did not allow the renaming of the node folder for unspecified reasons.");
+    }
     
     
     public Collection<AdvertisementInfo> getAdvertisedNodes() {
@@ -502,7 +547,7 @@ public class NodelHost {
 
         for (int a = 0; a < filters.length; a++) {
             String filter = filters[a];
-            if (Strings.isNullOrEmpty(filter))
+            if (Strings.isBlank(filter))
                 continue;
 
             String[] tokens = SimpleName.wildcardMatchTokens(filter);
@@ -512,6 +557,105 @@ public class NodelHost {
         return list;
     }
     
+    /**
+     * Avoiding strict UTF-8 encoding by treating same as safe for ALL OSs
+     * 
+     * NOTE: These are not allowed in Windows: \ / : * ? " < >|
+     */
+    private final static char[] TREAT_AS_SAFE = " ()[]{}'&^$#@!`~;.+=-_,".toCharArray();
+    
+    /**
+     * Encodes a name into a multi-platform friendly version using URL encoding (%) as little as possible. 
+     */
+    protected static String encodeIntoSafeFilename(SimpleName name) {
+        StringBuilder sb = new StringBuilder();
+        String originalName = name.getOriginalName();
+        int len = originalName.length();
+        
+        for (int a = 0; a < len; a++) {
+            char c = originalName.charAt(a);
+            
+            if (SimpleName.isPresent(c, TREAT_AS_SAFE)) {
+                sb.append(c);
+                
+            } else {
+                try {
+                    sb.append(URLEncoder.encode(String.valueOf(c), "UTF-8"));
+                    
+                } catch (UnsupportedEncodingException e) {
+                    throw new RuntimeException("Encoding unexpectedly failed.", e);
+                }
+            }
+        }
+        
+        return sb.toString();
+    }
+    
+    /**
+     * Uses URL encoding ('%' escaping) to decode the filename.
+     */
+    protected static SimpleName decodeFilenameIntoName(String raw) {
+        boolean encoded = false;
+        
+        int len = raw.length();
+        
+        for (int a = 0; a < len; a++) {
+            if (raw.charAt(a) == '%') {
+                encoded = true;
+                break;
+            }
+        }
+        
+        if (!encoded)
+            return new SimpleName(raw);
+        
+        // otherwise go to the effort of decoding
+        
+        StringBuilder sb = new StringBuilder(len);
+        
+        // for building up the raw UTF-8 bytes
+        byte[] buffer = new byte[len];
+        int bIndex = 0;
+        
+        for (int i = 0; i < len; i++) {
+            char c = raw.charAt(i);
+            
+            if (c == '%') {
+                try {
+                    // grab next 2 bytes; encoded byte values to follow so add or extend the buffer...
+                    buffer[bIndex++] = (byte) (Integer.parseInt(raw.substring(i + 1, i + 3), 16) & 0xff);
+                    
+                    i += 2;
+                    
+                } catch (Exception exc) {
+                    // gracefully continue
+                    sb.append(c);
+                }
+                
+            } else {
+                // pass through the characters but ...
+                
+                if (bIndex > 0) {
+                    // ...if there's anything in the buffer, UTF-8 decode it
+                    sb.append(new String(buffer, 0, bIndex, UTF8Charset.instance()));
+                    
+                    // reset collection
+                    bIndex = 0;
+                }
+                
+                // add the character
+                sb.append(c);
+            }
+        }
+        
+        // ... must do at end too
+        if (bIndex > 0)
+            sb.append(new String(buffer, 0, bIndex, UTF8Charset.instance()));
+        
+        
+        return new SimpleName(sb.toString());
+    }
+
     /**
      * (init. in constructor)
      */

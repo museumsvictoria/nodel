@@ -154,7 +154,7 @@ public class NodelHostHTTPD extends NanoHTTPD {
         }
 
         @Service(name = "newNode", order = 7, title = "New node", desc = "Creates a new node.")
-        public void newNode(@Param(name = "base") String base, String name) {
+        public void newNode(@Param(name = "base") String base, SimpleName name) {
             _nodelHost.newNode(base, name);
         }
         

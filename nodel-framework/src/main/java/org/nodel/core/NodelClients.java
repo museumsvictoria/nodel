@@ -913,7 +913,7 @@ public class NodelClients {
                     
                     NodeURL nodeURL = new NodeURL();
                     nodeURL.node = service.name;
-                    nodeURL.address = address.replace("%NODE%", safeURLEncode(nodeURL.node.getOriginalName()));
+                    nodeURL.address = address.replace("%NODE%", safeURLEncode(nodeURL.node.getReducedName()));
                     
                     nodeURLs.add(nodeURL);
                 }

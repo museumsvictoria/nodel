@@ -191,13 +191,17 @@ public abstract class BaseNode implements Closeable {
     /**
      * Stores the internal config, NOT live bindings.
      */
-    protected NodeConfig _config = new NodeConfig();    
+    protected NodeConfig _config = new NodeConfig();
+    
+    public BaseNode(File root) throws IOException {
+        this(new SimpleName(root.getCanonicalFile().getName()), root);
+    }
     
     /**
      * Base constructor for a dynamic node.
      */
-    public BaseNode(File root) throws IOException {
-        init(root.getCanonicalFile().getName());
+    public BaseNode(SimpleName name, File root) throws IOException {
+        init(name);
         
         _root = root;
         _metaRoot = new File(_root, ".nodel");
@@ -211,7 +215,7 @@ public abstract class BaseNode implements Closeable {
     /**
      * Base constructor for a dynamic node.
      */
-    public BaseNode(String name) {
+    public BaseNode(SimpleName name) {
         init(name);
         
         _logger.info("Node initialised. Name=" + _name);
@@ -220,9 +224,9 @@ public abstract class BaseNode implements Closeable {
     /**
      * (common construction code)
      */
-    private void init(String name) {
+    private void init(SimpleName name) {
         // determine the name before logging is initialised
-        _name = new SimpleName(name);
+        _name = name;
         
         _logger = LoggerFactory.getLogger(String.format("%s_%d_%s", this.getClass().getName(), _instance, _name.getReducedName()));
         

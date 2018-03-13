@@ -18,6 +18,9 @@ buildscript {
 // this version is manually bumped
 def CONTROLLED_VERSION = "2.1.1"
 
+// some extended unicode is used in SimpleName
+compileJava.options.encoding = 'utf-8'
+
 def hostname = InetAddress.getLocalHost().getHostName().toUpperCase();
 
 def now = DateTime.now().toString();

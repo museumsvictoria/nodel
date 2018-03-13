@@ -68,23 +68,57 @@ public class Nodel {
     } // (method)
     
     /**
-     * Reduces a string into a simple version i.e. no spaces, only letters and digits. 
+     * Reduces a string into a simple version i.e. no spaces, only letters and digits and removes
+     * comments i.e. starts with starts with "--" or between round brackets.
      */
     public static String reduce(String name) {
+        return reduce(name, false);
+    }
+    
+    /**
+     * (same as 'reduce(name)' but with 'removeCommentsOnly' keeping spaces, etc.
+     */
+    public static String reduce(String name, boolean removeCommentsOnly) {
         int len = name.length();
         StringBuilder sb = new StringBuilder(len);
+        
+        char lastChar = 0;
+        
+        boolean inComment = false;
 
         for (int a = 0; a < len; a++) {
             char c = name.charAt(a);
             
-            if (Character.isLetterOrDigit(c))
+            // deal with '(___)' comments
+            if (c == '(') {
+                inComment = true;
+            }
+            
+            else if (inComment) {
+                if (c == ')')
+                    inComment = false;
+                else
+                    ; // don't capture
+            }
+            
+            // deal with '-- ___' and '// ___' comments
+            else if (c == '-' && lastChar == '-' || c == '/' && lastChar == '/')
+                // ignore everything afterwards
+                break;
+            
+            else if (removeCommentsOnly)
                 sb.append(c);
             
-            else if (c <= 32)
-                continue;
+            else if (Character.isLetterOrDigit(c))
+                sb.append(c);
             
             else if (c > 127)
-                sb.append(c);            
+                // every other extended ASCII and Unicode character
+                // is significant
+                sb.append(c);
+            
+            // store last char for comments
+            lastChar = c;
         } // (for)
         
         return sb.toString();
@@ -94,7 +128,7 @@ public class Nodel {
      * Reduces a string into a simple comparable version i.e. lower-case, no spaces, only letters and digits. 
      */
     public static String reduceToLower(String name) {
-        return reduceToLower(name, null);
+        return SimpleName.flatten(name);
     }    
     
     /**
@@ -102,39 +136,7 @@ public class Nodel {
      * 'ignore' - A list of characters pass-through regardless.
      */
     public static String reduceToLower(String name, char[] passthrough) {
-        int len = name.length();
-        StringBuilder sb = new StringBuilder(len);
-
-        for (int a = 0; a < len; a++) {
-            char c = name.charAt(a);
-            
-            if (passthrough != null && isPresent(c, passthrough))
-                sb.append(Character.toLowerCase(c));
-            
-            else if (Character.isLetterOrDigit(c))
-                sb.append(Character.toLowerCase(c));
-            
-            else if (c <= 32)
-                continue;
-            
-            else if (c > 127)
-                sb.append(Character.toLowerCase(c));
-        } // (for)
-        
-        return sb.toString();
-    } // (method)
-    
-    /**
-     * Returns true if a character is present in a list of them (held within a string)
-     * ('chars' must be pre-checked)
-     */
-    private static boolean isPresent(char c, char[] chars) {
-        int len = chars.length;
-        for (int a = 0; a < len; a++) {
-            if (chars[a] == c)
-                return true;
-        }
-        return false;
+        return SimpleName.flatten(name, passthrough);
     }
     
     /**
@@ -148,12 +150,16 @@ public class Nodel {
         for (int a = 0; a < len; a++) {
             char c = filter.charAt(a);
             
-            if (Character.isLetterOrDigit(c) || c == '*')
-                sb.append(Character.toLowerCase(c));
-        } // (for)
+            if (c == '*')
+                sb.append('*');
+            
+            else
+                // this method also performs filtering
+                SimpleName.flattenChar(c, sb);
+        }
         
         return sb.toString();
-    } // (method)    
+    }    
     
     /**
      * Performs a wild card matching for the text and pattern 
