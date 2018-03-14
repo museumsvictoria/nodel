@@ -641,17 +641,21 @@ public class PyNode extends BaseDynamicNode {
             }
             
             if (dependencies == DEFAULT_DEPENDENCIES && !_scriptFile.exists()) // deliberately comparing by reference here i.e. ==
-                // for default config, fail early if the script file doesn't exist
-                throw new FileNotFoundException("No script file exists.");
+                // for default config, fail early if the main script file doesn't exist
+                throw new FileNotFoundException("No main script file exists.");
             
             // go through the list of dependencies / scripts
             for (int a = 0; a < dependencies.length; a++) {
                 String script = dependencies[a];
                 File scriptFile = new File(_root, script);
                 
-                if (dependencies == DEFAULT_DEPENDENCIES && "custom.py".equals(script))
-                    // can gracefully skip 'custom.py' if using default config 
-                    continue;
+                if (!scriptFile.exists()) {
+                    // can gracefully skip missing 'custom.py' if using default config
+                    if (dependencies == DEFAULT_DEPENDENCIES && "custom.py".equals(script))
+                        continue;
+                    else
+                        throw new FileNotFoundException(script + " is listed as a dependency but missing");
+                }
                 
                 lock = null;
                 try {
