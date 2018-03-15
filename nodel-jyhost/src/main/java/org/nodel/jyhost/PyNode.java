@@ -400,7 +400,7 @@ public class PyNode extends BaseDynamicNode {
         
         _scriptFile = new File(_root, "script.py");
         if (!_scriptFile.exists())
-            Stream.writeFully(_scriptFile, ExampleScript.generateExampleScript());
+            Stream.writeFully(_scriptFile, ExampleScript.get());
         
         s_threadPool.execute(new Runnable() {
             
@@ -582,7 +582,7 @@ public class PyNode extends BaseDynamicNode {
         _python.setOut(_outReader);
         
         // dump a new example script if necessary
-        String exampleScript = ExampleScript.generateExampleScript();
+        String exampleScript = ExampleScript.get();
         File exampleScriptFile = new File(_root, "_script_example.py");
         String exampleStringFileStr = null;
         if (exampleScriptFile.exists())
