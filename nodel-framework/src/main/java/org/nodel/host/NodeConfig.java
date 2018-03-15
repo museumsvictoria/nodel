@@ -24,7 +24,13 @@ public class NodeConfig {
         
         Example.remoteBindingValues = RemoteBindingValues.Example;
         Example.paramValues = ParamValues.Example;
+        Example.dependencies = new String[] { "script.py", "custom.py" };
     }
+    
+    
+    @Value(name="dependencies", title="Dependencies / scripts / entry-points", order = 49, required = false,
+           desc="An ordering of dependencies / scripts / entry-points that will be used when loading the node")
+    public String[] dependencies;
     
     @Value(name = "remoteBindingValues", title = "Remote binding values", order = 50, required = true, 
            desc = "The remote action and event binding values.")
