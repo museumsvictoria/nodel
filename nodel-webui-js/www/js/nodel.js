@@ -829,7 +829,7 @@ var listNodes = function(){
     var req = $.getJSON('http://' + host + '/REST/recipes/list', function(data) {
       if (data.length > 0) {
         $.each(data, function(i, value) {
-          var readme = (typeof value.readme == 'undefined') ? "" : value.readme;
+          var readme = (typeof value.readme == 'undefined') ? "" : $('<div/>').text(value.readme).html();
           $('#recipesource').append('<option value="' + value.path + '" title="' + readme + '">' + value.path + '</option>');
         });
         $('#nodeaddrecipe').prop('disabled', false);
