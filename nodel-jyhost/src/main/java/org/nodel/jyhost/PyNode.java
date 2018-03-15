@@ -25,6 +25,7 @@ import java.util.concurrent.locks.ReentrantLock;
 
 import org.joda.time.DateTime;
 import org.nodel.DateTimes;
+import org.nodel.Exceptions;
 import org.nodel.Handler;
 import org.nodel.Handler.H0;
 import org.nodel.Handler.H1;
@@ -468,7 +469,7 @@ public class PyNode extends BaseDynamicNode {
             }
         }
     }
-
+    
     /**
      * Monitors changes to the config or script file and re-launches.
      * I/O is involved so may be blocking.
@@ -493,6 +494,8 @@ public class PyNode extends BaseDynamicNode {
             }
             
         } catch (Exception exc) {
+            _errReader.inject("Could not parse node config file; node will not be (re)started. " + Exceptions.formatExceptionGraph(exc));
+            
             _logger.warn("Config monitoring failed; will backoff and retry.", exc);
             exc.printStackTrace();
             
@@ -532,6 +535,8 @@ public class PyNode extends BaseDynamicNode {
             _busy.unlock();
         }
     } // (method)
+    
+    private static final String[] DEFAULT_DEPENDENCIES = new String[] { "script.py", "custom.py" };
     
     /**
      * This needs to be done from a clean thread (non-pooled, daemon) otherwise Python
@@ -606,10 +611,11 @@ public class PyNode extends BaseDynamicNode {
         
         Bindings bindings = Bindings.Empty;
         
+        String[] dependencies = config.dependencies != null ? config.dependencies : DEFAULT_DEPENDENCIES;
+        
+        List<String> dependenciesUsed = new ArrayList<>(); // holds the dependencies actually used (for logging purposes)
+        
         try {
-            if (!_scriptFile.exists())
-                throw new FileNotFoundException("No script file exists.");
-            
             cleanupBindings();
             
             // inject "self" as '_node'
@@ -634,20 +640,40 @@ public class PyNode extends BaseDynamicNode {
                     lock.unlock();
             }
             
-            lock = null;
-            try {
-                lock = getAReentrantLock();
+            if (dependencies == DEFAULT_DEPENDENCIES && !_scriptFile.exists()) // deliberately comparing by reference here i.e. ==
+                // for default config, fail early if the main script file doesn't exist
+                throw new FileNotFoundException("No main script file exists.");
+            
+            // go through the list of dependencies / scripts
+            for (int a = 0; a < dependencies.length; a++) {
+                String script = dependencies[a];
+                File scriptFile = new File(_root, script);
                 
-                trackFunction("(script loading)");
-
-                // execute the script
-                _python.execfile(_scriptFile.getAbsolutePath());
+                if (!scriptFile.exists()) {
+                    // can gracefully skip missing 'custom.py' if using default config
+                    if (dependencies == DEFAULT_DEPENDENCIES && "custom.py".equals(script))
+                        continue;
+                    else
+                        throw new FileNotFoundException(script + " is listed as a dependency but missing");
+                }
                 
-            } finally {
-                untrackFunction("(script loading)");
-                
-                if (lock != null)
-                    lock.unlock();
+                lock = null;
+                try {
+                    lock = getAReentrantLock();
+                    
+                    trackFunction("(" + script + " loading)");
+                    
+                    // execute the script file
+                    _python.execfile(scriptFile.getAbsolutePath());
+                    
+                    dependenciesUsed.add(script);
+                    
+                } finally {
+                    untrackFunction("(" + script + " loading)");
+                    
+                    if (lock != null)
+                        lock.unlock();
+                }
             }
             
             List<String> warnings = new ArrayList<String>();
@@ -687,11 +713,14 @@ public class PyNode extends BaseDynamicNode {
             // log a message to the console and the program log
             String msg;
             if (!hasErrors) {
-                msg = "(Python and Node script loaded in " + DateTimes.formatPeriod(startTime) + "; calling 'main'...)";
+                msg = String.format("(Python %s loaded in %s; calling 'main' if present...)",
+                        dependenciesUsed.size() == 0 ? "with no scripts" : "and " + String.join(", ", dependenciesUsed),
+                        DateTimes.formatPeriod(startTime));
                 _outReader.inject(msg);
                 _logger.info(msg);
+                
             } else {
-                msg = "(Python and Node script loaded with errors (took " + DateTimes.formatPeriod(startTime) + "); calling 'main'...)";
+                msg = "(Python and Node script(s) loaded with errors (took " + DateTimes.formatPeriod(startTime) + "); calling 'main' if present...)";
                 _errReader.inject(msg);
                 _logger.warn(msg);
             }
