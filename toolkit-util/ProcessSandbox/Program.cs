@@ -198,10 +198,10 @@ namespace ProcessSandbox
             {
                 Bitmap screenshot = new Bitmap(screen.Bounds.Width, screen.Bounds.Height, PixelFormat.Format32bppArgb);
                 Graphics screenshotGraphics = Graphics.FromImage(screenshot);
-                screenshotGraphics.CopyFromScreen(Screen.PrimaryScreen.Bounds.X, Screen.PrimaryScreen.Bounds.Y, 0, 0, Screen.PrimaryScreen.Bounds.Size, CopyPixelOperation.SourceCopy);
-                Image newImage = ScaleImage(screenshot, 400, 400);
+                screenshotGraphics.CopyFromScreen(screen.Bounds.X, screen.Bounds.Y, 0, 0, screen.Bounds.Size, CopyPixelOperation.SourceCopy);
+                Image newImage = ScaleImage(screenshot, 150, 150);
 
-                if (!folder.Equals("base64"))
+                if (!folder.Equals("base64") && !String.IsNullOrWhiteSpace(folder))
                     newImage.Save(Path.Combine(folder, "screen_" + i + "_shot.png"), ImageFormat.Png);
 
                 using (MemoryStream m = new MemoryStream())
@@ -209,30 +209,17 @@ namespace ProcessSandbox
                     newImage.Save(m, ImageFormat.Png);
                     byte[] imageBytes = m.ToArray();
 
-                    string base64String = Convert.ToBase64String(imageBytes, Base64FormattingOptions.InsertLineBreaks);
+                    string base64String = Convert.ToBase64String(imageBytes);
 
                     if (i != 0)
                         Console.Write(", ");
 
-                    Console.WriteLine("[" + base64String + "]");
+                    Console.WriteLine("\"" + base64String + "\"");
                 }
 
                 i++;
             }
             Console.WriteLine("] }");
-        }
-
-        private static ImageCodecInfo GetEncoderInfo(String mimeType)
-        {
-            int j;
-            ImageCodecInfo[] encoders;
-            encoders = ImageCodecInfo.GetImageEncoders();
-            for (j = 0; j < encoders.Length; ++j)
-            {
-                if (encoders[j].MimeType == mimeType)
-                    return encoders[j];
-            }
-            return null;
         }
 
         public static Image ScaleImage(Image image, int maxWidth, int maxHeight)
