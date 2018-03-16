@@ -242,7 +242,8 @@ public class NodelAutoDNS extends AutoDNS {
                     _advertisements.put(node, ad);
                 }
 
-                // refresh the time stamp and update the address
+                // refresh the name (its original name might be different), time stamp and addresses
+                ad.name = node;
                 ad.timeStamp = System.nanoTime() / 1000000;
                 ad.addresses = message.addresses;
             }
