@@ -1652,7 +1652,7 @@ var buildFormSchema = function(data, key, parent) {
   }
   // otherwise, set the parent to the field key (or none)
   else parent = key ? key : '';
-  if(typeof data.title == "undefined") data.title = key;
+  if(typeof data.title == "undefined") data.title = decodr(key ? key : '');
   var link = parent.replace('.','^');
   // create string for display
   var xtr = [];
