@@ -1066,7 +1066,7 @@ var parseLog = function(value, noanimate) {
   str += '&nbsp;&nbsp;<span class="timestamp">- ' + tme.format('Do MMM, h:mm a') + '</span>';
   // add the return value to the entry, if it exists
   if ((typeof value.arg !== 'undefined') && (value.arg !== null)) {
-    str += '<span><br/>' + JSON.stringify(value.arg, null, 2) + '</span>';
+    str += '<span><br/>' + $('<div/>').text(JSON.stringify(value.arg, null, 2)).html() + '</span>';
   }
   str += '</li>';
   // create the activity element
