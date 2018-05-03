@@ -23,9 +23,10 @@ namespace ProcessSandbox
         public static readonly string Usage = "//   Uses process jobs to ensure child and parent processes die together\r\n" +
                                               "//       [--help or -?]             // display usage and quit\r\n" +
                                               "//       [--ppid PROCESS_ID]        // parent process ID to wait on\r\n" +
+                                              "//       [--priority PRIORITY]      // process priority (one of " + String.Join(", ", Enum.GetNames(typeof(ProcessPriorityClass))) + ")\r\n" +
+                                              "//       [--windowStyle STYLE]      // one of " + String.Join(", ", Enum.GetNames(typeof(ProcessPriorityClass))) + " (DOES NOT ALWAYS WORK)\r\n" +
                                               "//       [--working WORKING_DIR]    // the working directory\r\n" +
-                                              "//       [--screenshots OUTPUT_DIR] // performs screenshots of all screens and quits (use 'base64'\r\n" +
-                                              "//                                  // to dump just dump base64)\r\n" +
+                                              "//       [--screenshots OUTPUT_DIR] // performs screenshots of all screens and quits (use 'base64' to dump just dump base64)\r\n" +
                                               "//       EXECUTABLE PARAMS...";
 
         static void Main(string[] args)
@@ -43,8 +44,10 @@ namespace ProcessSandbox
 
                 bool screenshots = false;
                 string screenshotFolder = null;
+                ProcessPriorityClass? priorityClass = null;
+                ProcessWindowStyle? windowStyle = null;
 
-                ParseArgs(args, ref ppid, ref working, ref exec, ref screenshots, ref screenshotFolder, execArgs);
+                ParseArgs(args, ref ppid, ref working, ref exec, ref screenshots, ref screenshotFolder, ref priorityClass, ref windowStyle, execArgs);
 
                 if (screenshots)
                 {
@@ -72,13 +75,21 @@ namespace ProcessSandbox
                 job.AddProcess(self.Id);
 
                 // kick off the child process...
-                child = Process.Start(new ProcessStartInfo(exec, string.Join(" ", execArgs))
+                var startInfo = new ProcessStartInfo(exec, string.Join(" ", execArgs))
                 {
                     UseShellExecute = false,
                     RedirectStandardError = false,
                     RedirectStandardInput = false,
-                    RedirectStandardOutput = false,
-                });
+                    RedirectStandardOutput = false
+                };
+                // in testing, had had no effect
+                if (windowStyle.HasValue)
+                    startInfo.WindowStyle = windowStyle.Value;
+
+                child = Process.Start(startInfo);
+                if (priorityClass.HasValue)
+                    child.PriorityClass = priorityClass.Value;
+                
                 var childPID = child.Id;
 
                 // ... and add new process (child) to the job
@@ -132,7 +143,7 @@ namespace ProcessSandbox
         /// <summary>
         /// This argument parses has to allow for arbitrary arguments after its own are parsed.
         /// </summary>
-        private static void ParseArgs(string[] args, ref uint ppid, ref string working, ref string exec, ref bool screenshots, ref string screenshotFolder, List<string> execArgs)
+        private static void ParseArgs(string[] args, ref uint ppid, ref string working, ref string exec, ref bool screenshots, ref string screenshotFolder, ref ProcessPriorityClass? priorityClass, ref ProcessWindowStyle? windowStyle, List<string> execArgs)
         {
             var argStream = StringStream(args);
 
@@ -143,30 +154,47 @@ namespace ProcessSandbox
                 while (argStream.MoveNext())
                 {
                     string arg = argStream.Current;
+                    string lcArg = arg.ToLower();
 
-                    if (parsingSelfArgs && (arg.Equals("-?") || arg.Equals("--help")))
+                    if (parsingSelfArgs && (arg.Equals("-?") || arg.Equals("/?") || lcArg.Equals("--help")))
                     {
                         // print usage and quit
                         Console.WriteLine(Usage);
                         Environment.Exit(0);
                     }
-                    else if (parsingSelfArgs && arg.Equals("--ppid"))
+                    else if (parsingSelfArgs && lcArg.Equals("--ppid"))
                     {
                         argStream.MoveNext();
                         ppid = uint.Parse(argStream.Current);
 
                     }
-                    else if (parsingSelfArgs && arg.Equals("--working"))
+                    else if (parsingSelfArgs && lcArg.Equals("--working"))
                     {
                         argStream.MoveNext();
                         working = argStream.Current;
                     }
-                    else if (parsingSelfArgs && arg.Equals("--screenshots"))
+                    else if (parsingSelfArgs && lcArg.Equals("--screenshots"))
                     {
                         argStream.MoveNext();
                         screenshots = true;
 
                         screenshotFolder = argStream.Current;
+                    }
+                    else if (parsingSelfArgs && lcArg.Equals("--windowstyle"))
+                    {
+                        argStream.MoveNext();
+
+                        ProcessWindowStyle tmp;
+                        if (Enum.TryParse(argStream.Current, true, out tmp))
+                            windowStyle = tmp;
+                    }
+                    else if (parsingSelfArgs && lcArg.Equals("--priority"))
+                    {
+                        argStream.MoveNext();
+
+                        ProcessPriorityClass tmp;
+                        if (Enum.TryParse(argStream.Current, true, out tmp))
+                            priorityClass = tmp;
                     }
                     else if (exec == null)
                     {
