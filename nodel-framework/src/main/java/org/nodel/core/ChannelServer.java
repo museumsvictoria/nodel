@@ -245,7 +245,7 @@ public abstract class ChannelServer {
                 public void run() {
                     try {
                         // call the action
-                    	handler._handler.handleActionRequest(message.arg);
+                    	handler.handleActionRequest(message.arg);
 
                     } catch (Exception exc) {
                         // ignore exception

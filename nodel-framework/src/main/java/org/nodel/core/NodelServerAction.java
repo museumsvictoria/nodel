@@ -65,8 +65,6 @@ public class NodelServerAction implements Closeable {
 
     protected NodelPoint _actionPoint;
 
-    protected ActionRequestHandler _handler;
-    
     /**
      * To match threading of wild environment.
      */
@@ -90,7 +88,7 @@ public class NodelServerAction implements Closeable {
     private boolean _closed;
 
     public NodelServerAction(String node, String action, Binding metadata) {
-        if (Strings.isNullOrEmpty(node) || Strings.isNullOrEmpty(action))
+        if (Strings.isBlank(node) || Strings.isBlank(action))
             throw new IllegalArgumentException("Names cannot be null or empty.");
         
         init(new SimpleName(node), new SimpleName(action), metadata);
@@ -217,7 +215,19 @@ public class NodelServerAction implements Closeable {
     @Value(name = "arg", title = "Argument value")
     public Object getArg() {
         return _argValue.get();
+    }
+    
+    /**
+     * Gets request handling object.
+     */
+    public ActionRequestHandler getHandler() {
+        return _handlerWithExtraCallHandlers;
     }    
+    
+    /**
+     * Holds the original handler (minus the interception logic)
+     */
+    private ActionRequestHandler _handler;
     
     /**
      * Registers an action.
@@ -226,31 +236,74 @@ public class NodelServerAction implements Closeable {
         if (handler == null)
             throw new IllegalArgumentException();
         
-        // intercept the callback and record state
-        _handler = new ActionRequestHandler() {
-            
-            @Override
-            public void handleActionRequest(Object arg) {
-                _argValue.set(arg);
-                _timestamp.set(DateTime.now());
-
-                // seq must be set last
-                _seqNum = Nodel.getNextSeq();
-
-                handler.handleActionRequest(arg);
-            }
-
-        };
+        _handler = handler;
+        
+        // 'handlerWithExtraCallHandlers' is used as main callback
         
         NodelServers.instance().registerAction(this);
     } // (method)
     
     /**
-     * Gets request handling object.
+     * Internal framework use to trigger the handling of the action request.
      */
-    public ActionRequestHandler getHandler() {
-        return _handler;
+    protected void handleActionRequest(Object arg) {
+        _handlerWithExtraCallHandlers.handleActionRequest(arg);        
     }
+    
+    /**
+     * Holds the interception logic and processes additional call handlers
+     */
+    private ActionRequestHandler _handlerWithExtraCallHandlers = new ActionRequestHandler() {
+        
+        @Override
+        public void handleActionRequest(Object arg) {
+            _argValue.set(arg);
+            _timestamp.set(DateTime.now());
+            
+            // seq must be set last
+            _seqNum = Nodel.getNextSeq();
+            
+            _handler.handleActionRequest(arg);
+            
+            // snap-shot of handlers
+            final H1<Object>[] handlers = _callHandlers.get();
+            
+            // if there are some handlers, use the Channel Client thread-pool (treat as though remote events)
+            if (handlers != null) {
+                ChannelClient.getThreadPool().execute(new Runnable() {
+                    
+                    @Override
+                    public void run() {
+                        // set up thread state
+                        if (_threadStateHandler != null)
+                            _threadStateHandler.handle();
+                        
+                        Exception lastExc = null;
+                        
+                        // call handlers one after the other
+                        for (Handler.H1<Object> handler : handlers) {
+                            if (_callbackQueue != null)
+                                _callbackQueue.handle(handler, arg, _exceptionHandler);
+                            else {
+                                try {
+                                    Handler.tryHandle(handler, arg);
+                                } catch (Exception exc) {
+                                    lastExc = exc;
+                                }
+                            }
+                        } // (for)
+                        
+                        if (lastExc != null) {
+                            // let the thread-pool exception handler deal with it
+                            throw new RuntimeException("Action call handler", lastExc);
+                        }
+                    }
+                    
+                });
+            }
+        }
+        
+    };
 
     /**
      * (without any argument)
@@ -261,46 +314,11 @@ public class NodelServerAction implements Closeable {
     
     @Service(name = "call", title = "Call", desc = "Invokes this action.")
     public void call(@Param(name = "arg", title = "Argument") final Object arg) {
-        if (_handler != null)
-            _handler.handleActionRequest(arg);
-        
-        // snap-shot of handlers
-        final H1<Object>[] handlers = _callHandlers.get();
-        
-        // if there are some handlers, use the Channel Client thread-pool (treat as though remote events)
-        if (handlers != null) {
-            ChannelClient.getThreadPool().execute(new Runnable() {
-
-                @Override
-                public void run() {
-                    // set up thread state
-                    if (_threadStateHandler != null)
-                        _threadStateHandler.handle();
-                    
-                    Exception lastExc = null;
-                    
-                    // call handlers one after the other
-                    for (Handler.H1<Object> handler : handlers) {
-                        if (_callbackQueue != null)
-                            _callbackQueue.handle(handler, arg, _exceptionHandler);
-                        else {
-                            try {
-                                Handler.tryHandle(handler, arg);
-                            } catch (Exception exc) {
-                                lastExc = exc;
-                            }
-                        }
-                    } // (for)
-                    
-                    if (lastExc != null) {
-                        // let the thread-pool exception handler deal with it
-                        throw new RuntimeException("Emit handler", lastExc);
-                    }
-                }
-
-            });
-        }        
-    }    
+        if (_handler == null)
+            return; // gracefully ignore
+            
+        _handlerWithExtraCallHandlers.handleActionRequest(arg);
+    }
     
     /**
      * Attaches an in-process call handler (will arrive on same thread as .call() call)
@@ -308,7 +326,7 @@ public class NodelServerAction implements Closeable {
     @SuppressWarnings("unchecked")
     public void addCallHandler(Handler.H1<Object> handler) {
         if (handler == null)
-            throw new IllegalArgumentException("No emit handler given.");
+            throw new IllegalArgumentException("No call handler given.");
         
         H1<Object>[] current = _callHandlers.get();
 
