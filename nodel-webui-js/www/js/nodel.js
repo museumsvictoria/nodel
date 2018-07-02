@@ -1014,7 +1014,7 @@ var updateLogs = function(){
       offline();
     });
   } else {
-    var wshost = "ws://"+document.location.hostname+":"+$('body').data('config')['webSocketPort']+"/nodes/"+node;
+    var wshost = "ws://"+document.location.hostname+":"+$('body').data('config')['webSocketPort']+"/nodes/"+ encodeURIComponent(node);
     var socket = null;
     try{
       socket = new WebSocket(wshost);
