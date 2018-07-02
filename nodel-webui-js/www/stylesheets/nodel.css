@@ -252,6 +252,7 @@ label.required:after, button.caution:after {
   padding: 10px 15px;
   border: 1px solid rgba(0,0,0,0.2);
   background: rgb(255,255,255);
+  pointer-events: auto;
 }
 
 .notice .close {
@@ -259,6 +260,15 @@ label.required:after, button.caution:after {
   padding: 0 0 5px 15px;
   font-weight: 900;
   pointer-events: auto;
+  cursor: pointer;
+  -webkit-touch-callout: none;
+  -moz-user-select: -moz-none;
+  -moz-user-select: none;
+  -o-user-select: none;
+  -khtml-user-select: none;
+  -webkit-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
 }
 
 .nodeadd .close, .noderename .close, .scriptadd .close {
