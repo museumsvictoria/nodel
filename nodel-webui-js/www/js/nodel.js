@@ -27,11 +27,11 @@ var decpattern = /__([0-9]+)__/g;
 
 var encodr = function(str, inc=0){
   if(!inc) {
-    return str.replace(encpattern, function(match, char){
+    return str.replace(/\s/g, '').replace(encpattern, function(match, char){
       return '__'+char.charCodeAt(0)+'__';
     });
   } else {
-    return str.replace(incpattern, function(match, char){
+    return str.replace(/\s/g, '').replace(incpattern, function(match, char){
       return '__'+char.charCodeAt(0)+'__';
     });
   }
