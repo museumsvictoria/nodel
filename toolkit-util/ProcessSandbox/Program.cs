@@ -2,9 +2,13 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Drawing;
+using System.Drawing.Imaging;
+using System.IO;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
+using System.Windows.Forms;
 
 /// <summary>
 /// This program is a simple launcher that uses native Windows Job objects to prevent
@@ -17,9 +21,12 @@ namespace ProcessSandbox
     class Program
     {
         public static readonly string Usage = "//   Uses process jobs to ensure child and parent processes die together\r\n" +
-                                              "//       [--help or -?]          // display usage and quit\r\n" +
-                                              "//       [--ppid PROCESS_ID]     // parent process ID to wait on\r\n" +
-                                              "//       [--working WORKING_DIR] // the working directory\r\n" +
+                                              "//       [--help or -?]             // display usage and quit\r\n" +
+                                              "//       [--ppid PROCESS_ID]        // parent process ID to wait on\r\n" +
+                                              "//       [--priority PRIORITY]      // process priority (one of " + String.Join(", ", Enum.GetNames(typeof(ProcessPriorityClass))) + ")\r\n" +
+                                              "//       [--windowStyle STYLE]      // one of " + String.Join(", ", Enum.GetNames(typeof(ProcessPriorityClass))) + " (DOES NOT ALWAYS WORK)\r\n" +
+                                              "//       [--working WORKING_DIR]    // the working directory\r\n" +
+                                              "//       [--screenshots OUTPUT_DIR] // performs screenshots of all screens and quits (use 'base64' to dump just dump base64)\r\n" +
                                               "//       EXECUTABLE PARAMS...";
 
         static void Main(string[] args)
@@ -35,7 +42,20 @@ namespace ProcessSandbox
                 string exec = null; // the executable
                 List<string> execArgs = new List<string>(); // the executable args
 
-                ParseArgs(args, ref ppid, ref working, ref exec, execArgs);
+                bool screenshots = false;
+                string screenshotFolder = null;
+                ProcessPriorityClass? priorityClass = null;
+                ProcessWindowStyle? windowStyle = null;
+
+                ParseArgs(args, ref ppid, ref working, ref exec, ref screenshots, ref screenshotFolder, ref priorityClass, ref windowStyle, execArgs);
+
+                if (screenshots)
+                {
+                    performScreenshots(screenshotFolder);
+
+                    // and quit silently
+                    return;
+                }
 
                 // verify args
                 if (exec == null)
@@ -55,13 +75,21 @@ namespace ProcessSandbox
                 job.AddProcess(self.Id);
 
                 // kick off the child process...
-                child = Process.Start(new ProcessStartInfo(exec, string.Join(" ", execArgs))
+                var startInfo = new ProcessStartInfo(exec, string.Join(" ", execArgs))
                 {
                     UseShellExecute = false,
                     RedirectStandardError = false,
                     RedirectStandardInput = false,
-                    RedirectStandardOutput = false,
-                });
+                    RedirectStandardOutput = false
+                };
+                // in testing, had had no effect
+                if (windowStyle.HasValue)
+                    startInfo.WindowStyle = windowStyle.Value;
+
+                child = Process.Start(startInfo);
+                if (priorityClass.HasValue)
+                    child.PriorityClass = priorityClass.Value;
+                
                 var childPID = child.Id;
 
                 // ... and add new process (child) to the job
@@ -115,7 +143,7 @@ namespace ProcessSandbox
         /// <summary>
         /// This argument parses has to allow for arbitrary arguments after its own are parsed.
         /// </summary>
-        private static void ParseArgs(string[] args, ref uint ppid, ref string working, ref string exec, List<string> execArgs)
+        private static void ParseArgs(string[] args, ref uint ppid, ref string working, ref string exec, ref bool screenshots, ref string screenshotFolder, ref ProcessPriorityClass? priorityClass, ref ProcessWindowStyle? windowStyle, List<string> execArgs)
         {
             var argStream = StringStream(args);
 
@@ -126,23 +154,47 @@ namespace ProcessSandbox
                 while (argStream.MoveNext())
                 {
                     string arg = argStream.Current;
+                    string lcArg = arg.ToLower();
 
-                    if (parsingSelfArgs && (arg.Equals("-?") || arg.Equals("--help")))
+                    if (parsingSelfArgs && (arg.Equals("-?") || arg.Equals("/?") || lcArg.Equals("--help")))
                     {
                         // print usage and quit
                         Console.WriteLine(Usage);
                         Environment.Exit(0);
                     }
-                    else if (parsingSelfArgs && arg.Equals("--ppid"))
+                    else if (parsingSelfArgs && lcArg.Equals("--ppid"))
                     {
                         argStream.MoveNext();
                         ppid = uint.Parse(argStream.Current);
 
                     }
-                    else if (parsingSelfArgs && arg.Equals("--working"))
+                    else if (parsingSelfArgs && lcArg.Equals("--working"))
                     {
                         argStream.MoveNext();
                         working = argStream.Current;
+                    }
+                    else if (parsingSelfArgs && lcArg.Equals("--screenshots"))
+                    {
+                        argStream.MoveNext();
+                        screenshots = true;
+
+                        screenshotFolder = argStream.Current;
+                    }
+                    else if (parsingSelfArgs && lcArg.Equals("--windowstyle"))
+                    {
+                        argStream.MoveNext();
+
+                        ProcessWindowStyle tmp;
+                        if (Enum.TryParse(argStream.Current, true, out tmp))
+                            windowStyle = tmp;
+                    }
+                    else if (parsingSelfArgs && lcArg.Equals("--priority"))
+                    {
+                        argStream.MoveNext();
+
+                        ProcessPriorityClass tmp;
+                        if (Enum.TryParse(argStream.Current, true, out tmp))
+                            priorityClass = tmp;
                     }
                     else if (exec == null)
                     {
@@ -163,6 +215,56 @@ namespace ProcessSandbox
             {
                 // consume and use whatever we've already collected
             }
+        }
+
+        public static void performScreenshots(String folder)
+        {
+            //Will contain screenshot
+            int i = 0;
+            Console.WriteLine("{\"event\": \"screenshots\", \"arg\": [");
+            foreach (var screen in Screen.AllScreens)
+            {
+                Bitmap screenshot = new Bitmap(screen.Bounds.Width, screen.Bounds.Height, PixelFormat.Format32bppArgb);
+                Graphics screenshotGraphics = Graphics.FromImage(screenshot);
+                screenshotGraphics.CopyFromScreen(screen.Bounds.X, screen.Bounds.Y, 0, 0, screen.Bounds.Size, CopyPixelOperation.SourceCopy);
+                Image newImage = ScaleImage(screenshot, 150, 150);
+
+                if (!folder.Equals("base64") && !String.IsNullOrWhiteSpace(folder))
+                    newImage.Save(Path.Combine(folder, "screen_" + i + "_shot.png"), ImageFormat.Png);
+
+                using (MemoryStream m = new MemoryStream())
+                {
+                    newImage.Save(m, ImageFormat.Png);
+                    byte[] imageBytes = m.ToArray();
+
+                    string base64String = Convert.ToBase64String(imageBytes);
+
+                    if (i != 0)
+                        Console.Write(", ");
+
+                    Console.WriteLine("\"" + base64String + "\"");
+                }
+
+                i++;
+            }
+            Console.WriteLine("] }");
+        }
+
+        public static Image ScaleImage(Image image, int maxWidth, int maxHeight)
+        {
+            var ratioX = (double)maxWidth / image.Width;
+            var ratioY = (double)maxHeight / image.Height;
+            var ratio = Math.Min(ratioX, ratioY);
+
+            var newWidth = (int)(image.Width * ratio);
+            var newHeight = (int)(image.Height * ratio);
+
+            var newImage = new Bitmap(newWidth, newHeight);
+
+            using (var graphics = Graphics.FromImage(newImage))
+                graphics.DrawImage(image, 0, 0, newWidth, newHeight);
+
+            return newImage;
         }
 
         #region (Win32 wrappers, etc.)

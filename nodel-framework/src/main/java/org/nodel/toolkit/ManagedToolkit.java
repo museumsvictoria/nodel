@@ -468,7 +468,9 @@ public class ManagedToolkit {
 
             @Override
             public void handle() {
-                _quickProcesses.remove(quickProcess);
+                synchronized (_lock) {
+                    _quickProcesses.remove(quickProcess);
+                }
             }
 
         });

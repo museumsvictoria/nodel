@@ -22,12 +22,19 @@ var unicodematch = new XRegExp("[^\\p{L}\\p{N}]", "gi");
 var json_parse = JSON.parse;
 var json_stringify = JSON.stringify;
 var encpattern = /(^[0-9]|[^0-9a-zA-Z])/g;
+var incpattern = /([^0-9a-zA-Z])/g;
 var decpattern = /__([0-9]+)__/g;
 
-var encodr = function(str){
-  return str.replace(encpattern, function(match, char){
-    return '__'+char.charCodeAt(0)+'__';
-  });
+var encodr = function(str, inc=0){
+  if(!inc) {
+    return str.replace(/\s/g, '').replace(encpattern, function(match, char){
+      return '__'+char.charCodeAt(0)+'__';
+    });
+  } else {
+    return str.replace(/\s/g, '').replace(incpattern, function(match, char){
+      return '__'+char.charCodeAt(0)+'__';
+    });
+  }
 };
 
 var decodr = function(str){
@@ -829,7 +836,7 @@ var listNodes = function(){
     var req = $.getJSON('http://' + host + '/REST/recipes/list', function(data) {
       if (data.length > 0) {
         $.each(data, function(i, value) {
-          var readme = (typeof value.readme == 'undefined') ? "" : value.readme;
+          var readme = (typeof value.readme == 'undefined') ? "" : $('<div/>').text(value.readme).html();
           $('#recipesource').append('<option value="' + value.path + '" title="' + readme + '">' + value.path + '</option>');
         });
         $('#nodeaddrecipe').prop('disabled', false);
@@ -1007,7 +1014,7 @@ var updateLogs = function(){
       offline();
     });
   } else {
-    var wshost = "ws://"+document.location.hostname+":"+$('body').data('config')['webSocketPort']+"/nodes/"+node;
+    var wshost = "ws://"+document.location.hostname+":"+$('body').data('config')['webSocketPort']+"/nodes/"+ encodeURIComponent(node);
     var socket = null;
     try{
       socket = new WebSocket(wshost);
@@ -1057,9 +1064,9 @@ var parseLog = function(value, noanimate) {
     eleb.children('h6').attr('title',value.arg);
   }
   if (typeof(noanimate) === 'undefined') noanimate = false;
-  if ((typeof value.arg !== 'undefined') && (value.source == 'local')) $('#' + value.type + '_' + encodr(value.alias)).trigger('updatedata', {"arg": value.arg});
+  if ((typeof value.arg !== 'undefined') && (value.source == 'local')) $('#' + value.type + '_' + encodr(value.alias, 1)).trigger('updatedata', {"arg": value.arg});
   // if the activity is a local event or action, and the display is not set to animate, highlight the action button
-  if ((value.source == 'local') && (!noanimate)) $('#' + value.type + '_' + encodr(value.alias) + ' button span').stop(true, true).css({'color': opts.local[value.type].colour}).animate({'color': '#bbb'}, 10000);
+  if ((value.source == 'local') && (!noanimate)) $('#' + value.type + '_' + encodr(value.alias, 1) + ' button span').stop(true, true).css({'color': opts.local[value.type].colour}).animate({'color': '#bbb'}, 10000);
   // construct the activity log entry
   var tme = moment(value.timestamp);
   var str = '<li title="' + tme.format('Do MMM, HH:mm.ss') + '"><div>' + opts[value.source][value.type].icon + '</div>' + value.alias;
@@ -1070,13 +1077,13 @@ var parseLog = function(value, noanimate) {
   }
   str += '</li>';
   // create the activity element
-  var activity = $(str).attr('id', 'activity_' + value.source + '_' + value.type + '_' + encodr(value.alias)).data('time',value.timestamp);
+  var activity = $(str).attr('id', 'activity_' + value.source + '_' + value.type + '_' + encodr(value.alias, 1)).data('time',value.timestamp);
   // if animation is disabled, set to display without animation
   if (noanimate) $(activity).children('div').css('color', opts[value.source][value.type].colour).css('opacity', 0.25);
   // otherwise, set to display with animation
   else $(activity).children('div').css('color', opts[value.source][value.type].colour).animate({'opacity': 0.25}, 10000);
   // check for current entry
-  var ele = $('#activity_' + value.source + '_' + value.type + '_' + encodr(value.alias));
+  var ele = $('#activity_' + value.source + '_' + value.type + '_' + encodr(value.alias, 1));
   if (ele.length) {
     ele.remove();
     $('#activity ul').prepend(activity);
@@ -1652,7 +1659,7 @@ var buildFormSchema = function(data, key, parent) {
   }
   // otherwise, set the parent to the field key (or none)
   else parent = key ? key : '';
-  if(typeof data.title == "undefined") data.title = key;
+  if(typeof data.title == "undefined") data.title = decodr(key ? key : '');
   var link = parent.replace('.','^');
   // create string for display
   var xtr = [];

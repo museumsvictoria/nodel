@@ -134,7 +134,7 @@ public class QuickProcess implements Closeable {
             List<String> command, String stdinPush, H1<Integer> onStarted, H1<FinishedArg> onFinished, long timeout, String working, boolean mergeErr) {
         
         // validate command list
-        if (command == null || command.size() < 1 || Strings.isNullOrEmpty(command.get(0)))
+        if (command == null || command.size() < 1 || Strings.isBlank(command.get(0)))
             throw new RuntimeException("The command list was missing or empty.");
         
         _threadStateHandler = threadStateHandler;
@@ -188,7 +188,7 @@ public class QuickProcess implements Closeable {
             pb.redirectErrorStream(true);
         
         // adjust the working directory?
-        if (!Strings.isNullOrEmpty(_working)) {
+        if (!Strings.isBlank(_working)) {
             File workingDir = new File(_working);
             if (!workingDir.exists() || !workingDir.isDirectory()) {
                 // (error will be logged)
@@ -221,9 +221,12 @@ public class QuickProcess implements Closeable {
                             synchronized (_lock) {
                                 if (_closed)
                                     return;
-
+                                
                                 // a process still exists, so destroy it
                                 doClose();
+                                
+                                // send through a null argument to indicate timeout
+                                Handler.tryHandle(_onFinished, null, _callbackExceptionHandler);
                             }
                         }
 
@@ -275,19 +278,18 @@ public class QuickProcess implements Closeable {
             // finished gracefully, clear variable
             _process = null;
             
-            _closed = true; 
-
-            // fire 'finished' handler
-            Handler.tryHandle(_onFinished, arg, _callbackExceptionHandler);
+            // fire 'finished' handler if not close
+            if (!_closed)
+                Handler.tryHandle(_onFinished, arg, _callbackExceptionHandler);
+            
+            _closed = true;
             
         } catch (Exception exc) {
+            // gracefully exit if closed
             if (_closed)
                 return;
-            
-            if (_process != null) {
-                // an ungraceful exit occurred
-                Handler.tryHandle(_callbackExceptionHandler, new RuntimeException("quick-launch error: " + exc.getMessage()));
-            }
+           
+            Handler.tryHandle(_callbackExceptionHandler, new RuntimeException("quick-launch error: " + exc.getMessage()));
             
             doClose();            
         }
