@@ -95,4 +95,7 @@ dependencies {
 
     // convenience dependency: required *only* for 'recipe sync' node
     compile 'org.eclipse.jgit:org.eclipse.jgit:3.7.1.+'
+
+    // convenience dependency: required for new SNMP-based nodes (brings along log4j unfortunately)
+    compile 'org.snmp4j:snmp4j:2.5.8'
 }
