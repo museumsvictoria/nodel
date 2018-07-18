@@ -14,6 +14,7 @@ import org.joda.time.DateTime;
 import org.nodel.Handler;
 import org.nodel.Handler.H1;
 import org.nodel.LockFreeList;
+import org.nodel.Random;
 import org.nodel.SimpleName;
 import org.nodel.host.Binding;
 import org.nodel.reflection.Objects;
@@ -120,9 +121,9 @@ public class NodelClientEvent {
     private ArgInstance _persistedArg;
     
     /**
-     * How often to persist the args. (default 12 hours)
+     * How often to persist the args. (default 2 hours)
      */
-    private long PERSIST_PERIOD = 12 * 3600 * 1000;    
+    private long PERSIST_PERIOD = 2 * 3600 * 1000;
 
     /**
      * In an unbound state.
@@ -177,16 +178,16 @@ public class NodelClientEvent {
         }
         
         // add an ongoing timer to persist (on background thread-pool)
-        // (not critical, so default is every 12 hours. Persist will occur on close anyway.)
+        // (not critical, so default is every 2 hours. Persist will occur on close anyway.)
         _persisterTimer = s_timers.schedule(ThreadPool.background(), new TimerTask() {
 
             @Override
             public void run() {
-                handlePersistRequest();
+                persistNow();
             }
 
-        }, PERSIST_PERIOD, PERSIST_PERIOD);
-    }    
+        }, PERSIST_PERIOD + Random.shared().nextInt(60000), PERSIST_PERIOD + Random.shared().nextInt(60000));
+    }
     
     /**
      * Delayed node and event setting.
@@ -319,11 +320,9 @@ public class NodelClientEvent {
     }
     
     /**
-     * Handles a persist request.
-     * 
-     * (mainly timer entry-point)
+     * Handles a persist request via background timer or if overridden by the user.
      */
-    private void handlePersistRequest() {
+    public void persistNow() {
         // persist the data if the values are different.
         // Not bothering with comparing timestamp as that information is secondary.
         
@@ -425,7 +424,7 @@ public class NodelClientEvent {
         if (_persisterTimer != null)
             _persisterTimer.cancel();
         
-        handlePersistRequest();
+        persistNow();
         
         NodelClients.instance().release(this);
     }    

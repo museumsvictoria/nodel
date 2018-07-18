@@ -16,6 +16,7 @@ import org.joda.time.DateTime;
 import org.nodel.Handler;
 import org.nodel.Handler.H1;
 import org.nodel.LockFreeList;
+import org.nodel.Random;
 import org.nodel.SimpleName;
 import org.nodel.Strings;
 import org.nodel.host.Binding;
@@ -92,9 +93,9 @@ public class NodelServerEvent implements Closeable {
 
     /**
      * How often to persist the args.
-     * (default 12 hours)
+     * (default 2 hours)
      */
-    private long PERSIST_PERIOD = 12 * 3600 * 1000;
+    private long PERSIST_PERIOD = 2 * 3600 * 1000;
         
     @Service(name = "schema", title = "Schema", genericClassA = String.class, genericClassB = Object.class, desc = "Prepares a filtered schema for this action.")
     public Map<String, Object> getFullSchema() {
@@ -117,7 +118,7 @@ public class NodelServerEvent implements Closeable {
     private H1<Exception> _exceptionHandler;
     
     public NodelServerEvent(String node, String event, Binding metadata, boolean v) {
-        if (Strings.isNullOrEmpty(node) || Strings.isNullOrEmpty(event))
+        if (Strings.isBlank(node) || Strings.isBlank(event))
             throw new IllegalArgumentException("Names cannot be null or empty.");
         
         init(new SimpleName(node), new SimpleName(event), metadata);  
@@ -199,15 +200,15 @@ public class NodelServerEvent implements Closeable {
         }
         
         // add an ongoing timer to persist (on background thread-pool)
-        // (not critical, so default is every 12 hours. Persist will occur on close anyway.)
+        // (not critical, so default is every 2 hours. Persist will occur on close anyway.)
         _persisterTimer = s_timers.schedule(ThreadPool.background(), new TimerTask() {
 
             @Override
             public void run() {
-                handlePersistRequest();
+                persistNow();
             }
 
-        }, PERSIST_PERIOD, PERSIST_PERIOD);
+        }, PERSIST_PERIOD + Random.shared().nextInt(60000), PERSIST_PERIOD + Random.shared().nextInt(60000));
     }
     
     @Value(name = "name", title = "Name", desc = "The name.", order = 1)
@@ -370,11 +371,9 @@ public class NodelServerEvent implements Closeable {
     }
     
     /**
-     * Handles a persist request.
-     * 
-     * (mainly timer entry-point)
+     * Handles a persist request via background timer or if overridden by the user.
      */
-    private void handlePersistRequest() {
+    public void persistNow() {
         // persist the data if the values are different.
         // Not bothering with comparing timestamp as that information is secondary.
         
@@ -406,7 +405,7 @@ public class NodelServerEvent implements Closeable {
         
         _emitHandlers.clear();
         
-        handlePersistRequest();
+        persistNow();
 
         NodelServers.instance().unregisterEvent(this);
     }
