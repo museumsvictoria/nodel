@@ -257,8 +257,9 @@ public class NodelDiscoverer {
                 if (!_enabled)
                     break;
 
-                // log nested exception summary instead of stack-trace dump
-                _logger.warn("Error while handling received packet from host {}, port {}; details: {}", dp.getAddress(), dp.getPort(), Exceptions.formatExceptionGraph(exc));
+                // log nested exception summary instead of stack-trace dump (skipping unimportant)
+                if (dp.getAddress() != null && dp.getPort() >= 0)
+                    _logger.warn("Error while handling received packet from host {}, port {}; details: {}", dp.getAddress(), dp.getPort(), Exceptions.formatExceptionGraph(exc));
                 
             } finally {
                 // make sure the packet is returned
