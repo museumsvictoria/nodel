@@ -568,7 +568,8 @@ public class NodelServers {
     private void handleChannelServerFailure(ChannelServer channelServer, Throwable value) {
         // remove this from the list of channel servers
         synchronized (_signal) {
-            this.logger.warn("Failure on a channel server; this may be natural. Removing it. (Error was " + value.toString() + ")");
+            // event may be of interest so log as 'info'
+            this.logger.info("Failure on a channel server; this may be natural. Removing it. (Error was " + value.toString() + ")");
 
             _channelServers.remove(channelServer);
             

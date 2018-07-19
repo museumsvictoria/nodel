@@ -12,6 +12,7 @@ import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.MulticastSocket;
+import java.net.NoRouteToHostException;
 import java.net.SocketTimeoutException;
 import java.util.ArrayList;
 import java.util.LinkedList;
@@ -318,7 +319,9 @@ public class NodelDiscoverer {
             if (!_enabled)
                 return;
 
-            _logger.warn("Socket send unexpectedly failed.", exc);
+            // likely failure is when the interface disappears and there's no route to host, if not, log warning
+            if (!(exc instanceof NoRouteToHostException))
+                _logger.warn("Socket send unexpectedly failed.", exc);
         }
     }
     

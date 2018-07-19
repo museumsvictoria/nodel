@@ -380,7 +380,7 @@ public class NanoHTTPD {
             
         } catch (BindException exc) {
             // wrap up within a sensible, descriptive exception 
-            throw new UnexpectedIOException("Cannot bind to TCP port " + myTcpPort + "; another process must already be bound to the port", exc);
+            throw new UnexpectedIOException("Cannot bind to TCP port " + myTcpPort + "; another process must already be bound to the port; use '-p 0' if \"any port\" binding is preferred", exc);
         }
         
         this.allowBrowsing = allowBrowsing;
