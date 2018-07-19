@@ -197,7 +197,7 @@ public class BootstrapConfig {
      * TODO: ideally this should be a generic command-line args parser via Serialisation class and ValueInfos.
      */
     public void overrideWith(String[] args) {
-        if (args == null || args.length <= 1)
+        if (args == null || args.length == 0)
             // nothing to do
             return;
 
@@ -299,7 +299,7 @@ public class BootstrapConfig {
         for (int i = 0; i < options.length; i++) {
             String name = options[i].name;
             String desc = options[i].desc;
-            if (Strings.isNullOrEmpty(desc))
+            if (Strings.isBlank(desc))
                 desc = String.format("(command-line arg '--%s')", name);
             System.out.format("    \"%s\": %s%n", name, JSONObject.quote(desc));
         }
