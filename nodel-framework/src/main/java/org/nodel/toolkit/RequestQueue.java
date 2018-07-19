@@ -567,12 +567,8 @@ public class RequestQueue implements Closeable {
      * (convenience method)
      */
     private void sendBufferNow0(H0 handler) {
-        try {
-            handler.handle();
-        } catch (Exception exc) {
-            // ignore
-        }
-
+        _callbackHandler.handle(handler, _callbackErrorHandler);
+        
         Handler.tryHandle(_sentCallback, _callbackErrorHandler);
     }
     
