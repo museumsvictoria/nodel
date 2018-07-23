@@ -96,6 +96,8 @@ dependencies {
     // convenience dependency: required *only* for 'recipe sync' node
     compile 'org.eclipse.jgit:org.eclipse.jgit:3.7.1.+'
 
-    // convenience dependency: required for new SNMP-based nodes (brings along log4j unfortunately)
-    compile 'org.snmp4j:snmp4j:2.5.8'
+    // convenience dependency: required for new SNMP-based nodes 
+    compile('org.snmp4j:snmp4j:2.5.8') {
+        exclude group:'log4j', module:'log4j' // (brings one extra dependency: log4j; can explicity exclude it because it's optional at runtime)
+    }
 }
