@@ -742,10 +742,11 @@ public class PyNode extends BaseDynamicNode {
                     if (beforeFnCount > 0)
                         commentary.add("'@before_main' function" + (beforeFnCount == 1 ? "" : "s"));
                     
-                    
-                    if (_python.get("main") != null) {
-                        _python.exec("main()");
-                        
+                    // call 'main' if it exists
+                    PyFunction mainFunction = (PyFunction) _python.get("main");
+                    if (mainFunction != null) {
+                        mainFunction.__call__();
+
                         commentary.add("'main'");
                     }
                     
@@ -805,8 +806,19 @@ public class PyNode extends BaseDynamicNode {
             } catch (Exception exc) {
                 // don't let this interrupt anything
 
-                // log will end up in console anyway
-                msg = "'main' completed with errors - " + exc; 
+                // log will end up in console anyway...
+                msg = null;
+
+                // ...but suppress the stack-trace if it's a Warning or UserWarning
+                if (exc instanceof PyException) {
+                    PyObject pyExc = ((PyException) exc).value;
+
+                    if (Py.isInstance(pyExc, Py.Warning) || Py.isInstance(pyExc, Py.UserWarning))
+                        msg = "Warning: " + pyExc.__str__();
+                }
+
+                if (msg == null)
+                    msg = "'main' completed with errors - " + exc;
 
                 _logger.warn(msg);
                 _errReader.inject(msg);
