@@ -336,7 +336,11 @@ public class ManagedToolkit {
             
             _timers.add(timer);
             
-            // actual starting will be done in 'enable', respecting 'stopped' flag of course
+            // if created after normal init, start (if no 'stopped' flag)
+            if (_enabled && !stopped)
+                timer.start();
+            
+            // otherwise .start() will be called from 'enable'
             
             return timer;
         }
