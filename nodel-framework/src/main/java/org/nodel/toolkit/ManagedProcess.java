@@ -468,7 +468,7 @@ public class ManagedProcess implements Closeable {
      */
     public void init() {
         synchronized(_lock) {
-            if (_startTimer == null) {
+            if (_startTimer == null && !_shutdown) {
                 // kick off after a random amount of time to avoid resource usage spikes
                 int kickoffTime = 1000 + s_random.nextInt(KICKOFF_DELAY);
 
@@ -625,7 +625,7 @@ public class ManagedProcess implements Closeable {
             ProcessBuilder processBuilder = new ProcessBuilder(command);
 
             // set the working directory if it's specified, or to the node's root
-            if (!Strings.isNullOrEmpty(workingStr)) {
+            if (!Strings.isBlank(workingStr)) {
                 File workingDir = new File(workingStr);
                 if (!workingDir.exists() || !workingDir.isDirectory())
                     throw new FileNotFoundException("Working directory specifed does exist or is not a directory.");

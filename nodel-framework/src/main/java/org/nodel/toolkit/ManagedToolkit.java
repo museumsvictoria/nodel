@@ -452,6 +452,11 @@ public class ManagedToolkit {
             else
                 _processes.add(process);
         }
+        
+        // if the toolkit has already been initialised, start the process
+        if (_enabled) {
+            process.init();
+        }
 
         return process;
     }
