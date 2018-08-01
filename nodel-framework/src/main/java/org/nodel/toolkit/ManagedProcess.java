@@ -598,19 +598,22 @@ public class ManagedProcess implements Closeable {
         
         try {
             List<String> origCommand = _command;
-            
-            // do a quick scan for any nulls to avoid a mystifying NullPointerException in the console when Java Process builder fails
-            for (String cmd : origCommand)
-                if (cmd == null)
-                    throw new IllegalArgumentException("At least one item in the command list is missing");
 
             // ensure enough arguments (at least 1)
             if (origCommand == null || origCommand.size() == 0)
                 throw new RuntimeException("No launch arguments were provided.");
             
-            List<String> command; // the command list that will be used            
+            // do a quick scan for any nulls or non-strings to avoid a mystifying exception message 
+            // when Java Process builder fails
+            for (int a = 0; a < origCommand.size(); a++) {
+                Object cmd = origCommand.get(a);
+                if (cmd == null || !(cmd instanceof CharSequence))
+                    throw new IllegalArgumentException("Argument in position " + a + " of the list is missing or not a string");
+            }
             
-            // if on Windows, use the ProcessSandbox.exe utility if it can be found...            
+            List<String> command; // the command list that will be used
+            
+            // if on Windows, use the ProcessSandbox.exe utility if it can be found...
             File processSandboxFile = resolveProcessSandbox(origCommand);
 
             if (processSandboxFile != null) {
