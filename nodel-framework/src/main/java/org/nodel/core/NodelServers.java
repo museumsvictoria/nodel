@@ -176,15 +176,16 @@ public class NodelServers {
         
 		// start up an channel server socket on all interfaces and any port.
 
-		_channelServerSocket = new ChannelServerSocket(0);
-            _channelServerSocket.attachChannelServerHandler(new Handler.H1<Socket>() {
-                
-                @Override
-                public void handle(Socket socket) {
-                    handleNewConnection(socket);
-                }
-                
-            });
+        int requestedPort = Nodel.getMessagingPort();
+        _channelServerSocket = new ChannelServerSocket(requestedPort);
+        _channelServerSocket.attachChannelServerHandler(new Handler.H1<Socket>() {
+            
+            @Override
+            public void handle(Socket socket) {
+                handleNewConnection(socket);
+            }
+            
+        });
 
         _channelServerSocket.setStartedHandler(new Handler.H1<Integer>() {
 

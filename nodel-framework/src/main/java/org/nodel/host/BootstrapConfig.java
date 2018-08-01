@@ -64,6 +64,21 @@ public class BootstrapConfig {
     public void setNodelHostWSPort(int value) {
         this.nodelHostWSPort = value;
     }
+    
+    
+    public final static int DEFAULT_MESSAGING_PORT = 0;
+
+    @Value(name = "messagingPort", title = "Messaging Port", order = 210, required = true, 
+           desc = "TCP & UDP (reserved) port for the native node-to-node messaging protocol to run on; normally '0' meaning any port. (command-line arg '--messagingPort')")
+    private int messagingPort = DEFAULT_MESSAGING_PORT;
+
+    public int getMessagingPort() {
+        return this.messagingPort;
+    }
+
+    public void setMessagingPort(int value) {
+        this.messagingPort = value;
+    }    
 
     
     public final static String DEFAULT_NODELROOT_DIRECTORY = "nodes";
@@ -248,6 +263,9 @@ public class BootstrapConfig {
 
             } else if ("--recipes".equalsIgnoreCase(arg)) {
                 this.recipesRoot = nextArg;
+                
+            } else if ("--messagingPort".equalsIgnoreCase(arg)) {
+                this.messagingPort = Integer.parseInt(nextArg);
 
             } else if ("-I".equals(arg) || "--inclFilter".equalsIgnoreCase(arg)) {
                 List<String> list = lists.get('I');

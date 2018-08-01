@@ -191,7 +191,7 @@ public class ChannelServerSocket {
 		while (_enabled) {
 			try {
 				// initialise the socket
-				_serverSocket = new ServerSocket(_port);
+				_serverSocket = new ServerSocket(_requestedPort);
 
 				_port = _serverSocket.getLocalPort();
 
