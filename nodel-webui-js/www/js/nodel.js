@@ -428,8 +428,10 @@ var init = function() {
           editor.setOption("mode", "shell");
           break;
         case 'py':
-        default:
           editor.setOption("mode", "python");
+          break;
+        default:
+        editor.setOption("mode", "txt");
       }
       editor.getDoc().setValue(data);
       editor.setOption('readOnly', false);
@@ -694,7 +696,7 @@ var init = function() {
 };
 
 var editor;
-var allowed = ['py','xml','xsl','js','json','html','htm','css','java','groovy','sql','sh'];
+var allowed = ['py','xml','xsl','js','json','html','htm','css','java','groovy','sql','sh','cs','bat','ini','txt','md','cmd'];
 // function to load the code editor
 var loadEditor = function() {
   // ensure the editor has not been loaded already and the form exists
