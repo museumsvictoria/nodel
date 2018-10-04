@@ -431,7 +431,7 @@ var init = function() {
           editor.setOption("mode", "python");
           break;
         default:
-        editor.setOption("mode", "txt");
+          editor.setOption("mode", "txt");
       }
       editor.getDoc().setValue(data);
       editor.setOption('readOnly', false);
