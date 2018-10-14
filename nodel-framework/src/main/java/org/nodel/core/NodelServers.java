@@ -176,15 +176,16 @@ public class NodelServers {
         
 		// start up an channel server socket on all interfaces and any port.
 
-		_channelServerSocket = new ChannelServerSocket(0);
-            _channelServerSocket.attachChannelServerHandler(new Handler.H1<Socket>() {
-                
-                @Override
-                public void handle(Socket socket) {
-                    handleNewConnection(socket);
-                }
-                
-            });
+        int requestedPort = Nodel.getMessagingPort();
+        _channelServerSocket = new ChannelServerSocket(requestedPort);
+        _channelServerSocket.attachChannelServerHandler(new Handler.H1<Socket>() {
+            
+            @Override
+            public void handle(Socket socket) {
+                handleNewConnection(socket);
+            }
+            
+        });
 
         _channelServerSocket.setStartedHandler(new Handler.H1<Integer>() {
 
@@ -568,7 +569,8 @@ public class NodelServers {
     private void handleChannelServerFailure(ChannelServer channelServer, Throwable value) {
         // remove this from the list of channel servers
         synchronized (_signal) {
-            this.logger.warn("Failure on a channel server; this may be natural. Removing it. (Error was " + value.toString() + ")");
+            // event may be of interest so log as 'info'
+            this.logger.info("Failure on a channel server; this may be natural. Removing it. (Error was " + value.toString() + ")");
 
             _channelServers.remove(channelServer);
             

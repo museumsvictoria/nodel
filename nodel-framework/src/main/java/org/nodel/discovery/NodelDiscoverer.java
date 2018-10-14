@@ -12,6 +12,7 @@ import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.MulticastSocket;
+import java.net.NoRouteToHostException;
 import java.net.SocketTimeoutException;
 import java.util.ArrayList;
 import java.util.LinkedList;
@@ -257,8 +258,9 @@ public class NodelDiscoverer {
                 if (!_enabled)
                     break;
 
-                // log nested exception summary instead of stack-trace dump
-                _logger.warn("Error while handling received packet from host {}, port {}; details: {}", dp.getAddress(), dp.getPort(), Exceptions.formatExceptionGraph(exc));
+                // log nested exception summary instead of stack-trace dump (skipping unimportant)
+                if (dp.getAddress() != null && dp.getPort() >= 0)
+                    _logger.warn("Error while handling received packet from host {}, port {}; details: {}", dp.getAddress(), dp.getPort(), Exceptions.formatExceptionGraph(exc));
                 
             } finally {
                 // make sure the packet is returned
@@ -317,7 +319,9 @@ public class NodelDiscoverer {
             if (!_enabled)
                 return;
 
-            _logger.warn("Socket send unexpectedly failed.", exc);
+            // likely failure is when the interface disappears and there's no route to host, if not, log warning
+            if (!(exc instanceof NoRouteToHostException))
+                _logger.warn("Socket send unexpectedly failed.", exc);
         }
     }
     

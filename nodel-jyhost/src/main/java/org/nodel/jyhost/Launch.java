@@ -11,6 +11,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.PrintWriter;
 import java.io.RandomAccessFile;
+import java.net.ServerSocket;
 import java.nio.channels.FileLock;
 
 import org.joda.time.DateTime;
@@ -239,6 +240,25 @@ public class Launch {
         // check if advertisements should be disabled
         if (_bootstrapConfig.getDisableAdvertisements()) {
             Nodel.setDisableServerAdvertisements(true);
+        }
+        
+        // use specific Nodel Messaging TCP port? (and UDP which is reserved for future use)
+        int requestedMessagingPort = _bootstrapConfig.getMessagingPort(); 
+        if (requestedMessagingPort > 0) {
+            // best to quickly check port availability if fixed ports are being used and choose to fail 
+            // immediately. 
+            // 
+            // Normally Nodel would start up asynchronously when *ANYPORT* is used.
+            // 
+            // (still leaves a likely negligible window where port could be taken but warnings and retries take place anyway)
+            try {
+                ServerSocket ss = new ServerSocket(requestedMessagingPort);
+                ss.close();
+            } catch (Exception exc) {
+                throw new IOException("Could not bind Nodel Messaging port on TCP " + requestedMessagingPort, exc);
+            }
+            
+            Nodel.updateMessagingPort(requestedMessagingPort);
         }
         
         initialisePython();

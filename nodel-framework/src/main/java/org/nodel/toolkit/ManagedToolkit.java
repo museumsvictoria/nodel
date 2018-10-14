@@ -328,19 +328,20 @@ public class ManagedToolkit {
      * Creates a repeating timer.
      */
     public ManagedTimer createTimer(H0 func, long delay, long interval, boolean stopped) {
-        synchronized(_lock) {
+        synchronized (_lock) {
             // create a timer (will be stopped)
-            ManagedTimer timer = new ManagedTimer(func, _threadStateHandler, s_timers, s_threadPool, _timerExceptionHandler, _callbackQueue);
+            ManagedTimer timer = new ManagedTimer(func, stopped, _threadStateHandler, s_timers, s_threadPool, _timerExceptionHandler, _callbackQueue);
+            
+            timer.setDelayAndInterval(delay, interval);
             
             _timers.add(timer);
             
-            timer.setDelayAndInterval(delay, interval);
-
-            // start now if necessary
-            if (!stopped && delay > 0 || interval > 0) {
+            // if created after normal init, start (if no 'stopped' flag)
+            if (_enabled && !stopped)
                 timer.start();
-            }
-
+            
+            // otherwise .start() will be called from 'enable'
+            
             return timer;
         }
     }
@@ -450,6 +451,11 @@ public class ManagedToolkit {
                 Stream.safeClose(process);
             else
                 _processes.add(process);
+        }
+        
+        // if the toolkit has already been initialised, start the process
+        if (_enabled) {
+            process.init();
         }
 
         return process;
@@ -840,6 +846,13 @@ public class ManagedToolkit {
                 return;
 
             _enabled = true;
+            
+            for(ManagedTimer timer: _timers) {
+                // start only those that haven't opted out
+                if (!timer.getStoppedAtFirst() && (timer.getDelay() > 0 || timer.getInterval() > 0)) {
+                    timer.start();
+                }
+            }
 
             for (ManagedTCP tcp : _tcpConnections) {
                 tcp.start();

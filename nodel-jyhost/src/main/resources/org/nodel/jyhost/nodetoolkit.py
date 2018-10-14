@@ -315,7 +315,8 @@ def processCleanupFunctions():
     for f in _nodel_atCleanupFunctions:
       try:
         f()
-      finally:
+      except:
+        # ignore
         pass
         
     return len(_nodel_atCleanupFunctions)

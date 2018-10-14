@@ -468,7 +468,7 @@ public class ManagedProcess implements Closeable {
      */
     public void init() {
         synchronized(_lock) {
-            if (_startTimer == null) {
+            if (_startTimer == null && !_shutdown) {
                 // kick off after a random amount of time to avoid resource usage spikes
                 int kickoffTime = 1000 + s_random.nextInt(KICKOFF_DELAY);
 
@@ -603,9 +603,17 @@ public class ManagedProcess implements Closeable {
             if (origCommand == null || origCommand.size() == 0)
                 throw new RuntimeException("No launch arguments were provided.");
             
-            List<String> command; // the command list that will be used            
+            // do a quick scan for any nulls or non-strings to avoid a mystifying exception message 
+            // when Java Process builder fails
+            for (int a = 0; a < origCommand.size(); a++) {
+                Object cmd = origCommand.get(a);
+                if (cmd == null || !(cmd instanceof CharSequence))
+                    throw new IllegalArgumentException("Argument in position " + a + " of the list is missing or not a string");
+            }
             
-            // if on Windows, use the ProcessSandbox.exe utility if it can be found...            
+            List<String> command; // the command list that will be used
+            
+            // if on Windows, use the ProcessSandbox.exe utility if it can be found...
             File processSandboxFile = resolveProcessSandbox(origCommand);
 
             if (processSandboxFile != null) {
@@ -625,7 +633,7 @@ public class ManagedProcess implements Closeable {
             ProcessBuilder processBuilder = new ProcessBuilder(command);
 
             // set the working directory if it's specified, or to the node's root
-            if (!Strings.isNullOrEmpty(workingStr)) {
+            if (!Strings.isBlank(workingStr)) {
                 File workingDir = new File(workingStr);
                 if (!workingDir.exists() || !workingDir.isDirectory())
                     throw new FileNotFoundException("Working directory specifed does exist or is not a directory.");

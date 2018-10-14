@@ -428,8 +428,10 @@ var init = function() {
           editor.setOption("mode", "shell");
           break;
         case 'py':
-        default:
           editor.setOption("mode", "python");
+          break;
+        default:
+          editor.setOption("mode", "txt");
       }
       editor.getDoc().setValue(data);
       editor.setOption('readOnly', false);
@@ -694,7 +696,7 @@ var init = function() {
 };
 
 var editor;
-var allowed = ['py','xml','xsl','js','json','html','htm','css','java','groovy','sql','sh'];
+var allowed = ['py','xml','xsl','js','json','html','htm','css','java','groovy','sql','sh','cs','bat','ini','txt','md','cmd'];
 // function to load the code editor
 var loadEditor = function() {
   // ensure the editor has not been loaded already and the form exists
@@ -909,6 +911,7 @@ var listNodes = function(){
   })
   $('#nodefilterback').on('click', function(e) {
     $("#nodefilter").val($("#nodefilter").val().substring(0, $("#nodefilter").val().lastIndexOf(" ")));
+    $('#nodefilter').keyup();
   });
   setInterval(function(){ $('#nodefilter').keyup(); }, 3000);
 };
@@ -1401,13 +1404,14 @@ var buildFormEvents = function(name, action, data){
     } else if (charCode != 9) {
       if(e.ctrlKey || e.altKey) return true;
       // if the field has a value, set the filter to this value
-      if($(this).val().length >0) filter = {filter:$(this).val()};
+      var srchstr = event.keyCode == 8 ? $(this).val().slice(0, -1) : $(this).val() + String.fromCharCode(charCode);
+      if(srchstr.length > 0) filter = {filter:srchstr};
       else filter = '';
       // abort any requests in progress
       if(req) req.abort();
       var ele = this;
       // if there is a value to lookup
-      if($(this).val().length >0) {
+      if(srchstr.length >0) {
         // get the list of nodes from the host
         req = $.getJSON('http://'+host+'/REST/nodeURLs',filter, function(data) {
           // dynamically add the popup code to the page if it doesn't exist
@@ -1418,7 +1422,7 @@ var buildFormEvents = function(name, action, data){
           $(list).empty();
           // for each node, create an entry in the list to a maximum of six
           $.each(data, function(key, value) {
-            var re = new RegExp("(.*)("+$(ele).val()+")(.*)","ig");
+            var re = new RegExp("(.*)("+srchstr+")(.*)","ig");
             var val = value.node.replace(re, '$1<strong>$2</strong>$3')
             $(list).append('<li>'+val+'</li>');
             return key < 6;
@@ -1467,6 +1471,7 @@ var buildFormEvents = function(name, action, data){
       }
     } else if (charCode != 9) {
       if(e.ctrlKey || e.altKey) return true;
+      var srchstr = event.keyCode == 8 ? $(this).val().slice(0, -1) : $(this).val() + String.fromCharCode(charCode);
       // abort any requests in progress
       if(req) req.abort();
       var ele = this;
@@ -1481,7 +1486,7 @@ var buildFormEvents = function(name, action, data){
       // set the filter to the node name
       var filter = {'name':lnode};
       // if the field has a value
-      if(($(this).val().length >0)) {
+      if((srchstr.length >0)) {
         // get the node list
         req = $.getJSON('http://'+host+'/REST/nodeURLsForNode',filter, function(data) {
           // if one or more nodes is found
@@ -1505,9 +1510,9 @@ var buildFormEvents = function(name, action, data){
                 // for every action
                 $.each(data, function(key, value) {
                   // if there is a value
-                  if(value.name.toLowerCase().indexOf($(ele).val().toLowerCase()) >= 0) {
+                  if(value.name.toLowerCase().indexOf(srchstr.toLowerCase()) >= 0) {
                     // check if the name matches the current value, highlight and add to the list
-                    var re = new RegExp("(.*)("+$(ele).val()+")(.*)","ig");
+                    var re = new RegExp("(.*)("+srchstr+")(.*)","ig");
                     var val = value.name.replace(re, '$1<strong>$2</strong>$3')
                     $(items).append('<li>'+val+'</li>');
                     len++;

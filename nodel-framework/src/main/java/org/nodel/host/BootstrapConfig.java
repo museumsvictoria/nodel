@@ -64,6 +64,21 @@ public class BootstrapConfig {
     public void setNodelHostWSPort(int value) {
         this.nodelHostWSPort = value;
     }
+    
+    
+    public final static int DEFAULT_MESSAGING_PORT = 0;
+
+    @Value(name = "messagingPort", title = "Messaging Port", order = 210, required = true, 
+           desc = "TCP & UDP (reserved) port for the native node-to-node messaging protocol to run on; normally '0' meaning any port. (command-line arg '--messagingPort')")
+    private int messagingPort = DEFAULT_MESSAGING_PORT;
+
+    public int getMessagingPort() {
+        return this.messagingPort;
+    }
+
+    public void setMessagingPort(int value) {
+        this.messagingPort = value;
+    }    
 
     
     public final static String DEFAULT_NODELROOT_DIRECTORY = "nodes";
@@ -197,7 +212,7 @@ public class BootstrapConfig {
      * TODO: ideally this should be a generic command-line args parser via Serialisation class and ValueInfos.
      */
     public void overrideWith(String[] args) {
-        if (args == null || args.length <= 1)
+        if (args == null || args.length == 0)
             // nothing to do
             return;
 
@@ -248,6 +263,9 @@ public class BootstrapConfig {
 
             } else if ("--recipes".equalsIgnoreCase(arg)) {
                 this.recipesRoot = nextArg;
+                
+            } else if ("--messagingPort".equalsIgnoreCase(arg)) {
+                this.messagingPort = Integer.parseInt(nextArg);
 
             } else if ("-I".equals(arg) || "--inclFilter".equalsIgnoreCase(arg)) {
                 List<String> list = lists.get('I');
@@ -299,7 +317,7 @@ public class BootstrapConfig {
         for (int i = 0; i < options.length; i++) {
             String name = options[i].name;
             String desc = options[i].desc;
-            if (Strings.isNullOrEmpty(desc))
+            if (Strings.isBlank(desc))
                 desc = String.format("(command-line arg '--%s')", name);
             System.out.format("    \"%s\": %s%n", name, JSONObject.quote(desc));
         }

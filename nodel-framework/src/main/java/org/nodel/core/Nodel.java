@@ -283,6 +283,27 @@ public class Nodel {
         return NodelClients.instance().getNodeURLs(name);
     }
     
+    
+    /**
+     * (see public getter / setter)
+     */
+    private static int s_messagingPort = 0; // e.g. "tcp://IP_ADDR:PORT" or "udp://IP_ADDR:PORT"
+
+    /**
+     * The messaging port (native Nodel) for this environment, TCP & UDP (reserved)
+     */
+    public static int getMessagingPort() {
+        return s_messagingPort;
+    }
+    
+    /**
+     * (see getter)
+     */
+    public static void updateMessagingPort(int value) {
+        s_messagingPort = value;
+    }    
+    
+    
     /**
      * (see public getter / setter)
      */

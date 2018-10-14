@@ -65,19 +65,26 @@ public class ManagedTimer implements Closeable {
      * The current interval
      */
     private long _currentInterval;
+    
+    /**
+     * Do not start on creation
+     * (carries flag only, not used within this class) 
+     */
+    private boolean _stoppedAtFirst;    
 
     /**
      * Sets up the thread state.
      */
     private H0 _threadStateHandler;
 
-    public ManagedTimer(H0 callback, H0 threadStateHandler, Timers timerThreads, ThreadPool threadPool, H1<Exception> exceptionHandler, CallbackQueue callbackQueue) {
+    public ManagedTimer(H0 callback, boolean stoppedAtFirst, H0 threadStateHandler, Timers timerThreads, ThreadPool threadPool, H1<Exception> exceptionHandler, CallbackQueue callbackQueue) {
         _threadStateHandler = threadStateHandler;
         _timerThread = timerThreads;
         _threadPool = threadPool;
         _exceptionHandler = exceptionHandler;
         _callbackQueue = callbackQueue;
         
+        _stoppedAtFirst = stoppedAtFirst;
         _callback = callback;
     }
     
@@ -221,6 +228,13 @@ public class ManagedTimer implements Closeable {
         synchronized (_lock) {
             return _delay;
         }
+    }
+    
+    /**
+     * Be stopped on creation 
+     */
+    public boolean getStoppedAtFirst() {
+        return _stoppedAtFirst;
     }
 
     public boolean isStarted() {
