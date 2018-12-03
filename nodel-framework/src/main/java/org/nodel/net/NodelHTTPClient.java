@@ -75,8 +75,8 @@ public abstract class NodelHTTPClient implements Closeable {
     static {
         Diagnostics.shared().registerCounter("HTTP client.Connections", s_roActiveConnections, false);
         Diagnostics.shared().registerCounter("HTTP client.Attempt rate", s_roAttemptRate, true);
-        Diagnostics.shared().registerCounter("HTTP client.Send chars", s_roSendRate, true);
-        Diagnostics.shared().registerCounter("HTTP client.Receive chars", s_roReceiveRate, true);
+        Diagnostics.shared().registerCounter("HTTP client.Send rate", s_roSendRate, true);
+        Diagnostics.shared().registerCounter("HTTP client.Receive rate", s_roReceiveRate, true);
     }
     
     
