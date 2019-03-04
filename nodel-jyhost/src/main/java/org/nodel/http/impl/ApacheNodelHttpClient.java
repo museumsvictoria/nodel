@@ -275,36 +275,39 @@ public class ApacheNodelHttpClient extends NodelHTTPClient {
                 s_sendRate.addAndGet(body.length());
             
             // safely get the response (regardless of response code for now)
+            String content = null;
             
             // safely get the content encoding
             HttpEntity entity = httpResponse.getEntity();
-            Header contentEncodingHeader = entity.getContentEncoding();
-            String contentEncoding = null;
-            if (contentEncodingHeader != null)
-                contentEncoding = contentEncodingHeader.getValue();
-            
-            // only if no specific encoding specified, fallback to UTF-8 for json and xml
-            if (contentEncoding == null) {
-                Header recvContentTypeHeader = entity.getContentType();
-                if (recvContentTypeHeader != null) {
-                    String recvContentType = recvContentTypeHeader.getValue() != null ? recvContentTypeHeader.getValue().toLowerCase() : ""; // as safe lower-case
+            if (entity != null) {
+                Header contentEncodingHeader = entity.getContentEncoding();
+                String contentEncoding = null;
+                if (contentEncodingHeader != null)
+                    contentEncoding = contentEncodingHeader.getValue();
 
-                    if (recvContentType.contains("json") || recvContentType.contains("xml"))
-                        contentEncoding = "utf-8";
+                // only if no specific encoding specified, fallback to UTF-8 for json and xml
+                if (contentEncoding == null) {
+                    Header recvContentTypeHeader = entity.getContentType();
+                    if (recvContentTypeHeader != null) {
+                        String recvContentType = recvContentTypeHeader.getValue() != null ? recvContentTypeHeader.getValue().toLowerCase() : ""; // as safe lower-case
+
+                        if (recvContentType.contains("json") || recvContentType.contains("xml"))
+                            contentEncoding = "utf-8";
+                    }
                 }
-            }
 
-            inputStream = entity.getContent();
-            
-            // inject a counter so bytes can be counted, not characters
-            SafeCounter byteCounter = new SafeCounter();
-            cis = new CountableInputStream(inputStream, SharableMeasurementProvider.Null.INSTANCE, byteCounter);
-            
-            // try using the given encoding or a straight 8-bit widening (for convenience ISO-8859-1 does that trick) 
-            String encodingToUse = Strings.isBlank(contentEncoding) ? "ISO-8859-1" : contentEncoding;
-            
-            InputStreamReader isr = new InputStreamReader(cis, encodingToUse); // unknown encoding will raise an exception
-            String content = Stream.readFully(isr);
+                inputStream = entity.getContent();
+
+                // inject a counter so bytes can be counted, not characters
+                SafeCounter byteCounter = new SafeCounter();
+                cis = new CountableInputStream(inputStream, SharableMeasurementProvider.Null.INSTANCE, byteCounter);
+
+                // try using the given encoding or a straight 8-bit widening (for convenience ISO-8859-1 does that trick)
+                String encodingToUse = Strings.isBlank(contentEncoding) ? "ISO-8859-1" : contentEncoding;
+
+                InputStreamReader isr = new InputStreamReader(cis, encodingToUse); // unknown encoding will raise an exception
+                content = Stream.readFully(isr);
+            }
             
             StatusLine statusLine = httpResponse.getStatusLine();
             

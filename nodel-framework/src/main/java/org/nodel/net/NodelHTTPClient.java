@@ -154,8 +154,8 @@ public abstract class NodelHTTPClient implements Closeable {
                               Integer connectTimeout, Integer readTimeout) {
         HTTPSimpleResponse response = makeRequest(urlStr, method, query, username, password, headers, contentType, post, connectTimeout, readTimeout);
 
-        if (response.statusCode == HttpURLConnection.HTTP_OK) {
-            // 'OK' response, just return content
+        if (response.statusCode >= 200 && response.statusCode < 300) { // 200 is HTTP_OK
+            // any 'OK'-related response, just return content
             return response.content;
             
         } else {
