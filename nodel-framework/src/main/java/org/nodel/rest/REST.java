@@ -304,7 +304,7 @@ public class REST {
                                         
                                         // check if the last argument is a 'major' one i.e. what ends up as POST data
                                         int lastParamIndex = paramMap.size() - 1;
-                                        if (lastParamIndex > 0 && paramInfos[lastParamIndex].annotation != null && paramInfos[lastParamIndex].annotation.isMajor()) {
+                                        if (lastParamIndex >= 0 && paramInfos[lastParamIndex].annotation != null && paramInfos[lastParamIndex].annotation.isMajor()) {
                                             // treat as complete argument (not argument map)
                                             ParameterInfo firstParamInfo = paramInfos[lastParamIndex];
                                             Object argValue = Serialisation.coerceFromJSON(firstParamInfo.klass, data, firstParamInfo.annotation.genericClassA(), firstParamInfo.annotation.genericClassB(), treatEmptyStringAsNull);
