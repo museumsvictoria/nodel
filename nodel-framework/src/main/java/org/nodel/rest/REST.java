@@ -302,22 +302,16 @@ public class REST {
                                         for (ParameterInfo item : paramMap.values())
                                             paramInfos[a++] = item;
                                         
-                                         if (paramMap.size() == 1 && paramInfos[0].annotation != null && paramInfos[0].annotation.isMajor()) {
+                                        // check if the last argument is a 'major' one i.e. what ends up as POST data
+                                        int lastParamIndex = paramMap.size() - 1;
+                                        if (lastParamIndex > 0 && paramInfos[lastParamIndex].annotation != null && paramInfos[lastParamIndex].annotation.isMajor()) {
                                             // treat as complete argument (not argument map)
-                                            ParameterInfo firstParamInfo = paramInfos[0];
+                                            ParameterInfo firstParamInfo = paramInfos[lastParamIndex];
                                             Object argValue = Serialisation.coerceFromJSON(firstParamInfo.klass, data, firstParamInfo.annotation.genericClassA(), firstParamInfo.annotation.genericClassB(), treatEmptyStringAsNull);
-                                            
-                                            args[0] = argValue;
-                                            argSet[0] = true;
-                                            
-                                        } else if (paramMap.size() == 2 && paramInfos[1].annotation != null && paramInfos[1].annotation.isMajor()) {
-                                            // treat as complete argument (not argument map)
-                                            ParameterInfo secondParamInfo = paramInfos[1];
-                                            Object argValue = Serialisation.coerceFromJSON(secondParamInfo.klass, data, secondParamInfo.annotation.genericClassA(), secondParamInfo.annotation.genericClassB(), treatEmptyStringAsNull);
-                                            
-                                            args[1] = argValue;
-                                            argSet[1] = true;
-                                            
+
+                                            args[lastParamIndex] = argValue;
+                                            argSet[lastParamIndex] = true;
+
                                         } else {
                                             // treat it as an argument map
                                             @SuppressWarnings("unchecked")
@@ -398,7 +392,7 @@ public class REST {
         // return the object itself or the 'treat as value' method / field.
         Object result = Reflection.getDefaultValue(object);
         
-        if (serviceInfoHint != null && !Strings.isNullOrEmpty(serviceInfoHint.annotation.embeddedFieldName())) {
+        if (serviceInfoHint != null && !Strings.isBlank(serviceInfoHint.annotation.embeddedFieldName())) {
             Map<String,Object> wrappedResult = new LinkedHashMap<String,Object>();  
             wrappedResult.put(serviceInfoHint.annotation.embeddedFieldName(), result);
             
