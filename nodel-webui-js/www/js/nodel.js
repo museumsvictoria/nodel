@@ -1763,17 +1763,17 @@ var buildFormSchema = function(data, key, parent) {
         switch(data.format){
           // long fields are rendered as a textarea element
           case 'long':
-            set = '<div class="field"><label for="field_'+parent+'{{:#getIndex()}}"'+cls+'>'+htmlEncode(data.title)+'</label><textarea placeholder="'+placeholder+'" id="field_'+parent+'{{:#getIndex()}}" title="'+htmlEncode(data.desc)+'" data-link="'+link+'"'+cls+'></textarea></div>';
+            set = '<div class="field"><label for="field_'+parent+'{{:#getIndex()}}"'+cls+'>'+htmlEncode(data.title)+'</label><textarea placeholder="'+placeholder+'" id="field_'+parent+'{{:#getIndex()}}" title="'+htmlEncode(data.desc)+'" data-link="'+link+' trigger=true"'+cls+'></textarea></div>';
             break;
           // json fields are rendered as a textarea element with json decode
           case 'json':
-            set = '<div class="field"><label for="field_'+parent+'{{:#getIndex()}}"'+cls+'>'+htmlEncode(data.title)+'</label><textarea placeholder="'+placeholder+'" id="field_'+parent+'{{:#getIndex()}}" title="'+htmlEncode(data.desc)+'" data-link="{objToStr:' + link + ':strToObj}"'+cls+'></textarea></div>';
+            set = '<div class="field"><label for="field_'+parent+'{{:#getIndex()}}"'+cls+'>'+htmlEncode(data.title)+'</label><textarea placeholder="'+placeholder+'" id="field_'+parent+'{{:#getIndex()}}" title="'+htmlEncode(data.desc)+'" data-link="{objToStr:'+link+' trigger=true:strToObj}"'+cls+'></textarea></div>';
             break;
           // node, action and event fields render with an additional group attribute
           case 'node':
           case 'action':
           case 'event':
-            set = '<div class="field"><label for="field_'+parent+'{{:#getIndex()}}"'+cls+'>'+htmlEncode(data.title)+'</label><input placeholder="'+placeholder+'" id="field_'+parent+'{{:#getIndex()}}" title="'+htmlEncode(data.desc)+'" type="text" data-group="'+group+'" data-link="'+link+'"'+cls+' /></div>';
+            set = '<div class="field"><label for="field_'+parent+'{{:#getIndex()}}"'+cls+'>'+htmlEncode(data.title)+'</label><input placeholder="'+placeholder+'" id="field_'+parent+'{{:#getIndex()}}" title="'+htmlEncode(data.desc)+'" type="text" data-group="'+group+'" data-link="'+link+' trigger=true"'+cls+'/></div>';
             break;
           // file fields have a hidden upload element, progress indicator and 'browse' button
           case 'file':
@@ -1782,29 +1782,29 @@ var buildFormSchema = function(data, key, parent) {
           // format a time
           case 'time':
             // time is rendered as html5 time type
-            set = '<div class="field"><label for="field_'+parent+'{{:#getIndex()}}"'+cls+'>'+htmlEncode(data.title)+'</label><input placeholder="'+placeholder+'" id="field_'+parent+'{{:#getIndex()}}" title="'+htmlEncode(data.desc)+'" type="time" data-link="'+link+'"'+cls+' /></div>';
+            set = '<div class="field"><label for="field_'+parent+'{{:#getIndex()}}"'+cls+'>'+htmlEncode(data.title)+'</label><input placeholder="'+placeholder+'" id="field_'+parent+'{{:#getIndex()}}" title="'+htmlEncode(data.desc)+'" type="time" data-link="'+link+' trigger=true"'+cls+'/></div>';
             break;
           // format a date
           case 'date':
             // date is rendered as html5 date type
-            set = '<div class="field"><label for="field_'+parent+'{{:#getIndex()}}"'+cls+'>'+htmlEncode(data.title)+'</label><input placeholder="'+placeholder+'" id="field_'+parent+'{{:#getIndex()}}" title="'+htmlEncode(data.desc)+'" type="date" data-link="'+link+'"'+cls+' /></div>';
+            set = '<div class="field"><label for="field_'+parent+'{{:#getIndex()}}"'+cls+'>'+htmlEncode(data.title)+'</label><input placeholder="'+placeholder+'" id="field_'+parent+'{{:#getIndex()}}" title="'+htmlEncode(data.desc)+'" type="date" data-link="'+link+' trigger=true"'+cls+'/></div>';
             break;
           // format a date-time
           case 'date-time':
             // date-time is rendered as html5 datetime type
-            set = '<div class="field"><label for="field_'+parent+'{{:#getIndex()}}"'+cls+'>'+htmlEncode(data.title)+'</label><input placeholder="'+placeholder+'" id="field_'+parent+'{{:#getIndex()}}" title="'+htmlEncode(data.desc)+'" type="datetime" data-link="'+link+'"'+cls+' /></div>';
+            set = '<div class="field"><label for="field_'+parent+'{{:#getIndex()}}"'+cls+'>'+htmlEncode(data.title)+'</label><input placeholder="'+placeholder+'" id="field_'+parent+'{{:#getIndex()}}" title="'+htmlEncode(data.desc)+'" type="datetime" data-link="'+link+' trigger=true"'+cls+'/></div>';
             break;
           // format a password
           case 'password':
-            set = '<div class="field"><label for="field_'+parent+'{{:#getIndex()}}"'+cls+'>'+htmlEncode(data.title)+'</label><input placeholder="'+placeholder+'" id="field_'+parent+'{{:#getIndex()}}" title="'+htmlEncode(data.desc)+'" type="password" data-link="'+link+'"'+cls+' /></div>';
+            set = '<div class="field"><label for="field_'+parent+'{{:#getIndex()}}"'+cls+'>'+htmlEncode(data.title)+'</label><input placeholder="'+placeholder+'" id="field_'+parent+'{{:#getIndex()}}" title="'+htmlEncode(data.desc)+'" type="password" data-link="'+link+' trigger=true"'+cls+'/></div>';
             break;
           // format a color
           case 'color':
-            set = '<div class="field"><label for="field_'+parent+'{{:#getIndex()}}"'+cls+'>'+htmlEncode(data.title)+'</label><input placeholder="'+placeholder+'" id="field_'+parent+'{{:#getIndex()}}" title="'+htmlEncode(data.desc)+'" type="color" data-link="'+link+'"'+cls+' /></div>';
+            set = '<div class="field"><label for="field_'+parent+'{{:#getIndex()}}"'+cls+'>'+htmlEncode(data.title)+'</label><input placeholder="'+placeholder+'" id="field_'+parent+'{{:#getIndex()}}" title="'+htmlEncode(data.desc)+'" type="color" data-link="'+link+' trigger=true"'+cls+'/></div>';
             break;
           // basic renderer for any other elements
           default:
-            set = '<div class="field"><label for="field_'+parent+'{{:#getIndex()}}"'+cls+'>'+htmlEncode(data.title)+'</label><input placeholder="'+placeholder+'" id="field_'+parent+'{{:#getIndex()}}" title="'+htmlEncode(data.desc)+'" type="text" data-link="'+link+'"'+cls+' /></div>';
+            set = '<div class="field"><label for="field_'+parent+'{{:#getIndex()}}"'+cls+'>'+htmlEncode(data.title)+'</label><input placeholder="'+placeholder+'" id="field_'+parent+'{{:#getIndex()}}" title="'+htmlEncode(data.desc)+'" type="text" data-link="'+link+' trigger=true"'+cls+'/></div>';
             break;
         }
       }
@@ -1815,7 +1815,7 @@ var buildFormSchema = function(data, key, parent) {
       if(data.format == "range" && (typeof data.min !== "undefined") && (typeof data.max !== "undefined")) {
         set = '<div class="field"><label for="field_'+parent+'{{:#getIndex()}}"'+cls+'>'+htmlEncode(data.title)+'<output class="labelvalue" data-link="{numToStr:'+link+' trigger=\'input\':strToInt}"></output></label><input id="field_'+parent+'{{:#getIndex()}}" title="'+htmlEncode(data.desc)+'" type="range" step="1" min="'+data.min+'" max="'+data.max+'" data-link="{numToStr:'+link+' trigger=\'input\':strToInt}"'+cls+' /></div>';
       } else {
-        set = '<div class="field"><label for="field_'+parent+'{{:#getIndex()}}"'+cls+'>'+htmlEncode(data.title)+'</label><input placeholder="'+placeholder+'" id="field_'+parent+'{{:#getIndex()}}" title="'+htmlEncode(data.desc)+'" type="number" step="1" data-link="{numToStr:'+link+':strToInt}"'+cls+' /></div>';
+        set = '<div class="field"><label for="field_'+parent+'{{:#getIndex()}}"'+cls+'>'+htmlEncode(data.title)+'</label><input placeholder="'+placeholder+'" id="field_'+parent+'{{:#getIndex()}}" title="'+htmlEncode(data.desc)+'" type="number" step="1" data-link="{numToStr:'+link+' trigger=true:strToInt}"'+cls+'/></div>';
       }
       break;
     // format a number
@@ -1824,13 +1824,13 @@ var buildFormSchema = function(data, key, parent) {
       if(data.format == "dbmeter"){
         set = '<div class="field"><label for="field_' + parent + '{{:#getIndex()}}"' + cls + '>' + htmlEncode(data.title) + '</label><svg viewBox="0 0 100 10" style="width:100%; height:30px;" preserveAspectRatio="none"><defs><clipPath id="clip"><rect x="0" y="0" width="0" height="10" data-link="width{dbToPerc:'+link+'}"/></clipPath><linearGradient id="grad1"><stop offset="0%" stop-color="rgb(0,200,0)"/><stop offset="65%" stop-color="rgb(0,200,0)"/><stop offset="80%" stop-color="rgb(255,255,0)"/><stop offset="100%" stop-color="rgb(255,0,0)"/></linearGradient></defs><rect x="0" y="0" width="100" height="10" fill="url(#grad1)" clip-path="url(#clip)"/><line x1="75" x2="75" y1="0" y2="10" stroke="rgb(0,0,0)" stroke-width="0.25"/><text x="72.5" y="3" font-size="3px">0</text><line x1="75" x2="75" y1="0" y2="10" stroke="rgb(0,0,0)" stroke-width="0.25"/><text x="72.5" y="3" font-size="3px">0</text><line x1="99.75" x2="99.75" y1="0" y2="10" stroke="rgb(0,0,0)" stroke-width="0.25"/><text x="94" y="3" font-size="3px">+10</text></svg></div>'
       } else {
-        set = '<div class="field"><label for="field_' + parent + '{{:#getIndex()}}"' + cls + '>' + htmlEncode(data.title) + '</label><input placeholder="' + placeholder + '" id="field_' + parent + '{{:#getIndex()}}" title="' + htmlEncode(data.desc) + '" type="number" step="any" data-link="{numToStr:' + link + ':strToFloat}"' + cls + ' /></div>';
+        set = '<div class="field"><label for="field_' + parent + '{{:#getIndex()}}"' + cls + '>' + htmlEncode(data.title) + '</label><input placeholder="' + placeholder + '" id="field_' + parent + '{{:#getIndex()}}" title="' + htmlEncode(data.desc) + '" type="number" step="any" data-link="{numToStr:'+link+' trigger=true:strToFloat}"'+cls+'/></div>';
       }
       break;
     // format a boolean
     case 'boolean':
       // booleans are rendered as checkboxes
-      set = '<div class="field"><fieldset><legend>'+htmlEncode(data.title)+'</legend><label for="field_'+parent+'{{:#getIndex()}}"'+cls+'><input id="field_'+parent+'{{:#getIndex()}}" title="'+htmlEncode(data.desc)+'" type="checkbox" data-link="'+link+'"'+cls+' /><span>Yes</span></label></fieldset></div>';
+      set = '<div class="field"><fieldset><legend>'+htmlEncode(data.title)+'</legend><label for="field_'+parent+'{{:#getIndex()}}"'+cls+'><input id="field_'+parent+'{{:#getIndex()}}" title="'+htmlEncode(data.desc)+'" type="checkbox" data-link="'+link+' trigger=true"'+cls+'/><span>Yes</span></label></fieldset></div>';
       break;
     // don't render a null type
     case 'null':
