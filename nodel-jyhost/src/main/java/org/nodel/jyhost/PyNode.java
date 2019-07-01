@@ -1501,6 +1501,18 @@ public class PyNode extends BaseDynamicNode {
     } // (method)
     
     /**
+     * Restarts the node.
+     */
+    @Service(name = "restart", title = "Restart", desc = "Restarts this node.")
+    public void restart() {
+        _logger.info("restart() called");
+        
+        _fileModifiedHash = 0;
+        
+        // graceful restart as background task...
+    }
+    
+    /**
      * Renames the node.
      */
     @Service(name = "rename", title = "Rename", desc = "Renames a node.")
