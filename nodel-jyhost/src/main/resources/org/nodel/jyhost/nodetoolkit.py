@@ -138,7 +138,7 @@ def quick_process(command,
                   env=None):      # add/set environment variables (dict)
     return nodetoolkit.createQuickProcess(command, stdinPush, 
                                        started, finished, 
-                                       long(timeoutInSeconds * 1000), working, mergeErr)
+                                       long(timeoutInSeconds * 1000), working, mergeErr, env)
 
 # create a safe request queue for mixing asynchronous and synchronous programming.
 # e.g. 
