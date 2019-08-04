@@ -109,19 +109,20 @@ def UDP(source='0.0.0.0:0', dest=None, ready=None, received=None, sent=None, int
 # A managed processes that attempts to stay executed (includes instrumentation)
 def Process(command, # the command line and arguments
            # callbacks
-           started=None, # everytime the process is started
-           stdout=None, # stdout handler
-           stdin=None, # feedback when .send is called (for convenience) 
-           stderr=None, # stderr handler
-           stopped=None, # when the process is stops / stopped
-           timeout=None,  # timeout when a request is issued but not response
+           started=None,   # everytime the process is started
+           stdout=None,    # stdout handler
+           stdin=None,     # feedback when .send is called (for convenience) 
+           stderr=None,    # stderr handler
+           stopped=None,   # when the process is stops / stopped
+           timeout=None,   # timeout when a request is issued but not response
            # arguments
            sendDelimiters='\n', receiveDelimiters='\r\n', # default delimiters
-           working=None, # working directory
-           mergeErr=False):
+           working=None,   # working directory
+           mergeErr=False, # merge  stderr into the stdout for convenience
+           env=None):      # add/set environment variables (dict)
   return nodetoolkit.createProcess(command, 
                                 started, stdout, stdin, stderr, stopped, timeout, sendDelimiters, receiveDelimiters,
-                                working, mergeErr)
+                                working, mergeErr, env)
 
 # Creates a short-living process (still managed)
 def quick_process(command,
@@ -133,7 +134,8 @@ def quick_process(command,
                                   #   'stderr': The complete stderr capture (if not merged)
                   timeoutInSeconds=0, # if positive, kills the process on timeout
                   working=None,   # the working directory
-                  mergeErr=False):# merge  stderr into the stdout for convenience
+                  mergeErr=False, # merge  stderr into the stdout for convenience
+                  env=None):      # add/set environment variables (dict)
     return nodetoolkit.createQuickProcess(command, stdinPush, 
                                        started, finished, 
                                        long(timeoutInSeconds * 1000), working, mergeErr)
