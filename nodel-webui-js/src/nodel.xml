@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="v1/index.xsl"?>
+<pages core="true" theme="default" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="v1/index.xsd">
+  <header>
+    <nodel type="hosticon"/>
+    <nodel type="nav"/>
+    <nodel type="edit"/>
+  </header>
+  <page title='Activity'>
+    <row>
+      <column>
+        <nodel type="description"/>
+      </column>
+    </row>
+    <row>
+      <column sm="12">
+        <title>Console</title>
+        <nodel type="console"/>
+      </column>
+    </row>
+    <row>
+      <column sm="12">
+        <title>Recipe</title>
+        <nodel type="editor"/>
+      </column>
+    </row>
+    <row>
+      <column sm="8" push="4">
+        <title>Actions &amp; Signals</title>
+        <nodel type="actsig"/>
+      </column>
+      <column sm="4" pull="8">
+        <title>Log</title>
+        <nodel type="log"/>
+      </column>
+    </row>
+  </page>
+  <page title='Config'>
+    <row>
+      <column sm="4">
+        <title>Parameters</title>
+        <nodel type="params"/>
+      </column>
+      <column sm="8">
+        <title>Bindings</title>
+        <nodel type="remote"/>
+      </column>
+    </row>
+  </page>
+</pages>
