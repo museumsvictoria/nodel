@@ -344,6 +344,10 @@
         <![CDATA[
           <form data-form="true" class="base" autocomplete="off">
             <fieldset>
+              <%if isgrouped%>
+              {^{if true ~initHid('_$grpvisible')}}
+                {^{if _$grpvisible}}
+              <%/if%>
               <%if btntop%>
                 <button type="submit" class="btn <%if btncolour%>btn-<%:btncolour%><%else%>btn-default<%/if%> btn-top<%if disabled%> disabled<%/if%>" title="<%:btntitle%>">
                   <%>btntitle%>
@@ -384,6 +388,10 @@
                   <%/if%>
                 </button>
               <%/if%>
+              <%if isgrouped%>
+                {{/if}}
+              {{/if}}
+              <%/if%>
             </fieldset>
           </form>
         ]]>
@@ -402,14 +410,18 @@
             </div>
             <div data-link="id{:~idxid(~idx,'<%:~id%>_array_<%:~key%>')}" class="panel-collapse collapse" aria-expanded="false">
               <div class="panel-body">
-              {^{if ~initObj('<%:~key%>', <%:~key%>)}}
-                {^{for <%:~key%>}}
-                  <%props properties sort="prop.order"%>
-                    <%for prop ~key=key%>
-                      <%include tmpl="#switchTmpl" ~inobj=true/%>
-                    <%/for%>
-                  <%/props%>
-                {{/for}}
+              {^{if true ~initHid('_$visible')}}
+                {^{if _$visible}}
+                  {^{if ~initObj('<%:~key%>', <%:~key%>)}}
+                    {^{for <%:~key%>}}
+                      <%props properties sort="prop.order"%>
+                        <%for prop ~key=key%>
+                          <%include tmpl="#switchTmpl" ~inobj=true/%>
+                        <%/for%>
+                      <%/props%>
+                    {{/for}}
+                  {{/if}}
+                {{/if}}
               {{/if}}
               </div>
             </div>
@@ -431,32 +443,36 @@
             <div data-link="id{:~idxid(~idx,'<%:~id%>_array_<%:~key%>')}" class="panel-collapse collapse" aria-expanded="false">
               <table class="table">
                 <tbody>
-                  {^{if ~initArr('<%:~key%>', <%:~key%>)}}
-                    {^{for <%:~key%>}}
-                      <%for items%>
-                        <%if type=="object"%>
-                          {^{if true ~idx=~idx?~idx+'_'+#getIndex():#getIndex()}}
-                            <tr>
-                              <td class="col-sm-12">
-                                <%props properties sort="prop.order"%>
-                                  <%for prop ~key=key%>
-                                    <%include tmpl="#switchTmpl" ~inobj=true/%>
-                                  <%/for%>
-                                <%/props%>
-                                <div class="btn-group btn-group-xs">
-                                  <button type="button" class="btn btn-default up" data-link="class{:#getIndex() <= 0?'btn btn-default up disabled':'btn btn-default up'}"><span class="glyphicon glyphicon-chevron-up" aria-hidden="true"></span></button>
-                                  <button type="button" class="btn btn-default del"><span class="fa fa-trash text-danger" aria-hidden="true"></span></button>
-                                  <button type="button" class="btn btn-default down" data-link="class{:#getIndex() >= #parent.data.length-1?'btn btn-default down disabled':'btn btn-default down'}"><span class="glyphicon glyphicon-chevron-down" aria-hidden="true"></span></button>
-                                </div>
-                              </td>
-                            </tr>
-                          {{/if}}
-                        <%/if%>
-                      <%/for%>
-                    {{/for}}
-                    <tr>
-                      <td><button type="button" data-for="<%:~key%>" class="btn btn-default btn-sm text-primary add"><span class="glyphicon glyphicon-plus" aria-hidden="true"></span></button></td>
-                    </tr>
+                  {^{if true ~initHid('_$visible')}}
+                    {^{if _$visible}}
+                      {^{if ~initArr('<%:~key%>', <%:~key%>)}}
+                        {^{for <%:~key%>}}
+                          <%for items%>
+                            <%if type=="object"%>
+                              {^{if true ~idx=~idx?~idx+'_'+#getIndex():#getIndex()}}
+                                <tr>
+                                  <td class="col-sm-12">
+                                    <%props properties sort="prop.order"%>
+                                      <%for prop ~key=key%>
+                                        <%include tmpl="#switchTmpl" ~inobj=true/%>
+                                      <%/for%>
+                                    <%/props%>
+                                    <div class="btn-group btn-group-xs">
+                                      <button type="button" class="btn btn-default up" data-link="class{:#getIndex() <= 0?'btn btn-default up disabled':'btn btn-default up'}"><span class="glyphicon glyphicon-chevron-up" aria-hidden="true"></span></button>
+                                      <button type="button" class="btn btn-default del"><span class="fa fa-trash text-danger" aria-hidden="true"></span></button>
+                                      <button type="button" class="btn btn-default down" data-link="class{:#getIndex() >= #parent.data.length-1?'btn btn-default down disabled':'btn btn-default down'}"><span class="glyphicon glyphicon-chevron-down" aria-hidden="true"></span></button>
+                                    </div>
+                                  </td>
+                                </tr>
+                              {{/if}}
+                            <%/if%>
+                          <%/for%>
+                        {{/for}}
+                        <tr>
+                          <td><button type="button" data-for="<%:~key%>" class="btn btn-default btn-sm text-primary add"><span class="glyphicon glyphicon-plus" aria-hidden="true"></span></button></td>
+                        </tr>
+                      {{/if}}
+                    {{/if}}
                   {{/if}}
                 </tbody>
               </table>
@@ -523,6 +539,7 @@
         <script id="remoteTmpl" type="text/x-jsrender">
         <![CDATA[
           <form data-form="true" class="base" autocomplete="off">
+            {^{if true ~initHid('_$visible')}}
             <fieldset>
               <%for schema ~key=key?key:''%>
                 <%if type=="object"%>
@@ -534,9 +551,11 @@
                         </div>
                         <div id="<%:~id%>_remote_group" class="panel-collapse collapse">
                           <div class="panel-body">
+                            {^{if ~root._$visible}}
                             <table class="tableremote">
                               <thead>
                                 <tr>
+                                  <td></td>
                                   <td></td>
                                   <td>
                                     {^{if ~initHid('_$filldown')}}
@@ -552,6 +571,7 @@
                                 </tr>
                                 <tr>
                                   <th><label><input type="checkbox" class="remoteselectall <%:~fieldkey%>"/> <b>Name</b></label></th>
+                                  <th></th>
                                   <th>Node</th>
                                   <th><%>~fieldtitle%></th>
                                 </tr>
@@ -571,14 +591,16 @@
                                                       <input type="checkbox" data-link="_$checked"/>
                                                     {{/if}}
                                                     <%>title%>
-                                                    {^{if ~initHid('_$status')}}
-                                                      {^{if _$status == 'Wired'}}
-                                                        {^{for _$link sort=~sortReachable end=1}}
-                                                          <a data-link="href{:address}"><span class="binding wired fas fa-link" data-link="class{:reachable?'binding wired fas fa-link reachable':'binding wired fas fa-link'}"></span></a>
-                                                        {{/for}}
-                                                      {{/if}}
-                                                    {{/if}}
                                                   </label>
+                                                </td>
+                                                <td>
+                                                  {^{if ~initHid('_$status')}}
+                                                    {^{if _$status == 'Wired'}}
+                                                      <a data-link="href{:'/nodes.xml?filter='+node}"><span class="binding wired fas fa-link reachable"></span></a>
+                                                    {{else}}
+                                                      <a><span class="binding fas fa-unlink"></span></a>
+                                                    {{/if}}
+                                                  {{/if}}
                                                 </td>
                                                 <td>
                                                   <div>
@@ -600,6 +622,7 @@
                                 <%/for%>
                               </tbody>
                             </table>
+                            {{/if}}
                           </div>
                         </div>
                       </div>
@@ -609,6 +632,7 @@
               <%/for%>
               <button type="submit" class="btn btn-success" title="Remote">Save</button>
             </fieldset>
+            {{/if}}
           </form>
         ]]>
         </script>
@@ -619,14 +643,14 @@
           {{/for}}
           {{props groups}}
             {{if true ~id=~genid()}}
-              <div class="panel panel-default">
+              <div class="panel panel-default isgrouped">
                 <div class="panel-heading accordion-toggle collapsed" data-toggle="collapse" data-target="#{{:~id}}_actsig_group">
                   <h5 class="panel-title">{{>key}}</h5>
                 </div>
                 <div id="{{:~id}}_actsig_group" class="panel-collapse collapse">
                   <div class="panel-body">
                     {{for prop}}
-                      {{include tmpl="#actsigTmplItem" ~len=#parent.data.length/}}
+                      {{include tmpl="#actsigTmplItem" ~len=#parent.data.length ~isgrouped=true/}}
                     {{/for}}
                   </div>
                 </div>
@@ -642,7 +666,7 @@
               <div class="col-sm-6">
                 <div {{props action}}
                   data-{{:key}}='{{:prop}}'
-                {{/props}} data-btnfaicon="running"/>
+                {{/props}} {{if ~isgrouped}}data-isgrouped="true"{{/if}} data-btnfaicon="running"/>
               </div>
             {{/if}}
             {{if event}}
@@ -653,7 +677,7 @@
               {{/if}}
                 <div {{props event}}
                   data-{{:key}}='{{:prop}}'
-                {{/props}} data-btnfaicon="traffic-light" data-disabled="true"/>
+                {{/props}} {{if ~isgrouped}}data-isgrouped="true"{{/if}} data-btnfaicon="traffic-light" data-disabled="true"/>
               </div>
             {{/if}}
           </div>

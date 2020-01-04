@@ -653,12 +653,16 @@ div.nodel-charts {
       min-width: 100px;
     }
     &:first-child {
-      overflow-x: hidden;
-      text-overflow: ellipsis;
       white-space: nowrap;
       > label {
+        overflow-x: hidden;
+        text-overflow: ellipsis;
         width: 100%;
         margin-top: 5px;
+        display: block;
+      }
+      & + td {
+        width: 20px;
       }
     }
     > div {
@@ -668,6 +672,7 @@ div.nodel-charts {
   .binding {
     margin: 5px;
     float: right;
+    color: @gray-lighter;
     &.wired {
       color: @brand-success;
     }
@@ -692,6 +697,10 @@ div.nodel-charts {
       &.active {
         background-color: @list-group-active-bg;
         color: @list-group-active-color;
+      }
+      & > span {
+        color: @gray-light;
+        font-size: @font-size-small;
       }
     }
   }

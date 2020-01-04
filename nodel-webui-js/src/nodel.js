@@ -222,6 +222,25 @@ var removeNulls = function(obj){
   }
 }
 
+var setProps = function(obj, newobj){
+  if(newobj instanceof Array) {
+    $.observable(obj).refresh(newobj);
+  } else {
+    for (var k in newobj){
+      if(!obj.hasOwnProperty(k)) $.observable(obj).setProperty(k, newobj[k]);
+      else if (typeof newobj[k]=="object" && obj.hasOwnProperty(k)) setProps(obj[k], newobj[k]);
+      else if (obj.hasOwnProperty(k) && obj[k]!==newobj[k]) $.observable(obj).setProperty(k, newobj[k]);
+    }
+  }
+}
+
+var setInvisible = function(obj){
+  if(obj.hasOwnProperty('_$visible')) $.observable(obj).setProperty('_$visible', false);
+  for (var k in obj){
+    if (typeof obj[k]=="object" && obj.hasOwnProperty(k)) setInvisible(obj[k]);
+  }
+}
+
 navigator.issmart = (function(){
   var ua= navigator.userAgent;
   x= ua.match(/SMART-TV|ADAPI/i) ? true: false;
@@ -281,6 +300,16 @@ var getHost = function(url){
   var host = parser.host;
   $(parser).remove();
   return host;
+}
+
+var getParameterByName = function(name) {
+  var url = window.location.href;
+  var name = name.replace(/[\[\]]/g, '\\$&');
+  var regex = new RegExp('[?&]' + name + '(=([^&#]*)|&|#|$)'),
+      results = regex.exec(url);
+  if (!results) return null;
+  if (!results[2]) return '';
+  return decodeURIComponent(results[2].replace(/\+/g, ' '));
 }
 
 var getColours = function(){
@@ -369,7 +398,10 @@ var checkBindLinks = function(ev, eventArgs) {
 
 $.observable(nodeList).observeAll(checkBindLinks);
 
+var t0;
+
 $(function() {
+  t0 = performance.now();
   host = document.location.hostname + ':' + window.document.location.port;
   $('.nodel-icon img').attr("src", "data:image/svg+xml;base64,"+generateHostIcon(host));
   $('.nodel-icon a').attr("href", window.document.location.protocol+"//"+host);
@@ -405,6 +437,7 @@ $(function() {
         initToolkit();
         fillUIPicker();
         checkReload();
+        console.log("createDynamicElements took " + (performance.now() - t0)/ 1000.0 + " seconds.");
       }));
     });
   } else {
@@ -419,6 +452,8 @@ $(function() {
       checkHostOnline();
       $('*[data-nav]').first().trigger('click');
       $('.nodelistfilter').focus();
+      var filt = getParameterByName('filter');
+      if(filt) $('.nodelistfilter').val(filt).trigger('keyup');
     }));
   }
 });
@@ -773,6 +808,7 @@ var makeTemplate = function(ele, schema, tmpls){
   if(!_.isUndefined($(ele).data('btntop'))) extschema = $.extend({}, {"btntop": $(ele).data('btntop')}, extschema);
   if(!_.isUndefined($(ele).data('disabled'))) extschema = $.extend({}, {"disabled": true}, extschema);
   if(!_.isUndefined($(ele).data('nokeytitle'))) extschema = $.extend({}, {"nokeytitle": true}, extschema);
+  if(!_.isUndefined($(ele).data('isgrouped'))) extschema = $.extend({}, {"isgrouped": true}, extschema);
   if(!_.isUndefined($(ele).data('notitle')) && $(ele).data('notitle') == true) extschema.title = '';
   // generate
   //console.log(extschema);
@@ -842,21 +878,6 @@ var convertNames = function(){
     $(this).data('name', $.map($.isArray($(this).data('name')) ? $(this).data('name') : [$(this).data('name')], function(at){
       return at.replace(unicodematch,'');
     }));
-  });
-};
-
-var linkToNode = function(node, grp, name){
-  var arg = {name: node};
-  $.postJSON('http://'+host+'/REST/nodeURLsForNode', JSON.stringify(arg), function(data) {
-    for (i=0; i<data.length; i++) {
-      data[i].host = getHost(data[i].address);
-      if(_.isUndefined(nodeList['hosts'][encodr(data[i].host)])) updateHost(data[i].host);
-      data[i].reachable = false;
-    }
-    $('.nodel-remote').each(function(){
-      var rdata = $.view(this).data;
-      $.observable(rdata).setProperty(grp+'.'+name+'._$link', data);
-    });
   });
 };
 
@@ -1205,8 +1226,9 @@ var setEvents = function(){
           $.each(data, function(key, value) {
             reqs.push($.getJSON('http://'+value.host+'/REST/nodes/'+encodeURIComponent(value.node)+'/'+type, function(data) {
               $.each(data, function(key, value) {
-                if(value.name.search(new RegExp(srchflt, "ig")) >= 0) {
-                  actsigs.push(value.name);
+                if(value.name.search(new RegExp(srchflt, "ig")) >= 0 ||
+                  (!_.isUndefined(value.title) && value.title.search(new RegExp(srchflt, "ig")) >= 0)) {
+                  actsigs.push({'name':value.name, 'title':value.title, 'group':value.group});
                 }
               });
             }));
@@ -1219,8 +1241,13 @@ var setEvents = function(){
               $(list).empty();
               $.each(actsigs, function(key, value) {
                 var re = new RegExp("(.*)("+srchflt+")(.*)","ig");
-                var val = value.replace(re, '$1<strong>$2</strong>$3')
-                $(list).append('<li>'+val+'</li>');
+                var val = value.name.replace(re, '$1<strong>$2</strong>$3');
+                if(!_.isUndefined(value.title)) {
+                  var ctx = value.title.replace(re, '$1<strong>$2</strong>$3') + (value.group ? '<br/><span>['+value.group+'] '+val+'</span>' : '<br/><span>' +val+'</span>');
+                } else {
+                  var ctx = val + (value.group ? '<br/><span>['+value.group+']</span>' : '');
+                }
+                $(list).append('<li data-value="'+value.name+'">'+ctx+'</span></li>');
                 return key < 20;
               });
             } else $(ele).siblings('div.autocomplete').remove();
@@ -1241,7 +1268,8 @@ var setEvents = function(){
       var data = $.view(this).data;
       var fld = $(this).closest('div.autocomplete').siblings('input').data('link');
       if(!fld) fld = '_$filldown';
-      $.observable(data).setProperty(fld, $(this).text());
+      if(!_.isUndefined($(this).data('value'))) $.observable(data).setProperty(fld, $(this).data('value'));
+      else $.observable(data).setProperty(fld, $(this).text());
     }
     $(this).closest('div.autocomplete').remove();
   });
@@ -1564,12 +1592,35 @@ var setEvents = function(){
     if ($(this).is(e.target)) {
       $('.panel.panel-default').removeClass('panel-primary');
       $(this).parent('.panel').addClass('panel-primary');
+      var base = $(this).closest('.panel');
+      if($(base).hasClass('isgrouped')){
+        base = $(base).find('.base');
+        $(base).each(function(){ $.observable($.view(this).data).setProperty('_$grpvisible', true)});
+      } else $.observable($.view(base).data).setProperty('_$visible', true);
     }
   });
   $('body').on('hide.bs.collapse', '[class*="nodel-"] .panel-collapse', function(e){
     if ($(this).is(e.target)) {
       $('.panel.panel-default').removeClass('panel-primary');
       $(this).closest('.panel').parent().closest('.panel.panel-default:not(".collapsed")').addClass('panel-primary');
+    }
+  });
+  $('body').on('hidden.bs.collapse', '[class*="nodel-"] .panel-collapse', function(e){
+    if ($(this).is(e.target)) {
+      var ele = this;
+      setTimeout(function(){
+        if(!$(ele).hasClass('in')){
+          var base = $(ele).closest('.panel');
+          if($(base).hasClass('isgrouped')){
+            base = $(base).find('.base');
+            $(base).each(function(){ 
+              $.observable($.view(this).data).setProperty('_$grpvisible', false);
+            });
+          } else {
+            setInvisible($.view(base).data);
+          }
+        }
+      }, 0);
     }
   });
   $('body').on('click', '[class*="nodel-"] .panel-heading', function(e){
@@ -1585,7 +1636,7 @@ var setEvents = function(){
       $(this).closest('.panel').addClass('panel-primary');
     } else if (!$(this).closest('.panel').length) {
       $('.panel.panel-default').removeClass('panel-primary');
-    };
+    }
   });
   $('body').on('keydown', function(e) {
     var charCode = e.charCode || e.keyCode;
@@ -2276,7 +2327,8 @@ var process_form = function(log, ani){
     return $.inArray(log.alias, $.isArray($(this).data('name')) ? $(this).data('name') : [$(this).data('name')]) >= 0;
   });
   $.each(eles, function (i, ele) {
-    $.observable($.view($(ele).find('.base')).data).setProperty({'arg':log.arg});
+    setProps($.view($(ele).find('.base')).data, {'arg':log.arg});
+    //$.observable($.view($(ele).find('.base')).data).setProperty({'arg':log.arg});
     if(!ani) {
       var col = log.type == 'action' ? colours['success'] : colours['danger'];
       var def = colours['default'];
@@ -2361,7 +2413,6 @@ var parseLog = function(log, ani){
       $.each(eles, function(i, ele) {
         var data = $.view($(ele).find('.base')).data;
         $.observable(data.events[alias]).setProperty('_$status', log.arg);
-        linkToNode(data.events[alias].node, 'events', alias);
       });
     } else if(log.type == "actionBinding"){
       var eles = $(".nodel-remote");
@@ -2369,7 +2420,6 @@ var parseLog = function(log, ani){
       $.each(eles, function(i, ele) {
         var data = $.view($(ele).find('.base')).data;
         $.observable(data.actions[alias]).setProperty('_$status', log.arg);
-        linkToNode(data.actions[alias].node, 'actions', alias);
       });
     }
   }
