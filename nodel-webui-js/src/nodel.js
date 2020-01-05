@@ -1704,6 +1704,15 @@ var setEvents = function(){
       $(this).parents('.dropdown.open').find('.dropdown-toggle').dropdown('toggle');
     }
   });
+  $('body').on('mousedown', function (e) {
+    if($(e.target).closest('.dropdown-menu').length){
+      $('body').one('mouseup', function (e) {
+        $('.dropdown').one('hide.bs.dropdown', function (e) {
+          return false;
+        });
+      });
+    }
+  });
 };
 
 var getAction = function(ele){
