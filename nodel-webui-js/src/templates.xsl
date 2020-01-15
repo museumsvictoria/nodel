@@ -449,7 +449,10 @@
         </xsl:attribute>
       </xsl:if>
       <xsl:attribute name="class">
-        <xsl:text>btn-group btn-switch</xsl:text>
+        <xsl:choose>
+          <xsl:when test="@class">btn-group btn-switch <xsl:value-of select="@class"/></xsl:when>
+          <xsl:otherwise>btn-group btn-switch</xsl:otherwise>
+        </xsl:choose>
         <xsl:if test="@showevent">
           <xsl:text> sect</xsl:text>
         </xsl:if>
@@ -513,7 +516,10 @@
         </xsl:attribute>
       </xsl:if>
       <xsl:attribute name="class">
-        <xsl:text>btn-group btn-pswitch</xsl:text>
+        <xsl:choose>
+          <xsl:when test="@class">btn-group btn-pswitch <xsl:value-of select="@class"/></xsl:when>
+          <xsl:otherwise>btn-group btn-pswitch</xsl:otherwise>
+        </xsl:choose>
         <xsl:if test="@showevent">
           <xsl:text> sect</xsl:text>
         </xsl:if>

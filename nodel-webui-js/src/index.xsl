@@ -139,14 +139,18 @@
                 <xsl:if test="/pages/header/input or /pages/header/button or /pages/header/switch">
                   <div class="navbar-form">
                     <xsl:for-each select="/pages/header/input|/pages/header/button|/pages/header/switch">
-                      <xsl:if test="@type='checkbox'">
-                        <div class="checkbox">
-                          <label>
-                            <input type="checkbox" data-action="{@action}" data-event="{@event}" value="true"/><xsl:value-of select="text()"/>
-                          </label>
-                        </div>
-                      </xsl:if>
-                      <xsl:apply-templates select="button|switch"/>
+                      <xsl:choose>
+                        <xsl:when test="@type='checkbox'">
+                          <div class="checkbox">
+                            <label>
+                              <input type="checkbox" data-action="{@action}" data-event="{@event}" value="true"/><xsl:value-of select="text()"/>
+                            </label>
+                          </div>
+                        </xsl:when>
+                        <xsl:otherwise>
+                          <xsl:apply-templates select="."/>
+                        </xsl:otherwise>
+                      </xsl:choose>
                     </xsl:for-each>
                   </div>
                 </xsl:if>
