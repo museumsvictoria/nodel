@@ -207,7 +207,7 @@
   <!-- text -->
   <!-- button -->
   <xsl:template match="button[not(@type)]">
-    <a href="#" data-action="{@action}" type="button">
+    <a href="#" type="button">
       <xsl:if test="(@confirm or @confirmtext)">
         <xsl:attribute name="data-confirm">
           <xsl:choose>
@@ -238,10 +238,29 @@
           <xsl:text> haschild</xsl:text>
         </xsl:if>
       </xsl:attribute>
-      <xsl:if test="@event">
-        <xsl:attribute name="data-event">
-          <xsl:value-of select="@event"/>
-        </xsl:attribute>
+      <xsl:if test="@event or @action or @join">
+        <xsl:choose>
+          <xsl:when test="@join">
+            <xsl:attribute name="data-event">
+              <xsl:value-of select="@join"/>
+            </xsl:attribute>
+            <xsl:attribute name="data-action">
+              <xsl:value-of select="@join"/>
+            </xsl:attribute>
+          </xsl:when>
+          <xsl:otherwise>
+            <xsl:if test="@event">
+              <xsl:attribute name="data-event">
+                <xsl:value-of select="@event"/>
+              </xsl:attribute>
+            </xsl:if>
+            <xsl:if test="@action">
+              <xsl:attribute name="data-action">
+                <xsl:value-of select="@action"/>
+              </xsl:attribute>
+            </xsl:if>
+          </xsl:otherwise>
+        </xsl:choose>
         <xsl:attribute name="data-class-on">
           <xsl:choose>
             <xsl:when test="@class-on"><xsl:value-of select="@class-on"/></xsl:when>
@@ -429,7 +448,31 @@
   <!-- grid -->
   <!-- switch -->
   <xsl:template match="switch">
-    <div role="group" data-event="{@event}" data-arg-action="{@action}">
+    <div role="group">
+      <xsl:if test="@event or @action or @join">
+        <xsl:choose>
+          <xsl:when test="@join">
+            <xsl:attribute name="data-event">
+              <xsl:value-of select="@join"/>
+            </xsl:attribute>
+            <xsl:attribute name="data-arg-action">
+              <xsl:value-of select="@join"/>
+            </xsl:attribute>
+          </xsl:when>
+          <xsl:otherwise>
+            <xsl:if test="@event">
+              <xsl:attribute name="data-event">
+                <xsl:value-of select="@event"/>
+              </xsl:attribute>
+            </xsl:if>
+            <xsl:if test="@action">
+              <xsl:attribute name="data-arg-action">
+                <xsl:value-of select="@action"/>
+              </xsl:attribute>
+            </xsl:if>
+          </xsl:otherwise>
+        </xsl:choose>
+      </xsl:if>
       <xsl:if test="(@confirm or @confirmtext)">
         <xsl:attribute name="data-confirm">
           <xsl:choose>
@@ -496,7 +539,31 @@
   <!-- switch -->
   <!-- partialswitch -->
   <xsl:template match="partialswitch">
-    <div role="group" data-event="{@event}" data-arg-action="{@action}">
+    <div role="group">
+      <xsl:if test="@event or @action or @join">
+        <xsl:choose>
+          <xsl:when test="@join">
+            <xsl:attribute name="data-event">
+              <xsl:value-of select="@join"/>
+            </xsl:attribute>
+            <xsl:attribute name="data-arg-action">
+              <xsl:value-of select="@join"/>
+            </xsl:attribute>
+          </xsl:when>
+          <xsl:otherwise>
+            <xsl:if test="@event">
+              <xsl:attribute name="data-event">
+                <xsl:value-of select="@event"/>
+              </xsl:attribute>
+            </xsl:if>
+            <xsl:if test="@action">
+              <xsl:attribute name="data-arg-action">
+                <xsl:value-of select="@action"/>
+              </xsl:attribute>
+            </xsl:if>
+          </xsl:otherwise>
+        </xsl:choose>
+      </xsl:if>
       <xsl:if test="(@confirm or @confirmtext)">
         <xsl:attribute name="data-confirm">
           <xsl:choose>
@@ -563,7 +630,31 @@
   <!-- partialswitch -->
   <!-- pills -->
   <xsl:template match="pills">
-    <ul data-event="{@event}" data-arg-action="{@action}">
+    <ul>
+      <xsl:if test="@event or @action or @join">
+        <xsl:choose>
+          <xsl:when test="@join">
+            <xsl:attribute name="data-event">
+              <xsl:value-of select="@join"/>
+            </xsl:attribute>
+            <xsl:attribute name="data-arg-action">
+              <xsl:value-of select="@join"/>
+            </xsl:attribute>
+          </xsl:when>
+          <xsl:otherwise>
+            <xsl:if test="@event">
+              <xsl:attribute name="data-event">
+                <xsl:value-of select="@event"/>
+              </xsl:attribute>
+            </xsl:if>
+            <xsl:if test="@action">
+              <xsl:attribute name="data-arg-action">
+                <xsl:value-of select="@action"/>
+              </xsl:attribute>
+            </xsl:if>
+          </xsl:otherwise>
+        </xsl:choose>
+      </xsl:if>
       <xsl:if test="(@confirm or @confirmtext)">
         <xsl:attribute name="data-confirm">
           <xsl:choose>
@@ -659,7 +750,31 @@
       <button type="button" class="btn {@class} dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
         <span>&#160;</span>&#160;<span class="caret"></span>
       </button>
-      <ul class="dropdown-menu" data-event="{@event}" data-arg-action="{@action}">
+      <ul class="dropdown-menu">
+        <xsl:if test="@event or @action or @join">
+          <xsl:choose>
+            <xsl:when test="@join">
+              <xsl:attribute name="data-event">
+                <xsl:value-of select="@join"/>
+              </xsl:attribute>
+              <xsl:attribute name="data-arg-action">
+                <xsl:value-of select="@join"/>
+              </xsl:attribute>
+            </xsl:when>
+            <xsl:otherwise>
+              <xsl:if test="@event">
+                <xsl:attribute name="data-event">
+                  <xsl:value-of select="@event"/>
+                </xsl:attribute>
+              </xsl:if>
+              <xsl:if test="@action">
+                <xsl:attribute name="data-arg-action">
+                  <xsl:value-of select="@action"/>
+                </xsl:attribute>
+              </xsl:if>
+            </xsl:otherwise>
+          </xsl:choose>
+        </xsl:if>
         <xsl:if test="(@confirm or @confirmtext)">
           <xsl:attribute name="data-confirm">
             <xsl:choose>
@@ -706,7 +821,31 @@
       <button type="button" class="btn {@class} dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
         <span>&#160;</span>&#160;<span class="caret"></span>
       </button>
-      <ul class="dropdown-menu dynamic" data-event="{@event}" data-arg-action="{@action}" data-render="{@data}" data-render-template="#dynamicSelect">
+      <ul class="dropdown-menu dynamic" data-render="{@data}" data-render-template="#dynamicSelect">
+        <xsl:if test="@event or @action or @join">
+          <xsl:choose>
+            <xsl:when test="@join">
+              <xsl:attribute name="data-event">
+                <xsl:value-of select="@join"/>
+              </xsl:attribute>
+              <xsl:attribute name="data-arg-action">
+                <xsl:value-of select="@join"/>
+              </xsl:attribute>
+            </xsl:when>
+            <xsl:otherwise>
+              <xsl:if test="@event">
+                <xsl:attribute name="data-event">
+                  <xsl:value-of select="@event"/>
+                </xsl:attribute>
+              </xsl:if>
+              <xsl:if test="@action">
+                <xsl:attribute name="data-arg-action">
+                  <xsl:value-of select="@action"/>
+                </xsl:attribute>
+              </xsl:if>
+            </xsl:otherwise>
+          </xsl:choose>
+        </xsl:if>
         <xsl:if test="(@confirm or @confirmtext)">
           <xsl:attribute name="data-confirm">
             <xsl:choose>
@@ -946,18 +1085,83 @@
             </xsl:choose>px;}</style>
         </xsl:if>
         <form>
-          <input data-arg-source="this" data-arg-type="number" data-action="{@action}" data-event="{@event}" type="range" min="{@min}" max="{@max}" step="1" />
-          <output data-event="{@event}" class="toint"></output>
+          <input data-arg-source="this" data-arg-type="number" type="range" min="{@min}" max="{@max}" step="1">
+            <xsl:if test="@event or @action or @join">
+              <xsl:choose>
+                <xsl:when test="@join">
+                  <xsl:attribute name="data-event">
+                    <xsl:value-of select="@join"/>
+                  </xsl:attribute>
+                  <xsl:attribute name="data-action">
+                    <xsl:value-of select="@join"/>
+                  </xsl:attribute>
+                </xsl:when>
+                <xsl:otherwise>
+                  <xsl:if test="@event">
+                    <xsl:attribute name="data-event">
+                      <xsl:value-of select="@event"/>
+                    </xsl:attribute>
+                  </xsl:if>
+                  <xsl:if test="@action">
+                    <xsl:attribute name="data-action">
+                      <xsl:value-of select="@action"/>
+                    </xsl:attribute>
+                  </xsl:if>
+                </xsl:otherwise>
+              </xsl:choose>
+            </xsl:if>
+          </input>
+          <output class="toint">
+            <xsl:if test="@event or @join">
+              <xsl:choose>
+                <xsl:when test="@join">
+                  <xsl:attribute name="data-event">
+                    <xsl:value-of select="@join"/>
+                  </xsl:attribute>
+                  <xsl:attribute name="data-arg-action">
+                    <xsl:value-of select="@join"/>
+                  </xsl:attribute>
+                </xsl:when>
+                <xsl:otherwise>
+                  <xsl:if test="@event">
+                    <xsl:attribute name="data-event">
+                      <xsl:value-of select="@event"/>
+                    </xsl:attribute>
+                  </xsl:if>
+                </xsl:otherwise>
+              </xsl:choose>
+            </xsl:if>
+          </output>
           <xsl:if test="@type='mute'">
             <a href="#" class="btn btn-default" data-arg-on="true" data-arg-off="false">
-              <xsl:attribute name="data-action">
-                <xsl:value-of select="@action"/>
-                <xsl:text>Muting</xsl:text>
-              </xsl:attribute>
-              <xsl:attribute name="data-event">
-                <xsl:value-of select="@event"/>
-                <xsl:text>Muting</xsl:text>
-              </xsl:attribute>
+              <xsl:if test="@event or @action or @join">
+                <xsl:choose>
+                  <xsl:when test="@join">
+                    <xsl:attribute name="data-event">
+                      <xsl:value-of select="@join"/>
+                      <xsl:text>Muting</xsl:text>
+                    </xsl:attribute>
+                    <xsl:attribute name="data-action">
+                      <xsl:value-of select="@join"/>
+                      <xsl:text>Muting</xsl:text>
+                    </xsl:attribute>
+                  </xsl:when>
+                  <xsl:otherwise>
+                    <xsl:if test="@event">
+                      <xsl:attribute name="data-event">
+                        <xsl:value-of select="@event"/>
+                        <xsl:text>Muting</xsl:text>
+                      </xsl:attribute>
+                    </xsl:if>
+                    <xsl:if test="@action">
+                      <xsl:attribute name="data-action">
+                        <xsl:value-of select="@action"/>
+                        <xsl:text>Muting</xsl:text>
+                      </xsl:attribute>
+                    </xsl:if>
+                  </xsl:otherwise>
+                </xsl:choose>
+              </xsl:if>
               <xsl:attribute name="data-class-on">
                 <xsl:choose>
                   <xsl:when test="@class-on">btn <xsl:value-of select="@class-on"/></xsl:when>
