@@ -1004,9 +1004,13 @@ var setEvents = function(){
   });
   $('body').on('change','.advancedmode', function(){
     if($(this).is(":checked")) {
-      $('.nodel-actsig').find('.nodel-schema-event button[type="submit"].disabled').removeClass('disabled');
+      $('.nodel-actsig').find('.nodel-schema-event .base').each(function(i, ele){
+        $.observable($.view($(ele)).data).setProperty('_$grpeditable', true);
+      });
     } else {
-      $('.nodel-actsig').find('.nodel-schema-event button[type="submit"]').addClass('disabled');
+      $('.nodel-actsig').find('.nodel-schema-event .base').each(function(i, ele){
+        $.observable($.view($(ele)).data).setProperty('_$grpeditable', false);
+      });
     }
   });
   $('body').on('click','*[data-form] button[type="submit"]', function (e) {
@@ -1617,7 +1621,9 @@ var setEvents = function(){
               $.observable($.view(this).data).setProperty('_$grpvisible', false);
             });
           } else {
-            setInvisible($.view(base).data);
+            if(!$(base).siblings('.panel').children('.in').length) {
+              setInvisible($.view(base).data);
+            }
           }
         }
       }, 0);

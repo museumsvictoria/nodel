@@ -347,7 +347,12 @@
         <script id="baseTmpl" type="text/x-jsrender">
         <![CDATA[
           <form data-form="true" class="base" autocomplete="off">
-            <fieldset>
+            <%if disabled%>
+            {^{if true ~initHid('_$grpeditable')}}
+              <fieldset disabled data-link="disabled{:!_$grpeditable}">
+            <%else%>
+              <fieldset>
+            <%/if%>
               <%if isgrouped%>
               {^{if true ~initHid('_$grpvisible')}}
                 {^{if _$grpvisible}}
@@ -382,7 +387,7 @@
                 <%/if%>
               <%/for%>
               <%if !btntop%>
-                <button type="submit" class="btn <%if btncolour%>btn-<%:btncolour%><%else%>btn-default<%/if%><%if disabled%> disabled<%/if%>" title="<%:btntitle%>">
+                <button type="submit" class="btn <%if btncolour%>btn-<%:btncolour%><%else%>btn-default<%/if%>" title="<%:btntitle%>">
                   <%>btntext%>
                   <%if btnicon%>
                     <span class="glyphicon glyphicon-<%:btnicon%>" aria-hidden="true"></span>
@@ -396,7 +401,12 @@
                 {{/if}}
               {{/if}}
               <%/if%>
-            </fieldset>
+            <%if disabled%>
+                </fieldset>
+              {{/if}}
+            <%else%>
+              </fieldset>
+            <%/if%>
           </form>
         ]]>
         </script>
