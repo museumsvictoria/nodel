@@ -1333,6 +1333,7 @@ public class NanoHTTPD {
                 "eot        application/vnd.ms-fontobject " +
                 "woff       application/x-font-woff " +
                 "7z         application/x-7z-compressed " +
+                "svg        image/svg+xml " +
                 "class		application/octet-stream ");
         while (st.hasMoreTokens())
             theMimeTypes.put(st.nextToken(), st.nextToken());

@@ -373,7 +373,7 @@ var simplematch = new RegExp(/^(.+?)(?:\(| \(|$)/i);
 var colours = {'primary':'','success':'','danger':'','warning':'','info':'','default':''};
 var throttle = {'logs': []};
 var allowedtxt = ['py','xml','xsl','js','json','html','htm','css','java','groovy','sql','sh','cs','bat','ini','txt','md','cmd'];
-var allowedbinary = ['png','jpg','ico'];
+var allowedbinary = ['png','jpg','ico','svg','zip','7z','exe'];
 var nodeList = {'lst':[], 'flt':'', 'end':20, 'hosts':{}};
 var nodeListreq = null;
 
