@@ -283,6 +283,16 @@
           <xsl:value-of select="@arg"/>
         </xsl:attribute>
       </xsl:if>
+      <xsl:if test="@arg-on">
+        <xsl:attribute name="data-arg-on">
+          <xsl:value-of select="@arg-on"/>
+        </xsl:attribute>
+      </xsl:if>
+      <xsl:if test="@arg-off">
+        <xsl:attribute name="data-arg-off">
+          <xsl:value-of select="@arg-off"/>
+        </xsl:attribute>
+      </xsl:if>
       <p><xsl:value-of select="text()"/></p>
       <xsl:apply-templates select="badge|partialbadge|signal|icon|text|image"/>
     </a>
