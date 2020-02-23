@@ -377,27 +377,6 @@ var allowedbinary = ['png','jpg','ico','svg','zip','7z','exe'];
 var nodeList = {'lst':[], 'flt':'', 'end':20, 'hosts':{}};
 var nodeListreq = null;
 
-var checkBindLinks = function(ev, eventArgs) {
-  if((ev.type == "propertyChange") && (eventArgs.path == "reachable")) {
-    var host = decodr(ev.data.observeAll.path().split(".").pop());
-    var data = $.view($(".nodel-actsig")).data;
-    var group = ['actions','events'];
-    for (var y=0; y<group.length; y++) {
-      for (var name in data[group[y]]) {
-        if (data[group[y]].hasOwnProperty(name)) {
-          for (var i=0; i<data[group[y]][name]._$link.length; i++) {
-            if(data[group[y]][name]._$link[i].host == host) {
-              $.observable(data[group[y]][name]._$link[i]).setProperty("reachable", eventArgs.value);
-            }
-          }
-        }
-      }
-    }
-  }
-}
-
-$.observable(nodeList).observeAll(checkBindLinks);
-
 var t0;
 
 $(function() {
@@ -766,7 +745,7 @@ var getNodeList = function(filterstr){
   var d = $.Deferred();
   if(nodeListreq) nodeListreq.abort();
   // test list (for large Nodel networks performance testing)
-  //nodeListreq = $.getJSON('http://'+host+'/nodes/Unify/nodeURLs.json', function(data) {
+  //nodeListreq = $.getJSON('http://'+host+'/nodeURLs.json', function(data) {
   nodeListreq = $.postJSON('http://'+host+'/REST/nodeURLs', JSON.stringify(filter), function(data) {
     for (i=0; i<data.length; i++) {
       var ind = -1;
