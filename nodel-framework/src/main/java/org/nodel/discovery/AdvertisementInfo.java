@@ -81,13 +81,18 @@ public class AdvertisementInfo {
     }
     
     /**
-     * Returns the next address entry rolling over if necessary
+     * Returns the next address entry rolling over if necessary (or null if empty)
      * (not thread safe)
      */
     public Addresses getNextAddresses() {
+        int size = _addressesEntries.size();
+        
+        if (size == 0)
+            return null;
+        
         _currentIndex++;
         
-        if (_currentIndex >= _addressesEntries.size())
+        if (_currentIndex >= size)
             _currentIndex = 0;
         
         return _addressesEntries.get(_currentIndex);

@@ -341,6 +341,9 @@ public class NodelAutoDNS extends AutoDNS {
             addresses = adInfo.getNextAddresses();
         }
         
+        if (addresses == null) // likely pending removal
+            return null;
+        
         Collection<String> allAddresses = addresses.getAddresses();
         
         for (String address : allAddresses) {
