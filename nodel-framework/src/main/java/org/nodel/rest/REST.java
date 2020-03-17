@@ -319,8 +319,10 @@ public class REST {
 
                                             for (Entry<String, Object> entry : argumentMap.entrySet()) {
                                                 String argument = entry.getKey();
+                                                if (Strings.isBlank(argument))
+                                                    continue;
 
-                                                ParameterInfo paramInfo = paramMap.get(argument);
+                                                ParameterInfo paramInfo = paramMap.get(argument.toLowerCase());
 
                                                 // skip unexpected parameters
                                                 if (paramInfo == null)
