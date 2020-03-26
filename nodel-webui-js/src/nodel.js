@@ -396,6 +396,7 @@ $(function() {
     getNodeDetails().then(function(){
       updatepadding();
       $.when(createDynamicElements().then(function(){
+        console.log("createDynamicElements took " + (performance.now() - t0)/ 1000.0 + " seconds.");
         convertNames();
         updateConsoleForm();
         updateLogForm();
@@ -416,7 +417,6 @@ $(function() {
         initToolkit();
         fillUIPicker();
         checkReload();
-        console.log("createDynamicElements took " + (performance.now() - t0)/ 1000.0 + " seconds.");
       }));
     });
   } else {
@@ -645,7 +645,7 @@ var createDynamicElements = function(){
         }).fail(function(){d.resolve();});
       }).fail(function(){d.resolve();});
     } else if($(ele).data('nodel') == 'log'){ 
-      $.templates("#logTmpl").link(ele, {'logs':[],'flt':''});
+      $.templates("#logTmpl").link(ele, {'logs':[],'flt':'','hold':false,'init':true,'end':10});
       d.resolve();
     } else if($(ele).data('nodel') == 'console'){
       $.templates("#consoleTmpl").link(ele, {'logs':[]});
@@ -777,7 +777,6 @@ var checkReachable = function(host){
 
 var makeTemplate = function(ele, schema, tmpls){
   var d = $.Deferred();
-  $.views.settings.delimiters("<%", "%>");
   // patch schema for UI related elements
   var extschema = $.extend({}, {"btntitle": $(ele).data('btntitle')}, {'schema':schema});
   if(!_.isUndefined($(ele).data('btnicon')) && $(ele).data('btnicon') !== '') extschema = $.extend({}, {"btnicon": $(ele).data('btnicon')}, extschema);
@@ -791,6 +790,7 @@ var makeTemplate = function(ele, schema, tmpls){
   if(!_.isUndefined($(ele).data('notitle')) && $(ele).data('notitle') == true) extschema.title = '';
   // generate
   //console.log(extschema);
+  $.views.settings.delimiters("<%", "%>");
   var generatedTemplate = $.templates(tmpls ? tmpls: "#baseTmpl").render(extschema);
   //console.log(generatedTemplate);
   $.views.settings.delimiters("{{", "}}");
@@ -2017,11 +2017,13 @@ var updateLogs = function(){
             data['activityHistory'].sort(function (a, b) {
               return a.seq < b.seq ? -1 : a.seq > b.seq ? 1 : 0;
             });
-            $.each(data['activityHistory'], function() {
+            len = data['activityHistory'].length;
+            $.each(data['activityHistory'], function(i) {
               if(this.seq != 0) {
                 this.unprocessed = false;
                 throttle['logs'][throttle['logs'].length] = this;
-                parseLog(this, true);
+                if(i == len - 1) parseLog(this, true, true);
+                else parseLog(this, true);
               }
             });
           } else throttleLog(data['activity']);
@@ -2076,6 +2078,7 @@ var offline = function(){
 
 var throttleLog = function(log, ani){
   log.unprocessed = true;
+  var delay = 200 + (throttle['logs'].length / 2);
   if(!_.isFunction(throttle['throttle'])) {
     throttle['throttle'] = _.throttle(function(ani) {
       var i = throttle['logs'].length;
@@ -2085,7 +2088,7 @@ var throttleLog = function(log, ani){
           throttle['logs'][i]['unprocessed'] = false;
         }
       }
-    }, 200);
+    }, delay);
   }
   var ind = throttle['logs'].findIndex(function(_ref) {
     id = _ref.type + '_' + _ref.alias;
@@ -2331,7 +2334,7 @@ var process_form = function(log, ani){
   });
 }
 
-var process_log = function(log, ani){
+var process_log = function(log, ani, last){
   var eles = $(".nodel-log");
   var alias = encodr(log.alias);
   $.each(eles, function (i, ele) {
@@ -2360,10 +2363,13 @@ var process_log = function(log, ani){
     if(!ani) {
       $(ele).find('.log_'+log.type+'_'+alias+ ' .logicon').stop(true,true).css({'opacity': 1}).animate({'opacity': 0.2}, 1000);
     }
+    if(last) {
+      $.observable(src).setProperty('init', false);
+    }
   });
 }
 
-var parseLog = function(log, ani){
+var parseLog = function(log, ani, last){
   if(log.type=='event' && log.source=='local'){
     switch(log.alias) {
       case "Title":
@@ -2418,7 +2424,7 @@ var parseLog = function(log, ani){
     }
   }
   // nodel log
-  (function(log, ani) {
-    setTimeout(function() {process_log(log, ani), 0});
-  })(log, ani);
+  (function(log, ani, last) {
+    setTimeout(function() {process_log(log, ani, last), 0});
+  })(log, ani, last);
 };

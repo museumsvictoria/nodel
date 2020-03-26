@@ -712,21 +712,31 @@
                 <div class="flex">
                   <input class="form-control" type="text" data-link="flt" placeholder="filter"/>
                   <div class="checkbox hold">
-                    <label><input type="checkbox" data-link="hold"/> Hold order</label>
+                    <label><input type="checkbox" data-link="hold"/> Hold </label>
                   </div>
+                  <select class="form-control end" data-link="end">
+                    <option value="10">10</option>
+                    <option value="50">50</option>
+                    <option value="100">100</option>
+                    <option value="9999">All</option>
+                  </select>
                 </div>
               </fieldset>
             </form>
             <ul>
-              {^{for logs filter=~srcflt mapDepends='flt' srch='alias'}}
-                <li data-link="data-type{:type} class{:'log log_'+type+'_'+alias}">
-                  <span data-link="class{:'logicon log_src_'+source+' log_typ_'+type}"></span>
-                  <span class="logtitle">{^{>rawalias}}</span><span class="logtimestamp"> - {^{>~nicetime(timestamp)}}</span>
-                  {^{if ~isset(arg)}}
-                    <span class="logarg">{^{:~jsonhighlight(~sanitize(arg, 250))}}</span>
-                  {{/if}}
-                </li>
-              {{/for}}
+              {^{if init}}
+                <h6>Initialising</h6>
+              {{else}}
+                {^{for logs filter=~srcflt mapDepends='flt' srch='alias' start=0 end=end}}
+                  <li data-link="data-type{:type} class{:'log log_'+type+'_'+alias}">
+                    <span data-link="class{:'logicon log_src_'+source+' log_typ_'+type}"></span>
+                    <span class="logtitle">{^{>rawalias}}</span><span class="logtimestamp"> - {^{>~nicetime(timestamp)}}</span>
+                    {^{if ~isset(arg)}}
+                      <span class="logarg">{^{:~jsonhighlight(~sanitize(arg, 250))}}</span>
+                    {{/if}}
+                  </li>
+                {{/for}}
+              {{/if}}
             </ul>
           </div>
         ]]>
