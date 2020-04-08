@@ -536,8 +536,6 @@ public class PyNode extends BaseDynamicNode {
         }
     } // (method)
     
-    private static final String[] DEFAULT_DEPENDENCIES = new String[] { "script.py", "custom.py" };
-    
     /**
      * This needs to be done from a clean thread (non-pooled, daemon) otherwise Python
      * cannot cleanup after itself waiting for, what becomes, its 'MainThread' thread to die.
@@ -611,8 +609,6 @@ public class PyNode extends BaseDynamicNode {
         
         Bindings bindings = Bindings.Empty;
         
-        String[] dependencies = config.dependencies != null ? config.dependencies : DEFAULT_DEPENDENCIES;
-        
         List<String> dependenciesUsed = new ArrayList<>(); // holds the dependencies actually used (for logging purposes)
         
         try {
@@ -640,36 +636,48 @@ public class PyNode extends BaseDynamicNode {
                     lock.unlock();
             }
             
-            if (dependencies == DEFAULT_DEPENDENCIES && !_scriptFile.exists()) // deliberately comparing by reference here i.e. ==
-                // for default config, fail early if the main script file doesn't exist
-                throw new FileNotFoundException("No main script file exists.");
+            
+            // initialise dependency list with configured ones OR the main script (non-fixed)
+            List<String> dependencies = new ArrayList<>(4);
+            if (config.dependencies == null)
+                dependencies.addAll(Arrays.asList(config.dependencies));
+            else
+                dependencies.add("script.py");
+            
+            
+            // load ingredients_.py and custom_.py scripts into list (in that order)
+            String[] filenames = _root.list();
+            Arrays.sort(filenames);
+            
+            for (String name : filenames)
+                if (name.startsWith("ingredient") && name.endsWith(".py"))
+                    dependencies.add(name);
+            
+            for (String name : filenames)
+                if (name.startsWith("custom") && name.endsWith(".py"))
+                    dependencies.add(name);
+            
             
             // go through the list of dependencies / scripts
-            for (int a = 0; a < dependencies.length; a++) {
-                String script = dependencies[a];
-                File scriptFile = new File(_root, script);
+            for (String filename : dependencies) {
+                File pythonFile = new File(_root, filename);
                 
-                if (!scriptFile.exists()) {
-                    // can gracefully skip missing 'custom.py' if using default config
-                    if (dependencies == DEFAULT_DEPENDENCIES && "custom.py".equals(script))
-                        continue;
-                    else
-                        throw new FileNotFoundException(script + " is listed as a dependency but missing");
-                }
+                if (!pythonFile.exists())
+                    throw new FileNotFoundException(filename + " is listed as a dependency but missing");
                 
                 lock = null;
                 try {
                     lock = getAReentrantLock();
                     
-                    trackFunction("(" + script + " loading)");
+                    trackFunction("(" + filename + " loading)");
                     
                     // execute the script file
-                    _python.execfile(scriptFile.getAbsolutePath());
+                    _python.execfile(pythonFile.getAbsolutePath());
                     
-                    dependenciesUsed.add(script);
+                    dependenciesUsed.add(filename);
                     
                 } finally {
-                    untrackFunction("(" + script + " loading)");
+                    untrackFunction("(" + filename + " loading)");
                     
                     if (lock != null)
                         lock.unlock();
