@@ -27,6 +27,7 @@ import org.nodel.Handler;
 import org.nodel.Handlers;
 import org.nodel.SimpleName;
 import org.nodel.discovery.AdvertisementInfo;
+import org.nodel.discovery.AdvertisementInfo.Addresses;
 import org.nodel.discovery.AutoDNS;
 import org.nodel.reflection.Serialisation;
 import org.nodel.reflection.Value;
@@ -907,15 +908,17 @@ public class NodelClients {
 
         List<NodeURL> nodeURLs = new ArrayList<NodeURL>();
 
-        for(AdvertisementInfo service : list) {
-            for(String address : service.addresses) {
-                if (address.toLowerCase().startsWith("http://")) {
-                    
-                    NodeURL nodeURL = new NodeURL();
-                    nodeURL.node = service.name;
-                    nodeURL.address = address.replace("%NODE%", safeURLEncode(nodeURL.node.getReducedName()));
-                    
-                    nodeURLs.add(nodeURL);
+        for (AdvertisementInfo adInfo : list) {
+            for (Addresses addresses : adInfo.getAllAddresses()) {
+                for (String address : addresses.getAddresses()) {
+                    if (address.toLowerCase().startsWith("http://")) {
+
+                        NodeURL nodeURL = new NodeURL();
+                        nodeURL.node = addresses.getNode(); // for different names before name reduction 
+                        nodeURL.address = address.replace("%NODE%", safeURLEncode(nodeURL.node.getReducedName()));
+
+                        nodeURLs.add(nodeURL);
+                    }
                 }
             }
         }

@@ -9,6 +9,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Random;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicLong;
@@ -220,7 +221,12 @@ public class ManagedProcess implements Closeable {
     /**
      * (see setter)
      */
-    private boolean _mergeError; 
+    private boolean _mergeError;
+    
+    /**
+     * (see setter)
+     */
+    private Map<String, String> _env;    
     
     /**
      * The delimiters to split the receive data on.
@@ -464,6 +470,20 @@ public class ManagedProcess implements Closeable {
     }
     
     /**
+     * Sets/extends/overrides environment variables
+     */
+    public void setEnv(Map<String, String> value) {
+        _env = value;
+    }
+    
+    /**
+     * (see setter)
+     */
+    public Map<String, String> getEnv() {
+        return _env;
+    }    
+    
+    /**
      * Performs necessary initialisation before either actually starting or stopping
      */
     public void init() {
@@ -614,7 +634,7 @@ public class ManagedProcess implements Closeable {
             List<String> command; // the command list that will be used
             
             // if on Windows, use the ProcessSandbox.exe utility if it can be found...
-            File processSandboxFile = resolveProcessSandbox(origCommand);
+            File processSandboxFile = resolveProcessSandbox(_parentNode, origCommand);
 
             if (processSandboxFile != null) {
                 // prepend the sandbox and the arguments it needs
@@ -649,6 +669,9 @@ public class ManagedProcess implements Closeable {
             if (_mergeError) {
                 processBuilder.redirectErrorStream(_mergeError);
             }
+            
+            if (_env != null)
+                processBuilder.environment().putAll(_env);
             
             process = processBuilder.start();
             
@@ -719,7 +742,7 @@ public class ManagedProcess implements Closeable {
      * 
      * (origCommand list will have at least one item)
      */
-    private File resolveProcessSandbox(List<String> origCommand) {
+    public static File resolveProcessSandbox(BaseNode parentNode, List<String> origCommand) {
         File result;
 
         // ... next to the executable itself (which might be missing path info)
@@ -733,7 +756,7 @@ public class ManagedProcess implements Closeable {
         }
 
         // ... in the node root?
-        result = new File(_parentNode.getRoot(), PROCESS_SANDBOX);
+        result = new File(parentNode.getRoot(), PROCESS_SANDBOX);
         if (result.exists())
             return result;
 

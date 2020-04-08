@@ -55,6 +55,8 @@ import org.apache.http.impl.conn.PoolingHttpClientConnectionManager;
 import org.apache.http.protocol.HttpContext;
 import org.nodel.Strings;
 import org.nodel.Version;
+import org.nodel.diagnostics.CountableInputStream;
+import org.nodel.diagnostics.SharableMeasurementProvider;
 import org.nodel.io.Stream;
 import org.nodel.io.UnexpectedIOException;
 import org.nodel.net.HTTPSimpleResponse;
@@ -79,6 +81,12 @@ public class ApacheNodelHttpClient extends NodelHTTPClient {
      * Mainly used for adjusting timeouts
      */
     private RequestConfig _requestConfig;
+    
+    /**
+     * Maximum content allowed to avoid uncontrolled memory allocation
+     * (default 150 MB, anything more should be using a streaming technique instead)
+     */
+    private final static int MAX_ALLOWED = 150 * 1024 * 1024;
     
     /**
      * This needs to be done lazily because proxy can only be set up once
@@ -213,6 +221,7 @@ public class ApacheNodelHttpClient extends NodelHTTPClient {
 
         // (out of scope for clean up purposes)
         InputStream inputStream = null;
+        CountableInputStream cis = null;
         
         boolean executed = false;
         
@@ -239,7 +248,7 @@ public class ApacheNodelHttpClient extends NodelHTTPClient {
                     throw new IllegalArgumentException("The HTTP method does not accept a body - " + method);
                 
                 HttpEntityEnclosingRequest httpWithBody = (HttpEntityEnclosingRequest) request;
-                httpWithBody.setEntity(new StringEntity(body));
+                httpWithBody.setEntity(new StringEntity(body, "utf-8"));
             }
             
             // set any timeouts that apply
@@ -266,30 +275,39 @@ public class ApacheNodelHttpClient extends NodelHTTPClient {
                 s_sendRate.addAndGet(body.length());
             
             // safely get the response (regardless of response code for now)
+            String content = null;
             
             // safely get the content encoding
             HttpEntity entity = httpResponse.getEntity();
-            Header contentEncodingHeader = entity.getContentEncoding();
-            String contentEncoding = null;
-            if (contentEncodingHeader != null)
-                contentEncoding = contentEncodingHeader.getValue();
-            
-            inputStream = entity.getContent();
-            
-            // deals with encoding
-            InputStreamReader isr = null;
-            
-            // try using the given encoding
-            if (!Strings.isBlank(contentEncoding)) {
-                // any unknown content encodings will cause an exception to propagate
-                isr = new InputStreamReader(inputStream,  contentEncoding);
-            } else {
-                isr = new InputStreamReader(inputStream);
+            if (entity != null) {
+                Header contentEncodingHeader = entity.getContentEncoding();
+                String contentEncoding = null;
+                if (contentEncodingHeader != null)
+                    contentEncoding = contentEncodingHeader.getValue();
+
+                // only if no specific encoding specified, fallback to UTF-8 for json and xml
+                if (contentEncoding == null) {
+                    Header recvContentTypeHeader = entity.getContentType();
+                    if (recvContentTypeHeader != null) {
+                        String recvContentType = recvContentTypeHeader.getValue() != null ? recvContentTypeHeader.getValue().toLowerCase() : ""; // as safe lower-case
+
+                        if (recvContentType.contains("json") || recvContentType.contains("xml"))
+                            contentEncoding = "utf-8";
+                    }
+                }
+
+                inputStream = entity.getContent();
+
+                // inject a counter so bytes can be counted, not characters
+                SafeCounter byteCounter = new SafeCounter();
+                cis = new CountableInputStream(inputStream, SharableMeasurementProvider.Null.INSTANCE, byteCounter);
+
+                // try using the given encoding or a straight 8-bit widening (for convenience ISO-8859-1 does that trick)
+                String encodingToUse = Strings.isBlank(contentEncoding) ? "ISO-8859-1" : contentEncoding;
+
+                InputStreamReader isr = new InputStreamReader(cis, encodingToUse); // unknown encoding will raise an exception
+                content = Stream.readFully(isr);
             }
-            
-            String content = Stream.readFully(isr);
-            if (content != null)
-                s_receiveRate.addAndGet(content.length());
             
             StatusLine statusLine = httpResponse.getStatusLine();
             
@@ -309,11 +327,15 @@ public class ApacheNodelHttpClient extends NodelHTTPClient {
         } finally {
             Stream.safeClose(inputStream);
             
+            // count how many bytes were processed (failure or not)
+            if (cis != null)
+                s_receiveRate.addAndGet(cis.getTotal());
+            
             if (executed)
                 s_activeConnections.decrementAndGet();
         }
     }
-    
+
     /**
      * (convenience function)
      */
@@ -412,6 +434,48 @@ public class ApacheNodelHttpClient extends NodelHTTPClient {
         
     };
     
+    /**
+     * Is injected into stream to count bytes (vs characters)
+     */
+    private static class SafeCounter implements SharableMeasurementProvider {
+
+        private long _counter;
+
+        @Override
+        public long getMeasurement() {
+            return _counter;
+        }
+
+        @Override
+        public void set(long value) {
+            _counter = value;
+
+            if (_counter > MAX_ALLOWED)
+                throw new UnexpectedIOException("Too big - HTTP response over " + MAX_ALLOWED + " bytes is not allowed");
+        }
+
+        @Override
+        public void add(long value) {
+            _counter += value;
+            
+            if (_counter > MAX_ALLOWED)
+                throw new UnexpectedIOException("Too big - HTTP response over " + MAX_ALLOWED + " bytes is not allowed");
+        }
+
+        @Override
+        public void incr() {
+            _counter++;
+            
+            if (_counter > MAX_ALLOWED)
+                throw new UnexpectedIOException("Too big - HTTP response over " + MAX_ALLOWED + " bytes is not allowed");
+        }
+
+        @Override
+        public void decr() {
+            _counter--;
+        }
+
+    }
 
     /**
      *  A redirect strategy used to ignore all redirect directives i.e. will be manually handled

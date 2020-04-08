@@ -1,6 +1,7 @@
 package org.nodel.toolkit;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -429,7 +430,8 @@ public class ManagedToolkit {
                                 String sendDelimiters,
                                 String receiveDelimiters,
                                 String working,
-                                boolean mergestderr) {
+                                boolean mergestderr,
+                                Map<String, String> env) {
         ManagedProcess process = new ManagedProcess(_node, command, _threadStateHandler, _processExceptionHandler, _callbackQueue, s_threadPool, s_timers);
         
         // set up the callback handlers as provided by the user
@@ -445,6 +447,7 @@ public class ManagedToolkit {
         process.setReceiveDelimeters(receiveDelimiters);
         process.setWorking(working);
         process.setMergeError(mergestderr);
+        process.setEnv(env);
         
         synchronized(_lock) {
             if (_closed)
@@ -467,9 +470,10 @@ public class ManagedToolkit {
             H1<QuickProcess.FinishedArg> onFinished,
             long timeout,
             String working,
-            boolean mergeErr) {
+            boolean mergeErr,
+            Map<String, String> env) {
 
-        final QuickProcess quickProcess = new QuickProcess(_threadStateHandler, s_threadPool, s_timers, _processExceptionHandler, _node, command, stdinPush, onStarted, onFinished, timeout, working, mergeErr);
+        final QuickProcess quickProcess = new QuickProcess(_threadStateHandler, s_threadPool, s_timers, _processExceptionHandler, _node, command, stdinPush, onStarted, onFinished, timeout, working, mergeErr, env);
         quickProcess.setClosedHandler(new Handler.H0() {
 
             @Override
@@ -547,14 +551,14 @@ public class ManagedToolkit {
      */
     public void releaseProcesses() {
         synchronized (_lock) {
-            // close all long living processes
-            for (ManagedProcess process : _processes)
+            // close all long living processes (safe copy)
+            for (ManagedProcess process : new ArrayList<>(_processes))
                 Stream.safeClose(process);
 
             _processes.clear();
             
-            // and quick processes
-            for (QuickProcess quickProcess: _quickProcesses)
+            // and quick processes (safe copy)
+            for (QuickProcess quickProcess: new ArrayList<>(_quickProcesses))
                 Stream.safeClose(quickProcess);
             
             _quickProcesses.clear();
@@ -565,7 +569,7 @@ public class ManagedToolkit {
      * Creates a managed node
      */
     public ManagedNode createNode(String name) {
-        if (Strings.isNullOrEmpty(name))
+        if (Strings.isBlank(name))
             throw new IllegalArgumentException("Name cannot be empty");
 
         synchronized (_lock) {
@@ -581,7 +585,7 @@ public class ManagedToolkit {
      * Creates a managed node (sub node)
      */
     public ManagedNode createSubnode(String suffix) {
-        if (Strings.isNullOrEmpty(suffix))
+        if (Strings.isBlank(suffix))
             throw new IllegalArgumentException("Suffix cannot be empty");
 
         synchronized (_lock) {
@@ -723,7 +727,7 @@ public class ManagedToolkit {
             if (metadata == null)
                 metadata = new Binding();
             
-            if (Strings.isNullOrEmpty(metadata.title))
+            if (Strings.isEmpty(metadata.title)) // 'isEmpty' in case blank is deliberate
                 metadata.title = actionName;
 
             final NodelClientAction clientAction = new NodelClientAction(new SimpleName(actionName), metadata, null, null);
@@ -786,7 +790,7 @@ public class ManagedToolkit {
             if (metadata == null)
                 metadata = new Binding();
             
-            if (Strings.isNullOrEmpty(metadata.title))
+            if (Strings.isEmpty(metadata.title)) // 'isEmpty' in case blank is deliberate
                 metadata.title = eventName;
 
             final NodelClientEvent clientEvent = new NodelClientEvent(new SimpleName(eventName), metadata, null, null);

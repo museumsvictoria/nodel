@@ -14,6 +14,7 @@ import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicLong;
@@ -23,6 +24,7 @@ import org.nodel.Handler;
 import org.nodel.Random;
 import org.nodel.SimpleName;
 import org.nodel.core.NodeAddress;
+import org.nodel.discovery.AdvertisementInfo.Addresses;
 import org.nodel.discovery.TopologyWatcher.ChangeHandler;
 import org.nodel.threading.TimerTask;
 import org.slf4j.Logger;
@@ -42,7 +44,7 @@ public class NodelAutoDNS extends AutoDNS {
     /**
      * Expiry time (allow for at least one missing probe response)
      */
-    private static final long STALE_TIME = 2 * PROBE_PERIOD + 10000;
+    protected static final long STALE_TIME = 2 * PROBE_PERIOD + 10000;
     
     /**
      * The time before probing can be suspended if there haven't been
@@ -233,19 +235,19 @@ public class NodelAutoDNS extends AutoDNS {
      */
     private void handleProbeResponse(NodelDiscoverer discoverer, NameServicesChannelMessage message) {
         synchronized (_discoveryLock) {
+            long now = System.nanoTime() / 1000000;
             for (String name : message.present) {
                 SimpleName node = new SimpleName(name);
                 AdvertisementInfo ad = _advertisements.get(node);
+                
                 if (ad == null) {
-                    ad = new AdvertisementInfo();
-                    ad.name = node;
+                    ad = new AdvertisementInfo(node, message.addresses, now);
                     _advertisements.put(node, ad);
+                    
+                } else {
+                    // refresh the name (its original name might be different), time stamp and addresses
+                    ad.refresh(node, message.addresses, now);
                 }
-
-                // refresh the name (its original name might be different), time stamp and addresses
-                ad.name = node;
-                ad.timeStamp = System.nanoTime() / 1000000;
-                ad.addresses = message.addresses;
             }
         }
     }
@@ -293,26 +295,29 @@ public class NodelAutoDNS extends AutoDNS {
      * Checks for stale records and removes them.
      */
     private void reapStaleRecords(long currentTime) {
-        LinkedList<AdvertisementInfo> toRemove = new LinkedList<AdvertisementInfo>();
+        List<SimpleName> toRemove = new LinkedList<>();
 
         synchronized (_discoveryLock) {
-            for (AdvertisementInfo adInfo : _advertisements.values()) {
-                long timeDiff = (currentTime / 1000000) - adInfo.timeStamp;
-
-                if (timeDiff > STALE_TIME)
-                    toRemove.add(adInfo);
+            for (Entry<SimpleName, AdvertisementInfo> entry : _advertisements.entrySet()) {
+                SimpleName node = entry.getKey();
+                AdvertisementInfo adInfo = entry.getValue();
+                
+                adInfo.removeStaleAddressesEntries(currentTime);
+                
+                if (adInfo.isStale())
+                    toRemove.add(node);
             }
-
+            
             // reap if necessary
             if (toRemove.size() > 0) {
                 StringBuilder sb = new StringBuilder();
 
-                for (AdvertisementInfo adInfo : toRemove) {
+                for (SimpleName node : toRemove) {
                     if (sb.length() > 0)
                         sb.append(",");
 
-                    _advertisements.remove(adInfo.name);
-                    sb.append(adInfo.name);
+                    _advertisements.remove(node);
+                    sb.append(node.getReducedName());
                 }
 
                 _logger.info("{} stale record{} removed. [{}]",
@@ -327,33 +332,43 @@ public class NodelAutoDNS extends AutoDNS {
     	_usingResolution = true;
     	
         AdvertisementInfo adInfo = _advertisements.get(node);
-        if(adInfo != null) {
-            Collection<String> addresses = adInfo.addresses;
-            
-            for (String address : addresses) {
-                try {
-                    if (address == null || !address.startsWith("tcp://"))
-                        continue;
-
-                    int indexOfPort = address.lastIndexOf(':');
-                    if (indexOfPort < 0 || indexOfPort >= address.length() - 2)
-                        continue;
-
-                    String addressPart = address.substring(6, indexOfPort);
-
-                    String portStr = address.substring(indexOfPort + 1);
-
-                    int port = Integer.parseInt(portStr);
-
-                    NodeAddress nodeAddress = NodeAddress.create(addressPart, port);
-
-                    return nodeAddress;
-
-                } catch (Exception exc) {
-                    _logger.info("'{}' node resolved to a bad address - '{}'; ignoring.", node, address);
-
-                    return null;
-                }
+        if (adInfo == null)
+            return null;
+        
+        // locked because address info changes
+        Addresses addresses;
+        synchronized (_discoveryLock) {
+            addresses = adInfo.getNextAddresses();
+        }
+        
+        if (addresses == null) // likely pending removal
+            return null;
+        
+        Collection<String> allAddresses = addresses.getAddresses();
+        
+        for (String address : allAddresses) {
+            try {
+                if (address == null || !address.startsWith("tcp://"))
+                    continue;
+                
+                int indexOfPort = address.lastIndexOf(':');
+                if (indexOfPort < 0 || indexOfPort >= address.length() - 2)
+                    continue;
+                
+                String addressPart = address.substring(6, indexOfPort);
+                
+                String portStr = address.substring(indexOfPort + 1);
+                
+                int port = Integer.parseInt(portStr);
+                
+                NodeAddress nodeAddress = NodeAddress.create(addressPart, port);
+                
+                return nodeAddress;
+                
+            } catch (Exception exc) {
+                _logger.info("'{}' node resolved to a bad address - '{}'; ignoring.", node, address);
+                
+                return null;
             }
         }
         

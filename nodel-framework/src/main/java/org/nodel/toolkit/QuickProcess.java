@@ -6,11 +6,14 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 import org.nodel.Handler;
 import org.nodel.Handler.H0;
 import org.nodel.Handler.H1;
+import org.nodel.core.Nodel;
 import org.nodel.Strings;
 import org.nodel.host.BaseDynamicNode;
 import org.nodel.host.BaseNode;
@@ -93,6 +96,11 @@ public class QuickProcess implements Closeable {
      * (arg instance)
      */
     private String _working;
+    
+    /**
+     * (arg instance)
+     */    
+    private Map<String, String> _env;
 
     /**
      * (arg instance)
@@ -131,7 +139,7 @@ public class QuickProcess implements Closeable {
      * Constructs a new quick process.
      */
     public QuickProcess(H0 threadStateHandler, ThreadPool threadPool, Timers timers, H1<Exception> callbackExceptionHandler,  BaseDynamicNode parentNode,
-            List<String> command, String stdinPush, H1<Integer> onStarted, H1<FinishedArg> onFinished, long timeout, String working, boolean mergeErr) {
+            List<String> command, String stdinPush, H1<Integer> onStarted, H1<FinishedArg> onFinished, long timeout, String working, boolean mergeErr, Map<String, String> env) {
         
         // validate command list
         if (command == null || command.size() < 1 || Strings.isBlank(command.get(0)))
@@ -150,6 +158,7 @@ public class QuickProcess implements Closeable {
         _timeout = timeout;
         _working = working;
         _mergeErr = mergeErr;
+        _env = env;
     }
     
     /**
@@ -181,11 +190,36 @@ public class QuickProcess implements Closeable {
         // need to be run for every thread entry
         _threadStateHandler.handle();
         
-        ProcessBuilder pb = new ProcessBuilder(_command);
+        List<String> origCommand = _command;
+        
+        List<String> command; // the command list that will be used
+        
+        // if on Windows, use the ProcessSandbox.exe utility if it can be found...
+        File processSandboxFile = ManagedProcess.resolveProcessSandbox(_parentNode, origCommand);
+
+        if (processSandboxFile != null) {
+            // prepend the sandbox and the arguments it needs
+            ArrayList<String> list = new ArrayList<String>();
+            list.add(processSandboxFile.getAbsolutePath());
+            list.add("--ppid");
+            list.add(String.valueOf(Nodel.getPID()));
+            list.addAll(origCommand);
+
+            command = list;
+        } else {
+            // just use the original
+            command = origCommand;
+        }        
+        
+        ProcessBuilder pb = new ProcessBuilder(command);
         
         // merge the error stream?
         if (_mergeErr)
             pb.redirectErrorStream(true);
+        
+        // modify the environment variables
+        if (_env != null)
+            pb.environment().putAll(_env);
         
         // adjust the working directory?
         if (!Strings.isBlank(_working)) {
@@ -275,14 +309,11 @@ public class QuickProcess implements Closeable {
             arg.stdout = stdoutCapture;
             arg.stderr = stderrCapture;
             
-            // finished gracefully, clear variable
-            _process = null;
-            
             // fire 'finished' handler if not close
             if (!_closed)
                 Handler.tryHandle(_onFinished, arg, _callbackExceptionHandler);
             
-            _closed = true;
+            doClose();
             
         } catch (Exception exc) {
             // gracefully exit if closed
@@ -315,6 +346,9 @@ public class QuickProcess implements Closeable {
 
             if (_process != null) {
                 final Process process = _process;
+                
+                _process = null;
+                
                 _threadPool.execute(new Runnable() {
 
                     @Override

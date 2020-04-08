@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="v1/index.xsl"?>
+<pages core="true" theme="default" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="index.xsd">
+  <header destination="diagnostics.xml">
+    <nodel type="hosticon"/>
+  </header>
+  <page title='List'>
+    <row>
+      <column>
+        <nodel type="add"/>
+        <nodel type="list"/>
+      </column>
+    </row>
+  </page>
+</pages>

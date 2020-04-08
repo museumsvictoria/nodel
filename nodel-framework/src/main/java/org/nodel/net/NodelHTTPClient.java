@@ -75,8 +75,8 @@ public abstract class NodelHTTPClient implements Closeable {
     static {
         Diagnostics.shared().registerCounter("HTTP client.Connections", s_roActiveConnections, false);
         Diagnostics.shared().registerCounter("HTTP client.Attempt rate", s_roAttemptRate, true);
-        Diagnostics.shared().registerCounter("HTTP client.Send chars", s_roSendRate, true);
-        Diagnostics.shared().registerCounter("HTTP client.Receive chars", s_roReceiveRate, true);
+        Diagnostics.shared().registerCounter("HTTP client.Send rate", s_roSendRate, true);
+        Diagnostics.shared().registerCounter("HTTP client.Receive rate", s_roReceiveRate, true);
     }
     
     
@@ -154,8 +154,8 @@ public abstract class NodelHTTPClient implements Closeable {
                               Integer connectTimeout, Integer readTimeout) {
         HTTPSimpleResponse response = makeRequest(urlStr, method, query, username, password, headers, contentType, post, connectTimeout, readTimeout);
 
-        if (response.statusCode == HttpURLConnection.HTTP_OK) {
-            // 'OK' response, just return content
+        if (response.statusCode >= 200 && response.statusCode < 300) { // 200 is HTTP_OK
+            // any 'OK'-related response, just return content
             return response.content;
             
         } else {

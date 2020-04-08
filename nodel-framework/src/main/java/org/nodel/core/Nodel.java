@@ -30,7 +30,7 @@ import org.nodel.io.UnexpectedIOException;
 
 public class Nodel {
 
-    private final static String VERSION = "2.1.1";
+    private final static String VERSION = "2.2.1";
 
     public static String getVersion() {
         return VERSION;

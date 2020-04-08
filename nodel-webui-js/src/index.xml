@@ -1,0 +1,126 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="v1/index.xsl"?>
+<pages title='Status Page' css='css/custom.css' js='js/custom.js' xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="v1/index.xsd">
+  <page title='My Control'>
+    <row>
+      <column sm="3">
+        <title>Source</title>
+        <pills event="Preset" action="Preset" confirm="true">
+          <pill value="PresetChromecast">Chromecast</pill>
+          <pill showevent="Show" showvalue='["Off","Half"]' value="PresetTV">TV</pill>
+          <pill value="PresetButler">Signage</pill>
+          <pill value="PresetSpare1"><badge event="Status2"/>HDMI 1</pill>
+          <pill value="PresetSpare2"><badge event="Status2"/>HDMI 2</pill>
+        </pills>
+      </column>
+      <column sm="3">
+        <row>
+          <column sm="12">
+            <title>Source select</title>
+            <select class="btn-default" event="Preset" action="Preset" showevent="Show" showvalue="Off">
+              <item value="PresetChromecast">Chromecast</item>
+              <item value="PresetTV">TV</item>
+              <item value="PresetButler">Signage</item>
+              <item value="PresetSpare1">HDMI 1</item>
+              <item value="PresetSpare2">HDMI 2</item>
+            </select>
+          </column>
+        </row>
+        <row>
+          <column sm="12">
+            <dynamicselect class="btn-default" data="DynamicList" event="Dynamic" action="Dynamic"/>
+          </column>
+        </row>
+        <row>
+          <column sm="12">
+            <switch class="btn-default" event="Switch" action="Switch"/>
+          </column>
+        </row>
+        <row>
+          <column sm="12">
+            <partialswitch confirm="code" confirmtext="Are you sure?" class="btn-default" event="PartialSwitch" action="PartialSwitch"/>
+          </column>
+        </row>
+      </column>
+      <column sm="4">
+        <title>Testing status</title>
+        <status event="Status1"><badge event="Status2"/><link url="http://nodel.io"/><partialbadge event="PartialSwitch"/>Example status box with badge and partialbadge</status>
+        <status event="Status2" page="Testing"><link url="http://nodel.io">Nodel</link><partialswitch class="btn-default" event="PartialSwitch" action="PartialSwitch"/>Example status box with a long title</status>
+      </column>
+      <column sm="2">
+        <title>Meters</title>
+        <meter event="Meter1"></meter>
+        <meter event="Meter2"></meter>
+        <meter event="Meter3" range="db"></meter>
+      </column>
+    </row>
+    <row>
+      <column sm="7">
+        <row>
+          <column sm="12">
+            <title showevent="Show" showvalue="On">Testing button groups</title>
+            <buttongroup showevent="Show" showvalue="On">
+              <button action='PresetChromecast' class='btn-default'>Chromecast</button>
+              <button action='PresetTV' class='btn-default'>TV</button>
+              <button action='PresetButler' class='btn-default'>Signage</button>
+              <button action='PresetSpare1' class='btn-default'>HDMI 1<badge event="Status2"/></button>
+              <button action='PresetSpare2' class='btn-default'>HDMI 2<badge event="Status2"/></button>
+            </buttongroup>
+          </column>
+        </row>
+        <row>
+          <column sm="12">
+            <title>Range</title>
+            <range action='Range' event="Range"></range>
+          </column>
+        </row>
+        <row>
+          <column sm="12">
+            <title>Range</title>
+            <range action='Range' event="Range" type="mute"></range>
+          </column>
+        </row>
+      </column>
+      <column sm="1">
+        <title>Range</title>
+        <range action='Range' event="Range" type="vertical" height="250"></range>
+      </column>
+      <column sm="4">
+        <row>
+          <column sm="12">
+            <title>Testing panel</title>
+            <panel height="100" event="Panel"></panel>
+          </column>
+        </row>
+        <row>
+          <column sm="12">
+            <title>Testing field</title>
+            <field event="Field"></field>
+          </column>
+        </row>
+      </column>
+    </row>
+    <row>
+      <column>
+        <group>
+          <row>
+            <column sm="4">
+              <title showevent="Show" showvalue="On">Multiple Actions</title>
+              <button showevent="Show" showvalue="On" action='["Action1","Action2","Action3"]' class='btn-warning'>Trigger</button>
+            </column>
+            <column sm="4" event="Show" value="On">
+              <title>Volume</title>
+              <button action='VolumeDown' class='btn-success'>Down</button>
+              <button action='VolumeUp' class='btn-success'>Up</button>
+            </column>
+            <column sm="4" showevent="Show" showvalue="Off">
+              <title>Volume momentary</title>
+              <button type="momentary" action-off='VolumeStop' action-on='VolumeDownOn' class='btn-success'>Down</button>
+              <button type="momentary" action-off='VolumeStop' action-on='VolumeUpOn' class='btn-success'>Up</button>
+            </column>
+          </row>
+        </group>
+      </column>
+    </row>
+  </page>
+</pages>

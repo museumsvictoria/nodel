@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<?xml-stylesheet type="text/xsl" href="v1/index.xsl"?>
+<pages title="Status Page">
+  <page title="Overview">
+    <row>
+      <column md="4" sm="6">
+        <title>Infrastructure</title>
+        <status event="OverviewNetworkStatus">Network</status>
+      </column>
+      <column md="4" sm="6">
+        <title>Areas</title>
+        <status event="OverviewUpstairsStatus">Upstairs</status>
+        <status event="OverviewDownstairsStatus">Downstairs</status>
+      </column>
+    </row>
+  </page>
+  <page title="Upstairs">
+    <row>
+      <column md="4" sm="6">
+        <title>Equipment</title>
+        <status event="UpstairsDisplayStatus">Display</status>
+        <status event="UpstairsAmpStatus">Amp</status>
+        <status event="UpstairsProjectorStatus">Projector</status>
+      </column>
+    </row>
+  </page>
+  <page title="Downstairs">
+    <row>
+      <column md="4" sm="6">
+        <title>Equipment</title>
+        <status event="DownstairsAmpStatus">Amp</status>
+      </column>
+    </row>
+  </page>
+</pages>

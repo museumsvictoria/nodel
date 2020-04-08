@@ -1,0 +1,148 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+	<xs:element name="row">
+		<xs:complexType>
+			<xs:sequence>
+				<xs:element ref="column" maxOccurs="unbounded"/>
+			</xs:sequence>
+			<xs:attribute name="class">
+				<xs:simpleType>
+					<xs:restriction base="xs:string">
+						<xs:enumeration value="gap"/>
+					</xs:restriction>
+				</xs:simpleType>
+			</xs:attribute>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="item">
+		<xs:complexType>
+			<xs:simpleContent>
+				<xs:extension base="xs:string">
+					<xs:attribute name="value" use="required" type="xs:string"/>
+				</xs:extension>
+			</xs:simpleContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="page">
+		<xs:complexType>
+			<xs:sequence>
+				<xs:element ref="row" maxOccurs="unbounded"/>
+			</xs:sequence>
+			<xs:attribute name="title" use="required" type="xs:string"/>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="pill">
+		<xs:complexType mixed="true">
+			<xs:sequence>
+				<xs:element ref="badge" minOccurs="0"/>
+			</xs:sequence>
+			<xs:attribute name="value" use="required" type="xs:string"/>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="badge">
+		<xs:complexType>
+			<xs:attribute name="event" use="required" type="xs:string"/>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="meter">
+		<xs:complexType>
+			<xs:attribute name="event" use="required" type="xs:string"/>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="pages">
+		<xs:complexType>
+			<xs:sequence>
+				<xs:element ref="page"/>
+			</xs:sequence>
+			<xs:attribute name="title" use="required" type="xs:string"/>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="pills">
+		<xs:complexType>
+			<xs:sequence>
+				<xs:element ref="pill" maxOccurs="unbounded"/>
+			</xs:sequence>
+			<xs:attribute name="event" use="required" type="xs:string"/>
+			<xs:attribute name="action" use="required" type="xs:string"/>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="range">
+		<xs:complexType>
+			<xs:attribute name="action" use="required" type="xs:string"/>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="title" type="xs:string"/>
+	<xs:element name="button">
+		<xs:complexType mixed="true">
+			<xs:sequence>
+				<xs:element ref="badge" minOccurs="0"/>
+			</xs:sequence>
+			<xs:attribute name="action" use="required" type="xs:string"/>
+			<xs:attribute name="class" use="required">
+				<xs:simpleType>
+					<xs:restriction base="xs:string">
+						<xs:enumeration value="btn-default"/>
+						<xs:enumeration value="btn-primary"/>
+            <xs:enumeration value="btn-warning"/>
+            <xs:enumeration value="btn-danger"/>
+            <xs:enumeration value="btn-success"/>
+            <xs:enumeration value="btn-info"/>
+					</xs:restriction>
+				</xs:simpleType>
+			</xs:attribute>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="column">
+		<xs:complexType>
+			<xs:sequence>
+				<xs:element ref="title"/>
+				<xs:choice>
+					<xs:element ref="buttongroup"/>
+					<xs:element ref="status" maxOccurs="unbounded"/>
+					<xs:element ref="select" maxOccurs="unbounded"/>
+					<xs:element ref="button" maxOccurs="unbounded"/>
+					<xs:element ref="range" maxOccurs="unbounded"/>
+					<xs:element ref="pills" maxOccurs="unbounded"/>
+					<xs:element ref="meter" maxOccurs="unbounded"/>
+				</xs:choice>
+			</xs:sequence>
+			<xs:attribute name="sm" use="required" type="xs:byte"/>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="select">
+		<xs:complexType>
+			<xs:sequence>
+				<xs:element ref="item" maxOccurs="unbounded"/>
+			</xs:sequence>
+			<xs:attribute name="class" use="required">
+				<xs:simpleType>
+					<xs:restriction base="xs:string">
+						<xs:enumeration value="btn-default"/>
+						<xs:enumeration value="btn-primary"/>
+            <xs:enumeration value="btn-warning"/>
+            <xs:enumeration value="btn-danger"/>
+            <xs:enumeration value="btn-success"/>
+            <xs:enumeration value="btn-info"/>
+					</xs:restriction>
+				</xs:simpleType>
+			</xs:attribute>
+			<xs:attribute name="event" use="required" type="xs:string"/>
+			<xs:attribute name="action" use="required" type="xs:string"/>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="status">
+		<xs:complexType mixed="true">
+			<xs:sequence>
+				<xs:element ref="badge" minOccurs="0"/>
+			</xs:sequence>
+			<xs:attribute name="event" use="required" type="xs:string"/>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="buttongroup">
+		<xs:complexType>
+			<xs:sequence>
+				<xs:element ref="button" maxOccurs="unbounded"/>
+			</xs:sequence>
+		</xs:complexType>
+	</xs:element>
+</xs:schema>

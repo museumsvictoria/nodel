@@ -1,0 +1,12 @@
+<smil>
+    <head>
+        <meta name="adapi:renderer" content="auto" />
+    </head>
+    <body systemComponent="http://www.w3.org/1999/xhtml">
+	  <seq>
+        <ref src="index-sample.xml" dur="indefinite" fit="meet" mediaAlign="center" type="text/html">
+            <param name="cacheControl" value="noCache" />
+        </ref>
+	  </seq>	
+    </body>
+</smil>

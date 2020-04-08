@@ -60,14 +60,21 @@ def buildSummary = gitId.output();
 if (!branch.equals("stable"))
     version project.version + "-" + branch + "_r" + rev
 
+task grunt(type:Exec) {  
+  if (System.getProperty('os.name').toLowerCase(Locale.ROOT).contains('windows'))
+    commandLine 'grunt.cmd'
+  else
+    commandLine 'grunt'
+} 
+
 task copyContent(type: Copy) {
-    from 'www'
+    from new File(project.buildDir, 'grunt')
     into new File(project.buildDir, 'www-content_stage')
     exclude 'build.json'
 }
 
 task filterContentTemplates(type: Copy) {
-    from 'www'
+    from 'src'
     into new File(project.buildDir, 'www-content_stage')
     include 'build.json' 
     filter(ReplaceTokens, tokens: [ 
@@ -104,6 +111,8 @@ task preBuild << {
     tasks.cleanFilterContentTemplates.execute()
     tasks.cleanZipContentInterface.execute()
     tasks.cleanCopyContent.execute()
+
+    tasks.grunt.execute()
 
     tasks.copyContent.execute()
     tasks.filterContentTemplates.execute()

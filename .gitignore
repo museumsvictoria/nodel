@@ -29,3 +29,7 @@ _lastError.txt
 /nodel-webui-js/bin
 /nodel-jyhost/.nodel
 /nodel-jyhost/recipes
+nodel-webui-js/node_modules/
+/nodel-webui-js/temp
+nodel-webui-js/src/dark/theme.less
+nodel-webui-js/src/light/theme.less
