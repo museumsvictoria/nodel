@@ -100,15 +100,13 @@ Quick start
 
 Building and releases
 =====================
-* Latest releases can be found in [github releases](https://github.com/museumvictoria/nodel/releases)
-* To build from scratch, clone repository and use [Gradle](http://www.gradle.org/):
-  * `gradle :nodel-jyhost-java:build`
-  * Check `nodel-jyhost-java\build\distributions\standalone` directory
+* Latest releases can be found in [github releases](https://github.com/museumsvictoria/nodel/releases)
+* Can be easily built from scratch using these [instructions](BUILDING.md)
 
 Notes
 =====
 * thoroughly road tested with Java 8 (available from [AdoptOpenJDK](https://adoptopenjdk.net/))
-* for service / daemon use, see [wiki pages](https://github.com/museumvictoria/nodel/wiki)
+* for service / daemon use, see [wiki pages](https://github.com/museumsvictoria/nodel/wiki)
 * check `bootstrap` files for startup config
 
 Licenses
@@ -120,6 +118,6 @@ Licenses
 Credits
 =======
 
-Nodel is a joint venture established between [Museums Victoria](http://museumvictoria.com.au) and [Automatic](http://automatic.com.au). It was imagined as a replacement for Museum Victoria’s gallery control system at the time.
+Nodel is a joint venture established between [Museums Victoria](http://museumsvictoria.com.au) and [Automatic](http://automatic.com.au). It was imagined as a replacement for Museum Victoria’s gallery control system at the time.
 
-You may find out more about the Nodel project on the [White Paper](https://raw.githubusercontent.com/museumvictoria/nodel/gh-pages/docs/White_Paper-Nodel.pdf).
+You may find out more about the Nodel project on the [White Paper](https://raw.githubusercontent.com/museumsvictoria/nodel/gh-pages/docs/White_Paper-Nodel.pdf).
