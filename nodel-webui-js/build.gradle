@@ -60,12 +60,28 @@ def buildSummary = gitId.output();
 if (!branch.equals("stable"))
     version project.version + "-" + branch + "_r" + rev
 
+// <!-- grunt is embedded (via npm via node.js)
+
+task npmInstall(type:Exec) {  
+  if (System.getProperty('os.name').toLowerCase(Locale.ROOT).contains('windows'))
+    commandLine 'npm.cmd', 'install'
+  else
+    commandLine 'npm', 'install'
+}
+
 task grunt(type:Exec) {  
   if (System.getProperty('os.name').toLowerCase(Locale.ROOT).contains('windows'))
     commandLine 'grunt.cmd'
   else
     commandLine 'grunt'
-} 
+}
+
+clean.doFirst {
+    delete "${projectDir}/node_modules/"
+    delete "${projectDir}/temp/"
+}
+
+// grunt --!>
 
 task copyContent(type: Copy) {
     from new File(project.buildDir, 'grunt')
@@ -112,6 +128,7 @@ task preBuild << {
     tasks.cleanZipContentInterface.execute()
     tasks.cleanCopyContent.execute()
 
+    tasks.npmInstall.execute()
     tasks.grunt.execute()
 
     tasks.copyContent.execute()

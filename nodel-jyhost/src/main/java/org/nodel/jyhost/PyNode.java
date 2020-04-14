@@ -639,7 +639,7 @@ public class PyNode extends BaseDynamicNode {
             
             // initialise dependency list with configured ones OR the main script (non-fixed)
             List<String> dependencies = new ArrayList<>(4);
-            if (config.dependencies == null)
+            if (config.dependencies != null)
                 dependencies.addAll(Arrays.asList(config.dependencies));
             else
                 dependencies.add("script.py");
