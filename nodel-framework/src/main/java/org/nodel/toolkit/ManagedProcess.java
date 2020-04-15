@@ -31,6 +31,7 @@ import org.nodel.threading.CallbackQueue;
 import org.nodel.threading.ThreadPool;
 import org.nodel.threading.TimerTask;
 import org.nodel.threading.Timers;
+import org.nodel.toolkit.windows.ProcessSandboxExecutable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -763,6 +764,11 @@ public class ManagedProcess implements Closeable {
         // ... in the host root?
         result = new File(Nodel.getHostPath(), PROCESS_SANDBOX);
         if (result.exists())
+            return result;
+        
+        // ... or try get on-the-fly compiled version
+        result = ProcessSandboxExecutable.instance().tryGetPath();
+        if (result != null && result.exists())
             return result;
 
         // ...else
