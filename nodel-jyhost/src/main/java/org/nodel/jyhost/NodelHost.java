@@ -9,6 +9,7 @@ package org.nodel.jyhost;
 import java.io.File;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
+import java.net.InetAddress;
 import java.net.URLEncoder;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -20,18 +21,26 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.concurrent.atomic.AtomicLong;
-
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import org.nodel.Handler;
 import org.nodel.SimpleName;
 import org.nodel.Strings;
+import org.nodel.Tuple;
+import org.nodel.Version;
 import org.nodel.core.Nodel;
 import org.nodel.core.NodelClients.NodeURL;
+import org.nodel.core.NodelServerEvent;
 import org.nodel.diagnostics.AtomicLongMeasurementProvider;
 import org.nodel.diagnostics.Diagnostics;
 import org.nodel.discovery.AdvertisementInfo;
+import org.nodel.discovery.TopologyWatcher;
+import org.nodel.host.BaseNode;
 import org.nodel.io.Files;
 import org.nodel.io.UTF8Charset;
+import org.nodel.reflection.Reflection;
 import org.nodel.reflection.Serialisation;
+import org.nodel.rest.REST;
 import org.nodel.threading.ThreadPool;
 import org.nodel.threading.TimerTask;
 import org.nodel.threading.Timers;
@@ -73,7 +82,7 @@ public class NodelHost {
     /**
      * (threading)
      */
-    private ThreadPool _threadPool = new ThreadPool("Nodel host", 128);
+    private ThreadPool _threadPool = new ThreadPool("Nodel host", 4);
     
     /**
      * (threading)
@@ -111,11 +120,43 @@ public class NodelHost {
      * Reflects the current running node configuration.
      */
     private Map<SimpleName, PyNode> _nodeMap = Collections.synchronizedMap(new HashMap<SimpleName, PyNode>());
-    
+
+    /**
+     * regex for node name templates, e.g. "Special Display ($MODEL, ${MAC ADDRESS})" or "${HOSTNAME} Computer"
+     */
+    private static Pattern NODE_NAME_TEMPLATE_REGEX = Pattern.compile("\\$\\{(.+?)\\}|\\$([a-zA-Z\\d]+)");
+
+    /**
+     * Convenience map value
+     */
+    class FolderInfo {
+
+        /**
+         * The actual folder name (never changes)
+         */
+        final SimpleName folderName;
+
+        /**
+         * Has a $NAME or ${...} present (never changes, see dynamic naming below)
+         */
+        final boolean isTemplate;
+
+        /**
+         * The node associated with this folder (to be updated)
+         */
+        PyNode node;
+
+        FolderInfo(SimpleName folderName) {
+            this.folderName = folderName;
+            this.isTemplate = NODE_NAME_TEMPLATE_REGEX.matcher(folderName.getOriginalName()).find();
+        }
+
+    }
+
     /**
      * The node folders in use.
      */
-    private Map<SimpleName, File> _nodeFolders = new HashMap<>();
+    private Map<File, FolderInfo> _nodeFolders = new HashMap<>();
     
     /**
      * As specified by user.
@@ -162,16 +203,19 @@ public class NodelHost {
             
         });
         
-        // schedule a maintenance run immediately
-        _threadPool.execute(new Runnable() {
+        // schedule a maintenance immediately after topology is known
+        TopologyWatcher.shared().addOnChangeHandler(new TopologyWatcher.ChangeHandler() {
 
             @Override
-            public void run() {
+            public void handle(List<InetAddress> appeared, List<InetAddress> disappeared) {
                 doMaintenance();
+
+                // periodic maintenance scheduling is taken care of elsewhere so decouple
+                TopologyWatcher.shared().removeOnChangeHandler(this);
             }
-            
+
         });
-        
+
         s_instance = this;
     } // (constructor)
     
@@ -263,17 +307,17 @@ public class NodelHost {
             for(Entry<SimpleName, File> entry : currentFolders.entrySet()) {
                 SimpleName name = entry.getKey();
                 File folder = entry.getValue();
-                if (!_nodeFolders.containsValue((folder))) {
+                if (!_nodeFolders.containsKey(folder))
                     newFolders.put(name, folder);
-                }
             }
             
             // find all those not in the new map
             Map<File, SimpleName> deletedFolders = new HashMap<>();
             
-            for(Entry<SimpleName, File> existing : _nodeFolders.entrySet()) {
-                SimpleName existingName = existing.getKey();
-                File existingFolder = existing.getValue();
+            for(Entry<File, FolderInfo> existing : _nodeFolders.entrySet()) {
+                File existingFolder = existing.getKey();
+                FolderInfo folderInfo = existing.getValue();
+                SimpleName existingName = folderInfo.folderName;
                 
                 if (!currentFolders.containsValue(existingFolder))
                     deletedFolders.put(existingFolder, existingName);
@@ -281,45 +325,56 @@ public class NodelHost {
             
             // stop all the removed nodes
             
-            for (SimpleName name : deletedFolders.values()) {
-                PyNode node = _nodeMap.get(name);
+            for (Entry<File, SimpleName> entry : deletedFolders.entrySet()) {
+                File folder = entry.getKey();
+                SimpleName name = entry.getValue();
                 
-                _logger.info("Stopping and removing node '{}'", name);
+                PyNode node = _nodeFolders.get(folder).node;
+                
+                _logger.info("Stopping and removing node [{}]", name);
                 node.close();
                 
                 // count the removed node
                 s_nodesCounter.decrementAndGet();
                 
-                _nodeMap.remove(name);
-                _nodeFolders.remove(name);
+                _nodeMap.remove(node.getName());
+                _nodeFolders.remove(folder);
             } // (for)
             
             // start all the new nodes
             for (Entry<SimpleName, File> entry : newFolders.entrySet()) {
-                SimpleName name = entry.getKey();
+                SimpleName folderName = entry.getKey();
                 File folder = entry.getValue();
+                FolderInfo folderInfo = new FolderInfo(folderName);
                 
-                _logger.info("Spinning up node " + name + "...");
+                SimpleName nodeName = folderInfo.isTemplate ? SimpleName.intoSimple(tryExpandTemplate(folderInfo)) : folderName;  
+                
+                _logger.info("Spinning up node [" + nodeName + "]...");
                 
                 try {
-                    PyNode node = new PyNode(this, name, folder);
+                    PyNode node = new PyNode(this, nodeName, folder);
+                    folderInfo.node = node;
                     
                     // count the new node
                     s_nodesCounter.incrementAndGet();
                     
                     // place into the map
                     _nodeMap.put(entry.getKey(), node);
-                    _nodeFolders.put(name, folder);
+                    _nodeFolders.put(folder, folderInfo);
                     
                 } catch (Exception exc) {
-                    _logger.warn("Node creation failed; ignoring." + exc);
+                    _logger.warn("Node creation failed; ignoring", exc);
                 }
             } // (for)
+            
+            // to avoid a race condition, only do template expansion if no new nodes were started on this pass
+            if (newFolders.size() == 0)
+                checkForTemplates();
         }
         
         // schedule a maintenance run into the future
         if (!_closed) {
-            _timerThread.schedule(new TimerTask() {
+            _timerThread.schedule(_threadPool, new TimerTask() {
                 
                 @Override
                 public void run() {
@@ -329,6 +384,61 @@ public class NodelHost {
             }, PERIOD_MAINTENANCE);
         }
     } // (method)
+
+    /**
+     * Check for any name templates
+     */
+    private void checkForTemplates() {
+        List<Tuple.T2<FolderInfo, SimpleName>> toRename = new ArrayList<>(); // 2nd item is 'expandedName'
+
+        // deal with nodes with name templates
+        for (FolderInfo folderInfo : _nodeFolders.values()) {
+            if (!folderInfo.isTemplate)
+                // skip
+                continue;
+
+            PyNode node = folderInfo.node;
+            SimpleName existingName = node.getName(); // e.g. "$HOSTNAME Computer"
+
+            CharSequence newName = tryExpandTemplate(folderInfo); // e.g. "DESKTOP-VVCUA Computer"
+            
+            if (newName == null || existingName.getOriginalName().contentEquals(newName))
+                // name is not different, nothing to do
+                continue;
+
+            // needs renaming (must be done safely outside of enumeration loop)
+            toRename.add(new Tuple.T2<>(folderInfo, SimpleName.intoSimple(newName)));
+        }
+
+        // safely rename if required
+        for (Tuple.T2<FolderInfo, SimpleName> entry : toRename) {
+            FolderInfo folderInfo = entry.getItem1();
+            SimpleName expandedName = entry.getItem2();
+
+            PyNode node = folderInfo.node;
+            File root = node.getRoot();
+            SimpleName existingName = node.getName();
+
+            try {
+                _logger.info("Node name expansion resulted in new node (was [{}]); shutting down...", existingName);
+                node.close();
+                _nodeMap.remove(existingName);
+                folderInfo.node = null;
+
+                _logger.info("... changing name to [{}] and starting node", expandedName);
+                node = new PyNode(this, expandedName, root);
+
+                // update field to new node instance
+                folderInfo.node = node;
+
+                // and replace in map
+                _nodeMap.put(expandedName, folderInfo.node);
+
+            } catch (Exception exc) {
+                _logger.warn("Node creation failed during name expansion; will retry on next round", exc);
+            }
+        } // (for)
+    }
 
     private void checkRoot(Map<SimpleName, File> currentFolders, File root) {
         File[] files = root.listFiles();
@@ -652,8 +762,104 @@ public class NodelHost {
         if (bIndex > 0)
             sb.append(new String(buffer, 0, bIndex, UTF8Charset.instance()));
         
-        
         return new SimpleName(sb.toString());
+    }
+    
+    /**
+     * Performs variable substitution using the name template regex.
+     * 
+     * @param folderInfo pre-checked the 'folderInfo.isTemplate' is true
+     * @return a valid string
+     */
+    private static CharSequence tryExpandTemplate(FolderInfo folderInfo) {
+        String template = folderInfo.folderName.getOriginalName();
+
+        // get all variables ('folderInfo.isTemplate' is pre-checked as true so a match will always be found)
+        Matcher matcher = NODE_NAME_TEMPLATE_REGEX.matcher(template);
+
+        StringBuffer result = new StringBuffer(template.length() * 2);
+        
+        while (matcher.find()) {
+            String varName = matcher.group(1);
+            if (varName == null)
+                varName = matcher.group(2);
+
+            SimpleName simpleName = new SimpleName(varName); // won't be sensitive to "${}" characters
+
+            Object value = tryLookupAndSubstitute(simpleName, folderInfo.node);
+
+            if (value != null)
+                matcher.appendReplacement(result, Matcher.quoteReplacement(value.toString()));
+            else
+                matcher.appendReplacement(result, Matcher.quoteReplacement(varName));
+        }
+
+        matcher.appendTail(result);
+
+        return result;
+    }
+
+    /**
+     * Tries to lookup up a variable value from convenient sources
+     */
+    private static Object tryLookupAndSubstitute(SimpleName name, BaseNode node) {
+        // try as a signal name fist
+        if (node != null) {
+            NodelServerEvent signal = node.getLocalEvents().get(name);
+            if (signal != null)
+                return signal.getArg();
+        }
+
+        // otherwise try some other convenient things to lookup
+
+        String original = name.getOriginalName();
+        String reduced = name.getReducedForMatchingName();
+
+        if (reduced.equals("hostname")) {
+            String result = TopologyWatcher.shared().getHostname();
+            // and use matching case
+            return original.startsWith("HOST") ? result.toUpperCase() : (original.startsWith("host") ? result.toLowerCase() : result);
+        }
+
+        if (reduced.equals("ipaddress") || reduced.equals("ipaddresses") || reduced.equals("ip"))
+            return String.join(", ", TopologyWatcher.shared().getIPAddresses());
+
+        if (reduced.equals("macaddress") || reduced.equals("macaddresses") || reduced.equals("mac")) {
+            String result = String.join(", ", TopologyWatcher.shared().getMACAddresses());
+            // and use matching case
+            return original.startsWith("MAC") ? result.toUpperCase() : (original.startsWith("mac") ? result.toLowerCase() : result);
+        }
+
+        if (reduced.equals("httpport"))
+            return Nodel.getHTTPPort();
+
+        if (reduced.equals("version"))
+            return Version.shared().version;
+
+        if (reduced.equals("hostingrule"))
+            return Nodel.getHostingRule();
+
+        // try against Diagnostics (which shadows most of Nodel class static methods)
+        try {
+            if (Reflection.getValueInfosByName(Diagnostics.class, original) != null) // test first to avoid NotFoundException below
+                return REST.resolveRESTcall(Diagnostics.shared(), new String[] {original}, null, null, false);
+        } catch (Exception e) {
+            // ignore and fall-through
+        }
+
+        // try host environment variables
+        String value = System.getenv(original);
+        if (!Strings.isBlank(value))
+            return value;
+
+        // try Java platform property
+        value = System.getProperty(original);
+        if (!Strings.isBlank(value))
+            return value;
+        
+        // RESERVED for further lookups
+
+        return null;
     }
 
     /**

@@ -15,7 +15,7 @@ import java.util.Enumeration;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-
+import org.nodel.Formatting;
 import org.nodel.core.Nodel;
 import org.nodel.threading.ThreadPool;
 import org.nodel.threading.TimerTask;
@@ -73,24 +73,46 @@ public class TopologyWatcher {
      * Newly registered callbacks. For thread safety, these move to 'onChangeHandlers' on first fire.
      * (synchronized)
      */
-    private Set<ChangeHandler> _newOnChangeHandlers = new HashSet<ChangeHandler>();
+    private final Set<ChangeHandler> _newOnChangeHandlers = new HashSet<ChangeHandler>();
     
     /**
      * Holds unregistered handlers
      * (synchronized)
      */
-    private Set<ChangeHandler> _removedOnChangeHandlers = new HashSet<ChangeHandler>();
+    private final Set<ChangeHandler> _removedOnChangeHandlers = new HashSet<ChangeHandler>();
     
     /**
      * Active set callbacks
      * (only modified by one thread)
      */
-    private List<ChangeHandler> _onChangeHandlers = new ArrayList<ChangeHandler>();
+    private final List<ChangeHandler> _onChangeHandlers = new ArrayList<ChangeHandler>();
     
     /**
-     * The snapshot of the active interfaces list.
+     * The snapshot of the active interfaces list (null until first hardware poll)
      */
     private InetAddress[] _interfacesSnapshot;
+    
+    /**
+     * Snapshot of related MAC addresses (colon separated strings) (never null)
+     */
+    private List<String> _macAddressesSnapshot = Collections.emptyList();
+    
+    /**
+     * Snapshot of IP addresses (dotted numerical strings)
+     */
+    private List<String> _ipAddressesSnapshot = Collections.emptyList();    
+    
+    /**
+     * Snapshot of hostname if known else "UNKNOWN")
+     */
+    private String _hostnameSnapshot = "UNKNOWN";
+    
+    /**
+     * Hostname snapshot (or "UNKNOWN")
+     */
+    public String getHostname() {
+        return _hostnameSnapshot;
+    }    
 
     /**
      * Adds a callback for topology changes (order is "new interfaces", "old interfaces")
@@ -286,9 +308,15 @@ public class TopologyWatcher {
     }
     
     /**
-     * Scans for 'up', non-loopback, multicast-supporting, network interfaces with at least one IPv4 address.
+     * Scans for 'up', non-loopback, multicast-supporting, network interfaces with at least one IPv4 address. Also updates
+     * hostname and MAC addressess snapshot.
      */
     private void listValidInterfaces(Set<InetAddress> refNicSet) {
+        List<String> ipAddresses = new ArrayList<>();
+        List<String> macAddresses = new ArrayList<>();
+        
+        String hostname = "UNKNOWN";
+        
         try {
             Enumeration<NetworkInterface> interfaces = NetworkInterface.getNetworkInterfaces();
 
@@ -297,19 +325,39 @@ public class TopologyWatcher {
                     if (!intf.supportsMulticast() || intf.isLoopback() || !intf.isUp())
                         continue;
 
+                    byte[] macAddress = null;
+                    
                     // check for at least one IPv4 address and check loopback status again for good measure
                     for (InetAddress address : Collections.list(intf.getInetAddresses())) {
-                        if (address instanceof Inet4Address)
+                        if (address instanceof Inet4Address) {
                             refNicSet.add(address);
+                            ipAddresses.add(address.getHostAddress());
+                            if (macAddress == null)
+                                macAddress = intf.getHardwareAddress(); 
+                        }
                     }
+                    
+                    if (macAddress != null)
+                        macAddresses.add(Formatting.formatFewBytes(macAddress));
 
                 } catch (Exception exc) {
                     // skip this interface
                 }
             }
+            
+            hostname = InetAddress.getLocalHost().getHostName();
+            
         } catch (Exception exc) {
-            warn("intf_enumeration", "Was not able to enumerate network interfaces", exc);
+            warn("intf_enumeration", "Was not able to enumerate network interfaces or get hostname", exc);
         }
+        
+        _hostnameSnapshot = hostname;
+        
+        if (!macAddresses.equals(_macAddressesSnapshot))
+            _macAddressesSnapshot = macAddresses;
+        
+        if (!ipAddresses.equals(_macAddressesSnapshot))
+            _ipAddressesSnapshot = ipAddresses;
     }
     
     /**
@@ -358,8 +406,22 @@ public class TopologyWatcher {
      */
     public InetAddress[] getInterfaces() {
         return _interfacesSnapshot;
-    }    
+    }
     
+    /**
+     * Snapshot of MAC addresses (related to interfaces)
+     */
+    public List<String> getMACAddresses() {
+        return _macAddressesSnapshot;
+    }
+    
+    /**
+     * Same as 'getInterfaces' but as strings
+     */
+    public List<String> getIPAddresses() {
+        return _ipAddressesSnapshot;
+    }
+
     /**
      * Warning with suppression.
      */
