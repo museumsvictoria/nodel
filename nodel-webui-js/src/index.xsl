@@ -650,6 +650,16 @@
           </form>
         ]]>
         </script>
+        <script id="actsigHoldingTmpl" type="text/x-jsrender">
+        <![CDATA[
+          <div class="row">
+            <div class="col-sm-12">
+              <button type="submit" class="btn btn-warning enable" title="Enable">Enable</button>
+              <div class="loader"></div>
+            </div>
+          </div>
+        ]]>
+        </script>
         <script id="actsigTmpl" type="text/x-jsrender">
         <![CDATA[
           {{for forms}}
@@ -725,14 +735,20 @@
             </form>
             <ul>
               {^{if init}}
-                <h6>Initialising</h6>
+                <h6>Initialising {^{if initcount > 1}}- {^{>((initcount/total)*100).toFixed()}}%{{/if}}</h6>
               {{else}}
-                {^{for logs filter=~srcflt mapDepends='flt' srch='alias' start=0 end=end}}
+                {^{for logs filter=~srcflt mapDepends='flt' srch='alias' start=0 end=end sorted=srtd}}
                   <li data-link="data-type{:type} class{:'log log_'+type+'_'+alias}">
                     <span data-link="class{:'logicon log_src_'+source+' log_typ_'+type}"></span>
                     <span class="logtitle">{^{>rawalias}}</span><span class="logtimestamp"> - {^{>~nicetime(timestamp)}}</span>
                     {^{if ~isset(arg)}}
-                      <span class="logarg">{^{:~jsonhighlight(~sanitize(arg, 250))}}</span>
+                      <span class="logarg">
+                        {^{if ~root.hold or ~root.flt}}
+                          {^{:~jsonhighlight(~sanitize(arg, 250))}}
+                        {{else}}
+                          {^{:~sanitize(arg, 250)}}
+                        {{/if}}
+                      </span>
                     {{/if}}
                   </li>
                 {{/for}}
