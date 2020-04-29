@@ -26,6 +26,7 @@ import java.util.regex.Pattern;
 import org.nodel.Handler;
 import org.nodel.SimpleName;
 import org.nodel.Strings;
+import org.nodel.Threads;
 import org.nodel.Tuple;
 import org.nodel.Version;
 import org.nodel.core.Nodel;
@@ -593,22 +594,37 @@ public class NodelHost {
     /**
      * Renames a node.
      */
-    public void renameNode(File root, SimpleName name) {
-        if (name == null)
+    public void renameNode(PyNode node, SimpleName newName) {
+        if (newName == null)
             throw new RuntimeException("No node name was provided");
-        
-        File newNodeDir = new File(_root, NodelHost.encodeIntoSafeFilename(name));
-        
+
+        File root = node.getRoot();
+
+        File newNodeDir = new File(_root, NodelHost.encodeIntoSafeFilename(newName));
+
         if (newNodeDir.exists())
-            throw new RuntimeException("A node with the name '" + name + "' already exists.");
-        
+            throw new RuntimeException("A node with the name '" + newName + "' already exists.");
+
         // this will throw an exception if name filtering rules are broken
-        testNameFilters(name);
-        
-        if (!root.renameTo(newNodeDir))
+        testNameFilters(newName);
+
+        // close the node
+        node.close();
+
+        // try a few times in case of blocking cleanup
+        int triesLeft = 5;
+        for (; triesLeft > 0; triesLeft--) {
+            if (root.renameTo(newNodeDir))
+                break;
+
+            Threads.safeWait(_signal, 1000);
+            
+            // and try some more...
+        }
+
+        if (triesLeft <= 0)
             throw new RuntimeException("The platform did not allow the renaming of the node folder for unspecified reasons.");
     }
-    
     
     public Collection<AdvertisementInfo> getAdvertisedNodes() {
         return Nodel.getAllNodes();
