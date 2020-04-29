@@ -87,4 +87,35 @@ public class Formatting {
             return s_formatter.format(bitRate) + " bps";        
     }
     
+    private final static char[] HEX = "0123456789abcdef".toCharArray();
+    
+    /**
+     * Ideally suited to small buffers, formats "aa:bb:cc:dd:..." (e.g. MAC addresses). 
+     * Base64 would be better for large ones.
+     */
+    public static String formatFewBytes(byte[] buffer) {
+        int len = buffer != null ? buffer.length : 0;
+
+        StringBuilder sb = new StringBuilder(len * 3);
+
+        char[] cBuffer = new char[3];
+        cBuffer[0] = ':';
+
+        for (int i = 0; i < len; i++) {
+            int b = buffer[i] & 0xff;
+
+            cBuffer[1] = HEX[b / 16];
+            cBuffer[2] = HEX[b % 16];
+
+            if (i == 0)
+                // first time just 2 chars, e.g. 'aa'
+                sb.append(cBuffer, 1, 2);
+            else
+                // the rest, 3, e.g. ':aa'
+                sb.append(cBuffer);
+        }
+
+        return sb.toString();
+    }
+
 } // (class)

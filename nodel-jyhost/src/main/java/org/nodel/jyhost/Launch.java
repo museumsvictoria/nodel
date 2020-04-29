@@ -19,7 +19,6 @@ import org.nodel.StartupException;
 import org.nodel.Threads;
 import org.nodel.Version;
 import org.nodel.core.Nodel;
-import org.nodel.diagnostics.Diagnostics;
 import org.nodel.host.BootstrapConfig;
 import org.nodel.host.NanoHTTPD;
 import org.nodel.io.Files;
@@ -28,8 +27,6 @@ import org.nodel.io.Stream;
 import org.nodel.json.JSONArray;
 import org.nodel.json.JSONException;
 import org.nodel.json.JSONObject;
-import org.nodel.jyhost.NodelHost;
-import org.nodel.jyhost.NodelHostHTTPD;
 import org.nodel.logging.slf4j.SimpleLogger;
 import org.nodel.reflection.Objects;
 import org.nodel.reflection.Schema;
@@ -400,9 +397,6 @@ public class Launch {
         if (_nodelHost.getRoot().list().length > 0)
             return;
 
-        String nodeName = String.format("%s (HTTP %s)",
-                Diagnostics.shared().hostname(), Nodel.getHTTPPort());
-
         // create folder (designated temporary) for later rename
         File nodeFolder = new File(_nodelHost.getRoot(), "_tmpFirstNode");
         nodeFolder.mkdirs();
@@ -417,7 +411,9 @@ public class Launch {
         }
 
         // rename (move) last to avoid file write collision
-        nodeFolder.renameTo(new File(_nodelHost.getRoot(), "Nodel Recipes Sync for " + nodeName));
+        
+        String nodeName = String.format("Nodel Recipes Sync for $HOSTNAME ${http port} (${os.name}, ${mac})");
+        nodeFolder.renameTo(new File(_nodelHost.getRoot(), nodeName));
     }
 
     /**

@@ -1524,8 +1524,8 @@ public class PyNode extends BaseDynamicNode {
      * Renames the node.
      */
     @Service(name = "rename", title = "Rename", desc = "Renames a node.")
-    public void rename(SimpleName name) {
-        _nodelHost.renameNode(_root, name);
+    public void rename(SimpleName newName) {
+        _nodelHost.renameNode(this, newName);
         
         // would get here without any exceptions, the folder should have been renamed
         _logger.info("This node has been renamed. It will close down and restart under a new name shortly.");
@@ -1556,17 +1556,33 @@ public class PyNode extends BaseDynamicNode {
     public void remove(@Param(name = "confirm") boolean confirm) {
         if (!confirm)
             throw new RuntimeException("'confirm' flag was not set. Nothing removed.");
-        
-        Files.tryFlushDir(_root);
 
-        // files are flushed, now the directory itself
-        _root.delete();
+        this.close();
         
-        if (_root.exists())
-            throw new RuntimeException("An attempt was made at removing the node however it still exists. Temporary file locking might be preventing the removal of the node. Try again later.");
+        // in case of lingering operations, try a few times... 
 
-        // the folder should have been renamed!
-        _logger.info("This node has been deleted. It will close down.");
+        int triesLeft = 5;
+        for (; triesLeft > 0; triesLeft--) {
+            
+            // flush all files
+            Files.tryFlushDir(_root);
+
+            // files are flushed, now the directory itself
+            _root.delete();
+
+            if (!_root.exists())
+                break;
+
+            Threads.safeWait(_signal, 1000);
+
+            // and try some more...
+        }
+
+        if (triesLeft <= 0)
+            throw new RuntimeException("Attempts were made to remove the node however it still exists. Temporary file locking might be preventing the removal of the node. Try again later.");
+
+        // the folder should have been removed!
+        _logger.info("The node has been deleted.");
     }
 
     /**
