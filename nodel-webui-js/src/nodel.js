@@ -2021,7 +2021,9 @@ var updateLogs = function(){
       if (typeof $('body').data('seq') === "undefined") {
         var noanimate = true;
         $('body').data('seq', -1);
-        len = data.length;
+        var len = data.filter(function (x) {
+          return x.seq == 0;
+        }).length;
         var eles = $(".nodel-log");
         $.each(eles, function (i, ele) {
           var src = $.view($(ele).find('.base')).data;
@@ -2057,7 +2059,9 @@ var updateLogs = function(){
             data['activityHistory'].sort(function (a, b) {
               return a.seq < b.seq ? -1 : a.seq > b.seq ? 1 : 0;
             });
-            len = data['activityHistory'].length;
+            var len = data['activityHistory'].filter(function (x) {
+              return x.seq == 0;
+            }).length;
             var eles = $(".nodel-log");
             $.each(eles, function (i, ele) {
               var src = $.view($(ele).find('.base')).data;
