@@ -1049,7 +1049,7 @@ var setEvents = function(){
   $('body').on("keyup", ".nodel-console .consoleinput", function(e) {
     var charCode = e.charCode || e.keyCode;
     if (charCode === 13) {
-      var text = $(this).text();
+      var text = $(this).text().replace(/\u00A0/g, ' ');
       if(text){
         $(this).empty();
         var arg = JSON.stringify({code: text});
