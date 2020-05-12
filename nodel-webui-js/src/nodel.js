@@ -2442,7 +2442,7 @@ var process_log = function(log, idx){
     if(!log.ani) {
       $(ele).find('.log_'+log.type+'_'+alias+ ' .logicon').stop(true,true).css({'opacity': 1}).animate({'opacity': 0.2}, 1000);
     }
-    if((data.length == src.total) && src.init == true) {
+    if((data.length >= src.total) && src.init == true) {
       if(src.total > 100)  $.observable(src).setProperty('hold', true);
       $.observable(src).setProperty('init', false);
     }
