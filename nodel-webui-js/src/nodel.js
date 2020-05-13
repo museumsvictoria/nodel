@@ -2022,7 +2022,7 @@ var updateLogs = function(){
         var noanimate = true;
         $('body').data('seq', -1);
         var len = data.filter(function (x) {
-          return x.seq == 0;
+          return x.seq != 0;
         }).length;
         var eles = $(".nodel-log");
         $.each(eles, function (i, ele) {
@@ -2034,8 +2034,10 @@ var updateLogs = function(){
         return a.seq < b.seq ? -1 : a.seq > b.seq ? 1 : 0;
       });
       $.each(data, function (key, value) {
-        if(value.seq != 0) $('body').data('seq', value.seq + 1);
-        throttleLog(value, noanimate);
+        if(value.seq != 0) {
+          $('body').data('seq', value.seq + 1);
+          throttleLog(value, noanimate);
+        }
       });
     }).fail(function() {
       offline();
@@ -2059,16 +2061,17 @@ var updateLogs = function(){
             data['activityHistory'].sort(function (a, b) {
               return a.seq < b.seq ? -1 : a.seq > b.seq ? 1 : 0;
             });
-            var len = data['activityHistory'].filter(function (x) {
-              return x.seq == 0;
-            }).length;
+            var datafil = data['activityHistory'].filter(function (x) {
+              return x.seq != 0;
+            });
+            var len = datafil.length;
             var eles = $(".nodel-log");
             $.each(eles, function (i, ele) {
               var src = $.view($(ele).find('.base')).data;
               $.observable(src).setProperty('total', len);
             });
             // TODO: disable auto log if > 1000 entries
-            $.each(data['activityHistory'], function(i) {
+            $.each(datafil, function(i) {
               throttleLog(this, true);
             });
           } else throttleLog(data['activity']);
