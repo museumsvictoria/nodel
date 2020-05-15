@@ -64,7 +64,7 @@ public class FilesEndPoint {
     @Service(name = "contents", desc = "Returns the contents of the file.")
     public NanoHTTPD.Response contents(@Param(name = "path") String path) {
         try {
-            if (Strings.isNullOrEmpty(path))
+            if (Strings.isBlank(path))
                 throw new RuntimeException("No file path provided");
             
             FileInputStream fis = new FileInputStream(new File(_root, path));
@@ -160,9 +160,10 @@ public class FilesEndPoint {
 
             String name = item.getName();
 
-            // TODO: might be a good idea to skip special "." and "_" tagged files
-            // if (name.startsWith("_") || name.startsWith("."))
-            // continue;
+            if (name.equals(".nodel"))
+                continue;
+            
+            // further filtering could be done here
 
             String newPath = path.length() > 0 ? path + "/" + name : name;
 
