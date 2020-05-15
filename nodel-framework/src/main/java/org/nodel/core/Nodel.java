@@ -25,9 +25,6 @@ import org.nodel.discovery.AdvertisementInfo;
 import org.nodel.discovery.AutoDNS;
 import org.nodel.io.UnexpectedIOException;
 
-// TODO: use one of these to implement character normalisation:
-// http://stackoverflow.com/questions/1008802/converting-symbols-accent-letters-to-english-alphabet
-
 public class Nodel {
 
     private final static String VERSION = "2.2.1";
@@ -112,9 +109,9 @@ public class Nodel {
             else if (Character.isLetterOrDigit(c))
                 sb.append(c);
             
-            else if (c > 127)
+            else if (c > 127 && !Character.isSpaceChar(c))
                 // every other extended ASCII and Unicode character
-                // is significant
+                // is significant (except space characters e.g. \u00A0 NO-BREAK SPACE)
                 sb.append(c);
             
             // store last char for comments
@@ -474,19 +471,19 @@ public class Nodel {
         sb.append("nodel/").append(VERSION);
 
         String javaRuntime = System.getProperty("java.runtime.version");
-        if (!Strings.isNullOrEmpty(javaRuntime))
+        if (!Strings.isBlank(javaRuntime))
             sb.append(" java/").append(javaRuntime.replace(' ', '_'));
         
         String vendor = System.getProperty("java.vm.vendor");
-        if (!Strings.isNullOrEmpty(vendor))
+        if (!Strings.isBlank(vendor))
             sb.append(' ').append(vendor.replace(' ', '_'));        
 
         String os = System.getProperty("os.name");
-        if (!Strings.isNullOrEmpty(os))
+        if (!Strings.isBlank(os))
             sb.append(' ').append(os.replace(' ', '_'));
 
         String arch = System.getProperty("sun.arch.data.model");
-        if (!Strings.isNullOrEmpty(arch))
+        if (!Strings.isBlank(arch))
             sb.append(" arch").append(arch.replace(' ', '_'));
 
         return sb.toString();
