@@ -19,61 +19,39 @@ def hostname = InetAddress.getLocalHost().getHostName().toUpperCase();
 
 def now = DateTime.now().toString();
 
-task gitBranch(type:Exec) {
-  commandLine 'git', 'rev-parse', '--abbrev-ref', 'HEAD'
-  standardOutput = new ByteArrayOutputStream()
-  ext.output = {
-    return standardOutput.toString().trim()
-  }
-}
+def gitBranch = 'git rev-parse --abbrev-ref HEAD'.execute().text.trim()
+def gitId = 'git rev-parse HEAD'.execute().text.trim()
+def gitRev = 'git rev-list --count HEAD'.execute().text.trim()
 
-task gitId(type:Exec) {
-  commandLine 'git', 'rev-parse', 'HEAD'
-  standardOutput = new ByteArrayOutputStream()
-  ext.output = {
-    return standardOutput.toString().trim()
-  }
-}
-
-task gitRev(type:Exec) {
-    commandLine 'git', 'rev-list', '--count', 'HEAD'
-    standardOutput = new ByteArrayOutputStream()
-    ext.output = {
-        return standardOutput.toString().trim()
-    }
-}
-
-gitBranch.execute()
-gitRev.execute()
-gitId.execute()
-
-def branch = gitBranch.output()
+def branch = gitBranch
 if (branch.equals("master"))
     branch = "dev"
 
-def rev = gitRev.output()
+def rev = gitRev
 // strip out non-alphanumeric (e.g. the '+' in '1234+')
 rev = rev.replaceAll(/[^a-zA-Z0-9]/, '')
 
-def buildSummary = gitId.output();
+def buildSummary = gitId
 
 if (!branch.equals("stable"))
     version project.version + "-" + branch + "_r" + rev
 
 // <!-- grunt is embedded (via npm via node.js)
 
-task npmInstall(type:Exec) {  
+task npmInstall(type:Exec) {
   if (System.getProperty('os.name').toLowerCase(Locale.ROOT).contains('windows'))
     commandLine 'npm.cmd', 'install'
   else
     commandLine 'npm', 'install'
+  workingDir "${projectDir}"  
 }
 
-task grunt(type:Exec) {  
+task grunt(type:Exec, dependsOn: [npmInstall]) {
   if (System.getProperty('os.name').toLowerCase(Locale.ROOT).contains('windows'))
     commandLine 'grunt.cmd'
   else
     commandLine 'grunt'
+  workingDir "${projectDir}"    
 }
 
 clean.doFirst {
@@ -83,7 +61,7 @@ clean.doFirst {
 
 // grunt --!>
 
-task copyContent(type: Copy) {
+task copyContent(type: Copy, dependsOn: [grunt]) {
     from new File(project.buildDir, 'grunt')
     into new File(project.buildDir, 'www-content_stage')
     exclude 'build.json'
@@ -123,22 +101,9 @@ sourceSets {
     }
 }
 
-task preBuild << {
-    tasks.cleanFilterContentTemplates.execute()
-    tasks.cleanZipContentInterface.execute()
-    tasks.cleanCopyContent.execute()
+compileJava.dependsOn(zipContentInterface)
+compileJava.dependsOn(copyBuildInfo)
 
-    tasks.npmInstall.execute()
-    tasks.grunt.execute()
-
-    tasks.copyContent.execute()
-    tasks.filterContentTemplates.execute()
-    tasks.zipContentInterface.execute()
-
-    tasks.copyBuildInfo.execute()
-}
-
-compileJava.dependsOn(preBuild)
 
 dependencies {
     compile 'joda-time:joda-time:2.6'
