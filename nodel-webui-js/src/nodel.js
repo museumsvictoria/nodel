@@ -382,6 +382,7 @@ var t0;
 $(function() {
   t0 = performance.now();
   host = document.location.hostname + ':' + window.document.location.port;
+  proto = location.protocol;
   $('.nodel-icon img').attr("src", "data:image/svg+xml;base64,"+generateHostIcon(host));
   $('.nodel-icon a').attr("href", window.document.location.protocol+"//"+host);
   $('.nodel-icon a').attr("title", host);
@@ -456,7 +457,7 @@ var clearTimers = function(){
 
 var getNodeDetails = function(){
   var d = $.Deferred();
-  $.getJSON('http://'+host+'/REST/nodes/'+encodeURIComponent(node)+'/', function(data) {
+  $.getJSON(proto+'//'+host+'/REST/nodes/'+encodeURIComponent(node)+'/', function(data) {
     if(!$('.navbar-brand #title').text()) $('.navbar-brand #title').text(getSimpleName(data.name));
     if(data.desc) $('.nodel-description').html(converter.makeHtml(data.desc));
     $('title').text(getSimpleName(data.name));
@@ -550,10 +551,10 @@ var createDynamicElements = function(){
     var d = $.Deferred();
     if($(ele).data('nodel') == 'actsig'){
       var reqs = [];
-      reqs.push($.getJSON('http://'+host+'/REST/nodes/'+encodeURIComponent(node)+'/actions', function(list) {
+      reqs.push($.getJSON(proto+'//'+host+'/REST/nodes/'+encodeURIComponent(node)+'/actions', function(list) {
         actions = list;
       }));
-      reqs.push($.getJSON('http://'+host+'/REST/nodes/'+encodeURIComponent(node)+'/events', function(list) {
+      reqs.push($.getJSON(proto+'//'+host+'/REST/nodes/'+encodeURIComponent(node)+'/events', function(list) {
         events = list;
       }));
       var forms = {"forms":[],"groups":{}};
@@ -600,7 +601,7 @@ var createDynamicElements = function(){
         });
       });
     } else if($(ele).data('nodel') == 'params'){
-      $.getJSON('http://'+host+'/REST/nodes/'+encodeURIComponent(node)+'/params/schema', function(data) {
+      $.getJSON(proto+'//'+host+'/REST/nodes/'+encodeURIComponent(node)+'/params/schema', function(data) {
         if(!_.isEmpty(data)){
           $(ele).data('btntext','Save');
           $(ele).data('btncolour','success');
@@ -617,7 +618,7 @@ var createDynamicElements = function(){
         }
       }).fail(function(){d.resolve();});
     } else if($(ele).data('nodel') == 'remote'){
-      $.getJSON('http://'+host+'/REST/nodes/'+encodeURIComponent(node)+'/remote/schema', function(data) {
+      $.getJSON(proto+'//'+host+'/REST/nodes/'+encodeURIComponent(node)+'/remote/schema', function(data) {
         if(!_.isEmpty(data)){
           $(ele).data('target','remote/save');
           $(ele).data('source','remote');
@@ -632,13 +633,13 @@ var createDynamicElements = function(){
       }).fail(function(){d.resolve();});
     } else if($(ele).data('nodel') == 'toolkit'){
       var ele = this;
-      $.get('http://' + host + '/REST/toolkit', function(data) {
+      $.get(proto+'//' + host + '/REST/toolkit', function(data) {
         $(ele).find('textarea').val(data['script']);
         d.resolve();
       }).fail(function(){d.resolve();});
     } else if($(ele).data('nodel') == 'diagnostics'){
-      $.getJSON('http://'+host+'/REST/diagnostics', function(data) {
-        $.getJSON('http://'+host+'/build.json', function(build) {
+      $.getJSON(proto+'//'+host+'/REST/diagnostics', function(data) {
+        $.getJSON(proto+'//'+host+'/build.json', function(build) {
           $.extend(data, {'build':build});
           $.templates("#diagsTmpl").link(ele, data);
           d.resolve();
@@ -745,8 +746,8 @@ var getNodeList = function(filterstr){
   var d = $.Deferred();
   if(nodeListreq) nodeListreq.abort();
   // test list (for large Nodel networks performance testing)
-  //nodeListreq = $.getJSON('http://'+host+'/nodeURLs.json', function(data) {
-  nodeListreq = $.postJSON('http://'+host+'/REST/nodeURLs', JSON.stringify(filter), function(data) {
+  //nodeListreq = $.getJSON(proto+'//'+host+'/nodeURLs.json', function(data) {
+  nodeListreq = $.postJSON(proto+'//'+host+'/REST/nodeURLs', JSON.stringify(filter), function(data) {
     for (i=0; i<data.length; i++) {
       var ind = -1;
       data[i].host = getHost(data[i].address);
@@ -764,7 +765,7 @@ var getNodeList = function(filterstr){
 var checkReachable = function(host){
   var d = $.Deferred();
   $.ajax({
-    url: 'http://'+host+'/REST',
+    url: proto+'//'+host+'/REST',
     timeout: 3000
   }).done(function() {
     d.resolve(true);
@@ -796,12 +797,12 @@ var makeTemplate = function(ele, schema, tmpls){
   $.views.settings.delimiters("{{", "}}");
   var tmpl = $.templates(generatedTemplate);
   if(!(_.isUndefined($(ele).data('source'))) && ($(ele).data('source').charAt(0) != '/')){
-    $.getJSON('http://'+host+'/REST/nodes/'+encodeURIComponent(node)+'/'+$(ele).data('source'), function(data) {
+    $.getJSON(proto+'//'+host+'/REST/nodes/'+encodeURIComponent(node)+'/'+$(ele).data('source'), function(data) {
       tmpl.link(ele, data);
       d.resolve();
     });
   } else if(!(_.isUndefined($(ele).data('source'))) && ($(ele).data('source').charAt(0) == '/')){
-    $.getJSON('http://'+host+'/REST'+$(ele).data('source'), function(data) {
+    $.getJSON(proto+'//'+host+'/REST'+$(ele).data('source'), function(data) {
       tmpl.link(ele, data);
       d.resolve();
     }); 
@@ -816,7 +817,7 @@ var checkReload = function(){
   var params = {};
   if(!_.isUndefined($('body').data('timer'))) clearTimeout($('body').data('timer'));
   if(!_.isUndefined($('body').data('timestamp'))) params = {timestamp:$('body').data('timestamp')};
-  $.getJSON('http://'+host+'/REST/nodes/'+encodeURIComponent(node)+'/hasRestarted', params, function(data) {
+  $.getJSON(proto+'//'+host+'/REST/nodes/'+encodeURIComponent(node)+'/hasRestarted', params, function(data) {
     if(_.isUndefined($('body').data('timestamp'))){
       $('body').data('timestamp', data.timestamp);
     } else if ($('body').data('timestamp')!=data.timestamp) {
@@ -931,13 +932,13 @@ var setEvents = function(){
   $('body').on('click','*[data-link-event]', function (e) {
     e.stopPropagation(); e.preventDefault();
     var ele = $(this);
-    var newWindow = window.open('http://'+host);
-    $.getJSON('http://'+host+'/REST/nodes/'+encodeURIComponent(node)+'/remote', function(data) {
+    var newWindow = window.open(proto+'//'+host);
+    $.getJSON(proto+'//'+host+'/REST/nodes/'+encodeURIComponent(node)+'/remote', function(data) {
       if (!_.isUndefined(data['events'][$(ele).data('link-event')])) {
         var lnode = data['events'][$(ele).data('link-event')]['node'];
         if(lnode!==''){
-          newWindow.location = 'http://'+host+'/?filter='+lnode;
-          $.postJSON('http://'+host+'/REST/nodeURLsForNode',JSON.stringify({'name':lnode}), function(data) {
+          newWindow.location = proto+'//'+host+'/?filter='+lnode;
+          $.postJSON(proto+'//'+host+'/REST/nodeURLsForNode',JSON.stringify({'name':lnode}), function(data) {
             if (!_.isUndefined(data[0]['address'])){
               newWindow.location = data[0]['address'];
             }
@@ -1011,7 +1012,7 @@ var setEvents = function(){
       //console.log(tosend);
       var nme = $(this).parent().data('btntitle');
       var alt = $(this).parent().data('alert');
-      $.postJSON('http://'+host+'/REST/nodes/'+encodeURIComponent(node)+'/'+$(this).parent().data('target'), JSON.stringify(tosend), function () {
+      $.postJSON(proto+'//'+host+'/REST/nodes/'+encodeURIComponent(node)+'/'+$(this).parent().data('target'), JSON.stringify(tosend), function () {
         console.log(nme+': success');
         if(alt) alert(alt);
       }).fail(function(e){
@@ -1207,7 +1208,7 @@ var setEvents = function(){
         });
         if(data.length > 0){
           $.each(data, function(key, value) {
-            reqs.push($.getJSON('http://'+value.host+'/REST/nodes/'+encodeURIComponent(value.node)+'/'+type, function(data) {
+            reqs.push($.getJSON(proto+'//'+value.host+'/REST/nodes/'+encodeURIComponent(value.node)+'/'+type, function(data) {
               $.each(data, function(key, value) {
                 if(value.name.search(new RegExp(srchflt, "ig")) >= 0 ||
                   (!_.isUndefined(value.title) && value.title.search(new RegExp(srchflt, "ig")) >= 0)) {
@@ -1281,7 +1282,7 @@ var setEvents = function(){
               var host = parser.host;
               $(parser).remove();
               var lnode = value.node;
-              reqs.push($.getJSON('http://'+host+'/REST/nodes/'+encodeURIComponent(lnode)+'/'+grp, function(data) {
+              reqs.push($.getJSON(proto+'//'+host+'/REST/nodes/'+encodeURIComponent(lnode)+'/'+grp, function(data) {
                 $.each(data, function(key, value) {
                   strs.push(value.name);
                 });
@@ -1316,7 +1317,7 @@ var setEvents = function(){
       editor.setOption('readOnly', 'nocursor');
       var path = $(ele).find('.picker').val();
       $(ele).find('textarea').data('path', path);
-      $.get('http://' + host + '/REST/nodes/' + encodeURIComponent(node) + '/files/contents?path=' +encodeURIComponent(path), function (data) {
+      $.get(proto+'//' + host + '/REST/nodes/' + encodeURIComponent(node) + '/files/contents?path=' +encodeURIComponent(path), function (data) {
         switch(path.split('.').pop()){
           //'sh'
           case 'js':
@@ -1372,7 +1373,7 @@ var setEvents = function(){
     var path = $(ele).find('textarea').data('path');
     // use different method to save main script
     if(path == 'script.py') {
-      url = 'http://' + host + '/REST/nodes/' + encodeURIComponent(node) + '/script/save';
+      url = proto+'//' + host + '/REST/nodes/' + encodeURIComponent(node) + '/script/save';
       payload = JSON.stringify({'script': $(ele).find('textarea').val() });
       $.postJSON(url, payload, function (data) {
         alert("File saved: "+path);
@@ -1383,7 +1384,7 @@ var setEvents = function(){
         $(ele).find('.script_save, .script_delete').prop("disabled", false);
       });
     } else {
-      url = 'http://' + host + '/REST/nodes/' + encodeURIComponent(node) + '/files/save?path=' +encodeURIComponent(path);
+      url = proto+'//' + host + '/REST/nodes/' + encodeURIComponent(node) + '/files/save?path=' +encodeURIComponent(path);
       payload = $('#field_script').val();
       payload = $(ele).find('textarea').val();
       $.ajax({url:url, type:"POST", data:payload, contentType:"application/octet-stream", success: function (data) {
@@ -1403,7 +1404,7 @@ var setEvents = function(){
     editor.setOption('readOnly', 'nocursor');
     var path = $(ele).find('textarea').data('path');
     if((path != 'script.py') && (confirm("Are you sure?"))) {
-      $.get('http://' + host + '/REST/nodes/' + encodeURIComponent(node) + '/files/delete?path=' +encodeURIComponent(path), function (data) {
+      $.get(proto+'//' + host + '/REST/nodes/' + encodeURIComponent(node) + '/files/delete?path=' +encodeURIComponent(path), function (data) {
         editor.getDoc().setValue('');
         $(ele).find('.picker').val('');
         alert("File deleted: "+path);
@@ -1430,7 +1431,7 @@ var setEvents = function(){
     var path = $(ele).find('.scriptnamval').val();
     var grp = $(ele).find('.addgrp');
     if(allowedtxt.concat(allowedbinary).indexOf(path.split('.').pop()) > -1) {
-      var url = 'http://' + host + '/REST/nodes/' + encodeURIComponent(node) + '/files/save?path=' +encodeURIComponent(path);
+      var url = proto+'//' + host + '/REST/nodes/' + encodeURIComponent(node) + '/files/save?path=' +encodeURIComponent(path);
       var dta = '';
       var prc = true;
       if($(grp).data('filedata') !== null) {
@@ -1489,10 +1490,10 @@ var setEvents = function(){
     if(nodename != nodenameraw) {
       if(confirm('Are you sure?')) {
         var nodename = JSON.stringify({"value": nodenameraw});
-        $.postJSON('http://' + host + '/REST/nodes/' + encodeURIComponent(node) + '/rename', nodename, function (data) {
+        $.postJSON(proto+'//' + host + '/REST/nodes/' + encodeURIComponent(node) + '/rename', nodename, function (data) {
           alert("Rename successful, redirecting", "success", 0);
           clearTimers();
-          checkRedirect('http://' + host + '/nodes/' + encodeURIComponent(getVerySimpleName(nodenameraw)));
+          checkRedirect(proto+'//' + host + '/nodes/' + encodeURIComponent(getVerySimpleName(nodenameraw)));
         }).fail(function(e){
           alert("Error renaming node", "danger", 7000, e.responseText);
         });
@@ -1500,7 +1501,7 @@ var setEvents = function(){
     }
   });
   $('body').on('click', '.restartnodesubmit', function (e) {
-    $.get('http://' + host + '/REST/nodes/' + encodeURIComponent(node) + '/restart', function (data) {
+    $.get(proto+'//' + host + '/REST/nodes/' + encodeURIComponent(node) + '/restart', function (data) {
       alert("Restarting, please wait", "success", 7000);
     }).fail(function(e){
       alert("Error restarting", "danger", 7000, e.responseText);
@@ -1508,10 +1509,10 @@ var setEvents = function(){
   });
   $('body').on('click', '.deletenodesubmit', function (e) {
     if(confirm('Are you sure?')) {
-      $.getJSON('http://' + host + '/REST/nodes/' + encodeURIComponent(node) + '/remove?confirm=true', function (data) {
+      $.getJSON(proto+'//' + host + '/REST/nodes/' + encodeURIComponent(node) + '/remove?confirm=true', function (data) {
         alert("Delete successful, redirecting", "success", 0);
         clearTimers();
-        setTimeout(function() { window.location.href = 'http://' + host; }, 3000);
+        setTimeout(function() { window.location.href = proto+'//' + host; }, 3000);
       }).fail(function(e){
         alert("Error deleting", "danger", 7000, e.responseText);
       });
@@ -1523,7 +1524,7 @@ var setEvents = function(){
     $(ele).find('.recipepicker').empty();
     $(ele).find('.nodenamval').focus();
     $(ele).find('.nodenamval').val(null).get(0).focus();
-    $.getJSON('http://' + host + '/REST/recipes/list', function(data) {
+    $.getJSON(proto+'//' + host + '/REST/recipes/list', function(data) {
       if (data.length > 0) {
         var picker = $(ele).find('.recipepicker');
         $(picker).append('<option value="" selected disabled hidden></option>');
@@ -1553,9 +1554,9 @@ var setEvents = function(){
     if(nodenameraw) {
       var nodename = {"value": nodenameraw};
       if(recipeval && (recipeval !== 'error')) nodename["base"] = recipeval;
-      $.postJSON('http://' + host + '/REST/newNode', JSON.stringify(nodename), function() {
+      $.postJSON(proto+'//' + host + '/REST/newNode', JSON.stringify(nodename), function() {
         $(ele).find('.open > button').dropdown('toggle');
-        checkRedirect('http://' + host + '/nodes/' + encodeURIComponent(getVerySimpleName(nodenameraw)));
+        checkRedirect(proto+'//' + host + '/nodes/' + encodeURIComponent(getVerySimpleName(nodenameraw)));
       }).fail(function(req){
         if(req.statusText!="abort"){
           var error = 'Node add failed';
@@ -1755,7 +1756,7 @@ var getAction = function(ele){
 
 var callAction = function(action, arg) {
   $.each($.isArray(action) ? action : [action], function(i, act){
-    $.postJSON('http://' + host + '/REST/nodes/' + node + '/actions/' + encodeURIComponent(act) + '/call', arg, function () {
+    $.postJSON(proto+'//' + host + '/REST/nodes/' + node + '/actions/' + encodeURIComponent(act) + '/call', arg, function () {
       console.log(act + " - Success");
     }).fail(function (e, s) {
       errtxt = s;
@@ -1771,7 +1772,7 @@ var fillPicker = function() {
   $.each(pickers, function(i,picker) {
     $(picker).empty();
     $(picker).append('<option value="" selected disabled hidden></option>');
-    $.getJSON('http://' + host + '/REST/nodes/' + encodeURIComponent(node) + '/files', function (data) {
+    $.getJSON(proto+'//' + host + '/REST/nodes/' + encodeURIComponent(node) + '/files', function (data) {
       data.sort(function(a, b){
         if (a['path'] == b['path']) return 0;
         if (a['path'] > b['path']) return 1;
@@ -1795,7 +1796,7 @@ var fillUIPicker = function() {
   $.each(pickers, function(i,picker) {
     $(picker).empty();
     $(picker).append('<option value="" selected disabled hidden>select UI</option>');
-    $.getJSON('http://' + host + '/REST/nodes/' + encodeURIComponent(node) + '/files', function (data) {
+    $.getJSON(proto+'//' + host + '/REST/nodes/' + encodeURIComponent(node) + '/files', function (data) {
       data.sort(function(a, b){
         if (a['path'] == b['path']) return 0;
         if (a['path'] > b['path']) return 1;
@@ -1824,8 +1825,8 @@ var updateConsoleForm = function(){
     if(!_.isUndefined($('body').data('nodel-console-timer'))) clearTimeout($('body').data('nodel-console-timer'));
     if(!_.isUndefined($('body').data('nodel-console-req'))) $('body').data('nodel-console-req').abort();
     var url;
-    if(typeof $('body').data('nodel-console-seq') === "undefined") url = 'http://'+host+'/REST/nodes/'+encodeURIComponent(node)+'/console?from=-1&max=200';
-    else url = 'http://'+host+'/REST/nodes/'+encodeURIComponent(node)+'/console?from='+$('body').data('nodel-console-seq')+'&max=9999';
+    if(typeof $('body').data('nodel-console-seq') === "undefined") url = proto+'//'+host+'/REST/nodes/'+encodeURIComponent(node)+'/console?from=-1&max=200';
+    else url = proto+'//'+host+'/REST/nodes/'+encodeURIComponent(node)+'/console?from='+$('body').data('nodel-console-seq')+'&max=9999';
     var req = $.getJSON(url, function(data) {
       if(!_.isEmpty(data)){
         data.reverse();
@@ -1867,8 +1868,8 @@ var updateLogForm = function(){
     if(!_.isUndefined($('body').data('nodel-serverlog-timer'))) clearTimeout($('body').data('nodel-serverlog-timer'));
     if(!_.isUndefined($('body').data('nodel-serverlog-req'))) $('body').data('nodel-serverlog-req').abort();
     var url;
-    if(typeof $('body').data('nodel-serverlog-seq') === "undefined") url = 'http://'+host+'/REST/logs?from=-1&max=200';
-    else url = 'http://'+host+'/REST/logs?from='+$('body').data('nodel-serverlog-seq')+'&max=9999';
+    if(typeof $('body').data('nodel-serverlog-seq') === "undefined") url = proto+'//'+host+'/REST/logs?from=-1&max=200';
+    else url = proto+'//'+host+'/REST/logs?from='+$('body').data('nodel-serverlog-seq')+'&max=9999';
     var req = $.getJSON(url, function(data) {
       if(!_.isEmpty(data)){
         data.reverse();
@@ -1978,8 +1979,8 @@ var updateCharts = function(){
 var updateLogs = function(){
   if(!("WebSocket" in window) || ($('body').data('trypoll'))){
     var url;
-    if (typeof $('body').data('seq') === "undefined") url = 'http://' + host + '/REST/nodes/' + encodeURIComponent(node) + '/activity?from=-1';
-    else url = 'http://' + host + '/REST/nodes/' + encodeURIComponent(node) + '/activity?from=' + $('body').data('seq');
+    if (typeof $('body').data('seq') === "undefined") url = proto+'//' + host + '/REST/nodes/' + encodeURIComponent(node) + '/activity?from=-1';
+    else url = proto+'//' + host + '/REST/nodes/' + encodeURIComponent(node) + '/activity?from=' + $('body').data('seq');
     $.getJSON(url, function (data) {
       online();
       if (typeof $('body').data('seq') === "undefined") {
@@ -2001,7 +2002,7 @@ var updateLogs = function(){
       $('body').data('update', setTimeout(function() { updateLogs(); }, 1000));
     });
   } else {
-    $.getJSON('http://'+host+'/REST/nodes/' + encodeURIComponent(node), function(data){
+    $.getJSON(proto+'//'+host+'/REST/nodes/' + encodeURIComponent(node), function(data){
       var wshost = "ws://"+document.location.hostname+":"+data['webSocketPort']+"/nodes/"+node;
       try{
         var socket = new WebSocket(wshost);
@@ -2047,7 +2048,7 @@ var updateLogs = function(){
 };
 
 var checkHostOnline = function() {
-  var url = 'http://' + host + '/REST/logs?from=0&max=1';
+  var url = proto+'//' + host + '/REST/logs?from=0&max=1';
   $.getJSON(url, function (data) {
     online();
   }).fail(function() {
