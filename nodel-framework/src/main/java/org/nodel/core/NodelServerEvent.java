@@ -55,6 +55,11 @@ public class NodelServerEvent implements Closeable {
      * For other in-process 'emit' handlers that may be interested in this event.
      */
     private LockFreeList<Handler.H1<Object>> _emitHandlers = new LockFreeList<>();
+    
+    /**
+     * Allow an emit filter which can trap and alter the value of the arg
+     */
+    private Handler.F1<Object, Object> _emitFilter = null;
 
     private String _title;
 
@@ -300,11 +305,30 @@ public class NodelServerEvent implements Closeable {
     /**
      * Fires the event.
      */
-    private void doEmit(final Object arg) {
+    private void doEmit(Object arg) {
         DateTime now = DateTime.now();
         
+        if (_emitFilter != null) {
+            // arg = _emitFilter.handle(arg);
+            if (_callbackQueue != null) {
+                try {
+                    arg = _callbackQueue.handle(_emitFilter, arg);
+                } catch (Exception e) {
+                    // handle gracefully ...
+                    _exceptionHandler.handle(e);
+                    // ... and keep going with arg regardless
+                }
+            } else {
+                try {
+                    arg = _emitFilter.handle(arg);
+                } catch (Exception exc) {
+                    throw new RuntimeException("Emit filter", exc);
+                }
+            }
+        }
+        
         ArgInstance argInstance = new ArgInstance();
-        argInstance.timestamp = DateTime.now();
+        argInstance.timestamp = now;
         argInstance.arg = arg;
         argInstance.seqNum = Nodel.getNextSeq(); 
         
@@ -317,6 +341,8 @@ public class NodelServerEvent implements Closeable {
         
         // snap-shot of handlers
         final List<Handler.H1<Object>> handlers = _emitHandlers.items();
+        
+        final Object finalArg = arg;
         
         // if there are some handlers, use the Channel Client thread-pool (treat as though remote events)
         if (handlers.size() > 0) {
@@ -333,10 +359,10 @@ public class NodelServerEvent implements Closeable {
                     // call handlers one after the other
                     for (Handler.H1<Object> handler : handlers) {
                         if (_callbackQueue != null)
-                            _callbackQueue.handle(handler, arg, _exceptionHandler);
+                            _callbackQueue.handle(handler, finalArg, _exceptionHandler);
                         else {
                             try {
-                                Handler.handle(handler, arg);
+                                Handler.handle(handler, finalArg);
                             } catch (Exception exc) {
                                 lastExc = exc;
                             }
@@ -358,6 +384,13 @@ public class NodelServerEvent implements Closeable {
      */
     public void addEmitHandler(Handler.H1<Object> handler) {
         _emitHandlers.add(handler);
+    }
+    
+    /**
+     * Filtering the arg emitted 
+     */
+    public void addEmitFilter(Handler.F1<Object, Object> filter) {
+        _emitFilter = filter;
     }
 
     /**
