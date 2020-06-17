@@ -44,11 +44,11 @@ public class Strings {
         if (len == 0)
             return true;
         
-        // ...and then for any non common-whitespace
+        // ...and then for any non common-whitespace, incl. 0xa0 NO-BREAK SPACE
         for (int a = 0; a < len; a++) {
             char c = value.charAt(a);
             
-            if (c != ' ' && c != '\t' && c != '\r' && c != '\n')
+            if (c != ' ' && c != '\t' && c != '\r' && c != '\n' && !Character.isSpaceChar(c))
                 return false;
         }
         

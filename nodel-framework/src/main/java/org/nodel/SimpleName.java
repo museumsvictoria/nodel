@@ -373,13 +373,13 @@ public class SimpleName {
                     sb.append(Character.toLowerCase(c));
             }
             
-            // spaces and most ASCII control codes
+            // skip spaces and most ASCII control codes
             else if (c <= 32) {
                 continue;
             }
             
-            // else ASCII letters or digits and everything else (extended ASCII and Unicode)
-            else if (c > 127 || Character.isLetterOrDigit(c)) {
+            // else incl. letters or digits and everything else non-7bit-ASCII that is not a space
+            else if (Character.isLetterOrDigit(c) || (c > 127 && !Character.isSpaceChar(c))) {
                 String flatDialect = s_diacritic_tolowerascii.get(c);
                 if (flatDialect != null)
                     sb.append(flatDialect);
@@ -413,8 +413,8 @@ public class SimpleName {
         if (c <= 32)
             return;
         
-        // include ASCII letters or digits and everything else
-        if (c > 127 || Character.isLetterOrDigit(c)) {
+        // include letters or digits and everything else non-7-bit-ASCII that is not a space
+        if (Character.isLetterOrDigit(c) || (c > 127 && !Character.isSpaceChar(c))) {
             String flatDialect = s_diacritic_tolowerascii.get(c);
             if (flatDialect != null)
                 sb.append(flatDialect);
@@ -422,7 +422,7 @@ public class SimpleName {
                 sb.append(Character.toLowerCase(c));
         }
         
-        // ...skip the remaining ASCII symbols 
+        // ...skip remaining
     }
     
 } // (class)

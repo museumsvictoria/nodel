@@ -102,6 +102,8 @@ public class Launch {
      * @param args A set of arguments (normally from the command-line) 
      */
     public Launch(File workingDirectory, String[] args) throws StartupException, IOException, JSONException {
+        File lastErrorFile = new File("_lastError.txt");
+
         try {
             if (workingDirectory != null)
                 _root = workingDirectory;
@@ -112,11 +114,13 @@ public class Launch {
             bootstrap();
 
             start();
-            
+
+            lastErrorFile.delete();
+
         } catch (Exception exc) {
             // dump to file first before throwing
 
-            try (PrintWriter pw = new PrintWriter(new File("_lastError.txt"))) {
+            try (PrintWriter pw = new PrintWriter(lastErrorFile)) {
                 pw.println(DateTime.now());
                 exc.printStackTrace(pw);
 

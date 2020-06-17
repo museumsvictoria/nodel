@@ -7,48 +7,24 @@ repositories {
     mavenCentral()
 }
 
-task gitBranch(type:Exec) {
-  commandLine 'git', 'rev-parse', '--abbrev-ref', 'HEAD'
-  standardOutput = new ByteArrayOutputStream()
-  ext.output = {
-    return standardOutput.toString().trim()
-  }
-}
+def gitBranch = 'git rev-parse --abbrev-ref HEAD'.execute().text.trim()
+def gitId = 'git rev-parse HEAD'.execute().text.trim()
+def gitRev = 'git rev-list --count HEAD'.execute().text.trim()
 
-task gitId(type:Exec) {
-  commandLine 'git', 'rev-parse', 'HEAD'
-  standardOutput = new ByteArrayOutputStream()
-  ext.output = {
-    return standardOutput.toString().trim()
-  }
-}
-
-task gitRev(type:Exec) {
-    commandLine 'git', 'rev-list', '--count', 'HEAD'
-    standardOutput = new ByteArrayOutputStream()
-    ext.output = {
-        return standardOutput.toString().trim()
-    }
-}
-
-gitBranch.execute()
-gitRev.execute()
-gitId.execute()
-
-def branch = gitBranch.output()
+def branch = gitBranch
 if (branch.equals("master"))
     branch = "dev"
 
-def rev = gitRev.output()
+def rev = gitRev
 // strip out non-alphanumeric (e.g. the '+' in '1234+')
 rev = rev.replaceAll(/[^a-zA-Z0-9]/, '')
 
-def buildSummary = gitId.output();
+def buildSummary = gitId
 
 mainClassName = "org.nodel.jyhost.Launch"
 
 jar {
-	from "$buildDir/output"
+    from "$buildDir/output"
     baseName = 'nodel-jyhost'
     manifest {
          attributes 'Implementation-Title': 'Nodel JyHost',
@@ -57,10 +33,10 @@ jar {
 }
 
 task fatJar(type: Jar) {
-	manifest {
+    manifest {
         attributes 'Implementation-Title': 'Nodel JyHost',  
-        	'Implementation-Version': version,
-        	'Main-Class': mainClassName
+            'Implementation-Version': version,
+            'Main-Class': mainClassName
     }
     appendix = branch 
     baseName = 'nodelhost'
@@ -79,9 +55,7 @@ task unversioned(dependsOn:'fatJar', type: Copy) {
     into new File(buildDir, 'distributions/standalone')
 }
 
-build.doLast {
-    tasks.fatJar.execute()
-}
+build.finalizedBy(fatJar)
 
 dependencies {
     compile project(':nodel-webui-js')
@@ -91,7 +65,7 @@ dependencies {
     compile 'org.python:jython-standalone:2.5.4-rc1'
 
     // for the Nodel HTTP client:
-	compile group: 'org.apache.httpcomponents', name: 'httpclient', version: '4.5.5'
+    compile group: 'org.apache.httpcomponents', name: 'httpclient', version: '4.5.5'
 
     // convenience dependency: required *only* for 'recipe sync' node
     compile 'org.eclipse.jgit:org.eclipse.jgit:3.7.1.+'
