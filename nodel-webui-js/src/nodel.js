@@ -378,6 +378,7 @@ $(function() {
   t0 = performance.now();
   host = document.location.hostname + ':' + window.document.location.port;
   proto = location.protocol;
+  updateFavicon(host);
   $('.nodel-icon img').attr("src", "data:image/svg+xml;base64,"+generateHostIcon(host));
   $('.nodel-icon a').attr("href", window.document.location.protocol+"//"+host);
   $('.nodel-icon a').attr("title", host);
@@ -703,6 +704,15 @@ var getVerySimpleName = function(name){
   var smp = simplematch.exec(name);
   return smp[1].replace(unicodematch,'');
 };
+
+var updateFavicon = function(host){
+  var newicon = generateHostIcon(host);
+  var link = document.querySelector("link[rel*='icon']") || document.createElement('link');
+  link.type = 'image/x-icon';
+  link.rel = 'shortcut icon';
+  link.href = 'data:image/svg+xml;base64,'+newicon;
+  document.getElementsByTagName('head')[0].appendChild(link);
+}
 
 var generateHostIcon = function(host) {
   var hash = XXH.h64(host, 0x4e6f64656c).toString(16).padStart(16,'0');
