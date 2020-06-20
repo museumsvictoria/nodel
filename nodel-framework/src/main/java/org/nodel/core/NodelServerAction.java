@@ -84,6 +84,11 @@ public class NodelServerAction implements Closeable {
      * For other in-process 'call' handlers that may be interested in this action.
      */
     private AtomicReference<Handler.H1<Object>[]> _callHandlers = new AtomicReference<Handler.H1<Object>[]>();
+    
+    /**
+     * Allow a call filter which can trap and alter the value of the arg
+     */
+    private Handler.F1<Object, Object> _callFilter = null;
 
     private boolean _closed;
 
@@ -257,13 +262,34 @@ public class NodelServerAction implements Closeable {
         
         @Override
         public void handleActionRequest(Object arg) {
+            if (_callFilter != null) {
+                // arg = _emitFilter.handle(arg);
+                if (_callbackQueue != null) {
+                    try {
+                        arg = _callbackQueue.handle(_callFilter, arg);
+                    } catch (Exception e) {
+                        // handle gracefully ...
+                        _exceptionHandler.handle(e);
+                        // ... and keep going with arg regardless
+                    }
+                } else {
+                    try {
+                        arg = _callFilter.handle(arg);
+                    } catch (Exception exc) {
+                        throw new RuntimeException("Emit filter", exc);
+                    }
+                }
+            }
+            
+            final Object finalArg = arg;
+            
             _argValue.set(arg);
             _timestamp.set(DateTime.now());
             
             // seq must be set last
             _seqNum = Nodel.getNextSeq();
             
-            _handler.handleActionRequest(arg);
+            _handler.handleActionRequest(finalArg);
             
             // snap-shot of handlers
             final H1<Object>[] handlers = _callHandlers.get();
@@ -283,10 +309,10 @@ public class NodelServerAction implements Closeable {
                         // call handlers one after the other
                         for (Handler.H1<Object> handler : handlers) {
                             if (_callbackQueue != null)
-                                _callbackQueue.handle(handler, arg, _exceptionHandler);
+                                _callbackQueue.handle(handler, finalArg, _exceptionHandler);
                             else {
                                 try {
-                                    Handler.tryHandle(handler, arg);
+                                    Handler.tryHandle(handler, finalArg);
                                 } catch (Exception exc) {
                                     lastExc = exc;
                                 }
@@ -350,6 +376,13 @@ public class NodelServerAction implements Closeable {
             
             // otherwise keep trying
         }
+    }
+    
+    /**
+     * Filtering the arg emitted 
+     */
+    public void addCallFilter(Handler.F1<Object, Object> filter) {
+        _callFilter = filter;
     }    
 
     /**
