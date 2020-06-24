@@ -2166,11 +2166,6 @@ var throttleLogProcess = _.throttle(function() {
           broke = true;
           break;
         }
-        // loop timer debug
-        /*if (i == x-1){
-          console.log('loop: '+ (performance.now() - loop));
-          loop = performance.now();
-        }*/
       }
     }
     if(!broke){
