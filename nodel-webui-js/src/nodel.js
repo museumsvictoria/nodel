@@ -366,7 +366,7 @@ var converter = new Markdown.Converter();
 var unicodematch = new XRegExp("[^\\p{L}\\p{N}]", "gi");
 var simplematch = new RegExp(/^(.+?)(?:\(| \(|$)/i);
 var colours = {'primary':'','success':'','danger':'','warning':'','info':'','default':''};
-var throttle = {'logs': [],'idx':0, 'running': false};
+var throttle = {'logs': {}, 'ikey':null, 'running': false};
 var allowedtxt = ['py','xml','xsl','js','json','html','htm','css','java','groovy','sql','sh','cs','bat','ini','txt','md','cmd'];
 var allowedbinary = ['png','jpg','ico','svg','zip','7z','exe'];
 var nodeList = {'lst':[], 'flt':'', 'end':20, 'hosts':{}};
@@ -2140,54 +2140,57 @@ var offline = function(){
 
 var throttleLogProcess = _.throttle(function() {
   if(!throttle.running && !document.hidden) {
-    // performance debug
-    //var perf = performance.now();
     throttle.running = true;
-    var x = throttle['logs'].length;
-    for(var i = throttle.idx; i < x; i++) {
-      if(throttle['logs'][i]['unprocessed']) {
-        parseLog(throttle['logs'][i], i).done(function(i){
-          throttle['logs'][i]['unprocessed'] = false;
-          throttle.idx = (i == x-1) ? 0 : i;
-          throttle.running = false;
-          throttleLogProcess();
-          // performance debug
-          /*var tme = (performance.now() - perf);
-          if(tme > 1) console.log('i: '+ i +' - perf: ' + (performance.now() - perf));
-          }(i, perf));*/
-        }(i));
-        break;
-      } else if (i == x-1){
-        throttle.idx = 0;
-        throttle.running = false;
+    var broke = false;
+    var last = false;
+    for (var i in throttle['logs']) {
+      if(!throttle.ikey || (throttle.ikey == i)) {
+        last = true;
       }
+      if(last && !(throttle.ikey == i)) {
+        if(last && throttle['logs'][i]['unprocessed']) {
+          // performance debug
+          //var perf = performance.now();
+          parseLog(throttle['logs'][i]).done(function(i){
+            throttle['logs'][i]['unprocessed'] = false;
+            //throttle.idx = i;
+            throttle.idx = 0;
+            throttle.ikey = i;
+            throttle.running = false;
+            throttleLogProcess();
+            // performance debug
+            //var tme = (performance.now() - perf);
+            //if(tme > 1) console.log('i: '+ i +' - perf: ' + (performance.now() - perf));
+          //}(i, perf));
+          }(i));
+          broke = true;
+          break;
+        }
+        // loop timer debug
+        /*if (i == x-1){
+          console.log('loop: '+ (performance.now() - loop));
+          loop = performance.now();
+        }*/
+      }
+    }
+    if(!broke){
+      throttle.idx = 0;
+      throttle.running = false;
+      throttle.ikey = null;
       // loop timer debug
-      /*if (i == x-1){
-        console.log('loop: '+ (performance.now() - loop));
-        loop = performance.now();
-      }*/
+      //console.log('loop: '+ (performance.now() - loop));
+      //loop = performance.now();
     }
   } else if (document.hidden) {
     setTimeout(throttleLogProcess, 1000);
   }
-}, 10);
+}, 5);
 
 var throttleLog = function(log, ani){
   log.unprocessed = true;
   log.id = log.type + '_' + log.alias;
   log.ani = ani;
-  var ind = -1;
-  for (var i = 0; i < throttle['logs'].length; i++) {
-    if (log.id === throttle['logs'][i].id) {
-      ind = i;
-      break;
-    }
-  }
-  if(ind > -1) {
-    throttle['logs'][ind] = log;
-  } else {
-    throttle['logs'].push(log);
-  }
+  throttle['logs'][log.id] = log;
   throttleLogProcess();
 }
 
@@ -2460,7 +2463,6 @@ var process_log = function(log, idx){
       if(src.total > 100)  $.observable(src).setProperty('hold', true);
       $.observable(src).setProperty('init', false);
     }
-    $.observable(src).setProperty('initcount', idx);
   });
 }
 
@@ -2475,7 +2477,7 @@ parseLog = function(log, idx){
 };
 */
 
-var parseLog = function(log, idx){
+var parseLog = function(log){
   var d = $.Deferred();
   var p = [];
   if(log.type=='event' && log.source=='local'){
@@ -2560,7 +2562,7 @@ var parseLog = function(log, idx){
   p.push((function(log) {
     var d = $.Deferred();
     requestAnimationFrame(function() {
-      process_log(log, idx);
+      process_log(log);
       d.resolve();
     });
     return d;

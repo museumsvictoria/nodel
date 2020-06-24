@@ -735,7 +735,7 @@
             </form>
             <ul>
               {^{if init}}
-                <h6>Initialising {^{if initcount > 1}}- {^{>((initcount/total)*100).toFixed()}}%{{/if}}</h6>
+                <h6>Initialising</h6>
               {{else}}
                 {^{for logs filter=~srcflt mapDepends='flt' srch='alias' start=0 end=end sorted=srtd}}
                   <li data-link="data-type{:type} class{:'log log_'+type+'_'+alias}">
