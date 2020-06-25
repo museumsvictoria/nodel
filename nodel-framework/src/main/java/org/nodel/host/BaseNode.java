@@ -943,7 +943,8 @@ public abstract class BaseNode implements Closeable {
      */
     protected void addRemoteEvent(final NodelClientEvent remoteEvent) {
         // seed the event with some data if it exists
-        String key = remoteEvent.getNodelPoint().getPoint().getReducedForMatchingName();
+        String key = remoteEvent.getName().getReducedForMatchingName();
+        
         File seedFile = new File(_metaRoot, key + ".remoteevent.json");
 
         ArgInstance seed = null;
