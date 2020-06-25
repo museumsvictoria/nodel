@@ -366,7 +366,7 @@ var converter = new Markdown.Converter();
 var unicodematch = new XRegExp("[^\\p{L}\\p{N}]", "gi");
 var simplematch = new RegExp(/^(.+?)(?:\(| \(|$)/i);
 var colours = {'primary':'','success':'','danger':'','warning':'','info':'','default':''};
-var throttle = {'logs': {}, 'ikey':null, 'running': false};
+var throttle = {'logs': {}};
 var allowedtxt = ['py','xml','xsl','js','json','html','htm','css','java','groovy','sql','sh','cs','bat','ini','txt','md','cmd'];
 var allowedbinary = ['png','jpg','ico','svg','zip','7z','exe'];
 var nodeList = {'lst':[], 'flt':'', 'end':20, 'hosts':{}};
@@ -675,20 +675,25 @@ var createDynamicElements = function(){
         $.getJSON(proto+'//'+host+'/build.json', function(build) {
           $.extend(data, {'build':build});
           $.templates("#diagsTmpl").link(ele, data);
+          $(ele).find('.base').addClass('bound');
           d.resolve();
         }).fail(function(){d.resolve();});
       }).fail(function(){d.resolve();});
     } else if($(ele).data('nodel') == 'log'){ 
       $.templates("#logTmpl").link(ele, {'logs':[],'flt':'','hold':false,'init':true,'initcount':'0','end':10});
+      $(ele).find('.base').addClass('bound');
       d.resolve();
     } else if($(ele).data('nodel') == 'console'){
       $.templates("#consoleTmpl").link(ele, {'logs':[]});
+      $(ele).find('.base').addClass('bound');
       d.resolve();
     } else if($(ele).data('nodel') == 'serverlog'){
       $.templates("#serverlogTmpl").link(ele, {'logs':[]});
+      $(ele).find('.base').addClass('bound');
       d.resolve();
     } else if($(ele).data('nodel') == 'list'){
       $.templates("#listTmpl").link(ele, nodeList);
+      $(ele).find('.base').addClass('bound');
       d.resolve();
     } else d.resolve();
     p.push(d);
@@ -841,15 +846,18 @@ var makeTemplate = function(ele, schema, tmpls){
   if(!(_.isUndefined($(ele).data('source'))) && ($(ele).data('source').charAt(0) != '/')){
     $.getJSON(proto+'//'+host+'/REST/nodes/'+encodeURIComponent(node)+'/'+$(ele).data('source'), function(data) {
       tmpl.link(ele, data);
+      $(ele).find('.base').addClass('bound');
       d.resolve();
     });
   } else if(!(_.isUndefined($(ele).data('source'))) && ($(ele).data('source').charAt(0) == '/')){
     $.getJSON(proto+'//'+host+'/REST'+$(ele).data('source'), function(data) {
       tmpl.link(ele, data);
+      $(ele).find('.base').addClass('bound');
       d.resolve();
     }); 
   } else {
     tmpl.link(ele, {});
+    $(ele).find('.base').addClass('bound');
     d.resolve();
   }
   return d.promise();
@@ -1626,7 +1634,12 @@ var setEvents = function(){
       if($(base).hasClass('isgrouped')){
         base = $(base).find('.base');
         $(base).each(function(){ $.observable($.view(this).data).setProperty('_$grpvisible', true)});
-      } else $.observable($.view(base).data).setProperty('_$visible', true);
+      } else {
+        var base = $(this).closest('.base.bound');
+        if(base.length){
+          $.observable($.view(base).data).setProperty('_$visible', true);
+        }
+      }
     }
   });
   $('body').on('hide.bs.collapse', '[class*="nodel-"] .panel-collapse', function(e){
@@ -1648,7 +1661,10 @@ var setEvents = function(){
             });
           } else {
             if(!$(base).siblings('.panel').children('.in').length) {
-              setInvisible($.view(base).data);
+              var base = $(ele).closest('.base.bound');
+              if(base.length){
+                setInvisible($.view(base).data);
+              }
             }
           }
         }
@@ -1745,6 +1761,9 @@ var setEvents = function(){
       });
     }
   });
+  document.onvisibilitychange = function() { 
+    if(!document.hidden) throttleLogProcess();
+  };
 };
 
 var getAction = function(ele){
@@ -2135,59 +2154,22 @@ var offline = function(){
   }
 };
 
-// loop timer debug
-//var loop = performance.now();
-
-var throttleLogProcess = _.throttle(function() {
-  if(!throttle.running && !document.hidden) {
-    throttle.running = true;
-    var broke = false;
-    var last = false;
-    for (var i in throttle['logs']) {
-      if(!throttle.ikey || (throttle.ikey == i)) {
-        last = true;
-      }
-      if(last && !(throttle.ikey == i)) {
-        if(last && throttle['logs'][i]['unprocessed']) {
-          // performance debug
-          //var perf = performance.now();
-          parseLog(throttle['logs'][i]).done(function(i){
-            throttle['logs'][i]['unprocessed'] = false;
-            //throttle.idx = i;
-            throttle.idx = 0;
-            throttle.ikey = i;
-            throttle.running = false;
-            throttleLogProcess();
-            // performance debug
-            //var tme = (performance.now() - perf);
-            //if(tme > 1) console.log('i: '+ i +' - perf: ' + (performance.now() - perf));
-          //}(i, perf));
-          }(i));
-          broke = true;
-          break;
-        }
-      }
+throttleLogProcess = _.throttle(function(ani) {
+  for (var i in throttle['logs']) {
+    if(throttle['logs'][i]['unprocessed']) {
+      throttle['logs'][i]['unprocessed'] = false;
+      parseLog(throttle['logs'][i], ani);
     }
-    if(!broke){
-      throttle.idx = 0;
-      throttle.running = false;
-      throttle.ikey = null;
-      // loop timer debug
-      //console.log('loop: '+ (performance.now() - loop));
-      //loop = performance.now();
-    }
-  } else if (document.hidden) {
-    setTimeout(throttleLogProcess, 1000);
   }
-}, 5);
+}, 100);
 
 var throttleLog = function(log, ani){
   log.unprocessed = true;
   log.id = log.type + '_' + log.alias;
   log.ani = ani;
   throttle['logs'][log.id] = log;
-  throttleLogProcess();
-}
+  if(!document.hidden) throttleLogProcess(ani);
+};
 
 var process_showevent = function(log){
   var eles = $(".nodel-showevent").filter(function() {
@@ -2461,20 +2443,7 @@ var process_log = function(log, idx){
   });
 }
 
-// dummy parselog (for testing)
-/*
-parseLog = function(log, idx){
-  var d = $.Deferred();
-  requestAnimationFrame(function(){
-    d.resolve();
-  });
-  return d;
-};
-*/
-
 var parseLog = function(log){
-  var d = $.Deferred();
-  var p = [];
   if(log.type=='event' && log.source=='local'){
     switch(log.alias) {
       case "Title":
@@ -2487,53 +2456,28 @@ var parseLog = function(log){
         break;
       default:
         // handle show-hide events
-        p.push((function(log) {
-          var d = $.Deferred();
-          requestAnimationFrame(function() {
-            process_showevent(log);
-            d.resolve();
-          });
-          return d;
-        })(log));
+        requestAnimationFrame(function() {
+          process_showevent(log);
+        });
         // handle event data updates
-        p.push((function(log) {
-          var d = $.Deferred();
-          requestAnimationFrame(function() {
-            process_event(log);
-            d.resolve();
-          });
-          return d;
-        })(log));
+        requestAnimationFrame(function() {
+          process_event(log);
+        });
         // handle status update
-        p.push((function(log) {
-          var d = $.Deferred();
-          requestAnimationFrame(function() {
-            process_status(log);
-            d.resolve();
-          });
-          return d;
-        })(log));
+        requestAnimationFrame(function() {
+          process_status(log);
+        });
         // handel dynamic templates
-        p.push((function(log) {
-          var d = $.Deferred();
-          requestAnimationFrame(function() {
-            process_render(log);
-            d.resolve();
-          });
-          return d;
-        })(log));
+        requestAnimationFrame(function() {
+          process_render(log);
+        });
     }
   }
   if(log.source=='local'){
     // nodel forms
-    p.push((function(log) {
-      var d = $.Deferred();
-      requestAnimationFrame(function() {
-        process_form(log);
-        d.resolve();
-      });
-      return d;
-    })(log));
+    requestAnimationFrame(function() {
+      process_form(log);
+    });
   }
   // process binding events
   if(log.source=='remote'){
@@ -2554,17 +2498,7 @@ var parseLog = function(log){
     }
   }
   // nodel log
-  p.push((function(log) {
-    var d = $.Deferred();
-    requestAnimationFrame(function() {
-      process_log(log);
-      d.resolve();
-    });
-    return d;
-  })(log));
-  // all processed
-  $.when.apply($, p).then(function (){
-    d.resolve();
+  requestAnimationFrame(function() {
+    process_log(log);
   });
-  return d;
 };
