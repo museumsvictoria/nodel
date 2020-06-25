@@ -627,7 +627,8 @@ public abstract class BaseNode implements Closeable {
      */
     private void persistEventArg(NodelClientEvent remoteevent, ArgInstance instance) {
         try {
-            File seedFile = new File(_metaRoot, remoteevent.getNodelPoint().getPoint().getReducedForMatchingName() + ".remoteevent.json");
+            String key = remoteevent.getName().getReducedForMatchingName();
+            File seedFile = new File(_metaRoot, key + ".remoteevent.json");
 
             Stream.writeFully(seedFile, Serialisation.serialise(instance));
 
