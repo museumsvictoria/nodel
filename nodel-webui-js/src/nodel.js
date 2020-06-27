@@ -1195,7 +1195,7 @@ var setEvents = function(){
           $(ele).find('li.active').trigger('mousedown');
         }
       }
-    } else if ((charCode != 9) && (charCode != 27)) {
+    } else if ([9,27,16,17,18,37,39].indexOf(charCode) === -1) {
       if(e.ctrlKey || e.altKey) return true;
       var srchstr = $(this).val();
       var srchflt = srchstr.replace(new RegExp('[.\\\\+*?\\[\\^\\]$(){}=!<>|:\\-]', 'g'), '\\$&');
@@ -1246,7 +1246,7 @@ var setEvents = function(){
           $(ele).find('li.active').trigger('mousedown');
         }
       }
-    } else if ((charCode != 9) && (charCode != 27)) {
+    } else if ([9,27,16,17,18,37,39].indexOf(charCode) === -1) {
       if(e.ctrlKey || e.altKey) return true;
       var srchstr = $(this).val()
       var srchflt = srchstr.replace(new RegExp('[.\\\\+*?\\[\\^\\]$(){}=!<>|:\\-]', 'g'), '\\$&');
@@ -1635,8 +1635,7 @@ var setEvents = function(){
         base = $(base).find('.base');
         $(base).each(function(){ $.observable($.view(this).data).setProperty('_$grpvisible', true)});
       } else {
-        var base = $(this).closest('.base.bound');
-        if(base.length){
+        if($(this).parents('.base.bound').length){
           $.observable($.view(base).data).setProperty('_$visible', true);
         }
       }
@@ -1661,8 +1660,7 @@ var setEvents = function(){
             });
           } else {
             if(!$(base).siblings('.panel').children('.in').length) {
-              var base = $(ele).closest('.base.bound');
-              if(base.length){
+              if($(ele).parents('.base.bound').length){
                 setInvisible($.view(base).data);
               }
             }
