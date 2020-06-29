@@ -553,7 +553,7 @@
         <script id="remoteTmpl" type="text/x-jsrender">
         <![CDATA[
           <form data-form="true" class="base" autocomplete="off">
-            {^{if true ~initHid('_$visible')}}
+            {^{if true ~initHid('_$visible') ~initHid('_$filtername') ~initHid('_$filldown')}}
             <fieldset>
               <%for schema ~key=key?key:''%>
                 <%if type=="object"%>
@@ -569,17 +569,19 @@
                             <table class="tableremote">
                               <thead>
                                 <tr>
-                                  <td></td>
+                                  <td>
+                                    <div class="">
+                                      <input class="form-control" type="text" data-link="_$filtername" placeholder="filter"/>
+                                    </div>
+                                  </td>
                                   <td></td>
                                   <td>
-                                    {^{if ~initHid('_$filldown')}}
-                                      <div class="input-group">
-                                        <input class="form-control node" type="text" data-link="_$filldown" placeholder="fill selected"/>
-                                        <span class="input-group-btn">
-                                          <button type="button" class="btn btn-default remotenodecopy <%:~fieldkey%>"><i class="far fa-copy"></i></button>
-                                        </span>
-                                      </div>
-                                    {{/if}}
+                                    <div class="input-group">
+                                      <input class="form-control node" type="text" data-link="_$filldown" placeholder="fill selected"/>
+                                      <span class="input-group-btn">
+                                        <button type="button" class="btn btn-default remotenodecopy <%:~fieldkey%>"><i class="far fa-copy"></i></button>
+                                      </span>
+                                    </div>
                                   </td>
                                   <td><button type="button" class="btn btn-default remotefill <%:~fieldkey%>"><i class="fas fa-magic"></i></button></td>
                                 </tr>
@@ -592,44 +594,46 @@
                               </thead>
                               <tbody>
                                 <%for prop ~key=key%>
-                                  {^{if ~initObj('<%:~key%>', <%:~key%>)}}
+                                  {^{if ~initObj(<%:~key%>, <%:~key%>)}}
                                     {^{for <%:~key%>}}
                                       <%props properties%>
-                                        <tr>
-                                          <%for prop ~key=key%>
-                                            {^{if ~initObj('<%:~key%>', <%:~key%>)}}
-                                              {^{for <%:~key%>}}
-                                                <td>
-                                                  <label class="multi">
-                                                    {^{if ~initHid('_$checked')}}
-                                                      <input type="checkbox" data-link="_$checked"/>
+                                        {^{if ~iswithin('<%:key%>',~root._$filtername)}}
+                                          <tr>
+                                            <%for prop ~key=key%>
+                                              {^{if ~initObj('<%:~key%>', <%:~key%>)}}
+                                                {^{for <%:~key%>}}
+                                                  <td>
+                                                    <label class="multi">
+                                                      {^{if ~initHid('_$checked')}}
+                                                        <input type="checkbox" data-link="_$checked"/>
+                                                      {{/if}}
+                                                      <%>title%>
+                                                    </label>
+                                                  </td>
+                                                  <td>
+                                                    {^{if ~initHid('_$status')}}
+                                                      {^{if _$status == 'Wired'}}
+                                                        <a data-link="href{:'/nodes.xml?filter='+node}"><span class="binding wired fas fa-link reachable"></span></a>
+                                                      {{else}}
+                                                        <a><span class="binding fas fa-unlink"></span></a>
+                                                      {{/if}}
                                                     {{/if}}
-                                                    <%>title%>
-                                                  </label>
-                                                </td>
-                                                <td>
-                                                  {^{if ~initHid('_$status')}}
-                                                    {^{if _$status == 'Wired'}}
-                                                      <a data-link="href{:'/nodes.xml?filter='+node}"><span class="binding wired fas fa-link reachable"></span></a>
-                                                    {{else}}
-                                                      <a><span class="binding fas fa-unlink"></span></a>
-                                                    {{/if}}
-                                                  {{/if}}
-                                                </td>
-                                                <td>
-                                                  <div>
-                                                    <input spellcheck="false" placeholder="node" type="text" class="form-control node" data-link="node"/>
-                                                  </div>
-                                                </td>
-                                                <td>
-                                                  <div>
-                                                    <input spellcheck="false" placeholder="<%>~fieldkey%>" type="text" class="form-control <%>~fieldkey%>" data-link="<%>~fieldkey%>"/>
-                                                  </div>
-                                                </td>
-                                              {{/for}}
-                                            {{/if}}
-                                          <%/for%>
-                                        </tr>
+                                                  </td>
+                                                  <td>
+                                                    <div>
+                                                      <input spellcheck="false" placeholder="node" type="text" class="form-control node" data-link="node"/>
+                                                    </div>
+                                                  </td>
+                                                  <td>
+                                                    <div>
+                                                      <input spellcheck="false" placeholder="<%>~fieldkey%>" type="text" class="form-control <%>~fieldkey%>" data-link="<%>~fieldkey%>"/>
+                                                    </div>
+                                                  </td>
+                                                {{/for}}
+                                              {{/if}}
+                                            <%/for%>
+                                          </tr>
+                                        {{/if}}
                                       <%/props%>
                                     {{/for}}
                                   {{/if}}

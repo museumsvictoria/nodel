@@ -654,6 +654,11 @@ div.nodel-charts {
 .tableremote {
   width: 100%;
   table-layout: fixed;
+  th {
+    &:first-child > label {
+      margin-top: 5px;
+    }
+  }
   td {
     padding: 3px;
     > input.form-control {
