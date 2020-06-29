@@ -2163,7 +2163,7 @@ throttleLogProcess = _.throttle(function(ani) {
 
 var throttleLog = function(log, ani){
   log.unprocessed = true;
-  log.id = log.type + '_' + log.alias;
+  log.id = log.source + '_' + log.type + '_' + log.alias;
   log.ani = ani;
   throttle['logs'][log.id] = log;
   if(!document.hidden) throttleLogProcess(ani);
@@ -2406,7 +2406,7 @@ var process_log = function(log, idx){
   $.each(eles, function (i, ele) {
     var src = $.view($(ele).find('.base')).data;
     var data = src['logs'];
-    var srcid = log.type + '_' + log.alias;
+    var srcid = log.source + '_' + log.type + '_' + log.alias;
     var ind = -1;
     for (var i = 0; i < data.length; i++) {
       if (srcid === data[i].id) {
