@@ -2163,7 +2163,7 @@ throttleLogProcess = _.throttle(function(ani) {
 
 var throttleLog = function(log, ani){
   log.unprocessed = true;
-  log.id = log.type + '_' + log.alias;
+  log.id = log.source + '_' + log.type + '_' + log.alias;
   log.ani = ani;
   throttle['logs'][log.id] = log;
   if(!document.hidden) throttleLogProcess(ani);
