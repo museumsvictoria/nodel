@@ -536,16 +536,15 @@
         </script>
         <script id="booleanTmpl" type="text/x-jsrender">
         <![CDATA[
-          <div>
-            <%if title%>
-              <label data-link="for{:~idxid(~idx,'<%:~id%>_field_<%:~key%>_group')}"><%>title%></label>
-            <%else ~inobj || !~nokeytitle%>
-              <label data-link="for{:~idxid(~idx,'<%:~id%>_field_<%:~key%>_group')}"><%>~key%></label>
-            <%/if%>
+          <div class="form-group">
             <div class="checkbox" data-link="id{:~idxid(~idx,'<%:~id%>_field_<%:~key%>_group')}">
               <label data-link="for{:~idxid(~idx,'<%:~id%>_field_<%:~key%>')}">
                 <input title="<%>desc%>" type="checkbox" class="styled" data-link="{:<%:~key%>:} id{:~idxid(~idx,'<%:~id%>_field_<%:~key%>')}"/>
-                Yes
+                <%if title%>
+                  <%>title%>
+                <%else ~inobj || !~nokeytitle%>
+                  <%>~key%>
+                <%/if%>
               </label>
             </div>
           </div>
