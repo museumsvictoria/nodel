@@ -742,7 +742,7 @@
                 <h6>Initialising</h6>
               {{else}}
                 {^{for logs filter=~srcflt mapDepends='flt' srch='alias' start=0 end=end sorted=srtd}}
-                  <li data-link="data-type{:type} class{:'log log_'+type+'_'+alias}">
+                  <li data-link="data-type{:type} class{:'log log_'+source+'_'+type+'_'+alias}">
                     <span data-link="class{:'logicon log_src_'+source+' log_typ_'+type}"></span>
                     <span class="logtitle">{^{>rawalias}}</span><span class="logtimestamp"> - {^{>~nicetime(timestamp)}}</span>
                     {^{if ~isset(arg)}}

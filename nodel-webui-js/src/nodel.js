@@ -2422,7 +2422,7 @@ var process_log = function(log, idx){
       if(!src.hold && !log.ani) $.observable(data).move(ind, 0);
     } else {
       var entry = {
-        'id':log.type+'_'+log.alias,
+        'id':log.source+'_'+log.type+'_'+log.alias,
         'alias':alias,
         'rawalias':log.alias,
         'type':log.type,
@@ -2435,7 +2435,7 @@ var process_log = function(log, idx){
     }
     // animate icon
     if(!log.ani) {
-      $(ele).find('.log_'+log.type+'_'+alias+ ' .logicon').stop(true,true).css({'opacity': 1}).animate({'opacity': 0.2}, 1000);
+      $(ele).find('.log_'+log.source+'_'+log.type+'_'+alias+ ' .logicon').stop(true,true).css({'opacity': 1}).animate({'opacity': 0.2}, 1000);
     }
     if((data.length >= src.total) && src.init == true) {
       if(src.total > 100)  $.observable(src).setProperty('hold', true);
