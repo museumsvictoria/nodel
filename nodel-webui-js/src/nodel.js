@@ -1322,7 +1322,7 @@ var setEvents = function(){
     $.each(data[grp], function(nme, val){
       if(val['_$checked'] == true){
         var lnode = val.node;
-        getNodeList(node).then(function(){
+        getNodeList(lnode).then(function(){
           var data = $.grep(nodeList.lst, function(v) {
             return v.node == lnode;
           });
