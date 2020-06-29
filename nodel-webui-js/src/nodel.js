@@ -2064,12 +2064,14 @@ var updateLogs = function(){
       data.sort(function (a, b) {
         return a.seq < b.seq ? -1 : a.seq > b.seq ? 1 : 0;
       });
-      $.each(data, function (key, value) {
-        if(value.seq != 0) {
-          $('body').data('seq', value.seq + 1);
-          throttleLog(value, noanimate);
-        }
-      });
+      if(len > 0) {
+        $.each(data, function (key, value) {
+          if(value.seq != 0) {
+            $('body').data('seq', value.seq + 1);
+            throttleLog(value, noanimate);
+          }
+        });
+      } else if (typeof $('body').data('seq') === "undefined") init_log();
     }).fail(function() {
       offline();
     }).always(function () {
@@ -2102,9 +2104,11 @@ var updateLogs = function(){
               $.observable(src).setProperty('total', len);
             });
             // TODO: disable auto log if > 1000 entries
-            $.each(datafil, function(i) {
-              throttleLog(this, true);
-            });
+            if(len > 0) {
+              $.each(datafil, function(i) {
+                throttleLog(this, true);
+              });
+            } else init_log();
           } else throttleLog(data['activity']);
         }
         socket.onclose = function(){
@@ -2441,6 +2445,14 @@ var process_log = function(log, idx){
       if(src.total > 100)  $.observable(src).setProperty('hold', true);
       $.observable(src).setProperty('init', false);
     }
+  });
+}
+
+var init_log = function(){
+  var eles = $(".nodel-log");
+  $.each(eles, function (i, ele) {
+    var src = $.view($(ele).find('.base')).data;
+    $.observable(src).setProperty('init', false);
   });
 }
 
