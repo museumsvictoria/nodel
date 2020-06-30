@@ -81,19 +81,19 @@ public class Nodel {
         
         char lastChar = 0;
         
-        boolean inComment = false;
+        int commentLevel = 0;
 
         for (int a = 0; a < len; a++) {
             char c = name.charAt(a);
             
-            // deal with '(___)' comments
+            // deal with '(___)' comments, nested too
             if (c == '(') {
-                inComment = true;
+                commentLevel += 1;
             }
             
-            else if (inComment) {
+            else if (commentLevel > 0) {
                 if (c == ')')
-                    inComment = false;
+                    commentLevel -= 1;
                 else
                     ; // don't capture
             }
