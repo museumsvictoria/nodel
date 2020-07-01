@@ -2060,18 +2060,17 @@ var updateLogs = function(){
           var src = $.view($(ele).find('.base')).data;
           $.observable(src).setProperty('total', len);
         });
+        if(len == 0) init_log();
       }
       data.sort(function (a, b) {
         return a.seq < b.seq ? -1 : a.seq > b.seq ? 1 : 0;
       });
-      if(len > 0) {
-        $.each(data, function (key, value) {
-          if(value.seq != 0) {
-            $('body').data('seq', value.seq + 1);
-            throttleLog(value, noanimate);
-          }
-        });
-      } else if (typeof $('body').data('seq') === "undefined") init_log();
+      $.each(data, function (key, value) {
+        if(value.seq != 0) {
+          $('body').data('seq', value.seq + 1);
+          throttleLog(value, noanimate);
+        }
+      });
     }).fail(function() {
       offline();
     }).always(function () {
