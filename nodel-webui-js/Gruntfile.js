@@ -250,22 +250,6 @@ module.exports = function(grunt) {
         src: './build/grunt/v1/js/components.js',
         dest: './build/grunt/v1/js/components.min.js'  
       }
-    },
-    'sftp-deploy': {
-      build: {
-        auth: {
-          host: '192.168.178.174',
-          port: 22,
-          authKey: 'key1'
-        },
-        cache: 'sftpCache.json',
-        src: './build/grunt/',
-        dest: '/opt/nodel/nodes/ASM\ -\ Dashspeed/content',
-        serverSep: '/',
-        localSep: '\\',
-        concurrency: 4,
-        progress: true
-      }
     }
   });
   // Plugin loading
@@ -284,5 +268,4 @@ module.exports = function(grunt) {
   grunt.registerTask('lodash', ['run:lodash']);
   grunt.registerTask('gfonts', ['googlefonts']);
   grunt.registerTask('deploy', ['copy:main','copy:deploy']);
-  grunt.registerTask('deploy2', ['copy:main','sftp-deploy']);
 };
