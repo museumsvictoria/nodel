@@ -49,9 +49,9 @@ $.views.helpers({
   },
   srcflt: function(item, i, items) {
     if(this.view.data.flt) {
-      return item[this.props.srch].search(new RegExp(this.view.data.flt, "ig")) !== -1;
+      return (item[this.props.srch].search(encodr(this.view.data.flt)) !== -1) && item.seq != 0;
     }
-    else return true;
+    else return item.seq != 0;
   },
   encodr: function(value){
     return encodr(value);
@@ -71,6 +71,9 @@ $.views.helpers({
   isset: function(value){
     return(!_.isUndefined(value));
   },
+  iswithin: function(value, srch){
+    return _.isUndefined(srch) || srch === "" || value.toLocaleLowerCase().indexOf(srch) !== -1;
+  },
   jsonhighlight: function(json) {
     json = json.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
     return json.replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, function (match) {
@@ -88,13 +91,8 @@ $.views.helpers({
       }
       return '<span class="' + cls + '">' + match + '</span>';
     });
-  },
-  sortReachable: function(a,b) {
-    return b.reachable - a.reachable;
   }
 });
-
-$.views.helpers.sortReachable.depends = "**";
 
 $.views.converters({
   intToStr: function(value) {
@@ -371,7 +369,7 @@ var converter = new Markdown.Converter();
 var unicodematch = new XRegExp("[^\\p{L}\\p{N}]", "gi");
 var simplematch = new RegExp(/^(.+?)(?:\(| \(|$)/i);
 var colours = {'primary':'','success':'','danger':'','warning':'','info':'','default':''};
-var throttle = {'logs': []};
+var throttle = {'logs': {}};
 var allowedtxt = ['py','xml','xsl','js','json','html','htm','css','java','groovy','sql','sh','cs','bat','ini','txt','md','cmd'];
 var allowedbinary = ['png','jpg','ico','svg','zip','7z','exe'];
 var nodeList = {'lst':[], 'flt':'', 'end':20, 'hosts':{}};
@@ -383,6 +381,7 @@ $(function() {
   t0 = performance.now();
   host = document.location.hostname + ':' + window.document.location.port;
   proto = location.protocol;
+  updateFavicon(host);
   $('.nodel-icon img').attr("src", "data:image/svg+xml;base64,"+generateHostIcon(host));
   $('.nodel-icon a').attr("href", window.document.location.protocol+"//"+host);
   $('.nodel-icon a').attr("title", host);
@@ -543,6 +542,21 @@ var initToolkit = function(){
   });
 };
 
+var creaeteFormElements = function(ele){
+  var d = $.Deferred();
+  var forms = $(ele).data('forms');
+  $(ele).html($.templates("#actsigTmpl").render(forms));
+  var p = [];
+  $(ele).find('[data-type="action"],[data-type="event"]').each(function(i, ele){
+    p.push(makeTemplate(ele, $(ele).data('schema')));
+  });
+  $.when.apply($, p).then(function (){
+    convertSchemaNames();
+    d.resolve();
+  });
+  return d;
+}
+
 var createDynamicElements = function(){
   var p = [];
   var dynres = $('div[data-nodel]');
@@ -591,14 +605,36 @@ var createDynamicElements = function(){
             return a.order > b.order? 1: a.order == b.order? 0: -1;
           });
         });
-        $(ele).html($.templates("#actsigTmpl").render(forms));
-        var p = [];
-        $('[data-type="action"],[data-type="event"]').each(function(i, ele){
-          p.push(makeTemplate(ele, $(ele).data('schema')));
-        });
-        $.when.apply($, p).then(function(){
+        $(ele).data('forms', forms);
+        /* auto render when small */
+        var formcount = Object.keys(actions).length + Object.keys(events).length;
+        if(formcount < 100) {
+          creaeteFormElements(ele).then(function(){
+            d.resolve();
+          });
+        } else {
+          $(ele).html($.templates("#actsigHoldingTmpl").render());
+          $(ele).on('click', 'button.enable', function(){
+            $(this).prop('disabled', true);
+            $(this).siblings('.loader').show();
+            var form = $(this).closest('[data-nodel="actsig"]');
+            (function(form) {
+              setTimeout(function() {
+                creaeteFormElements(form).then(function(){
+                  // backfill values
+                  for(var i = 0; i < throttle['logs'].length; i++) {
+                    (function (i) {
+                      requestAnimationFrame(function() {
+                        process_form(throttle['logs'][i]);
+                      });
+                    })(i);
+                  }
+                });
+              }, 10);
+            })(form);
+          });
           d.resolve();
-        });
+        }
       });
     } else if($(ele).data('nodel') == 'params'){
       $.getJSON(proto+'//'+host+'/REST/nodes/'+encodeURIComponent(node)+'/params/schema', function(data) {
@@ -642,20 +678,25 @@ var createDynamicElements = function(){
         $.getJSON(proto+'//'+host+'/build.json', function(build) {
           $.extend(data, {'build':build});
           $.templates("#diagsTmpl").link(ele, data);
+          $(ele).find('.base').addClass('bound');
           d.resolve();
         }).fail(function(){d.resolve();});
       }).fail(function(){d.resolve();});
     } else if($(ele).data('nodel') == 'log'){ 
-      $.templates("#logTmpl").link(ele, {'logs':[],'flt':'','hold':false,'init':true,'end':10});
+      $.templates("#logTmpl").link(ele, {'logs':[],'flt':'','hold':false,'init':true,'initcount':'0','end':10});
+      $(ele).find('.base').addClass('bound');
       d.resolve();
     } else if($(ele).data('nodel') == 'console'){
       $.templates("#consoleTmpl").link(ele, {'logs':[]});
+      $(ele).find('.base').addClass('bound');
       d.resolve();
     } else if($(ele).data('nodel') == 'serverlog'){
       $.templates("#serverlogTmpl").link(ele, {'logs':[]});
+      $(ele).find('.base').addClass('bound');
       d.resolve();
     } else if($(ele).data('nodel') == 'list'){
       $.templates("#listTmpl").link(ele, nodeList);
+      $(ele).find('.base').addClass('bound');
       d.resolve();
     } else d.resolve();
     p.push(d);
@@ -671,6 +712,15 @@ var getVerySimpleName = function(name){
   var smp = simplematch.exec(name);
   return smp[1].replace(unicodematch,'');
 };
+
+var updateFavicon = function(host){
+  var newicon = generateHostIcon(host);
+  var link = document.querySelector("link[rel*='icon']") || document.createElement('link');
+  link.type = 'image/x-icon';
+  link.rel = 'shortcut icon';
+  link.href = 'data:image/svg+xml;base64,'+newicon;
+  document.getElementsByTagName('head')[0].appendChild(link);
+}
 
 var generateHostIcon = function(host) {
   var hash = XXH.h64(host, 0x4e6f64656c).toString(16).padStart(16,'0');
@@ -799,15 +849,18 @@ var makeTemplate = function(ele, schema, tmpls){
   if(!(_.isUndefined($(ele).data('source'))) && ($(ele).data('source').charAt(0) != '/')){
     $.getJSON(proto+'//'+host+'/REST/nodes/'+encodeURIComponent(node)+'/'+$(ele).data('source'), function(data) {
       tmpl.link(ele, data);
+      $(ele).find('.base').addClass('bound');
       d.resolve();
     });
   } else if(!(_.isUndefined($(ele).data('source'))) && ($(ele).data('source').charAt(0) == '/')){
     $.getJSON(proto+'//'+host+'/REST'+$(ele).data('source'), function(data) {
       tmpl.link(ele, data);
+      $(ele).find('.base').addClass('bound');
       d.resolve();
     }); 
   } else {
     tmpl.link(ele, {});
+    $(ele).find('.base').addClass('bound');
     d.resolve();
   }
   return d.promise();
@@ -853,6 +906,9 @@ var convertNames = function(){
       return at.replace(unicodematch,'');
     }));
   });
+};
+
+var convertSchemaNames = function(){
   $.each($("[data-schema]"), function () {
     $(this).addClass('nodel-schema-'+$(this).data('type'));
     $(this).data('name', $.map($.isArray($(this).data('name')) ? $(this).data('name') : [$(this).data('name')], function(at){
@@ -1142,11 +1198,12 @@ var setEvents = function(){
           $(ele).find('li.active').trigger('mousedown');
         }
       }
-    } else if ((charCode != 9) && (charCode != 27)) {
+    } else if ([9,27,16,17,18,37,39].indexOf(charCode) === -1) {
       if(e.ctrlKey || e.altKey) return true;
       var srchstr = $(this).val();
       var srchflt = srchstr.replace(new RegExp('[.\\\\+*?\\[\\^\\]$(){}=!<>|:\\-]', 'g'), '\\$&');
       var ele = this;
+      // TODO: change to basic standalone function
       getNodeList($(this).val()).then(function(){
         var data = nodeList.lst;
         if ((data.length == 1) && (srchstr == data[0].node)) $(ele).siblings('div.autocomplete').remove();
@@ -1192,7 +1249,7 @@ var setEvents = function(){
           $(ele).find('li.active').trigger('mousedown');
         }
       }
-    } else if ((charCode != 9) && (charCode != 27)) {
+    } else if ([9,27,16,17,18,37,39].indexOf(charCode) === -1) {
       if(e.ctrlKey || e.altKey) return true;
       var srchstr = $(this).val()
       var srchflt = srchstr.replace(new RegExp('[.\\\\+*?\\[\\^\\]$(){}=!<>|:\\-]', 'g'), '\\$&');
@@ -1268,7 +1325,7 @@ var setEvents = function(){
     $.each(data[grp], function(nme, val){
       if(val['_$checked'] == true){
         var lnode = val.node;
-        getNodeList(node).then(function(){
+        getNodeList(lnode).then(function(){
           var data = $.grep(nodeList.lst, function(v) {
             return v.node == lnode;
           });
@@ -1580,7 +1637,11 @@ var setEvents = function(){
       if($(base).hasClass('isgrouped')){
         base = $(base).find('.base');
         $(base).each(function(){ $.observable($.view(this).data).setProperty('_$grpvisible', true)});
-      } else $.observable($.view(base).data).setProperty('_$visible', true);
+      } else {
+        if($(this).parents('.base.bound').length){
+          $.observable($.view(base).data).setProperty('_$visible', true);
+        }
+      }
     }
   });
   $('body').on('hide.bs.collapse', '[class*="nodel-"] .panel-collapse', function(e){
@@ -1602,7 +1663,9 @@ var setEvents = function(){
             });
           } else {
             if(!$(base).siblings('.panel').children('.in').length) {
-              setInvisible($.view(base).data);
+              if($(ele).parents('.base.bound').length){
+                setInvisible($.view(base).data);
+              }
             }
           }
         }
@@ -1699,6 +1762,9 @@ var setEvents = function(){
       });
     }
   });
+  document.onvisibilitychange = function() { 
+    if(!document.hidden) throttleLogProcess();
+  };
 };
 
 var getAction = function(ele){
@@ -1986,12 +2052,21 @@ var updateLogs = function(){
       if (typeof $('body').data('seq') === "undefined") {
         var noanimate = true;
         $('body').data('seq', -1);
+        var len = data.filter(function (x) {
+          return x.seq != 0;
+        }).length;
+        var eles = $(".nodel-log");
+        $.each(eles, function (i, ele) {
+          var src = $.view($(ele).find('.base')).data;
+          $.observable(src).setProperty('total', len);
+        });
+        if(len == 0) init_log();
       }
       data.sort(function (a, b) {
         return a.seq < b.seq ? -1 : a.seq > b.seq ? 1 : 0;
       });
       $.each(data, function (key, value) {
-        if (value.seq != 0) {
+        if(value.seq != 0) {
           $('body').data('seq', value.seq + 1);
           throttleLog(value, noanimate);
         }
@@ -2018,15 +2093,21 @@ var updateLogs = function(){
             data['activityHistory'].sort(function (a, b) {
               return a.seq < b.seq ? -1 : a.seq > b.seq ? 1 : 0;
             });
-            len = data['activityHistory'].length;
-            $.each(data['activityHistory'], function(i) {
-              if(this.seq != 0) {
-                this.unprocessed = false;
-                throttle['logs'][throttle['logs'].length] = this;
-                if(i == len - 1) parseLog(this, true, true);
-                else parseLog(this, true);
-              }
+            var datafil = data['activityHistory'].filter(function (x) {
+              return x.seq != 0;
             });
+            var len = datafil.length;
+            var eles = $(".nodel-log");
+            $.each(eles, function (i, ele) {
+              var src = $.view($(ele).find('.base')).data;
+              $.observable(src).setProperty('total', len);
+            });
+            // TODO: disable auto log if > 1000 entries
+            if(len > 0) {
+              $.each(datafil, function(i) {
+                throttleLog(this, true);
+              });
+            } else init_log();
           } else throttleLog(data['activity']);
         }
         socket.onclose = function(){
@@ -2077,33 +2158,24 @@ var offline = function(){
   }
 };
 
+throttleLogProcess = _.throttle(function(ani) {
+  for (var i in throttle['logs']) {
+    if(throttle['logs'][i]['unprocessed']) {
+      throttle['logs'][i]['unprocessed'] = false;
+      parseLog(throttle['logs'][i], ani);
+    }
+  }
+}, 100);
+
 var throttleLog = function(log, ani){
   log.unprocessed = true;
-  var delay = 200 + (throttle['logs'].length / 2);
-  if(!_.isFunction(throttle['throttle'])) {
-    throttle['throttle'] = _.throttle(function(ani) {
-      var i = throttle['logs'].length;
-      while (i--) {
-        if(throttle['logs'][i]['unprocessed']) {
-          parseLog(throttle['logs'][i], ani);
-          throttle['logs'][i]['unprocessed'] = false;
-        }
-      }
-    }, delay);
-  }
-  var ind = throttle['logs'].findIndex(function(_ref) {
-    id = _ref.type + '_' + _ref.alias;
-    return id == log.type + '_' + log.alias;
-  });
-  if(ind > -1) {
-    throttle['logs'].unshift(throttle['logs'].splice(ind, 1)[0]);
-    throttle['logs'][0] = log;
-  }
-  else throttle['logs'][throttle['logs'].length] = log;
-  throttle['throttle'](ani);
+  log.id = log.source + '_' + log.type + '_' + log.alias;
+  log.ani = ani;
+  throttle['logs'][log.id] = log;
+  if(!document.hidden) throttleLogProcess(ani);
 };
 
-var process_showevent = function(log, ani){
+var process_showevent = function(log){
   var eles = $(".nodel-showevent").filter(function() {
     return $.inArray(log.alias, $.isArray($(this).data('showevent')) ? $(this).data('showevent') : [$(this).data('showevent')]) >= 0;
   });
@@ -2136,7 +2208,7 @@ var process_showevent = function(log, ani){
   if(eles.length) updatepadding();
 }
 
-var process_event = function(log, ani){
+var process_event = function(log){
   var eles = $(".nodel-event").filter(function() {
     return $.inArray(log.alias, $.isArray($(this).data('event')) ? $(this).data('event') : [$(this).data('event')]) >= 0;
   });
@@ -2267,7 +2339,7 @@ var process_event = function(log, ani){
   });
 }
 
-var process_status = function(log, ani) {
+var process_status = function(log) {
   var eles = $(".nodel-status").filter(function() {
     return $.inArray(log.alias, $.isArray($(this).data('status')) ? $(this).data('status') : [$(this).data('status')]) >= 0;
   });
@@ -2302,7 +2374,7 @@ var process_status = function(log, ani) {
   });
 }
 
-var process_render = function(log, ani){
+var process_render = function(log){
   var eles = $(".nodel-render").filter(function() {
     return $.inArray(log.alias, $.isArray($(this).data('render')) ? $(this).data('render') : [$(this).data('render')]) >= 0;
   });
@@ -2320,14 +2392,13 @@ var process_render = function(log, ani){
   });
 }
 
-var process_form = function(log, ani){
+var process_form = function(log){
   var eles = $(".nodel-schema-"+log.type).filter(function() {
     return $.inArray(log.alias, $.isArray($(this).data('name')) ? $(this).data('name') : [$(this).data('name')]) >= 0;
   });
   $.each(eles, function (i, ele) {
     setProps($.view($(ele).find('.base')).data, {'arg':log.arg});
-    //$.observable($.view($(ele).find('.base')).data).setProperty({'arg':log.arg});
-    if(!ani) {
+    if(!log.ani) {
       var col = log.type == 'action' ? colours['success'] : colours['danger'];
       var def = colours['default'];
       $(ele).find('button[type="submit"] > span').stop(true, true).css({'color': col}).animate({'color': def}, 1000);
@@ -2335,42 +2406,56 @@ var process_form = function(log, ani){
   });
 }
 
-var process_log = function(log, ani, last){
+var process_log = function(log, idx){
   var eles = $(".nodel-log");
   var alias = encodr(log.alias);
   $.each(eles, function (i, ele) {
     var src = $.view($(ele).find('.base')).data;
     var data = src['logs'];
-    var ind = data.findIndex(function(_ref) {
-      id = _ref.type + '_' + _ref.alias;
-      return id == log.type + '_' + alias;
-    });
-    var entry = {
-      'alias':alias,
-      'rawalias':log.alias,
-      'type':log.type,
-      'source':log.source,
-      'arg':log.arg,
-      'timestamp': log.timestamp};
-    if(ind > -1) {
-      // lock height while updating to prevent scrolling
-      var ul = $(ele).find('ul');
-      $(ul).css("height", $(ul).height());
-      $.observable(data[ind]).setProperty({'arg': entry.arg, 'timestamp': entry.timestamp});
-      if(!src.hold) $.observable(data).move(ind, 0);
-      $(ul).css("height", 'auto');
-    } else $.observable(data).insert(0, entry);
-    // animate icon
-    if(!ani) {
-      $(ele).find('.log_'+log.type+'_'+alias+ ' .logicon').stop(true,true).css({'opacity': 1}).animate({'opacity': 0.2}, 1000);
+    var srcid = log.source + '_' + log.type + '_' + log.alias;
+    var ind = -1;
+    for (var i = 0; i < data.length; i++) {
+      if (srcid === data[i].id) {
+        ind = i;
+        break;
+      }
     }
-    if(last) {
+    if(ind > -1) {
+      $.observable(data[ind]).setProperty({'arg': log.arg, 'timestamp': log.timestamp, 'seq': log.seq});
+      if(!src.hold && !log.ani) $.observable(data).move(ind, 0);
+    } else {
+      var entry = {
+        'id':log.source+'_'+log.type+'_'+log.alias,
+        'alias':alias,
+        'rawalias':log.alias,
+        'type':log.type,
+        'source':log.source,
+        'arg':log.arg,
+        'timestamp': log.timestamp,
+        'seq': log.seq
+      };
+      $.observable(data).insert(entry);
+    }
+    // animate icon
+    if(!log.ani) {
+      $(ele).find('.log_'+log.source+'_'+log.type+'_'+alias+ ' .logicon').stop(true,true).css({'opacity': 1}).animate({'opacity': 0.2}, 1000);
+    }
+    if((data.length >= src.total) && src.init == true) {
+      if(src.total > 100)  $.observable(src).setProperty('hold', true);
       $.observable(src).setProperty('init', false);
     }
   });
 }
 
-var parseLog = function(log, ani, last){
+var init_log = function(){
+  var eles = $(".nodel-log");
+  $.each(eles, function (i, ele) {
+    var src = $.view($(ele).find('.base')).data;
+    $.observable(src).setProperty('init', false);
+  });
+}
+
+var parseLog = function(log){
   if(log.type=='event' && log.source=='local'){
     switch(log.alias) {
       case "Title":
@@ -2383,28 +2468,28 @@ var parseLog = function(log, ani, last){
         break;
       default:
         // handle show-hide events
-        (function(log, ani) {
-          setTimeout(function() {process_showevent(log, ani), 0});
-        })(log, ani);
+        requestAnimationFrame(function() {
+          process_showevent(log);
+        });
         // handle event data updates
-        (function(log, ani) {
-          setTimeout(function() {process_event(log, ani), 0});
-        })(log, ani);
+        requestAnimationFrame(function() {
+          process_event(log);
+        });
         // handle status update
-        (function(log, ani) {
-          setTimeout(function() {process_status(log, ani), 0});
-        })(log, ani);
+        requestAnimationFrame(function() {
+          process_status(log);
+        });
         // handel dynamic templates
-        (function(log, ani) {
-          setTimeout(function() {process_render(log, ani), 0});
-        })(log, ani);
+        requestAnimationFrame(function() {
+          process_render(log);
+        });
     }
   }
   if(log.source=='local'){
     // nodel forms
-    (function(log, ani) {
-      setTimeout(function() {process_form(log, ani), 0});
-    })(log, ani);
+    requestAnimationFrame(function() {
+      process_form(log);
+    });
   }
   // process binding events
   if(log.source=='remote'){
@@ -2425,7 +2510,7 @@ var parseLog = function(log, ani, last){
     }
   }
   // nodel log
-  (function(log, ani, last) {
-    setTimeout(function() {process_log(log, ani, last), 0});
-  })(log, ani, last);
+  requestAnimationFrame(function() {
+    process_log(log);
+  });
 };

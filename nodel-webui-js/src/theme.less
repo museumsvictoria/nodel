@@ -579,6 +579,13 @@ div.nodel-actsig {
   .row:last-child fieldset {
     margin-bottom: 0;
   }
+  .loader {
+    float: left;
+    margin-left: @padding-base-horizontal;
+  }
+  .enable {
+    float: left;
+  }
 }
 div.nodel-console, div.nodel-serverlog {
   height: 160px;
@@ -647,6 +654,11 @@ div.nodel-charts {
 .tableremote {
   width: 100%;
   table-layout: fixed;
+  th {
+    &:first-child > label {
+      margin-top: 5px;
+    }
+  }
   td {
     padding: 3px;
     > input.form-control {
@@ -856,6 +868,21 @@ div.nodel-charts {
   .list-group-item {
     border: none;
   }
+}
+
+.loader {
+  border: @border-radius-base solid @gray-lighter;
+  border-top: @border-radius-base solid @brand-info;
+  border-radius: 50%;
+  width: @input-height-base;
+  height: @input-height-base;
+  animation: spinner 2s linear infinite;
+  display: none;
+}
+
+@keyframes spinner {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
 }
 
 @media (min-width: @screen-sm) {
