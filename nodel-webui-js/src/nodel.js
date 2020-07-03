@@ -49,7 +49,7 @@ $.views.helpers({
   },
   srcflt: function(item, i, items) {
     if(this.view.data.flt) {
-      return (item[this.props.srch].search(encodr(this.view.data.flt)) !== -1) && item.seq != 0;
+      return (item[this.props.srch].toLocaleLowerCase().indexOf(encodr(this.view.data.flt.toLocaleLowerCase())) !== -1) && item.seq != 0;
     }
     else return item.seq != 0;
   },
