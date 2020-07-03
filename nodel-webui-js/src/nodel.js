@@ -2434,7 +2434,7 @@ var process_log = function(log, idx){
         'timestamp': log.timestamp,
         'seq': log.seq
       };
-      $.observable(data).insert(entry);
+      $.observable(data).insert(0, entry);
     }
     // animate icon
     if(!log.ani) {
