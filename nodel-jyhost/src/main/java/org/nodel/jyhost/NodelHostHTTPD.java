@@ -1,9 +1,9 @@
 package org.nodel.jyhost;
 
-/* 
+/*
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
- * file, You can obtain one at http://mozilla.org/MPL/2.0/. 
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
 import java.io.File;
@@ -46,6 +46,7 @@ import org.nodel.reflection.Service;
 import org.nodel.reflection.Value;
 import org.nodel.rest.EndpointNotFoundException;
 import org.nodel.rest.REST;
+import org.nodel.websockets.WebSocketInterceptor;
 import org.python.core.Py;
 import org.python.core.PyCode;
 import org.python.core.PyException;
@@ -123,7 +124,7 @@ public class NodelHostHTTPD extends NanoHTTPD {
         @Service(name = "discovery", order = 6, title = "Discovery service", desc = "Multicast discovery services.")
         public AutoDNS discovery() {
             return AutoDNS.instance();
-        }        
+        }
         
         @Service(name = "nodeURLs", order = 6, title = "Node URLs", desc = "Returns the addresses of all advertised nodes.")
         public List<NodeURL> nodeURLs(@Param(name = "filter", title = "Filter", desc = "Optional string filter.") String filter) throws IOException {
@@ -137,7 +138,7 @@ public class NodelHostHTTPD extends NanoHTTPD {
 
         @Service(name = "logs", title = "Logs", desc = "Detailed program logs.")
         public LogEntry[] getLogs(
-                @Param(name = "from", title = "From", desc = "Start inclusion point.") long from, 
+                @Param(name = "from", title = "From", desc = "Start inclusion point.") long from,
                 @Param(name = "max", title = "Max", desc = "Results count limit.") int max) {
             List<LogEntry> result = Logging.instance().getLogs(from, max);
             
@@ -146,7 +147,7 @@ public class NodelHostHTTPD extends NanoHTTPD {
 
         @Service(name = "warningLogs", title = "Warning logs", desc = "Same as 'logs' except filtered by warning-level.")
         public LogEntry[] getWarningLogs(
-                @Param(name = "from", title = "From", desc = "Start inclusion point.") long from, 
+                @Param(name = "from", title = "From", desc = "Start inclusion point.") long from,
                 @Param(name = "max", title = "Max", desc = "Results count limit.") int max) {
             List<LogEntry> result = Logging.instance().getWarningLogs(from, max);
 
@@ -200,6 +201,9 @@ public class NodelHostHTTPD extends NanoHTTPD {
             }
 
         });
+
+        // do more things
+        init();
     }
 
     /**
@@ -209,7 +213,7 @@ public class NodelHostHTTPD extends NanoHTTPD {
         InetAddress[] addresses = TopologyWatcher.shared().getInterfaces();
         
         String[] httpAddresses = new String[addresses.length];
-        String[]  httpNodeAddresses = new String[addresses.length];
+        String[] httpNodeAddresses = new String[addresses.length];
 
         for (int a = 0; a < addresses.length; a++) {
             httpAddresses[a] = String.format("http://%s:%s%s", addresses[a].getHostAddress(), Nodel.getHTTPPort(), Nodel.getHTTPSuffix());
@@ -226,6 +230,11 @@ public class NodelHostHTTPD extends NanoHTTPD {
             System.out.println("    (" + gone.getHostAddress() + " interface disappeared)");
     }
     
+    private void init() {
+        WebSocketInterceptor wsInterceptor = new WebSocketInterceptor();
+        addHTTPInterceptor(wsInterceptor);
+    }
+
     /**
      * Sets the host.
      */
@@ -395,7 +404,7 @@ public class NodelHostHTTPD extends NanoHTTPD {
                 } finally {
                     Stream.safeClose(fos);
                 }
-            } 
+            }
 
             // not a REST call, py-server page page?
             if (restTarget instanceof PyNode) {
@@ -440,14 +449,14 @@ public class NodelHostHTTPD extends NanoHTTPD {
      * Prepares a neat exception tree for returning back to the HTTP client.
      */
     private Response prepareExceptionMessageResponse(IStatus httpCode, Exception exc, boolean includeStackTrace) {
-        assert exc != null : "Argument should not be null."; 
+        assert exc != null : "Argument should not be null.";
         
         ExceptionMessage message = new ExceptionMessage();
         
         Throwable currentExc = exc;
         ExceptionMessage currentMessage = message;
         
-        while(currentExc != null) {
+        while (currentExc != null) {
             currentMessage.error = currentExc.getClass().getSimpleName();
             currentMessage.message = currentExc.getMessage();
             if (Strings.isNullOrEmpty(currentMessage.message))
@@ -478,6 +487,7 @@ public class NodelHostHTTPD extends NanoHTTPD {
     
     /**
      * Prepares a standard 404 Not Found HTTP response.
+     *
      * @type e.g. 'Node' or 'Type' (capitalise first letter)
      */
     private Response prepareNotFoundResponse(String path, String type) {
@@ -565,7 +575,7 @@ public class NodelHostHTTPD extends NanoHTTPD {
         }
         
         public void escape(Object value) {
-            String escaped = value != null ? XML.escape(value.toString()) : ""; 
+            String escaped = value != null ? XML.escape(value.toString()) : "";
             _sb.append(escaped);
         }
         
@@ -577,7 +587,7 @@ public class NodelHostHTTPD extends NanoHTTPD {
     
     /**
      * @param node (pre-checked)
-     * @return 
+     * @return
      */
     private Response handlePySp(final PyNode node, String uri, File root, String method, Properties params, final Request request) {
         // resolve the file
@@ -691,7 +701,7 @@ public class NodelHostHTTPD extends NanoHTTPD {
             try {
                 python.getLocals().__delitem__(responseVariable.intern());
             } catch (Exception ignore) {
-            }         
+            }
         }
     }
 

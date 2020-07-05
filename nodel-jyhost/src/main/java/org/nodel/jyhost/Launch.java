@@ -99,7 +99,7 @@ public class Launch {
     }
     
     /**
-     * @param working A non-default working directory instead of "." (current folder)
+     * @param workingDirectory A non-default working directory instead of "." (current folder)
      * @param args A set of arguments (normally from the command-line) 
      */
     public Launch(File workingDirectory, String[] args) throws StartupException, IOException, JSONException {
@@ -325,12 +325,6 @@ public class Launch {
         
         nodelHostHTTPD.setFirstChoiceDir(customContentDirectory);
         
-        // start the WebSocket server (using bootstrap port override if specified)
-        NodelHostWebSocketServer nodelHostWSServer = new NodelHostWebSocketServer(_bootstrapConfig.getNodelHostWSPort());
-        nodelHostWSServer.start(90000);
-        _logger.info("Started WebSocket server on port " + nodelHostWSServer.getListeningPort());
-        Nodel.setWebSocketPort(nodelHostWSServer.getListeningPort());
-        
         // if this is the first time launch has run
         boolean firstTime = false;
         
@@ -376,8 +370,9 @@ public class Launch {
         nodelHostHTTPD.start();
 
         // update with actual listening port
-        // Note: Socket binding will happen later than expected due to a new NanoHTTPD.
+        // Note: Socket binding happens later than expected due to a new NanoHTTPD.
         Nodel.setHTTPPort(nodelHostHTTPD.getListeningPort());
+        Nodel.setWebSocketPort(nodelHostHTTPD.getListeningPort());
 
         // that's all we need for bootstrap loading.
         // everything else can fail now if it wants to
