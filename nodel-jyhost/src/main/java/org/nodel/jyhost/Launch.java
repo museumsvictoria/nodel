@@ -20,7 +20,6 @@ import org.nodel.Threads;
 import org.nodel.Version;
 import org.nodel.core.Nodel;
 import org.nodel.host.BootstrapConfig;
-import org.nodel.host.NanoHTTPD;
 import org.nodel.io.Files;
 import org.nodel.io.Packages;
 import org.nodel.io.Stream;
@@ -41,6 +40,8 @@ import org.python.util.PythonInterpreter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.impl.JDK14LoggingHandler;
+
+import org.nanohttpd.protocols.http.NanoHTTPD;
 
 /**
  * Main program entry-point.
@@ -313,9 +314,6 @@ public class Launch {
             
             // nodelHostHTTPD *will* have a value at this point 
 
-            // update with actual listening port
-            Nodel.setHTTPPort(nodelHostHTTPD.getListeningPort());
-
             // stamp the cache if it's a different port
             if (lastHTTPPort != Nodel.getHTTPPort())
                 Stream.writeFully(lastHTTPPortCache, String.valueOf(Nodel.getHTTPPort()));
@@ -374,10 +372,12 @@ public class Launch {
 
         nodelHostHTTPD.setNodeHost(_nodelHost);
 
-        Nodel.setHTTPPort(nodelHostHTTPD.getListeningPort());
-
         // kick off the HTTPDs
         nodelHostHTTPD.start();
+
+        // update with actual listening port
+        // Note: Socket binding will happen later than expected due to a new NanoHTTPD.
+        Nodel.setHTTPPort(nodelHostHTTPD.getListeningPort());
 
         // that's all we need for bootstrap loading.
         // everything else can fail now if it wants to
@@ -480,7 +480,7 @@ public class Launch {
 
         InputStream is = null;
         try {
-            is = NanoHTTPD.class.getResourceAsStream(packageType + ".zip");
+            is = BootstrapConfig.class.getResourceAsStream(packageType + ".zip");
             if (is != null) {
                 if (!Packages.unpackZip(is, outDirectory))
                     throw new IOException("Could not extract package '" + packageType + "'");
