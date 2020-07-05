@@ -94,7 +94,7 @@ public class HTTPSession implements IHTTPSession {
 
     private final OutputStream outputStream;
 
-    private final InputStream inputStream;
+    private final BufferedInputStream inputStream;
 
     private int splitbyte;
 
@@ -127,14 +127,14 @@ public class HTTPSession implements IHTTPSession {
     public HTTPSession(NanoHTTPD httpd, ITempFileManager tempFileManager, InputStream inputStream, OutputStream outputStream) {
         this.httpd = httpd;
         this.tempFileManager = tempFileManager;
-        this.inputStream = new CountableInputStream(new BufferedInputStream(inputStream, HTTPSession.BUFSIZE), SharableMeasurementProvider.Null.INSTANCE, s_dataRecvRate);
+        this.inputStream = new BufferedInputStream(new CountableInputStream(inputStream, SharableMeasurementProvider.Null.INSTANCE, s_dataRecvRate), HTTPSession.BUFSIZE);
         this.outputStream = new CountableOutputStream(outputStream, SharableMeasurementProvider.Null.INSTANCE, s_dataSendRate);
     }
 
     public HTTPSession(NanoHTTPD httpd, ITempFileManager tempFileManager, InputStream inputStream, OutputStream outputStream, Socket acceptSocket) {
         this.httpd = httpd;
         this.tempFileManager = tempFileManager;
-        this.inputStream = new CountableInputStream(new BufferedInputStream(inputStream, HTTPSession.BUFSIZE), SharableMeasurementProvider.Null.INSTANCE, s_dataRecvRate);
+        this.inputStream = new BufferedInputStream(new CountableInputStream(inputStream, SharableMeasurementProvider.Null.INSTANCE, s_dataRecvRate), HTTPSession.BUFSIZE);
         this.outputStream = new CountableOutputStream(outputStream, SharableMeasurementProvider.Null.INSTANCE, s_dataSendRate);
 
         this.acceptSocket = acceptSocket;
