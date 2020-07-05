@@ -71,6 +71,10 @@ import org.nanohttpd.protocols.http.response.Response;
 import org.nanohttpd.protocols.http.response.Status;
 import org.nanohttpd.protocols.http.tempfiles.ITempFile;
 import org.nanohttpd.protocols.http.tempfiles.ITempFileManager;
+import org.nodel.diagnostics.CountableInputStream;
+import org.nodel.diagnostics.CountableOutputStream;
+import org.nodel.diagnostics.Diagnostics;
+import org.nodel.diagnostics.SharableMeasurementProvider;
 
 public class HTTPSession implements IHTTPSession {
 
@@ -90,7 +94,7 @@ public class HTTPSession implements IHTTPSession {
 
     private final OutputStream outputStream;
 
-    private final BufferedInputStream inputStream;
+    private final InputStream inputStream;
 
     private int splitbyte;
 
@@ -116,18 +120,22 @@ public class HTTPSession implements IHTTPSession {
 
     private byte[] bodyBytes;
 
+    private static SharableMeasurementProvider s_dataRecvRate = Diagnostics.shared().registerSharableCounter("Nano HTTP.Receive rate", true);
+
+    private static SharableMeasurementProvider s_dataSendRate = Diagnostics.shared().registerSharableCounter("Nano HTTP.Send rate", true);
+
     public HTTPSession(NanoHTTPD httpd, ITempFileManager tempFileManager, InputStream inputStream, OutputStream outputStream) {
         this.httpd = httpd;
         this.tempFileManager = tempFileManager;
-        this.inputStream = new BufferedInputStream(inputStream, HTTPSession.BUFSIZE);
-        this.outputStream = outputStream;
+        this.inputStream = new CountableInputStream(new BufferedInputStream(inputStream, HTTPSession.BUFSIZE), SharableMeasurementProvider.Null.INSTANCE, s_dataRecvRate);
+        this.outputStream = new CountableOutputStream(outputStream, SharableMeasurementProvider.Null.INSTANCE, s_dataSendRate);
     }
 
     public HTTPSession(NanoHTTPD httpd, ITempFileManager tempFileManager, InputStream inputStream, OutputStream outputStream, Socket acceptSocket) {
         this.httpd = httpd;
         this.tempFileManager = tempFileManager;
-        this.inputStream = new BufferedInputStream(inputStream, HTTPSession.BUFSIZE);
-        this.outputStream = outputStream;
+        this.inputStream = new CountableInputStream(new BufferedInputStream(inputStream, HTTPSession.BUFSIZE), SharableMeasurementProvider.Null.INSTANCE, s_dataRecvRate);
+        this.outputStream = new CountableOutputStream(outputStream, SharableMeasurementProvider.Null.INSTANCE, s_dataSendRate);
 
         this.acceptSocket = acceptSocket;
         InetAddress inetAddress = acceptSocket.getInetAddress();
