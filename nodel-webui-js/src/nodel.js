@@ -622,7 +622,7 @@ var createDynamicElements = function(){
               setTimeout(function() {
                 creaeteFormElements(form).then(function(){
                   // backfill values
-                  for(var i = 0; i < throttle['logs'].length; i++) {
+                  for (var i in throttle['logs']) {
                     (function (i) {
                       requestAnimationFrame(function() {
                         process_form(throttle['logs'][i]);
