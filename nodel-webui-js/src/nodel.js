@@ -1532,12 +1532,6 @@ var setEvents = function(){
   $('body').on('shown.bs.dropdown', '.edtgrp', function () {
     $(this).find('.renamenode').val(nodename).get(0).focus();
   });
-  $('body').on('click', '.uipicker', function (e) {
-    e.stopPropagation();
-  });
-  $('body').on('change', '.uipicker', function (e) {
-    window.location.href = $(this).val();
-  });
   $('body').on('keyup', '.renamenode', function(e) {
     var charCode = e.charCode || e.keyCode;
     if(charCode == 13) $(this).closest('.form').find('.renamenodesubmit').click();
@@ -1858,10 +1852,10 @@ var fillPicker = function() {
 
 var fillUIPicker = function() {
   // fill UI file list
-  var pickers = $('select.uipicker');
+  var pickers = $('.uipicker');
   $.each(pickers, function(i,picker) {
-    $(picker).empty();
-    $(picker).append('<option value="" selected disabled hidden>select UI</option>');
+    var pickerlist = $(picker).find('.dropdown-menu');
+    $(pickerlist).empty();
     $.getJSON(proto+'//' + host + '/REST/nodes/' + encodeURIComponent(node) + '/files', function (data) {
       data.sort(function(a, b){
         if (a['path'] == b['path']) return 0;
@@ -1870,13 +1864,13 @@ var fillUIPicker = function() {
       });
       $.each(data, function(i, file){
         if(file['path'].match(/content\/(?!index\.htm|nodes\.xml|index-sample.xml|index-sample\.xml\.htm)\w*\.(xml|html|htm)/g)) {
-          $(picker).append('<option value="'+file['path'].replace('content/','')+'">'+file['path'].replace('content/','')+'</option>');
+          $(pickerlist).append('<li><a href="'+file['path'].replace('content/','')+'">'+file['path'].replace('content/','')+'</a></li>');
         }
       });
-      if($(picker).find('option').length == 1 ) {
-        $(picker).prop('disabled', true);
+      if($(pickerlist).find('li').length == 0) {
+        $(picker).find('.dropdown-toggle').prop('disabled', 'disabled');
       } else {
-        $(picker).removeAttr('disabled');
+        $(picker).find('.dropdown-toggle').removeAttr('disabled');
       }
     });
   });
@@ -2171,6 +2165,8 @@ var throttleLog = function(log, ani){
   log.unprocessed = true;
   log.id = log.source + '_' + log.type + '_' + log.alias;
   log.ani = ani;
+  if(typeof throttle['logs'][log.id] !== 'undefined' && _.isMatch(log.arg, throttle['logs'][log.id]['arg'])) log.changed = false;
+  else log.changed = true;
   throttle['logs'][log.id] = log;
   if(!document.hidden) throttleLogProcess(ani);
 };

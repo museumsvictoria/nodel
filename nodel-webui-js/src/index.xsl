@@ -198,7 +198,15 @@
                             </li>
                             <li class="form">
                               <div>
-                                <select class="form-control uipicker goto" type="text"/>
+                                <div class="btn-group btn-group-justified uipicker">
+                                  <div class="btn-group" role="group">
+                                    <button type="button" class="btn btn-default dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" disabled="disabled">
+                                      Select UI <span class="caret"></span>
+                                    </button>
+                                    <ul class="dropdown-menu">
+                                    </ul>
+                                  </div>
+                                </div>
                               </div>
                             </li>
                             <li role="separator" class="divider"></li>
