@@ -537,7 +537,7 @@
             <%else ~inobj || !~nokeytitle%>
               <label data-link="for{:~idxid(~idx,'<%:~id%>_field_<%:~key%>')}"><%>~key%></label>
             <%/if%>
-            <input title="<%>desc%>" type="<%if format=='range'%>range<%else%>number<%/if%>" class="form-control" placeholder="<%>hint%>" step="<%if step%><%>step%><%else%>any<%/if%>" <%if min%>min="<%>min%>"<%/if%> <%if max%>max="<%>max%>"<%/if%> data-link="{intToStr:<%:~key%>:strToInt} id{:~idxid(~idx,'<%:~id%>_field_<%:~key%>')}"/>
+            <input title="<%>desc%>" type="<%if format=='range'%>range<%else%>number<%/if%>" class="form-control" placeholder="<%>hint%>" step="<%if step%><%>step%><%else%><%if type=='integer'%>1<%else%>any<%/if%><%/if%>" <%if min%>min="<%>min%>"<%/if%> <%if max%>max="<%>max%>"<%/if%> data-link="{intToStr:<%:~key%>:strToInt} id{:~idxid(~idx,'<%:~id%>_field_<%:~key%>')}"/>
             <%if format=='range'%><output data-link="{intToStr:<%:~key%>:strToInt}"></output><%/if%>
           </div>
         ]]>
