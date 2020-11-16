@@ -422,7 +422,9 @@ $(function() {
   } else {
     $.when(createDynamicElements().then(function(){
       updatepadding();
-      getNodeList();
+      getNodeList().then(function(){
+        refreshNodeList();
+      });
       checkHostList();
       setEvents();
       updateLogForm();
@@ -430,7 +432,7 @@ $(function() {
       initToolkit();
       checkHostOnline();
       $('*[data-nav]').first().trigger('click');
-      $('.nodelistfilter').focus();
+      $('.nodelistfilter').trigger('focus');
       var filt = getParameterByName('filter');
       if(filt) $('.nodelistfilter').val(filt).trigger('keyup');
     }));
@@ -790,16 +792,23 @@ var checkHostList = function(){
   }
 };
 
+var refreshNodeList = function(){
+  setTimeout(function(){
+    getNodeList().then(function(){
+      refreshNodeList();
+    })
+  }, 2000);
+}
+
 var getNodeList = function(filterstr){
-  if(!_.isUndefined(filterstr)) filter={'filter':filterstr};
-  else filter = {};
+  if(!_.isUndefined(filterstr)) $.observable(nodeList['flt'] = filterstr);
+  filter = {'filter': nodeList['flt']};
   var d = $.Deferred();
   if(nodeListreq) nodeListreq.abort();
   // test list (for large Nodel networks performance testing)
   //nodeListreq = $.getJSON(proto+'//'+host+'/nodeURLs.json', function(data) {
   nodeListreq = $.postJSON(proto+'//'+host+'/REST/nodeURLs', JSON.stringify(filter), function(data) {
     for (i=0; i<data.length; i++) {
-      var ind = -1;
       data[i].host = getHost(data[i].address);
       data[i].name = data[i].node;
       data[i].node = getSimpleName(data[i].node);
