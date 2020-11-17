@@ -154,7 +154,7 @@
     </div>
   </xsl:template>
   <!-- column -->
-  <!-- title -->
+  <!-- title / subtitle -->
   <xsl:template name="title_body">
     <xsl:if test="@showevent">
       <xsl:attribute name="class">
@@ -190,7 +190,21 @@
       </xsl:otherwise>
     </xsl:choose>
   </xsl:template>
-  <!-- title -->
+  <xsl:template match="subtitle">
+    <xsl:choose>
+      <xsl:when test="@size">
+        <xsl:element name="h{@size}">
+          <xsl:call-template name="title_body"/>
+        </xsl:element>
+      </xsl:when>
+      <xsl:otherwise>
+        <h5>
+          <xsl:call-template name="title_body"/>
+        </h5>
+      </xsl:otherwise>
+    </xsl:choose>
+  </xsl:template>
+  <!-- title / subtitle -->
   <!-- text -->
   <xsl:template match="text">
     <p>
