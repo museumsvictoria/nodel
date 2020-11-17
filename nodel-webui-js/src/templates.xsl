@@ -881,6 +881,11 @@
   <!-- status -->
   <xsl:template match="status">
     <div data-status="{@event}">
+      <xsl:if test="@event">
+        <xsl:attribute name="data-status">
+          <xsl:value-of select="@event"/>
+        </xsl:attribute>
+      </xsl:if>
       <xsl:attribute name="class">
         <xsl:text>panel panel-default statusgroup clearfix</xsl:text>
         <xsl:if test="@showevent">
@@ -903,9 +908,14 @@
         </xsl:attribute>
       </xsl:if>
       <div class="panel-body">
-        <xsl:apply-templates select="image"/><xsl:apply-templates select="link"/><xsl:apply-templates select="button|swich|partialswitch"/><xsl:apply-templates select="badge|partialbadge|signal"/><strong><xsl:value-of select="text()"/></strong><br/><span class="status">Unknown</span>
+        <xsl:apply-templates select="image"/><xsl:apply-templates select="link"/><xsl:apply-templates select="button|swich|partialswitch"/><xsl:apply-templates select="badge|partialbadge|signal"/><strong><xsl:value-of select="text()"/></strong>
+        <xsl:if test="@event">
+          <br/><span class="status">Unknown</span>
+        </xsl:if>
       </div>
-      <xsl:apply-templates select="statussleep"/>
+      <xsl:if test="@event">
+        <xsl:apply-templates select="statussleep"/>
+      </xsl:if>
     </div>
   </xsl:template>
   <!-- status -->
