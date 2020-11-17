@@ -155,28 +155,40 @@
   </xsl:template>
   <!-- column -->
   <!-- title -->
+  <xsl:template name="title_body">
+    <xsl:if test="@showevent">
+      <xsl:attribute name="class">
+        <xsl:text>sect</xsl:text>
+      </xsl:attribute>
+      <xsl:attribute name="data-showevent">
+        <xsl:value-of select="@showevent"/>
+      </xsl:attribute>
+      <xsl:if test="@showvalue">
+        <xsl:attribute name="data-showarg">
+          <xsl:value-of select="@showvalue"/>
+        </xsl:attribute>
+      </xsl:if>
+    </xsl:if>
+    <xsl:if test="@event">
+      <xsl:attribute name="data-event">
+        <xsl:value-of select="@event"/>
+      </xsl:attribute>
+    </xsl:if>
+    <xsl:value-of select="current()"/>
+  </xsl:template>
   <xsl:template match="title">
-    <h4>
-      <xsl:if test="@showevent">
-        <xsl:attribute name="class">
-          <xsl:text>sect</xsl:text>
-        </xsl:attribute>
-        <xsl:attribute name="data-showevent">
-          <xsl:value-of select="@showevent"/>
-        </xsl:attribute>
-        <xsl:if test="@showvalue">
-          <xsl:attribute name="data-showarg">
-            <xsl:value-of select="@showvalue"/>
-          </xsl:attribute>
-        </xsl:if>
-      </xsl:if>
-      <xsl:if test="@event">
-        <xsl:attribute name="data-event">
-          <xsl:value-of select="@event"/>
-        </xsl:attribute>
-      </xsl:if>
-      <xsl:value-of select="current()"/>
-    </h4>
+    <xsl:choose>
+      <xsl:when test="@size">
+        <xsl:element name="h{@size}">
+          <xsl:call-template name="title_body"/>
+        </xsl:element>
+      </xsl:when>
+      <xsl:otherwise>
+        <h4>
+          <xsl:call-template name="title_body"/>
+        </h4>
+      </xsl:otherwise>
+    </xsl:choose>
   </xsl:template>
   <!-- title -->
   <!-- text -->
