@@ -2055,9 +2055,16 @@ var updateLogs = function(){
       if (typeof $('body').data('seq') === "undefined") {
         var noanimate = true;
         $('body').data('seq', -1);
-        var len = data.filter(function (x) {
-          return x.seq != 0;
-        }).length;
+        // get length minus duplicates
+        var len = data.filter(
+          (data, index, self) => index === self.findIndex(
+            (t) =>
+              data.seq !== 0 &&
+              t.source === data.source &&
+              t.type === data.type &&
+              t.alias === data.alias
+            )
+        ).length;
         var eles = $(".nodel-log");
         $.each(eles, function (i, ele) {
           var src = $.view($(ele).find('.base')).data;
@@ -2096,9 +2103,16 @@ var updateLogs = function(){
             data['activityHistory'].sort(function (a, b) {
               return a.seq < b.seq ? -1 : a.seq > b.seq ? 1 : 0;
             });
-            var datafil = data['activityHistory'].filter(function (x) {
-              return x.seq != 0;
-            });
+            // get data minus duplicates
+            var datafil = data['activityHistory'].filter(
+              (data, index, self) => index === self.findIndex(
+                (t) =>
+                  data.seq !== 0 &&
+                  t.source === data.source &&
+                  t.type === data.type &&
+                  t.alias === data.alias
+              )
+            );
             var len = datafil.length;
             var eles = $(".nodel-log");
             $.each(eles, function (i, ele) {
