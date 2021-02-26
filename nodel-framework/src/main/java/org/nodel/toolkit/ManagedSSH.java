@@ -683,6 +683,17 @@ public class ManagedSSH implements Closeable {
         doQueueCommand(command);
     }
 
+    /**
+     * Only for EXEC mode
+     */
+    public void execute(String cmdString, Handler.H1<String> responseHandler) throws Exception {
+        if (_mode.equals(Mode.SHELL)) {
+            throw new Exception("Not supported in SHELL mode");
+        }
+        ManagedSSH.QueuedCommand command = new ManagedSSH.QueuedCommand(cmdString, _requestTimeout, responseHandler);
+        doQueueCommand(command);
+    }
+
     public void doQueueCommand(ManagedSSH.QueuedCommand command) {
         // whether or not this entry had to be queued
         boolean queued = false;
