@@ -14,6 +14,7 @@ import java.io.OutputStream;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
+
 public class StreamCopier {
 
     public interface Listener {
@@ -41,6 +42,7 @@ public class StreamCopier {
     private int bufSize = 1;
     private boolean keepFlushing = true;
     private long length = -1;
+    private ManagedSSH.InputStreamHandleMode inputStreamHandleMode = ManagedSSH.InputStreamHandleMode.CharacterDelimitedText;
 
     public StreamCopier(InputStream in, OutputStream out) {
         this.in = in;
@@ -64,6 +66,11 @@ public class StreamCopier {
         } else {
             this.listener = listener;
         }
+        return this;
+    }
+
+    public StreamCopier inputStreamHandleMode(ManagedSSH.InputStreamHandleMode handleMode) {
+        this.inputStreamHandleMode = handleMode;
         return this;
     }
 
@@ -92,21 +99,26 @@ public class StreamCopier {
         }.start();
     }
 
-    public long copy()
-            throws IOException {
+    public long copy() throws IOException {
         final byte[] buf = new byte[bufSize];
         long count = 0;
         int read = 0;
 
         final long startTime = System.nanoTime();
 
-        if (length == -1) {
-            while ((read = in.read(buf)) != -1) {
-                count += write(buf, count, read);
+        if (inputStreamHandleMode.equals(ManagedSSH.InputStreamHandleMode.CharacterDelimitedText)) {
+            while ((read = in.read()) != -1) {
+                count += write(read, count);
             }
         } else {
-            while (count < length && (read = in.read(buf, 0, (int) Math.min(bufSize, length - count))) != -1) {
-                count += write(buf, count, read);
+            if (length == -1) {
+                while ((read = in.read(buf)) != -1) {
+                    count += write(buf, count, read);
+                }
+            } else {
+                while (count < length && (read = in.read(buf, 0, (int) Math.min(bufSize, length - count))) != -1) {
+                    count += write(buf, count, read);
+                }
             }
         }
 
@@ -123,12 +135,17 @@ public class StreamCopier {
         return count;
     }
 
-    private long write(byte[] buf, long curPos, int len)
-            throws IOException {
+    private long write(byte[] buf, long curPos, int len) throws IOException {
         out.write(buf, 0, len);
         if (keepFlushing)
             out.flush();
         listener.reportProgress(curPos + len);
         return len;
+    }
+
+    private long write(int b, long curPos) throws IOException {
+        out.write(b);
+        listener.reportProgress(curPos + 1);
+        return 1;
     }
 }

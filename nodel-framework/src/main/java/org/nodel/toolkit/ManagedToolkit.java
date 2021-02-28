@@ -436,7 +436,8 @@ public class ManagedToolkit {
             H1<String> onExecuted,
             H0 onDisconnected,
             H0 onTimeout,
-            H1<String> onShellConsoleOut) {
+            H1<String> onShellConsoleOut,
+            String receiveDelimiters) {
 
         ManagedSSH.Mode sshMode = ManagedSSH.Mode.EXEC;
 
@@ -468,6 +469,9 @@ public class ManagedToolkit {
         ssh.setDisconnectedHandler(onDisconnected);
         ssh.setTimeoutHandler(onTimeout);
         ssh.setShellConsoleOutputHandler(onShellConsoleOut);
+
+        // set up delimiters
+        ssh.setReceiveDelimiters(receiveDelimiters);
 
         ssh.connect();
 

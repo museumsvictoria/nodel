@@ -209,9 +209,26 @@ public class ManagedSSH implements Closeable {
      */
     private class ShellConsoleOutputStream extends OutputStream {
 
+        private final BufferBuilder bufferBuilder = new BufferBuilder(256);
+
         @Override
         public void write(int b) throws IOException {
-            // not in use
+            if (_inputStreamHandleMode.equals(InputStreamHandleMode.CharacterDelimitedText)) {
+                if (charMatches((char) b, _receiveDelimiters)) {
+                    String str = bufferBuilder.getTrimmedString();
+                    if (str != null) {
+                        handleReceivedData(str);
+                        _callbackHandler.handle(_shellConsoleOutputCallback, str, _callbackErrorHandler);
+                    }
+                    bufferBuilder.reset();
+                } else {
+                    if (bufferBuilder.getSize() >= MAX_DATA_ALLOWED) {
+                        // drop the connection
+                        throw new IOException("Too much data arrived (at least " + bufferBuilder.getSize() / 1024 + " KB) before any delimeter was present; dropping connection.");
+                    }
+                    bufferBuilder.append((byte) b);
+                }
+            }
         }
 
         @Override
@@ -219,9 +236,7 @@ public class ManagedSSH implements Closeable {
             ByteArrayOutputStream baos = new ByteArrayOutputStream();
             baos.write(b, off, len);
             baos.flush();
-
             handleReceivedData(baos.toString());
-
             _callbackHandler.handle(_shellConsoleOutputCallback, baos.toString(), _callbackErrorHandler);
         }
     }
@@ -240,6 +255,18 @@ public class ManagedSSH implements Closeable {
      *
      */
     private boolean _workerEnabled = false;
+
+    /**
+     * The delimiters to split the receive data on.
+     */
+    private String _receiveDelimiters = "\r\n";
+
+    public enum InputStreamHandleMode {
+        UnboundedRaw,
+        CharacterDelimitedText
+    }
+
+    private InputStreamHandleMode _inputStreamHandleMode = InputStreamHandleMode.CharacterDelimitedText;
 
     /**
      * (constructor)
@@ -311,7 +338,8 @@ public class ManagedSSH implements Closeable {
                 _channel = _session.openChannel("shell");
 
                 new StreamCopier(_channel.getInputStream(), new ShellConsoleOutputStream())
-                        .bufSize(1024)
+                        .bufSize(1024 * 10 * 2)
+                        .inputStreamHandleMode(_inputStreamHandleMode)
                         .spawn("ShellConsoleOutputStream - " + _instance);
 
                 _channel.connect();
@@ -428,6 +456,21 @@ public class ManagedSSH implements Closeable {
         _timeoutCallback = handler;
     }
 
+    /**
+     * Sets the receive delimiters.
+     */
+    public void setReceiveDelimiters(String delims) {
+        synchronized (_lock) {
+            if (delims == null)
+                _receiveDelimiters = "";
+            else
+                _receiveDelimiters = delims;
+
+            if (Strings.isEmpty(_receiveDelimiters))
+                _inputStreamHandleMode = InputStreamHandleMode.UnboundedRaw;
+        }
+    }
+
     public enum Mode {
         EXEC("exec"),
         SHELL("shell");
@@ -456,6 +499,15 @@ public class ManagedSSH implements Closeable {
         // (should release lock as soon as possible)
         synchronized (_lock) {
             if (_activeCommand != null) {
+
+                // compare given data to cmdString of the active command
+                // if identical, ignore.
+                // Because it is required to send response only.
+                if (_inputStreamHandleMode.equals(InputStreamHandleMode.CharacterDelimitedText)) {
+                    if (data.equals(_activeCommand.cmdString)) {
+                        return;
+                    }
+                }
                 command = _activeCommand;
                 _activeCommand = null;
             }
@@ -678,18 +730,15 @@ public class ManagedSSH implements Closeable {
     /**
      * Safely executes command without overlapping any existing commands
      */
-    public void execute(String cmdString) {
-        ManagedSSH.QueuedCommand command = new ManagedSSH.QueuedCommand(cmdString, _requestTimeout, null);
-        doQueueCommand(command);
+    public void execute(String cmdString) throws Exception {
+        execute(cmdString, null);
     }
 
-    /**
-     * Only for EXEC mode
-     */
     public void execute(String cmdString, Handler.H1<String> responseHandler) throws Exception {
-        if (_mode.equals(Mode.SHELL)) {
-            throw new Exception("Not supported in SHELL mode");
+        if (Strings.isEmpty(cmdString)) {
+            return;
         }
+
         ManagedSSH.QueuedCommand command = new ManagedSSH.QueuedCommand(cmdString, _requestTimeout, responseHandler);
         doQueueCommand(command);
     }
@@ -776,14 +825,9 @@ public class ManagedSSH implements Closeable {
     private void handleExecModeInputStream(Channel channel) {
         try {
             InputStream in = channel.getInputStream();
-            BufferedInputStream bis = new BufferedInputStream(in, 1024);
-
-            // create a buffer that'll be reused
-            // start off small, will grow as needed
             BufferBuilder bb = new BufferBuilder(256);
-
             while (true) {
-                int c = bis.read();
+                int c = in.read();
                 if (c < 0)
                     break;
 
@@ -870,7 +914,7 @@ public class ManagedSSH implements Closeable {
 
     private void shellCommandNow0(String cmdString) {
         try {
-            final String cmd = cmdString + "\n";
+            final String cmd = cmdString + "\r\n";
             Channel channel = this.getChannelShell();
             OutputStream os = channel.getOutputStream();
             os.write(cmd.getBytes());
@@ -915,9 +959,13 @@ public class ManagedSSH implements Closeable {
         try {
             _logger.info("[workerEntry] called");
             synchronized (_workerSignal) {
+
+                int kickoffTime = 1000 + s_random.nextInt(KICKOFF_DELAY);
+                _workerSignal.wait(kickoffTime);
+
                 this.doInitialize();
-                // wait for a while
-                _workerSignal.wait(5 * 1000);
+
+                _workerSignal.wait(2 * 1000);
             }
 
             boolean firedDisconnected = false;
@@ -1061,5 +1109,18 @@ public class ManagedSSH implements Closeable {
         }
 
         return new InetSocketAddress(addrPart, port);
+    }
+
+    /**
+     * (convenience method to check when a character appears in a list of characters (in the form of a String)
+     * imported from ManagedTCP
+     */
+    private static boolean charMatches(char c, String chars) {
+        int len = chars.length();
+        for (int a = 0; a < len; a++)
+            if (chars.charAt(a) == c)
+                return true;
+
+        return false;
     }
 }

@@ -107,8 +107,8 @@ def UDP(source='0.0.0.0:0', dest=None, ready=None, received=None, sent=None, int
   return nodetoolkit.createUDP(source, dest, ready, received, sent, intf)
 
 # A managed SSH connection for executing commands (includes instrumentation) : mode : 'exec' or 'shell'
-def SSH(mode='exec', dest=None, knownHosts=None, username=None, password=None, reverseForwardingParams=None, connected=None, executed=None, disconnected=None, timeout=None, shellConsoleOut=None):
-    return nodetoolkit.createSSH(mode, dest, knownHosts, username, password, reverseForwardingParams, connected, executed, disconnected, timeout, shellConsoleOut)
+def SSH(mode='exec', dest=None, knownHosts=None, username=None, password=None, reverseForwardingParams=None, connected=None, executed=None, disconnected=None, timeout=None, shellConsoleOut=None, receiveDelimiters='\r\n'):
+    return nodetoolkit.createSSH(mode, dest, knownHosts, username, password, reverseForwardingParams, connected, executed, disconnected, timeout, shellConsoleOut, receiveDelimiters)
   
 # A managed processes that attempts to stay executed (includes instrumentation)
 def Process(command, # the command line and arguments
