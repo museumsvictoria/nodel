@@ -268,6 +268,13 @@ public class ManagedSSH implements Closeable {
 
     private InputStreamHandleMode _inputStreamHandleMode = InputStreamHandleMode.CharacterDelimitedText;
 
+    // https://tools.ietf.org/html/rfc4254
+    private byte[] _terminalMode = new byte[]{
+            53, // ECHO
+            0, 0, 0, 0, // 0: OFF, 1: ON
+            0 // TTY_OP_END
+    };
+
     /**
      * (constructor)
      */
@@ -341,6 +348,8 @@ public class ManagedSSH implements Closeable {
                         .bufSize(1024 * 10 * 2)
                         .inputStreamHandleMode(_inputStreamHandleMode)
                         .spawn("ShellConsoleOutputStream - " + _instance);
+
+                ((ChannelShell) _channel).setTerminalMode(_terminalMode);
 
                 _channel.connect();
 
@@ -499,15 +508,6 @@ public class ManagedSSH implements Closeable {
         // (should release lock as soon as possible)
         synchronized (_lock) {
             if (_activeCommand != null) {
-
-                // compare given data to cmdString of the active command
-                // if identical, ignore.
-                // Because it is required to send response only.
-                if (_inputStreamHandleMode.equals(InputStreamHandleMode.CharacterDelimitedText)) {
-                    if (data.equals(_activeCommand.cmdString)) {
-                        return;
-                    }
-                }
                 command = _activeCommand;
                 _activeCommand = null;
             }
@@ -865,6 +865,8 @@ public class ManagedSSH implements Closeable {
             ((ChannelExec) channel).setCommand(cmdString);
             channel.setInputStream(null);
             channel.setOutputStream(System.out);
+
+            ((ChannelExec) channel).setTerminalMode(_terminalMode);
 
             channel.connect();
 
