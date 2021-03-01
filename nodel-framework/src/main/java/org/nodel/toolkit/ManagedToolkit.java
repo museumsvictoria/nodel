@@ -437,7 +437,8 @@ public class ManagedToolkit {
             H0 onDisconnected,
             H0 onTimeout,
             H1<String> onShellConsoleOut,
-            String receiveDelimiters) {
+            String receiveDelimiters,
+            boolean enableEcho) {
 
         ManagedSSH.Mode sshMode = ManagedSSH.Mode.EXEC;
 
@@ -472,6 +473,9 @@ public class ManagedToolkit {
 
         // set up delimiters
         ssh.setReceiveDelimiters(receiveDelimiters);
+
+        // enable/disable ECHO
+        ssh.setEchoEnable(enableEcho);
 
         ssh.connect();
 

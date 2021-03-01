@@ -268,12 +268,15 @@ public class ManagedSSH implements Closeable {
 
     private InputStreamHandleMode _inputStreamHandleMode = InputStreamHandleMode.CharacterDelimitedText;
 
-    // https://tools.ietf.org/html/rfc4254
-    private byte[] _terminalMode = new byte[]{
-            53, // ECHO
-            0, 0, 0, 0, // 0: OFF, 1: ON
-            0 // TTY_OP_END
-    };
+    /**
+     * flag to enable/disable Echo
+     */
+    private boolean _enableEcho;
+
+    /**
+     * Structure to set SSH terminal mode
+     */
+    private byte[] _terminalMode;
 
     /**
      * (constructor)
@@ -478,6 +481,20 @@ public class ManagedSSH implements Closeable {
             if (Strings.isEmpty(_receiveDelimiters))
                 _inputStreamHandleMode = InputStreamHandleMode.UnboundedRaw;
         }
+    }
+
+    public void setEchoEnable(boolean flag) {
+        _enableEcho = flag;
+        doUpdateTerminalMode();
+    }
+
+    private void doUpdateTerminalMode() {
+        // https://tools.ietf.org/html/rfc4254
+        _terminalMode = new byte[]{
+                53, // ECHO
+                0, 0, 0, (byte) (_enableEcho ? 1 : 0), // 0: OFF, 1: ON
+                0 // TTY_OP_END
+        };
     }
 
     public enum Mode {
