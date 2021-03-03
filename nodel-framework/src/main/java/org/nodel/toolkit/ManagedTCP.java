@@ -209,17 +209,11 @@ public class ManagedTCP implements Closeable {
      * If using binary transmission.
      */
     private Character _binaryStartFlag = null;
-    
-    private enum Modes {
-        UnboundedRaw,
-        LengthDelimitedRaw,
-        CharacterDelimitedText
-    }
-    
+
     /**
      * If length delimited mode is being used with start / stop flags
      */
-    private Modes _mode = Modes.CharacterDelimitedText;
+    private InputStreamHandleMode _mode = InputStreamHandleMode.CharacterDelimitedText;
     
     /**
      * If using binary transmission.
@@ -397,7 +391,7 @@ public class ManagedTCP implements Closeable {
                 _receiveDelimiters = delims;
             
             if (Strings.isEmpty(_receiveDelimiters))
-                _mode = Modes.UnboundedRaw;
+                _mode = InputStreamHandleMode.UnboundedRaw;
         }
     }
     
@@ -412,7 +406,7 @@ public class ManagedTCP implements Closeable {
 
         if (len > 0) {
             _binaryStartFlag = startStopFlags.charAt(0);
-            _mode = Modes.LengthDelimitedRaw;
+            _mode = InputStreamHandleMode.LengthDelimitedRaw;
         }
 
         if (len > 1)
@@ -572,10 +566,10 @@ public class ManagedTCP implements Closeable {
             _callbackHandler.handle(_connectedCallback, _callbackErrorHandler);
             
             // start reading
-            if (_mode == Modes.LengthDelimitedRaw)
+            if (_mode == InputStreamHandleMode.LengthDelimitedRaw)
                 readLengthDelimitedLoop(socket, _binaryStartFlag, _binaryStopFlag);
             
-            else if (_mode == Modes.CharacterDelimitedText)
+            else if (_mode == InputStreamHandleMode.CharacterDelimitedText)
                 readTextLoop(socket);
             
             else { // mode is 'UnboundedRaw' 
@@ -1168,7 +1162,7 @@ public class ManagedTCP implements Closeable {
         
         byte[] buffer = null;
         
-        if (_mode == Modes.LengthDelimitedRaw) {
+        if (_mode == InputStreamHandleMode.LengthDelimitedRaw) {
             // length delimited mode:
             buffer = stringToBuffer(data, null);
             

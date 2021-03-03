@@ -440,10 +440,10 @@ public class ManagedToolkit {
             String receiveDelimiters,
             boolean enableEcho) {
 
-        ManagedSSH.Mode sshMode = ManagedSSH.Mode.EXEC;
+        ManagedSSH.SSHMode sshMode = ManagedSSH.SSHMode.EXEC;
 
         if (mode.equalsIgnoreCase("shell")) {
-            sshMode = ManagedSSH.Mode.SHELL;
+            sshMode = ManagedSSH.SSHMode.SHELL;
         }
 
         // create a new SSH connection providing this environment's facilities
@@ -476,8 +476,6 @@ public class ManagedToolkit {
 
         // enable/disable ECHO
         ssh.setEchoEnable(enableEcho);
-
-        ssh.connect();
 
         synchronized (_lock) {
             if (_closed)
