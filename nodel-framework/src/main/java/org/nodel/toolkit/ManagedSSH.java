@@ -522,11 +522,11 @@ public class ManagedSSH implements Closeable {
             config.put("StrictHostKeyChecking", "no");
             _session.setConfig(config);
             _session.setServerAliveInterval(5000);
-            _session.connect(CONNECT_TIMEOUT);
+            _session.connect(); // do not use timeout. Because the first message can be lost.
 
             _channel = _session.openChannel("shell");
             ((ChannelShell) _channel).setTerminalMode(_terminalMode);
-            _channel.connect(CONNECT_TIMEOUT);
+            _channel.connect(); // do not use timeout. Because the first message can be lost.
 
             if (_reverseForwardingParameters != null) {
                 // Supports 2 methods below
@@ -635,8 +635,6 @@ public class ManagedSSH implements Closeable {
 
             // Create session/channel and connect.
             doInitializeShellMode();
-
-            Threads.sleep(2000);
 
             _counterConnections.incr();
 
@@ -1142,7 +1140,7 @@ public class ManagedSSH implements Closeable {
             java.util.Properties config = new java.util.Properties();
             config.put("StrictHostKeyChecking", "no");
             session.setConfig(config);
-            session.connect(); // do not use timeout
+            session.connect(); // do not use timeout. Because the first message can be lost.
 
             channel = session.openChannel("exec");
             ((ChannelExec) channel).setCommand(cmdString);
@@ -1151,7 +1149,7 @@ public class ManagedSSH implements Closeable {
 
             ((ChannelExec) channel).setTerminalMode(_terminalMode);
 
-            channel.connect(); // do not use timeout
+            channel.connect(); // do not use timeout. Because the first message can be lost.
 
             Handler.tryHandle(_connectedCallback, _callbackErrorHandler);
 
