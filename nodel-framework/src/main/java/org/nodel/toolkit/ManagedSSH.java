@@ -1000,18 +1000,18 @@ public class ManagedSSH implements Closeable {
 
         // if the command has 'cmdString', execute now
         if (!Strings.isEmpty(nextCommand.cmdString)) {
-            executeCommandNow(nextCommand.cmdString, false); // do not use thread pool
+            sendCommandNow(nextCommand.cmdString, false); // do not use thread pool
         }
     }
 
     /**
-     * Safely executes command without overlapping any existing commands
+     * Safely sends command without overlapping any existing commands
      */
-    public void execute(String cmdString) throws Exception {
-        execute(cmdString, null);
+    public void send(String cmdString) throws Exception {
+        send(cmdString, null);
     }
 
-    public void execute(String cmdString, Handler.H1<String> responseHandler) throws Exception {
+    public void send(String cmdString, Handler.H1<String> responseHandler) throws Exception {
         if (Strings.isEmpty(cmdString)) {
             return;
         }
@@ -1045,7 +1045,7 @@ public class ManagedSSH implements Closeable {
         }
 
         if (!queued && !Strings.isEmpty(command.cmdString)) {
-            executeCommandNow(command.cmdString, false); // do not use thread pool
+            sendCommandNow(command.cmdString, false); // do not use thread pool
         }
 
         // without a timer, the queue needs to serviced on both send and receive
@@ -1055,19 +1055,19 @@ public class ManagedSSH implements Closeable {
     /**
      * Executes command. Returns immediately. Will not throw any exceptions.
      */
-    public void executeNow(final String cmdString) {
+    public void sendNow(final String cmdString) {
         if (Strings.isEmpty(cmdString)) {
             return;
         }
 
-        executeCommandNow(cmdString, false); // do not use thread pool
+        sendCommandNow(cmdString, false); // do not use thread pool
     }
 
     /**
-     * Executes a command immediately, optionally using a thread-pool
+     * Sends a command immediately, optionally using a thread-pool
      * In some cases, sequence of commands execution is broken. Please do not use thread pool.
      */
-    private void executeCommandNow(final String cmdString, boolean onThreadPool) {
+    private void sendCommandNow(final String cmdString, boolean onThreadPool) {
         try {
             if (onThreadPool) {
                 _threadPool.execute(new Runnable() {
@@ -1078,7 +1078,7 @@ public class ManagedSSH implements Closeable {
                         if (_sshMode.equals(SSHMode.SHELL)) {
                             shellCommandNow0(cmdString);
                         } else {
-                            executeCommandNow0(cmdString);
+                            execCommandNow0(cmdString);
                         }
                     }
                 });
@@ -1086,7 +1086,7 @@ public class ManagedSSH implements Closeable {
                 if (_sshMode.equals(SSHMode.SHELL)) {
                     shellCommandNow0(cmdString);
                 } else {
-                    executeCommandNow0(cmdString);
+                    execCommandNow0(cmdString);
                 }
             }
         } catch (Exception ex) {
@@ -1129,7 +1129,7 @@ public class ManagedSSH implements Closeable {
         }
     }
 
-    private void executeCommandNow0(String cmdString) {
+    private void execCommandNow0(String cmdString) {
         Session session = null;
         Channel channel = null;
         try {
@@ -1160,7 +1160,7 @@ public class ManagedSSH implements Closeable {
             _counterConnections.incr();
 
         } catch (Exception ex) {
-            _logger.debug("[executeCommandNow0] Exception", ex);
+            _logger.debug("[execCommandNow0] Exception", ex);
             throw new RuntimeException(ex.getMessage());
         } finally {
             try {
@@ -1172,7 +1172,7 @@ public class ManagedSSH implements Closeable {
                 }
                 Handler.tryHandle(_disconnectedCallback, _callbackErrorHandler);
             } catch (Exception ex) {
-                _logger.debug("[executeCommandNow0::finally] Exception", ex);
+                _logger.debug("[execCommandNow0::finally] Exception", ex);
             }
         }
     }
