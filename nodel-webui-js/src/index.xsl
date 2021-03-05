@@ -841,7 +841,7 @@
                 </tr>
                 <tr>
                   <th scope="row">Build date</th>
-                  <td>{{>~nicetime(build.date)}}</td>
+                  <td>{{>~buildtime(build.date)}}</td>
                 </tr>
                 <tr>
                   <th scope="row">Commit</th>
