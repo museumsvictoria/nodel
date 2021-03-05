@@ -1194,7 +1194,7 @@ public class ManagedSSH implements Closeable {
 
     private void shellCommandNow0(String cmdString) {
         try {
-            final String cmd = cmdString + "\r\n";
+            final String cmd = cmdString + "\n";
             Channel channel = this.getChannelShell();
             OutputStream os = new CountableOutputStream(channel.getOutputStream(), _counterSendOps, _counterSendRate);
             os.write(cmd.getBytes());
