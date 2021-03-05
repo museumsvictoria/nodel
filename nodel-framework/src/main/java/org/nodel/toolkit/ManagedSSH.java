@@ -181,6 +181,11 @@ public class ManagedSSH implements Closeable {
     private String _receiveDelimiters = "\r\n";
 
     /**
+     * The delimiters to split the send data on.
+     */
+    private String _sendDelimiters = "\n";
+
+    /**
      * known hosts which will be used with ssh connection
      */
     private final String _knownHosts;
@@ -430,6 +435,18 @@ public class ManagedSSH implements Closeable {
     public void setDest(String dest) {
         synchronized (_lock) {
             _dest = dest;
+        }
+    }
+
+    /**
+     * Sets the send delimiters.
+     */
+    public void setSendDelimeters(String delims) {
+        synchronized (_lock) {
+            if (delims == null)
+                _sendDelimiters = "";
+            else
+                _sendDelimiters = delims;
         }
     }
 
@@ -1016,7 +1033,9 @@ public class ManagedSSH implements Closeable {
             return;
         }
 
-        QueuedCommand command = new QueuedCommand(cmdString, _requestTimeout, responseHandler);
+        String commandString = prepareCommandString(cmdString);
+
+        QueuedCommand command = new QueuedCommand(commandString, _requestTimeout, responseHandler);
         doQueueCommand(command);
     }
 
@@ -1053,6 +1072,43 @@ public class ManagedSSH implements Closeable {
     }
 
     /**
+     * Prepares a command string for sending, null if it's not sendable.
+     */
+    private String prepareCommandString(String data) {
+        if (Strings.isEmpty(data)) {
+            return null;
+        }
+
+        // In 'exec' mode, no need to append sendDelimiters
+        if (_sshMode.equals(SSHMode.EXEC)) {
+            return data;
+        }
+
+        // (data will be at least 1 character in length)
+
+        String commandString = null;
+
+        // append the send delimiter(s) if not already present
+        int delimsCount = _sendDelimiters.length();
+
+        // go through the send delimiters
+        for (int a = 0; a < delimsCount; a++) {
+            // compare last characters
+            if (data.charAt(data.length() - 1) == _sendDelimiters.charAt(a)) {
+                commandString = data;
+                break;
+            }
+        }
+
+        // has no existing delimiters, so append them
+        if (commandString == null) {
+            commandString = data + _sendDelimiters;
+        }
+
+        return commandString;
+    }
+
+    /**
      * Executes command. Returns immediately. Will not throw any exceptions.
      */
     public void sendNow(final String cmdString) {
@@ -1060,7 +1116,9 @@ public class ManagedSSH implements Closeable {
             return;
         }
 
-        sendCommandNow(cmdString, false); // do not use thread pool
+        String commandString = prepareCommandString(cmdString);
+
+        sendCommandNow(commandString, false); // do not use thread pool
     }
 
     /**
@@ -1194,10 +1252,9 @@ public class ManagedSSH implements Closeable {
 
     private void shellCommandNow0(String cmdString) {
         try {
-            final String cmd = cmdString + "\n";
             Channel channel = this.getChannelShell();
             OutputStream os = new CountableOutputStream(channel.getOutputStream(), _counterSendOps, _counterSendRate);
-            os.write(cmd.getBytes());
+            os.write(cmdString.getBytes());
             os.flush();
 
             // fire the 'executed' callback next

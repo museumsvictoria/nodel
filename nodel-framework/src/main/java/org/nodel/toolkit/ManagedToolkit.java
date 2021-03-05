@@ -437,6 +437,7 @@ public class ManagedToolkit {
             H0 onDisconnected,
             H0 onTimeout,
             H1<String> onShellConsoleOut,
+            String sendDelimiters,
             String receiveDelimiters,
             boolean enableEcho) {
 
@@ -472,6 +473,7 @@ public class ManagedToolkit {
         ssh.setShellConsoleOutputHandler(onShellConsoleOut);
 
         // set up delimiters
+        ssh.setSendDelimeters(sendDelimiters);
         ssh.setReceiveDelimiters(receiveDelimiters);
 
         // enable/disable ECHO

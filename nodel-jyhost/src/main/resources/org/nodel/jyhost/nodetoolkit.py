@@ -119,11 +119,12 @@ def SSH(
         disconnected=None,
         timeout=None,
         shellConsoleOut=None,
+        sendDelimiters='\n',
         receiveDelimiters='\r\n',
         enableEcho=False):
     return nodetoolkit.createSSH(mode, dest, knownHosts, username, password, reverseForwardingParams,
                                  connected, executed, disconnected, timeout, shellConsoleOut,
-                                 receiveDelimiters, enableEcho)
+                                 sendDelimiters, receiveDelimiters, enableEcho)
   
 # A managed processes that attempts to stay executed (includes instrumentation)
 def Process(command, # the command line and arguments
