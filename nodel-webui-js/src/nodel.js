@@ -1012,6 +1012,20 @@ var setEvents = function(){
       }
     });
   });
+  $('body').on('click','*[data-link-node]', function (e) {
+    e.stopPropagation(); e.preventDefault();
+    var ele = $(this);
+    var lnode = $(ele).data('link-node');
+    var newWindow = window.open(proto+'//'+host);
+    if(lnode!==''){
+      newWindow.location = proto+'//'+host+'/?filter='+lnode;
+      $.postJSON(proto+'//'+host+'/REST/nodeURLsForNode',JSON.stringify({'name':lnode}), function(data) {
+        if (!_.isUndefined(data[0]['address'])){
+          newWindow.location = data[0]['address'];
+        }
+      });
+    }
+  });
   $('body').on('click','*[data-link-url]', function (e) {
     e.stopPropagation(); e.preventDefault();
     window.open($(this).data('link-url'));
