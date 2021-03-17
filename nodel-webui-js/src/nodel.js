@@ -458,7 +458,7 @@ var clearTimers = function(){
 
 var getNodeDetails = function(){
   var d = $.Deferred();
-  $.getJSON(proto+'//'+host+'/REST/nodes/'+encodeURIComponent(node)+'/', function(data) {
+  $.getJSON(proto+'//'+host+'/nodes/'+encodeURIComponent(node)+'/REST/', function(data) {
     if(!$('.navbar-brand #title').text()) $('.navbar-brand #title').text(getSimpleName(data.name));
     if(data.desc) $('.nodel-description').html(converter.makeHtml(data.desc));
     $('title').text(getSimpleName(data.name));
@@ -567,10 +567,10 @@ var createDynamicElements = function(){
     var d = $.Deferred();
     if($(ele).data('nodel') == 'actsig'){
       var reqs = [];
-      reqs.push($.getJSON(proto+'//'+host+'/REST/nodes/'+encodeURIComponent(node)+'/actions', function(list) {
+      reqs.push($.getJSON(proto+'//'+host+'/nodes/'+encodeURIComponent(node)+'/REST/actions', function(list) {
         actions = list;
       }));
-      reqs.push($.getJSON(proto+'//'+host+'/REST/nodes/'+encodeURIComponent(node)+'/events', function(list) {
+      reqs.push($.getJSON(proto+'//'+host+'/nodes/'+encodeURIComponent(node)+'/REST/events', function(list) {
         events = list;
       }));
       var forms = {"forms":[],"groups":{}};
@@ -639,7 +639,7 @@ var createDynamicElements = function(){
         }
       });
     } else if($(ele).data('nodel') == 'params'){
-      $.getJSON(proto+'//'+host+'/REST/nodes/'+encodeURIComponent(node)+'/params/schema', function(data) {
+      $.getJSON(proto+'//'+host+'/nodes/'+encodeURIComponent(node)+'/REST/params/schema', function(data) {
         if(!_.isEmpty(data)){
           $(ele).data('btntext','Save');
           $(ele).data('btncolour','success');
@@ -656,7 +656,7 @@ var createDynamicElements = function(){
         }
       }).fail(function(){d.resolve();});
     } else if($(ele).data('nodel') == 'remote'){
-      $.getJSON(proto+'//'+host+'/REST/nodes/'+encodeURIComponent(node)+'/remote/schema', function(data) {
+      $.getJSON(proto+'//'+host+'/nodes/'+encodeURIComponent(node)+'/REST/remote/schema', function(data) {
         if(!_.isEmpty(data)){
           $(ele).data('target','remote/save');
           $(ele).data('source','remote');
@@ -856,13 +856,13 @@ var makeTemplate = function(ele, schema, tmpls){
   $.views.settings.delimiters("{{", "}}");
   var tmpl = $.templates(generatedTemplate);
   if(!(_.isUndefined($(ele).data('source'))) && ($(ele).data('source').charAt(0) != '/')){
-    $.getJSON(proto+'//'+host+'/REST/nodes/'+encodeURIComponent(node)+'/'+$(ele).data('source'), function(data) {
+    $.getJSON(proto+'//'+host+'/nodes/'+encodeURIComponent(node)+'/REST/'+$(ele).data('source'), function(data) {
       tmpl.link(ele, data);
       $(ele).find('.base').addClass('bound');
       d.resolve();
     });
   } else if(!(_.isUndefined($(ele).data('source'))) && ($(ele).data('source').charAt(0) == '/')){
-    $.getJSON(proto+'//'+host+'/REST'+$(ele).data('source'), function(data) {
+    $.getJSON(proto+'//'+host+'/nodes/'+encodeURIComponent(node)+'/REST'+$(ele).data('source'), function(data) {
       tmpl.link(ele, data);
       $(ele).find('.base').addClass('bound');
       d.resolve();
@@ -879,7 +879,7 @@ var checkReload = function(){
   var params = {};
   if(!_.isUndefined($('body').data('timer'))) clearTimeout($('body').data('timer'));
   if(!_.isUndefined($('body').data('timestamp'))) params = {timestamp:$('body').data('timestamp')};
-  $.getJSON(proto+'//'+host+'/REST/nodes/'+encodeURIComponent(node)+'/hasRestarted', params, function(data) {
+  $.getJSON(proto+'//'+host+'/nodes/'+encodeURIComponent(node)+'/REST/hasRestarted', params, function(data) {
     if(_.isUndefined($('body').data('timestamp'))){
       $('body').data('timestamp', data.timestamp);
     } else if ($('body').data('timestamp')!=data.timestamp) {
@@ -998,7 +998,7 @@ var setEvents = function(){
     e.stopPropagation(); e.preventDefault();
     var ele = $(this);
     var newWindow = window.open(proto+'//'+host);
-    $.getJSON(proto+'//'+host+'/REST/nodes/'+encodeURIComponent(node)+'/remote', function(data) {
+    $.getJSON(proto+'//'+host+'/nodes/'+encodeURIComponent(node)+'/REST/remote', function(data) {
       if (!_.isUndefined(data['events'][$(ele).data('link-event')])) {
         var lnode = data['events'][$(ele).data('link-event')]['node'];
         if(lnode!==''){
@@ -1091,7 +1091,7 @@ var setEvents = function(){
       //console.log(tosend);
       var nme = $(this).parent().data('btntitle');
       var alt = $(this).parent().data('alert');
-      $.postJSON(proto+'//'+host+'/REST/nodes/'+encodeURIComponent(node)+'/'+$(this).parent().data('target'), JSON.stringify(tosend), function () {
+      $.postJSON(proto+'//'+host+'/nodes/'+encodeURIComponent(node)+'/REST/'+$(this).parent().data('target'), JSON.stringify(tosend), function () {
         console.log(nme+': success');
         if(alt) alert(alt);
       }).fail(function(e){
@@ -1133,7 +1133,7 @@ var setEvents = function(){
       if(text){
         $(this).empty();
         var arg = JSON.stringify({code: text});
-        $.postJSON('/REST/nodes/'+encodeURIComponent(node)+'/exec', arg, function(data){
+        $.postJSON(proto+'//'+host+'/nodes/'+encodeURIComponent(node)+'/REST/exec', arg, function(data){
         }).fail(function(e, s) {
           console.log('Console error: ' + s);
         }).always(function(e){
@@ -1288,7 +1288,7 @@ var setEvents = function(){
         });
         if(data.length > 0){
           $.each(data, function(key, value) {
-            reqs.push($.getJSON(proto+'//'+value.host+'/REST/nodes/'+encodeURIComponent(value.node)+'/'+type, function(data) {
+            reqs.push($.getJSON(proto+'//'+value.host+'/nodes/'+encodeURIComponent(value.node)+'/REST/'+type, function(data) {
               $.each(data, function(key, value) {
                 if(value.name.search(new RegExp(srchflt, "ig")) >= 0 ||
                   (!_.isUndefined(value.title) && value.title.search(new RegExp(srchflt, "ig")) >= 0)) {
@@ -1362,7 +1362,7 @@ var setEvents = function(){
               var host = parser.host;
               $(parser).remove();
               var lnode = value.node;
-              reqs.push($.getJSON(proto+'//'+host+'/REST/nodes/'+encodeURIComponent(lnode)+'/'+grp, function(data) {
+              reqs.push($.getJSON(proto+'//'+host+'/nodes/'+encodeURIComponent(lnode)+'/REST/'+grp, function(data) {
                 $.each(data, function(key, value) {
                   strs.push(value.name);
                 });
@@ -1397,7 +1397,7 @@ var setEvents = function(){
       editor.setOption('readOnly', 'nocursor');
       var path = $(ele).find('.picker').val();
       $(ele).find('textarea').data('path', path);
-      $.get(proto+'//' + host + '/REST/nodes/' + encodeURIComponent(node) + '/files/contents?path=' +encodeURIComponent(path), function (data) {
+      $.get(proto+'//' + host + '/nodes/' + encodeURIComponent(node) + '/REST/files/contents?path=' +encodeURIComponent(path), function (data) {
         switch(path.split('.').pop()){
           //'sh'
           case 'js':
@@ -1453,7 +1453,7 @@ var setEvents = function(){
     var path = $(ele).find('textarea').data('path');
     // use different method to save main script
     if(path == 'script.py') {
-      url = proto+'//' + host + '/REST/nodes/' + encodeURIComponent(node) + '/script/save';
+      url = proto+'//' + host + '/nodes/' + encodeURIComponent(node) + '/REST/script/save';
       payload = JSON.stringify({'script': $(ele).find('textarea').val() });
       $.postJSON(url, payload, function (data) {
         alert("File saved: "+path);
@@ -1464,7 +1464,7 @@ var setEvents = function(){
         $(ele).find('.script_save, .script_delete').prop("disabled", false);
       });
     } else {
-      url = proto+'//' + host + '/REST/nodes/' + encodeURIComponent(node) + '/files/save?path=' +encodeURIComponent(path);
+      url = proto+'//' + host + '/nodes/' + encodeURIComponent(node) + '/REST/files/save?path=' +encodeURIComponent(path);
       payload = $('#field_script').val();
       payload = $(ele).find('textarea').val();
       $.ajax({url:url, type:"POST", data:payload, contentType:"application/octet-stream", success: function (data) {
@@ -1484,7 +1484,7 @@ var setEvents = function(){
     editor.setOption('readOnly', 'nocursor');
     var path = $(ele).find('textarea').data('path');
     if((path != 'script.py') && (confirm("Are you sure?"))) {
-      $.get(proto+'//' + host + '/REST/nodes/' + encodeURIComponent(node) + '/files/delete?path=' +encodeURIComponent(path), function (data) {
+      $.get(proto+'//' + host + '/nodes/' + encodeURIComponent(node) + '/REST/files/delete?path=' +encodeURIComponent(path), function (data) {
         editor.getDoc().setValue('');
         $(ele).find('.picker').val('');
         alert("File deleted: "+path);
@@ -1511,7 +1511,7 @@ var setEvents = function(){
     var path = $(ele).find('.scriptnamval').val();
     var grp = $(ele).find('.addgrp');
     if(allowedtxt.concat(allowedbinary).indexOf(path.split('.').pop()) > -1) {
-      var url = proto+'//' + host + '/REST/nodes/' + encodeURIComponent(node) + '/files/save?path=' +encodeURIComponent(path);
+      var url = proto+'//' + host + '/nodes/' + encodeURIComponent(node) + '/REST/files/save?path=' +encodeURIComponent(path);
       var dta = '';
       var prc = true;
       if($(grp).data('filedata') !== null) {
@@ -1564,7 +1564,7 @@ var setEvents = function(){
     if(nodename != nodenameraw) {
       if(confirm('Are you sure?')) {
         var nodename = JSON.stringify({"value": nodenameraw});
-        $.postJSON(proto+'//' + host + '/REST/nodes/' + encodeURIComponent(node) + '/rename', nodename, function (data) {
+        $.postJSON(proto+'//' + host + '/nodes/' + encodeURIComponent(node) + '/REST/rename', nodename, function (data) {
           alert("Rename successful, redirecting", "success", 0);
           clearTimers();
           checkRedirect(proto+'//' + host + '/nodes/' + encodeURIComponent(getVerySimpleName(nodenameraw)));
@@ -1575,7 +1575,7 @@ var setEvents = function(){
     }
   });
   $('body').on('click', '.restartnodesubmit', function (e) {
-    $.get(proto+'//' + host + '/REST/nodes/' + encodeURIComponent(node) + '/restart', function (data) {
+    $.get(proto+'//' + host + '/nodes/' + encodeURIComponent(node) + '/REST/restart', function (data) {
       alert("Restarting, please wait", "success", 7000);
     }).fail(function(e){
       alert("Error restarting", "danger", 7000, e.responseText);
@@ -1583,7 +1583,7 @@ var setEvents = function(){
   });
   $('body').on('click', '.deletenodesubmit', function (e) {
     if(confirm('Are you sure?')) {
-      $.getJSON(proto+'//' + host + '/REST/nodes/' + encodeURIComponent(node) + '/remove?confirm=true', function (data) {
+      $.getJSON(proto+'//' + host + '/nodes/' + encodeURIComponent(node) + '/REST/remove?confirm=true', function (data) {
         alert("Delete successful, redirecting", "success", 0);
         clearTimers();
         setTimeout(function() { window.location.href = proto+'//' + host; }, 3000);
@@ -1839,7 +1839,7 @@ var getAction = function(ele){
 
 var callAction = function(action, arg) {
   $.each($.isArray(action) ? action : [action], function(i, act){
-    $.postJSON(proto+'//' + host + '/REST/nodes/' + node + '/actions/' + encodeURIComponent(act) + '/call', arg, function () {
+    $.postJSON(proto+'//' + host + '/nodes/' + encodeURIComponent(node) + '/REST/actions/' + encodeURIComponent(act) + '/call', arg, function () {
       console.log(act + " - Success");
     }).fail(function (e, s) {
       errtxt = s;
@@ -1855,7 +1855,7 @@ var fillPicker = function() {
   $.each(pickers, function(i,picker) {
     $(picker).empty();
     $(picker).append('<option value="" selected disabled hidden></option>');
-    $.getJSON(proto+'//' + host + '/REST/nodes/' + encodeURIComponent(node) + '/files', function (data) {
+    $.getJSON(proto+'//' + host + '/nodes/' + encodeURIComponent(node) + '/REST/files', function (data) {
       data.sort(function(a, b){
         if (a['path'] == b['path']) return 0;
         if (a['path'] > b['path']) return 1;
@@ -1879,7 +1879,7 @@ var fillUIPicker = function() {
   $.each(pickers, function(i,picker) {
     var pickerlist = $(picker).find('.dropdown-menu');
     $(pickerlist).empty();
-    $.getJSON(proto+'//' + host + '/REST/nodes/' + encodeURIComponent(node) + '/files', function (data) {
+    $.getJSON(proto+'//' + host + '/nodes/' + encodeURIComponent(node) + '/REST/files', function (data) {
       data.sort(function(a, b){
         if (a['path'] == b['path']) return 0;
         if (a['path'] > b['path']) return 1;
@@ -1908,8 +1908,8 @@ var updateConsoleForm = function(){
     if(!_.isUndefined($('body').data('nodel-console-timer'))) clearTimeout($('body').data('nodel-console-timer'));
     if(!_.isUndefined($('body').data('nodel-console-req'))) $('body').data('nodel-console-req').abort();
     var url;
-    if(typeof $('body').data('nodel-console-seq') === "undefined") url = proto+'//'+host+'/REST/nodes/'+encodeURIComponent(node)+'/console?from=-1&max=200';
-    else url = proto+'//'+host+'/REST/nodes/'+encodeURIComponent(node)+'/console?from='+$('body').data('nodel-console-seq')+'&max=9999';
+    if(typeof $('body').data('nodel-console-seq') === "undefined") url = proto+'//'+host+'/nodes/'+encodeURIComponent(node)+'/REST/console?from=-1&max=200';
+    else url = proto+'//'+host+'/nodes/'+encodeURIComponent(node)+'/REST/console?from='+$('body').data('nodel-console-seq')+'&max=9999';
     var req = $.getJSON(url, function(data) {
       if(!_.isEmpty(data)){
         data.reverse();
@@ -2062,8 +2062,8 @@ var updateCharts = function(){
 var updateLogs = function(){
   if(!("WebSocket" in window) || ($('body').data('trypoll'))){
     var url;
-    if (typeof $('body').data('seq') === "undefined") url = proto+'//' + host + '/REST/nodes/' + encodeURIComponent(node) + '/activity?from=-1';
-    else url = proto+'//' + host + '/REST/nodes/' + encodeURIComponent(node) + '/activity?from=' + $('body').data('seq');
+    if (typeof $('body').data('seq') === "undefined") url = proto+'//' + host + '/nodes/' + encodeURIComponent(node) + '/REST/activity?from=-1';
+    else url = proto+'//' + host + '/nodes/' + encodeURIComponent(node) + '/REST/activity?from=' + $('body').data('seq');
     $.getJSON(url, function (data) {
       online();
       if (typeof $('body').data('seq') === "undefined") {
@@ -2101,8 +2101,10 @@ var updateLogs = function(){
       $('body').data('update', setTimeout(function() { updateLogs(); }, 1000));
     });
   } else {
-    $.getJSON(proto+'//'+host+'/REST/nodes/' + encodeURIComponent(node), function(data){
-      var wshost = "ws://"+document.location.hostname+":"+data['webSocketPort']+"/nodes/"+node;
+    $.getJSON(proto+'//'+host+'/nodes/' + encodeURIComponent(node) + '/REST/', function(data){
+      var wsproto = 'ws:';
+      if (proto == 'https:') wsproto = 'wss:';
+      var wshost = wsproto+"//"+document.location.hostname+":"+data['webSocketPort']+"/nodes/"+node;
       try{
         var socket = new WebSocket(wshost);
         socket.onopen = function(){
