@@ -63,7 +63,8 @@ The parameters in details.
         console.info('[ssh_connected]')
     ```
 
-- **executed**: callback to be called when a command successfully sent to the server.
+- **executed**: callback to be called when a command successfully sent to the server. 
+  To check response from server, please use shellConsoleOut callback.
     ```
     def ssh_executed(cmd):
         console.info('[cmd] %s' % cmd)
