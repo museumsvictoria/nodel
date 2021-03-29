@@ -1265,6 +1265,35 @@ public class ManagedSSH implements Closeable {
     }
 
     /**
+     * Drops this channel; may trigger a reconnect.
+     */
+    public void drop() {
+        synchronized (_lock) {
+            if (_shutdown)
+                return;
+
+            if (_sshMode.equals(SSHMode.SHELL)) {
+                try {
+                    if (_channel != null) {
+                        if (_channel.isConnected()) {
+                            _channel.disconnect();
+                        }
+                        _channel = null;
+                    }
+                    if (_session != null) {
+                        if (_session.isConnected()) {
+                            _session.disconnect();
+                        }
+                        _session = null;
+                    }
+                } catch (Exception ex) {
+                    // ignore
+                }
+            }
+        }
+    }
+
+    /**
      * Permanently shuts down SSH connection.
      */
     @Override
