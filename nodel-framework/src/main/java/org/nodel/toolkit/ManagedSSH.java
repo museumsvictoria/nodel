@@ -33,11 +33,14 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * A managed SSH based heavily on Managed TCP.
+ * Managed SSH toolkit based heavily on the existing Managed TCP class.
+ *
+ *  This Nodel feature contribution is thanks to:
+ *   - [ACMI](https://acmi.net.au), implemented by [Automatic](https://automatic.com.au)
  *
  *  Features include:
  *  - staggered start up (prevent startup storms)
- *  - event-based
+ *  - event-driven with asynchronous request support
  *  - efficient stream filtering
  *    - minimisation of String object fragmentation
  *    - automatic delimiting
