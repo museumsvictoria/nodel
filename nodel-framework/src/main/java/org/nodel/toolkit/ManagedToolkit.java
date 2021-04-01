@@ -425,59 +425,32 @@ public class ManagedToolkit {
     /**
      * Constructs a managed SSH connection.
      */
-    public ManagedSSH createSSH(
-            String mode,
-            String dest,
-            String knownHosts,
-            String username,
-            String password,
-            Map<String, Object> reverseForwardingParams, // parameters for ssh -R command
-            H0 onConnected,
-            H1<String> onExecuted,
-            H0 onDisconnected,
-            H0 onTimeout,
-            H1<String> onShellConsoleOut,
-            String sendDelimiters,
-            String receiveDelimiters,
-            boolean enableEcho) {
-
-        ManagedSSH.SSHMode sshMode = ManagedSSH.SSHMode.EXEC;
-
-        if (mode.equalsIgnoreCase("shell")) {
-            sshMode = ManagedSSH.SSHMode.SHELL;
-        }
-
-        // create a new SSH connection providing this environment's facilities
-        ManagedSSH ssh = new ManagedSSH(
-                sshMode,
-                _node,
-                dest,
-                knownHosts,
-                username,
-                password,
-                _threadStateHandler,
-                _tcpExceptionHandler,
-                _callbackQueue,
-                s_threadPool,
-                s_timers
-        );
-
-        // set up parameters for reverse port forwarding. supports only in "shell" mode
-        ssh.setReverseForwardingParameters(reverseForwardingParams);
+    public ManagedSSH createSSH(String dest,
+                                H0 onConnected,
+                                H1<String> onReceived,
+                                H1<String> onSent,
+                                H0 onDisconnected,
+                                H0 onTimeout,
+                                String sendDelimiters,
+                                String receiveDelimiters,
+                                String username,
+                                String password,
+                                boolean disableEcho) {
+        // create a new TCP connection providing this environment's facilities
+        ManagedSSH ssh = new ManagedSSH(_node, dest, _threadStateHandler, _tcpExceptionHandler, _callbackQueue, s_threadPool, s_timers);
 
         // set up the callback handlers as provided by the user
         ssh.setConnectedHandler(onConnected);
-        ssh.setExecutedHandler(onExecuted);
+        ssh.setReceivedHandler(onReceived);
+        ssh.setSentHandler(onSent);
         ssh.setDisconnectedHandler(onDisconnected);
         ssh.setTimeoutHandler(onTimeout);
-        ssh.setShellConsoleOutputHandler(onShellConsoleOut);
-
-        // set up delimiters
         ssh.setSendDelimeters(sendDelimiters);
         ssh.setReceiveDelimiters(receiveDelimiters);
 
-        // enable/disable ECHO
-        ssh.setEchoEnable(enableEcho);
+        ssh.setDisableEcho(disableEcho);
+        ssh.setUsername(username);
+        ssh.setPassword(password);
 
         synchronized (_lock) {
             if (_closed)

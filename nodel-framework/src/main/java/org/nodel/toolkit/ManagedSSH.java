@@ -1,5 +1,19 @@
 package org.nodel.toolkit;
 
+import java.io.BufferedInputStream;
+import java.io.Closeable;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.net.InetSocketAddress;
+import java.util.Random;
+import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.atomic.AtomicLong;
+
+import com.jcraft.jsch.Channel;
+import com.jcraft.jsch.ChannelShell;
+import com.jcraft.jsch.JSch;
+import com.jcraft.jsch.Session;
 import org.nodel.Handler;
 import org.nodel.Handler.H0;
 import org.nodel.Handler.H1;
@@ -18,16 +32,19 @@ import org.nodel.threading.Timers;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.*;
-import java.net.InetSocketAddress;
-import java.util.Map;
-import java.util.Random;
-import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.atomic.AtomicLong;
-
-import com.jcraft.jsch.*;
-
-
+/**
+ * A managed SSH based heavily on Managed TCP.
+ *
+ *  Features include:
+ *  - staggered start up (prevent startup storms)
+ *  - event-based
+ *  - efficient stream filtering
+ *    - minimisation of String object fragmentation
+ *    - automatic delimiting
+ *    - UTF8 decoded
+ *    - trimmed
+ *  - exponential back-off
+ */
 public class ManagedSSH implements Closeable {
 
     private static final AtomicLong s_instanceCounter = new AtomicLong();
@@ -53,14 +70,14 @@ public class ManagedSSH implements Closeable {
     private final static Random s_random = new Random();
 
     /**
-     * The maximum data to be received (default 1 MB)
+     * The maximum segment allowed between delimiters (default 2 MB)
      */
     private final static int MAX_SEGMENT_ALLOWED = 2 * 1024 * 1024;
 
     /**
      * The minimum gap between connections (default 500ms)
-     * A minimum gap is used to achieve greater reliability when connecting to  hosts
-     * that may be TCPIP stack challenged (think older devices, projectors, etc.)
+     * A minimum gap is used to achieve greater reliability when connecting to hosts
+     * that may be network challenged.
      */
     private final static int MIN_CONNECTION_GAP = 500;
 
@@ -70,7 +87,7 @@ public class ManagedSSH implements Closeable {
     private final static int MAX_BACKOFF = 32000;
 
     /**
-     * The connection or TCP read timeout (default 5 mins)
+     * The connection or SSH read timeout (default 5 mins)
      */
     private static final int RECV_TIMEOUT = 5 * 60000;
 
@@ -78,11 +95,6 @@ public class ManagedSSH implements Closeable {
      * The amount of time given to connect to a socket.
      */
     private static final int CONNECT_TIMEOUT = 30000;
-
-    /**
-     * SSH client
-     */
-    private JSch _jsch;
 
     /**
      * (synchronisation / locking)
@@ -122,17 +134,12 @@ public class ManagedSSH implements Closeable {
     /**
      * (see setter)
      */
-    private H1<String> _executedCallback;
-
-    /**
-     * (see setter)
-     */
-    private H1<String> _shellConsoleOutputCallback;
-
-    /**
-     * (see setter)
-     */
     private H1<String> _receivedCallback;
+
+    /**
+     * (see setter)
+     */
+    private H1<String> _sentCallback;
 
     /**
      * (see setter)
@@ -155,14 +162,21 @@ public class ManagedSSH implements Closeable {
     private boolean _started;
 
     /**
-     * worker thread to monitor session connectivity (only for SHELL mode)
+     * The receive thread.
      */
-    private Thread _thread;
+    private final Thread _thread;
 
     /**
      * Shared timer framework to use.
      */
     private final Timers _timerThread;
+
+    /**
+     * The output stream
+     * (if a field because its accessed by other threads)
+     * (must be set and cleared with 'outputStream')
+     */
+    private OutputStream _outputStream;
 
     /**
      * The start timer.
@@ -186,19 +200,35 @@ public class ManagedSSH implements Closeable {
     private String _sendDelimiters = "\n";
 
     /**
-     * known hosts which will be used with ssh connection
+     * If length delimited mode is being used with start / stop flags
      */
-    private final String _knownHosts;
+    private InputStreamHandleMode _mode = InputStreamHandleMode.CharacterDelimitedText;
 
     /**
-     * Holds username
+     * The default request timeout value (timed from respective 'send')
      */
-    private final String _username;
+    private int _requestTimeout = 10000;
 
     /**
-     * Holds password
+     * The request timeout value (timed from respective 'queue')
      */
-    private final String _password;
+    private final static int LONG_REQ_TIMEOUT = 60000;
+
+    /**
+     * The last time a successful connection occurred (connection or data receive)
+     * (nano time)
+     */
+    private long _lastSuccessfulConnection = System.nanoTime();
+
+    /**
+     * (Response for handling thread-state)
+     */
+    private final H0 _threadStateHandler;
+
+    /**
+     * The connection and receive timeout.
+     */
+    private int _timeout = RECV_TIMEOUT;
 
     /**
      * (diagnostics)
@@ -226,9 +256,9 @@ public class ManagedSSH implements Closeable {
     private final SharableMeasurementProvider _counterSendRate;
 
     /**
-     * The command queue
+     * The request queue
      */
-    private final ConcurrentLinkedQueue<QueuedCommand> _commandQueue = new ConcurrentLinkedQueue<>();
+    private final ConcurrentLinkedQueue<QueuedRequest> _requestQueue = new ConcurrentLinkedQueue<>();
 
     /**
      * Holds the queue length ('ConcurrentLinkedQueue' not designed to handle 'size()' efficiently)
@@ -236,9 +266,9 @@ public class ManagedSSH implements Closeable {
     private int _queueLength = 0;
 
     /**
-     * The active command
+     * The active request
      */
-    private QueuedCommand _activeCommand;
+    private QueuedRequest _activeRequest;
 
     /**
      * Gets initialised once, during connection loop and then never again.
@@ -246,109 +276,71 @@ public class ManagedSSH implements Closeable {
     private byte[] _buffer;
 
     /**
-     * SSH mode : Exec or Shell
+     * SSH: Session (must be set and cleared with 'outputStream')
      */
-    private final SSHMode _sshMode;
+    private final JSch _jsch;
 
     /**
-     * The default request timeout value (timed from respective 'send')
+     * SSH: Session (must be set and cleared with 'outputStream')
      */
-    private int _requestTimeout = 10000;
+    private Session _sshSession;
 
     /**
-     * The command timeout value (timed from respective 'queue')
+     * SSH: Channel (must be set and cleared with 'outputStream')
      */
-    private final int _longTermRequestTimeout = 60000;
+    private Channel _sshChannel;
 
     /**
-     * The last time a successful connection occurred (connection or data receive)
-     * (nano time)
+     * (must be set and cleared with 'outputStream')
+     * (see setter)
      */
-    private long _lastSuccessfulConnection = System.nanoTime();
+    private boolean _disableEcho;
 
     /**
-     * (Response for handling thread-state)
+     * SSH: Disable TELNET console echo
      */
-    private final H0 _threadStateHandler;
+    public void setDisableEcho(boolean value) {
+        _disableEcho = value;
+    }
 
     /**
-     * The connection and receive timeout.
+     * (see setter)
      */
-    private int _timeout = RECV_TIMEOUT;
+    public boolean getDisableEcho() {
+        return _disableEcho;
+    }
 
-    /**
-     * SSH : Session
-     */
-    private Session _session;
+    private String _username;
 
-    /**
-     * SSH : Channel
-     */
-    private Channel _channel;
+    public void setUsername(String value) {
+        _username = value;
+    }
 
-    /**
-     * Parameters for reverse forwarding
-     * e.g.>
-     * {
-     * "bind_address": "abcd",
-     * "rport": 80,
-     * "host": "localhost",
-     * "lport": 8086,
-     * }
-     */
-    private Map<String, Object> _reverseForwardingParameters;
+    public String getUsername() {
+        return _username;
+    }
 
-    /**
-     * enable/disable Echo
-     */
-    private boolean _enableEcho;
+    private String _password;
 
-    /**
-     * array to set SSH terminal mode
-     * e.g.> OPCODE(1byte) + value(4bytes) + END(1byte) ...
-     */
-    private byte[] _terminalMode;
+    public void setPassword(String value) {
+        _password = value;
+    }
 
-    /**
-     *
-     */
-    private InputStreamHandleMode _inputStreamHandleMode = InputStreamHandleMode.CharacterDelimitedText;
-
-    public enum SSHMode {
-        EXEC("exec"),
-        SHELL("shell");
-
-        private final String name;
-
-        SSHMode(String name) {
-            this.name = name;
-        }
-
-        public String getName() {
-            return name;
-        }
+    public String getPassword() {
+        return _password;
     }
 
     /**
      * (constructor)
      */
-    public ManagedSSH(
-            SSHMode sshMode,
-            BaseNode node,
-            String dest,
-            String knownHosts,
-            String username,
-            String password,
-            H0 threadStateHandler,
-            H1<Exception> callbackExceptionHandler,
-            CallbackQueue callbackQueue,
-            ThreadPool threadPool,
-            Timers timers) {
-        _sshMode = sshMode;
+    public ManagedSSH(BaseNode node,
+                      String dest,
+                      H0 threadStateHandler,
+                      H1<Exception> callbackExceptionHandler,
+                      CallbackQueue callbackQueue,
+                      ThreadPool threadPool,
+                      Timers timers) {
         _dest = dest;
-        _knownHosts = knownHosts;
-        _username = username;
-        _password = password;
 
         _threadStateHandler = threadStateHandler;
         _callbackErrorHandler = callbackExceptionHandler;
@@ -356,18 +348,17 @@ public class ManagedSSH implements Closeable {
         _threadPool = threadPool;
         _timerThread = timers;
 
-        _jsch = new JSch();
+        // set up the connect and receive thread
+        _thread = new Thread(new Runnable() {
 
-        if (_sshMode.equals(SSHMode.SHELL)) {
-            _thread = new Thread(new Runnable() {
-                @Override
-                public void run() {
-                    begin();
-                }
-            });
-            _thread.setName(node.getName().getReducedName() + "_sshConnectAndReceive_" + _instance);
-            _thread.setDaemon(true);
-        }
+            @Override
+            public void run() {
+                begin();
+            }
+
+        });
+        _thread.setName(node.getName().getReducedName() + "_sshConnectAndReceive_" + _instance);
+        _thread.setDaemon(true);
 
         // register the counters
         String counterName = "'" + node.getName().getReducedName() + "'";
@@ -376,15 +367,9 @@ public class ManagedSSH implements Closeable {
         _counterRecvRate = Diagnostics.shared().registerSharableCounter(counterName + ".SSH receive rate", true);
         _counterSendOps = Diagnostics.shared().registerSharableCounter(counterName + ".SSH sends", true);
         _counterSendRate = Diagnostics.shared().registerSharableCounter(counterName + ".SSH send rate", true);
-    }
 
-    /**
-     * Parameters for reverse port forwarding.
-     *
-     * @param params, Map<String, Object>
-     */
-    public void setReverseForwardingParameters(Map<String, Object> params) {
-        _reverseForwardingParameters = params;
+        // prepare for JSch library use straight up
+        _jsch = new JSch();
     }
 
     /**
@@ -402,20 +387,6 @@ public class ManagedSSH implements Closeable {
     }
 
     /**
-     * When a command is executed
-     */
-    public void setExecutedHandler(H1<String> handler) {
-        _executedCallback = handler;
-    }
-
-    /**
-     * When a shell input stream is available, console output will be sent with this callback.
-     */
-    public void setShellConsoleOutputHandler(H1<String> handler) {
-        _shellConsoleOutputCallback = handler;
-    }
-
-    /**
      * When a data segment arrives.
      */
     public void setReceivedHandler(H1<String> handler) {
@@ -423,7 +394,14 @@ public class ManagedSSH implements Closeable {
     }
 
     /**
-     * When a command timeout occurs.
+     * When a data segment is sent
+     */
+    public void setSentHandler(H1<String> handler) {
+        _sentCallback = handler;
+    }
+
+    /**
+     * When a a connector a request timeout occurs.
      */
     public void setTimeoutHandler(H0 handler) {
         _timeoutCallback = handler;
@@ -433,7 +411,7 @@ public class ManagedSSH implements Closeable {
      * Sets the destination.
      */
     public void setDest(String dest) {
-        synchronized (_lock) {
+        synchronized(_lock) {
             _dest = dest;
         }
     }
@@ -454,36 +432,22 @@ public class ManagedSSH implements Closeable {
      * Sets the receive delimiters.
      */
     public void setReceiveDelimiters(String delims) {
-        synchronized (_lock) {
+        synchronized(_lock) {
             if (delims == null)
                 _receiveDelimiters = "";
             else
                 _receiveDelimiters = delims;
 
             if (Strings.isEmpty(_receiveDelimiters))
-                _inputStreamHandleMode = InputStreamHandleMode.UnboundedRaw;
+                _mode = InputStreamHandleMode.UnboundedRaw;
         }
-    }
-
-    public void setEchoEnable(boolean flag) {
-        _enableEcho = flag;
-        doUpdateTerminalMode();
-    }
-
-    private void doUpdateTerminalMode() {
-        // https://tools.ietf.org/html/rfc4254
-        _terminalMode = new byte[]{
-                53, // ECHO
-                0, 0, 0, (byte) (_enableEcho ? 1 : 0), // 0: OFF, 1: ON
-                0 // TTY_OP_END
-        };
     }
 
     /**
      * Sets the connection and receive timeout.
      */
     public void setTimeout(int value) {
-        synchronized (_lock) {
+        synchronized(_lock) {
             _timeout = value;
         }
     }
@@ -519,88 +483,36 @@ public class ManagedSSH implements Closeable {
     }
 
     /**
-     * initialize SHELL mode
+     * (see https://tools.ietf.org/html/rfc4254)
      */
-    private void doInitializeShellMode() throws Exception {
-        try {
-            if (!Strings.isEmpty(_knownHosts)) {
-                InputStream isKnowsHosts = new ByteArrayInputStream(_knownHosts.getBytes());
-                _jsch.setKnownHosts(isKnowsHosts);
-            }
+    private final static byte[] TERMINAL_MODE_ECHO_OFF = new byte[]{
+            53, // ECHO
+            0, 0, 0, 0, // 4th byte: 0: ECHO OFF, 1: ECHO ON
+            0 // TTY_OP_END
+    };
 
-            InetSocketAddress serverAddress = parseAndResolveDestination(_dest);
-            _session = _jsch.getSession(_username, serverAddress.getAddress().getHostAddress(), serverAddress.getPort());
-
-            if (!Strings.isEmpty(_password)) {
-                _session.setPassword(_password);
-            }
-
-            java.util.Properties config = new java.util.Properties();
-            config.put("StrictHostKeyChecking", "no");
-            _session.setConfig(config);
-            _session.setServerAliveInterval(5000);
-            _session.connect(); // do not use timeout. Because the first message can be lost.
-
-            _channel = _session.openChannel("shell");
-            ((ChannelShell) _channel).setTerminalMode(_terminalMode);
-            _channel.connect(); // do not use timeout. Because the first message can be lost.
-
-            if (_reverseForwardingParameters != null) {
-                // Supports 2 methods below
-                // 1) public void setPortForwardingR(int rport, String host, int lport)
-                // 2) public void setPortForwardingR(String bind_address, int rport, String host, int lport)
-
-                String bind_address = (String) _reverseForwardingParameters.get("bind_address"); // optional
-                int rport = (Integer) _reverseForwardingParameters.get("rport"); // required
-                String host = (String) _reverseForwardingParameters.get("host"); // required
-                int lport = (Integer) _reverseForwardingParameters.get("lport"); // required
-
-                if (!Strings.isEmpty(bind_address)) {
-                    _session.setPortForwardingR(bind_address, rport, host, lport);
-                } else {
-                    _session.setPortForwardingR(rport, host, lport);
-                }
-            }
-
-            // fire the connected event
-            _callbackHandler.handle(_connectedCallback, _callbackErrorHandler);
-
-        } catch (Exception ex) {
-            _logger.debug("[doInitializeShellMode] Exception", ex);
-            throw ex;
-        }
-    }
-
+    /**
+     * Safely starts this SSH connection after event handlers have been set.
+     */
     public void start() {
-        synchronized (_lock) {
+        synchronized(_lock) {
             if (_shutdown || _started)
                 return;
 
             _started = true;
 
-            if (_sshMode.equals(SSHMode.EXEC)) {
-                try {
-                    if (!Strings.isEmpty(_knownHosts)) {
-                        InputStream isKnowsHosts = new ByteArrayInputStream(_knownHosts.getBytes());
-                        _jsch.setKnownHosts(isKnowsHosts);
-                    }
-                } catch (Exception ex) {
-                    _logger.debug("[start] Exception", ex);
+            // kick off after a random amount of time to avoid resource usage spikes
+
+            int kickoffTime = 1000 + s_random.nextInt(KICKOFF_DELAY);
+
+            _startTimer = _timerThread.schedule(_threadPool, new TimerTask() {
+
+                @Override
+                public void run() {
+                    _thread.start();
                 }
-            } else {
-                // kick off after a random amount of time to avoid resource usage spikes
 
-                int kickoffTime = 1000 + s_random.nextInt(KICKOFF_DELAY);
-
-                _startTimer = _timerThread.schedule(_threadPool, new TimerTask() {
-
-                    @Override
-                    public void run() {
-                        _thread.start();
-                    }
-
-                }, kickoffTime);
-            }
+            }, kickoffTime);
         }
     }
 
@@ -645,15 +557,43 @@ public class ManagedSSH implements Closeable {
     }
 
     /**
-     * Establishes session/channel and continually reads.
+     * Establishes a socket and continually reads.
      */
     private void connectAndRead() throws Exception {
-        try {
+        // keeping on method stack until can be safely 'synchronized'
+        Session session = null;
+        Channel channel = null;
+        OutputStream os = null;
 
-            // Create session/channel and connect.
-            doInitializeShellMode();
+        try {
+            InetSocketAddress socketAddress = parseAndResolveDestination(_dest);
+            session = _jsch.getSession(_username, socketAddress.getAddress().getHostAddress(), socketAddress.getPort());
+            if (!Strings.isEmpty(_password))
+                session.setPassword(_password);
+
+            // set the incoming read timeout
+            session.setTimeout(_timeout);
+
+            java.util.Properties config = new java.util.Properties();
+            config.put("StrictHostKeyChecking", "no");
+            session.setConfig(config);
+
+            int interval = session.getServerAliveInterval();
+
+            session.connect(CONNECT_TIMEOUT);
+
+            channel = session.openChannel("shell");
+            ChannelShell channelShell = (ChannelShell) channel;
+
+            if (_disableEcho)
+                channelShell.setTerminalMode(TERMINAL_MODE_ECHO_OFF);
+
+            channel.connect(); // NOTE: channel.connect(CONNECT_TIMEOUT) stopped incoming data for some reason
 
             _counterConnections.incr();
+
+            // 'inject' countable stream
+            os = new CountableOutputStream(channel.getOutputStream(), _counterSendOps, _counterSendRate);
 
             // update flag
             _lastSuccessfulConnection = System.nanoTime();
@@ -661,6 +601,10 @@ public class ManagedSSH implements Closeable {
             synchronized (_lock) {
                 if (_shutdown)
                     return;
+
+                _outputStream = os;
+                _sshSession = session;
+                _sshChannel = channel;
 
                 // connection has been successful so reset variables
                 // related to exponential back-off
@@ -670,34 +614,66 @@ public class ManagedSSH implements Closeable {
                 _backoffTime = MIN_CONNECTION_GAP;
             }
 
+            // fire the connected event
+            _callbackHandler.handle(_connectedCallback, _callbackErrorHandler);
+
+            InputStream is = channel.getInputStream();
+
             // start reading
-            if (_inputStreamHandleMode == InputStreamHandleMode.CharacterDelimitedText) {
-                readTextLoop(_channel);
-            } else { // mode is 'UnboundedRaw'
-                readUnboundedRawLoop(_channel);
-            }
+            if (_mode == InputStreamHandleMode.CharacterDelimitedText)
+                readTextLoop(is);
+            else if (_mode == InputStreamHandleMode.UnboundedRaw)
+                readUnboundedRawLoop(is);
+            else
+                throw new Exception("Internal failure - unknown Input Stream Mode"); // should never get here
 
             // (any non-timeout exceptions will be propagated to caller...)
 
-        } finally {
-            // always gracefully close the session/channel and invalidate related fields
+        } catch (Exception exc) {
+            // fire the disconnected handler if was previously connected
+            if (os != null)
+                Handler.tryHandle(_disconnectedCallback, _callbackErrorHandler);
 
-            synchronized (_lock) {
-                doCloseChannel();
+            throw exc;
+
+        } finally {
+            // always gracefully close the socket and invalidate the socket fields
+
+            synchronized(_lock) {
+                _sshSession = null;
+                _sshChannel = null;
+                _outputStream = null;
             }
+
+            safeCleanup(session, channel);
+        }
+    }
+
+    private static void safeCleanup(Session session, Channel channel) {
+        try {
+            if (session != null)
+                session.disconnect(); // regardless of connection state
+        } catch (Exception exc) {
+            // consume
+        }
+
+        try {
+            if (channel != null)
+                channel.disconnect(); // regardless of connection state
+        } catch (Exception exc) {
+            // consume
         }
     }
 
     /**
      * The reading loop will continually read until an error occurs
      * or the stream is gracefully ended by the peer.
-     * <p>
+     *
      * ("resource" warning suppression applies to 'bis'. It's not valid because socket itself gets closed)
      */
     @SuppressWarnings("resource")
-    private void readTextLoop(Channel channel) throws Exception {
-        InputStream in = channel.getInputStream();
-        BufferedInputStream bis = new BufferedInputStream(new CountableInputStream(in, _counterRecvOps, _counterRecvRate), 1024);
+    private void readTextLoop(InputStream is) throws Exception {
+        BufferedInputStream bis = new BufferedInputStream(new CountableInputStream(is, _counterRecvOps, _counterRecvRate), 1024);
 
         // create a buffer that'll be reused
         // start off small, will grow as needed
@@ -711,10 +687,8 @@ public class ManagedSSH implements Closeable {
 
             if (charMatches((char) c, _receiveDelimiters)) {
                 String str = bb.getTrimmedString();
-                if (str != null) {
+                if (str != null)
                     handleReceivedData(str);
-                    _callbackHandler.handle(_shellConsoleOutputCallback, str, _callbackErrorHandler);
-                }
 
                 bb.reset();
 
@@ -733,10 +707,8 @@ public class ManagedSSH implements Closeable {
         if (!_shutdown) {
             // send out last data
             String str = bb.getTrimmedString();
-            if (str != null) {
+            if (str != null)
                 handleReceivedData(str);
-                _callbackHandler.handle(_shellConsoleOutputCallback, str, _callbackErrorHandler);
-            }
 
             // then fire the disconnected callback
             Handler.tryHandle(_disconnectedCallback, _callbackErrorHandler);
@@ -747,8 +719,8 @@ public class ManagedSSH implements Closeable {
      * No read-delimiters specified, so fire events as data segments arrive.
      */
     @SuppressWarnings("resource")
-    private void readUnboundedRawLoop(Channel channel) throws IOException {
-        CountableInputStream cis = new CountableInputStream(channel.getInputStream(), _counterRecvOps, _counterRecvRate);
+    private void readUnboundedRawLoop(InputStream is) throws IOException {
+        CountableInputStream cis = new CountableInputStream(is, _counterRecvOps, _counterRecvRate);
 
         // create a buffer that'll be reused
         if (_buffer == null)
@@ -764,8 +736,6 @@ public class ManagedSSH implements Closeable {
 
             // fire the handler
             handleReceivedData(segment);
-
-            _callbackHandler.handle(_shellConsoleOutputCallback, segment, _callbackErrorHandler);
         }
 
         // the peer has gracefully closed down the connection or we're shutting down
@@ -778,7 +748,6 @@ public class ManagedSSH implements Closeable {
 
     /**
      * (convenience method to check when a character appears in a list of characters (in the form of a String)
-     * imported from ManagedTCP
      */
     private static boolean charMatches(char c, String chars) {
         int len = chars.length();
@@ -790,35 +759,34 @@ public class ManagedSSH implements Closeable {
     }
 
     /**
-     * When an actual data segment was received; deals with command callbacks if necessary
+     * When an actual data segment was received; deals with request callbacks if necessary
      */
     private void handleReceivedData(String data) {
-
         // deal with any queued callbacks first
 
-        QueuedCommand command = null;
+        QueuedRequest request = null;
 
         // then check for any requests
         // (should release lock as soon as possible)
         synchronized (_lock) {
-            if (_activeCommand != null) {
-                command = _activeCommand;
-                _activeCommand = null;
+            if (_activeRequest != null) {
+                request = _activeRequest;
+                _activeRequest = null;
             }
         }
 
-        if (command != null && command.timeout > 0) {
+        if (request != null && request.timeout > 0) {
             // make sure it hasn't been too long i.e. timeout
-            if (command.isExpired()) {
-                _logger.debug("Active command has expired");
+            if (request.isExpired()) {
+                _logger.debug("Active request has expired");
 
                 // fire the timeout handler
                 _callbackHandler.handle(_timeoutCallback, _callbackErrorHandler);
             } else {
                 // fire the response request's response handler
-                command.setResponse(data);
+                request.setResponse(data);
 
-                _callbackHandler.handle(command.responseHandler, data, _callbackErrorHandler);
+                _callbackHandler.handle(request.responseHandler, data, _callbackErrorHandler);
             }
         }
 
@@ -828,17 +796,23 @@ public class ManagedSSH implements Closeable {
         processQueue();
     }
 
-    private class QueuedCommand {
+    private static class QueuedRequest {
 
         /**
-         * The original command string
+         * The buffer that's already been validated i.e. not empty and UTF8 encoded
+         * (or null if send data wasn't used in the first place)
+         */
+        public byte[] requestBuffer;
+
+        /**
+         * The original request/send data (only need 'sent' callback)
          * (can be null)
          */
-        public String cmdString;
+        public String request;
 
         /**
          * For long term expiry detection.
-         * <p>
+         *
          * (based on 'nanoTime')
          */
         public long timeQueued = System.nanoTime();
@@ -856,15 +830,16 @@ public class ManagedSSH implements Closeable {
         /**
          * The (optional) callback
          */
-        public Handler.H1<String> responseHandler;
+        public H1<String> responseHandler;
 
         /**
          * Stores the response itself (for synchronous operation)
          */
         public String response;
 
-        public QueuedCommand(String cmdString, int timeout, Handler.H1<String> responseHandler) {
-            this.cmdString = cmdString;
+        public QueuedRequest(byte[] requestBuffer, String origData, int timeout, H1<String> responseHandler) {
+            this.requestBuffer = requestBuffer;
+            this.request = origData;
             this.timeout = timeout;
             this.responseHandler = responseHandler;
         }
@@ -889,7 +864,7 @@ public class ManagedSSH implements Closeable {
         }
 
         /**
-         * Checks whether command has expired.
+         * Checks whether request has expired.
          */
         public boolean isExpired() {
             long timeDiff = (System.nanoTime() - this.timeStarted) / 1000000L;
@@ -901,170 +876,49 @@ public class ManagedSSH implements Closeable {
          */
         public boolean isLongTermExpired() {
             long timeDiff = (System.nanoTime() - this.timeQueued) / 1000000L;
-            return timeDiff > _longTermRequestTimeout;
+            return timeDiff > LONG_REQ_TIMEOUT;
         }
     }
 
     /**
-     * Clears the active command and any queue commands.
+     * For complete control of a request
      */
-    public void clearQueue() {
-        synchronized (_lock) {
-            boolean activeCommandCleared = false;
+    public void queueRequest(String requestData, int timeout, H1<String> responseHandler) {
+        byte[] buffer = prepareBuffer(requestData);
 
-            // clear the active command
-            if (_activeCommand != null) {
-                _activeCommand = null;
-                activeCommandCleared = true;
-            }
+        // buffer can be null, which means a 'send' is not necessary, but a response is
 
-            int count = 0;
+        QueuedRequest request = new QueuedRequest(buffer, requestData, timeout, responseHandler);
 
-            // clear the queue
-            while (_commandQueue.poll() != null) {
-                count++;
-                _queueLength--;
-            }
-
-            _logger.debug("Cleared queue. activeCommand={}, queueCount={}", activeCommandCleared, count);
-        }
+        doQueueRequest(request);
     }
 
-    /**
-     * Expires and initiates commands in the queue
-     * (assumes not synced)
-     */
-    private void processQueue() {
-        // if any new commands are found
-        QueuedCommand nextCommand = null;
-
-        // if a timeout callback needs to be fired
-        boolean callTimeout = false;
-
-        synchronized (_lock) {
-            // check if any active commands need expiring
-            if (_activeCommand != null) {
-                if (_activeCommand.responseHandler == null || _activeCommand.timeout <= 0) {
-                    // was a blind command or
-                    _activeCommand = null;
-
-                } else if (_activeCommand.isExpired()) {
-                    _logger.debug("Active command has expired");
-
-                    // timeout callback must be fired
-                    callTimeout = true;
-
-                    // clear active command
-                    _activeCommand = null;
-
-                } else if (_activeCommand.isLongTermExpired()) {
-                    _logger.debug("Active command has long term expired");
-
-                    callTimeout = true;
-
-                    _activeCommand = null;
-                } else {
-                    // there is still an valid active command,
-                    // so just get out of here
-                    return;
-                }
-            }
-        }
-
-        // call the timeout callback, (there's an opportunity for command queue to be cleared by callback handler)
-        if (callTimeout) {
-            _callbackHandler.handle(_timeoutCallback, _callbackErrorHandler);
-        }
-
-        // an active command might have come in
-        synchronized (_lock) {
-            if (_activeCommand != null) {
-                // there's an active command, so leave it to play out
-                return;
-            }
-            // record this for logging
-            int longTermDropped = 0;
-
-            try {
-                for (; ; ) {
-                    // no active command, check for queued ones
-                    nextCommand = _commandQueue.poll();
-
-                    if (nextCommand == null) {
-                        // no more commands either, so nothing more to do
-                        _logger.debug("No new commands in queue.");
-
-                        return;
-                    }
-
-                    _queueLength--;
-
-                    if (!nextCommand.isLongTermExpired())
-                        break;
-
-                    // otherwise, continue to expire the long term queued
-                    longTermDropped++;
-                }
-            } finally {
-                if (longTermDropped > 0)
-                    _logger.debug("(dropped {} long term queued commands.)", longTermDropped);
-            }
-
-            // set active command and start timeout *before* sending
-            _activeCommand = nextCommand;
-            nextCommand.startTimeout();
-        }
-
-        // if the command has 'cmdString', execute now
-        if (!Strings.isEmpty(nextCommand.cmdString)) {
-            sendCommandNow(nextCommand.cmdString, false); // do not use thread pool
-        }
-    }
-
-    /**
-     * Safely sends command without overlapping any existing commands
-     */
-    public void send(String cmdString) throws Exception {
-        send(cmdString, null);
-    }
-
-    public void send(String cmdString, Handler.H1<String> responseHandler) throws Exception {
-        if (Strings.isEmpty(cmdString)) {
-            return;
-        }
-
-        String commandString = prepareCommandString(cmdString);
-
-        QueuedCommand command = new QueuedCommand(commandString, _requestTimeout, responseHandler);
-        doQueueCommand(command);
-    }
-
-    public void doQueueCommand(QueuedCommand command) {
+    public void doQueueRequest(QueuedRequest request) {
         // whether or not this entry had to be queued
         boolean queued = false;
 
         synchronized (_lock) {
-            if (_activeCommand == null) {
-                _logger.debug("Active command made. data:[{}]", command.cmdString);
+            if (_activeRequest == null) {
+                _logger.debug("Active request made. data:[{}]", request.request);
 
-                // make it the active command and don't queue it
-                _activeCommand = command;
+                // make it the active request and don't queue it
+                _activeRequest = request;
 
                 // will be sent next, so start timing
-                _activeCommand.startTimeout();
+                _activeRequest.startTimeout();
 
             } else {
-                _logger.debug("Queued a command. data:[{}]", command.cmdString);
+                _logger.debug("Queued a request. data:[{}]", request.request);
 
-                // a command is active, so queue this new one
-                _commandQueue.add(command);
+                // a request is active, so queue this new one
+                _requestQueue.add(request);
                 _queueLength++;
                 queued = true;
             }
         }
 
-        if (!queued && !Strings.isEmpty(command.cmdString)) {
-            sendCommandNow(command.cmdString, false); // do not use thread pool
+        if (!queued && request.requestBuffer != null) {
+            sendBufferNow(request.requestBuffer, request.request, true);
         }
 
         // without a timer, the queue needs to serviced on both send and receive
@@ -1072,21 +926,206 @@ public class ManagedSSH implements Closeable {
     }
 
     /**
-     * Prepares a command string for sending, null if it's not sendable.
+     * (Overloaded) (uses default timeout value)
      */
-    private String prepareCommandString(String data) {
-        if (Strings.isEmpty(data)) {
-            return null;
+    public void request(String requestData, H1<String> responseHandler) {
+        // don't bother doing anything if empty or missing
+        if (Strings.isEmpty(requestData))
+            return;
+
+        queueRequest(requestData, _requestTimeout, responseHandler);
+    }
+
+    /**
+     * (synchronous version)
+     */
+    public String requestWaitAndReceive(String requestData) {
+        int recvTimeout = getRequestTimeout();
+
+        final String[] response = new String[1];
+
+        synchronized (response) {
+            queueRequest(requestData, recvTimeout, new H1<String>() {
+
+                @Override
+                public void handle(String value) {
+                    synchronized (response) {
+                        response[0] = value;
+
+                        response.notify();
+                    }
+                }
+
+            });
+
+            // wait for a while or until notified when a response is received
+            Threads.waitOnSync(response, recvTimeout);
         }
 
-        // In 'exec' mode, no need to append sendDelimiters
-        if (_sshMode.equals(SSHMode.EXEC)) {
-            return data;
+        return response[0];
+    }
+
+    /**
+     * Receives data and invokes a callback
+     */
+    public void receive(H1<String> responseHandler) {
+        queueRequest(null, _requestTimeout, responseHandler);
+    }
+
+    /**
+     * Synchronous version.
+     */
+    public String waitAndReceive() {
+        int recvTimeout = getRequestTimeout();
+        QueuedRequest request = new QueuedRequest(null, null, recvTimeout, null);
+
+        synchronized(request) {
+            queueRequest(null, _requestTimeout, null);
+
+            // wait for a while or until notified when a response is received
+            Threads.waitOnSync(request, recvTimeout);
         }
+
+        return request.response;
+    }
+
+    /**
+     * Clears the active request and any queue requests.
+     */
+    public void clearQueue() {
+        synchronized (_lock) {
+            boolean activeRequestCleared = false;
+
+            // clear the active request
+            if(_activeRequest != null){
+                _activeRequest = null;
+                activeRequestCleared = true;
+            }
+
+            int count = 0;
+
+            // clear the queue
+            while (_requestQueue.poll() != null) {
+                count++;
+                _queueLength--;
+            }
+
+            _logger.debug("Cleared queue. activeRequest={}, queueCount={}", activeRequestCleared, count);
+        }
+    }
+
+    /**
+     * Expires and initiates requests in the queue
+     * (assumes not synced)
+     */
+    private void processQueue() {
+        // if any new requests are found
+        QueuedRequest nextRequest;
+
+        // if a timeout callback needs to be fired
+        boolean callTimeout = false;
+
+        synchronized (_lock) {
+            // check if any active requests need expiring
+            if (_activeRequest != null) {
+                if (_activeRequest.responseHandler == null || _activeRequest.timeout <= 0) {
+                    // was a blind request or
+                    _activeRequest = null;
+
+                } else if (_activeRequest.isExpired()) {
+                    _logger.debug("Active request has expired");
+
+                    // timeout callback must be fired
+                    callTimeout = true;
+
+                    // clear active request
+                    _activeRequest = null;
+
+                } else if (_activeRequest.isLongTermExpired()) {
+                    _logger.debug("Active request has long term expired");
+
+                    callTimeout = true;
+
+                    _activeRequest = null;
+                } else {
+                    // there is still an valid active request,
+                    // so just get out of here
+                    return;
+                }
+            }
+        }
+
+        // call the timeout callback, (there's an opportunity for request queue to be cleared by callback handler)
+        if (callTimeout)
+            _callbackHandler.handle(_timeoutCallback, _callbackErrorHandler);
+
+        // an active request might have come in
+        synchronized (_lock) {
+            if (_activeRequest != null) {
+                // there's an active request, so leave it to play out
+                return;
+            }
+            // record this for logging
+            int longTermDropped = 0;
+
+            try {
+                for (;;) {
+                    // no active request, check for queued ones
+                    nextRequest = _requestQueue.poll();
+
+                    if (nextRequest == null) {
+                        // no more requests either, so nothing more to do
+                        _logger.debug("No new requests in queue.");
+
+                        return;
+                    }
+
+                    _queueLength--;
+
+                    if (!nextRequest.isLongTermExpired())
+                        break;
+
+                    // otherwise, continue to expire the long term queued
+                    longTermDropped++;
+                }
+            } finally {
+                if (longTermDropped > 0)
+                    _logger.debug("(dropped {} long term queued requests.)", longTermDropped);
+            }
+
+            // set active request and start timeout *before* sending
+            _activeRequest = nextRequest;
+            nextRequest.startTimeout();
+        }
+
+        // if the request has send data 'data' send now
+        if (nextRequest.requestBuffer != null)
+            sendBufferNow(nextRequest.requestBuffer, nextRequest.request, false);
+    }
+
+    /**
+     * Safely sends data without overlapping any existing requests
+     */
+    public void send(String data) {
+        byte[] buffer = prepareBuffer(data);
+
+        QueuedRequest request = new QueuedRequest(buffer, data, 0, null);
+
+        doQueueRequest(request);
+    }
+
+    /**
+     * Prepares a buffer for sending, null if it's not sendable.
+     */
+    private byte[] prepareBuffer(String data) {
+        if (Strings.isEmpty(data))
+            return null;
 
         // (data will be at least 1 character in length)
 
-        String commandString = null;
+        byte[] buffer = null;
+
+        // character(s) delimited mode:
 
         // append the send delimiter(s) if not already present
         int delimsCount = _sendDelimiters.length();
@@ -1095,250 +1134,69 @@ public class ManagedSSH implements Closeable {
         for (int a = 0; a < delimsCount; a++) {
             // compare last characters
             if (data.charAt(data.length() - 1) == _sendDelimiters.charAt(a)) {
-                commandString = data;
+                buffer = stringToBuffer(data, null);
                 break;
             }
         }
 
         // has no existing delimiters, so append them
-        if (commandString == null) {
-            commandString = data + _sendDelimiters;
-        }
+        if (buffer == null)
+            buffer = stringToBuffer(data, _sendDelimiters);
 
-        return commandString;
+        return buffer;
     }
 
     /**
-     * Executes command. Returns immediately. Will not throw any exceptions.
+     * Sends data. Returns immediately. Will not throw any exceptions.
      */
-    public void sendNow(final String cmdString) {
-        if (Strings.isEmpty(cmdString)) {
+    public void sendNow(final String data) {
+        byte[] buffer = prepareBuffer(data);
+
+        if (buffer == null)
             return;
-        }
 
-        String commandString = prepareCommandString(cmdString);
-
-        sendCommandNow(commandString, false); // do not use thread pool
+        sendBufferNow(buffer, data, false);
     }
 
     /**
-     * Sends a command immediately, optionally using a thread-pool
-     * In some cases, sequence of commands execution is broken. Please do not use thread pool.
+     * Sends a prepared buffer immediately, optionally using a thread-pool
      */
-    private void sendCommandNow(final String cmdString, boolean onThreadPool) {
-        try {
+    private void sendBufferNow(final byte[] buffer, final String origData, boolean onThreadPool) {
+        final OutputStream os;
+
+        synchronized(_lock) {
+            os = _outputStream;
+        }
+
+        if (os != null) {
             if (onThreadPool) {
                 _threadPool.execute(new Runnable() {
 
                     @Override
                     public void run() {
                         _threadStateHandler.handle();
-                        if (_sshMode.equals(SSHMode.SHELL)) {
-                            shellCommandNow0(cmdString);
-                        } else {
-                            execCommandNow0(cmdString);
-                        }
+                        sendBufferNow0(os, buffer, origData);
                     }
+
                 });
             } else {
-                if (_sshMode.equals(SSHMode.SHELL)) {
-                    shellCommandNow0(cmdString);
-                } else {
-                    execCommandNow0(cmdString);
-                }
+                sendBufferNow0(os, buffer, origData);
             }
-        } catch (Exception ex) {
-
-        } finally {
         }
     }
 
-    /**********************************************************************************************************************************
-     * EXEC MODE
-     *********************************************************************************************************************************/
-
-    private void handleExecModeInputStream(Channel channel) {
+    /**
+     * (convenience method)
+     */
+    private void sendBufferNow0(OutputStream os, byte[] buffer, String origData) {
         try {
-            InputStream in = channel.getInputStream();
-
-            // create a buffer that'll be reused
-            // start off small, will grow as needed
-            BufferBuilder bb = new BufferBuilder(256);
-            while (!_shutdown) {
-                int c = in.read();
-                if (c < 0)
-                    break;
-
-                if (bb.getSize() >= MAX_SEGMENT_ALLOWED) {
-                    // drop the connection
-                    throw new IOException("Too much data arrived (at least " + bb.getSize() / 1024 + " KB); dropping connection.");
-                }
-                bb.append((byte) c);
-            } // (while)
-
-            // send out last data
-            String str = bb.getTrimmedString();
-            if (str != null) {
-                handleReceivedData(str);
-                _callbackHandler.handle(_shellConsoleOutputCallback, str, _callbackErrorHandler);
-            }
-        } catch (IOException ex) {
-            // ignore
-        }
-    }
-
-    private void execCommandNow0(String cmdString) {
-        Session session = null;
-        Channel channel = null;
-        try {
-            // Exec Session should be created per a command and disconnected.
-            InetSocketAddress serverAddress = parseAndResolveDestination(_dest);
-            session = _jsch.getSession(_username, serverAddress.getAddress().getHostAddress(), serverAddress.getPort());
-            session.setPassword(_password);
-            java.util.Properties config = new java.util.Properties();
-            config.put("StrictHostKeyChecking", "no");
-            session.setConfig(config);
-            session.connect(); // do not use timeout. Because the first message can be lost.
-
-            channel = session.openChannel("exec");
-            ((ChannelExec) channel).setCommand(cmdString);
-            channel.setInputStream(null);
-            channel.setOutputStream(System.out);
-
-            ((ChannelExec) channel).setTerminalMode(_terminalMode);
-
-            channel.connect(); // do not use timeout. Because the first message can be lost.
-
-            Handler.tryHandle(_connectedCallback, _callbackErrorHandler);
-
-            handleExecModeInputStream(channel);
-
-            _callbackHandler.handle(_executedCallback, cmdString, _callbackErrorHandler);
-
-            _counterConnections.incr();
-
-        } catch (Exception ex) {
-            _logger.debug("[execCommandNow0] Exception", ex);
-            throw new RuntimeException(ex.getMessage());
-        } finally {
-            try {
-                if (channel != null && channel.isConnected()) {
-                    channel.disconnect();
-                }
-                if (session != null && session.isConnected()) {
-                    session.disconnect();
-                }
-                Handler.tryHandle(_disconnectedCallback, _callbackErrorHandler);
-            } catch (Exception ex) {
-                _logger.debug("[execCommandNow0::finally] Exception", ex);
-            }
-        }
-    }
-
-    /**********************************************************************************************************************************
-     * SHELL MODE
-     *********************************************************************************************************************************/
-
-    private Channel getChannelShell() {
-        if (_session == null || !_session.isConnected()) {
-            _logger.debug("[getChannelShell] Session disconnected");
-            synchronized (_lock) {
-                doCloseChannel();
-            }
-            throw new RuntimeException("Session disconnected");
-        }
-        return _channel;
-    }
-
-    private void shellCommandNow0(String cmdString) {
-        try {
-            Channel channel = this.getChannelShell();
-            OutputStream os = new CountableOutputStream(channel.getOutputStream(), _counterSendOps, _counterSendRate);
-            os.write(cmdString.getBytes());
+            os.write(buffer);
             os.flush();
-
-            // fire the 'executed' callback next
-            _callbackHandler.handle(_executedCallback, cmdString, _callbackErrorHandler);
-        } catch (Exception ex) {
+        } catch (Exception exc) {
             // ignore
         }
-    }
 
-    /**
-     * Drops this channel; may trigger a reconnect.
-     */
-    public void drop() {
-        synchronized (_lock) {
-            if (_shutdown)
-                return;
-
-            if (_sshMode.equals(SSHMode.SHELL)) {
-                try {
-                    if (_channel != null) {
-                        if (_channel.isConnected()) {
-                            _channel.disconnect();
-                        }
-                        _channel = null;
-                    }
-                    if (_session != null) {
-                        if (_session.isConnected()) {
-                            _session.disconnect();
-                        }
-                        _session = null;
-                    }
-                } catch (Exception ex) {
-                    // ignore
-                }
-            }
-        }
-    }
-
-    /**
-     * Permanently shuts down SSH connection.
-     */
-    @Override
-    public void close() {
-        synchronized (_lock) {
-            if (_shutdown)
-                return;
-
-            _shutdown = true;
-
-            if (_sshMode.equals(SSHMode.SHELL)) {
-                if (_startTimer != null) {
-                    _startTimer.cancel();
-                }
-                doCloseChannel();
-            }
-
-            _jsch = null;
-
-            // notify the connection and receive thread if it happens to be waiting
-            _lock.notify();
-        }
-    }
-
-    /**
-     * Only for SHELL mode
-     */
-    private void doCloseChannel() {
-        try {
-            if (_channel != null) {
-                if (_channel.isConnected()) {
-                    _channel.disconnect();
-                }
-                _channel = null;
-            }
-            if (_session != null) {
-                if (_session.isConnected()) {
-                    _session.disconnect();
-                    Handler.tryHandle(_disconnectedCallback, _callbackErrorHandler);
-                }
-                _session = null;
-            }
-        } catch (Exception ex) {
-            // ignore
-        }
+        Handler.tryHandle(_sentCallback, origData, _callbackErrorHandler);
     }
 
     /**
@@ -1363,18 +1221,57 @@ public class ManagedSSH implements Closeable {
      */
     private String bufferToString(byte[] buffer, int offset, int len) {
         char[] cBuffer = new char[len];
-        for (int a = 0; a < len; a++) {
+        for (int a=0; a<len; a++) {
             cBuffer[a] = (char) (buffer[offset + a] & 0xff);
         }
 
         return new String(cBuffer);
     }
 
+
+    /**
+     * Drops this socket; may trigger a reconnect.
+     */
+    public void drop() {
+        synchronized (_lock) {
+            if (_shutdown)
+                return;
+
+            safeCleanup(_sshSession, _sshChannel);
+        }
+    }
+
+    /**
+     * Permanently shuts down this managed SSH connection.
+     */
+    @Override
+    public void close() {
+        synchronized(_lock) {
+            if (_shutdown)
+                return;
+
+            _shutdown = true;
+
+            _outputStream = null;
+
+            if (_startTimer != null)
+                _startTimer.cancel();
+
+            safeCleanup(_sshSession, _sshChannel);
+
+            _sshSession = null;
+            _sshChannel = null;
+
+            // notify the connection and receive thread if it happens to be waiting
+            _lock.notify();
+        }
+    }
+
     /**
      * Creates an unresolved socket address.
      */
     private static InetSocketAddress parseAndResolveDestination(String dest) {
-        if (Strings.isEmpty(dest))
+        if (Strings.isBlank(dest))
             throw new IllegalArgumentException("No destination has been set.");
 
         int lastIndexOfPort = dest.lastIndexOf(':');
@@ -1384,10 +1281,10 @@ public class ManagedSSH implements Closeable {
         String addrPart = dest.substring(0, lastIndexOfPort);
         String portPart = dest.substring(lastIndexOfPort + 1);
 
-        if (Strings.isEmpty(addrPart))
+        if (Strings.isBlank(addrPart))
             throw new IllegalArgumentException("'dest' is missing or empty.");
 
-        if (Strings.isEmpty(portPart))
+        if (Strings.isBlank(portPart))
             throw new IllegalArgumentException("port is missing or empty.");
 
         int port;
@@ -1400,4 +1297,5 @@ public class ManagedSSH implements Closeable {
 
         return new InetSocketAddress(addrPart, port);
     }
+
 }
