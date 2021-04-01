@@ -202,10 +202,15 @@ public class ManagedSSH implements Closeable {
      */
     private String _sendDelimiters = "\n";
 
+    private enum ReadMode {
+        UnboundedRaw,
+        CharacterDelimitedText
+    }
+
     /**
      * If length delimited mode is being used with start / stop flags
      */
-    private InputStreamHandleMode _mode = InputStreamHandleMode.CharacterDelimitedText;
+    private ReadMode _mode = ReadMode.CharacterDelimitedText;
 
     /**
      * The default request timeout value (timed from respective 'send')
@@ -442,7 +447,7 @@ public class ManagedSSH implements Closeable {
                 _receiveDelimiters = delims;
 
             if (Strings.isEmpty(_receiveDelimiters))
-                _mode = InputStreamHandleMode.UnboundedRaw;
+                _mode = ReadMode.UnboundedRaw;
         }
     }
 
@@ -623,9 +628,9 @@ public class ManagedSSH implements Closeable {
             InputStream is = channel.getInputStream();
 
             // start reading
-            if (_mode == InputStreamHandleMode.CharacterDelimitedText)
+            if (_mode == ReadMode.CharacterDelimitedText)
                 readTextLoop(is);
-            else if (_mode == InputStreamHandleMode.UnboundedRaw)
+            else if (_mode == ReadMode.UnboundedRaw)
                 readUnboundedRawLoop(is);
             else
                 throw new Exception("Internal failure - unknown Input Stream Mode"); // should never get here
