@@ -2006,12 +2006,7 @@ var doUpdateCharts = function (rawMeasurements) {
     // append element
     $(".nodel-charts").append(
       '<div class="nodel-charts-filter">\
-        <select id="charts-filter" multiple \
-          data-actions-box="true" \
-          data-width="100%" \
-          data-size="10" \
-          data-header="Select">\
-        </select>\
+        <select id="charts-filter" multiple data-actions-box="true" data-width="100%" data-size="10" data-header="Select"></select>\
       </div>'
     );
     // populate
@@ -2025,9 +2020,7 @@ var doUpdateCharts = function (rawMeasurements) {
       
       if (!categorySet[category]) {
         categorySet[category] = category;
-        $(".nodel-charts-filter select").append(
-          '<option value="' + category + '">' + category + "</option>"
-        );
+        $(".nodel-charts-filter select").append('<option value="' + category + '">' + category + "</option>");
       }
     });
     // add callback
@@ -2041,19 +2034,28 @@ var doUpdateCharts = function (rawMeasurements) {
     });
   }
 
-  // draw charts
+  // draw/delete charts
   rawMeasurements.forEach(function (measurement, i, a) {
     try {
       var parts = getCategoryAnd(measurement);
       var category = parts[0];
       var subcategory = parts[1];
 
+      var re = /[^a-zA-Z0-9]/g;
+      var categoryForDiv = category.replace(re, "_");
+      var subcategoryForDiv = subcategory.replace(re, "_");
+      var nameForDiv = measurement.name.replace(re, "_");
+      var categoryDiv = $("#" + categoryForDiv);
+
+      // delete charts unless selected
       if (filterSelected.indexOf(category) === -1) {
+        // get rid of element
+        $("#" + categoryForDiv + "_wrapper").remove();
         return;
       }
+
       //drawChart(measurement.values, measurement.isRate, measurement.name);
-      if (measurement.isRate) scale = 10;
-      else scale = 1;
+      var scale = measurement.isRate ? 10 : 1;
       var chartData = new google.visualization.DataTable();
       chartData.addColumn("string", measurement.name);
       chartData.addColumn("number", measurement.name);
@@ -2061,12 +2063,7 @@ var doUpdateCharts = function (rawMeasurements) {
         chartData.addRow(["", element / scale]);
       });
 
-      var re = /[^a-zA-Z0-9]/g;
-      var categoryForDiv = category.replace(re, "_");
-      var subcategoryForDiv = subcategory.replace(re, "_");
-      var nameForDiv = measurement.name.replace(re, "_");
-      var categoryDiv = $("#" + categoryForDiv);
-      if (categoryDiv.length == 0) {
+      if (categoryDiv.length === 0) {
         $(".nodel-charts").append('<div id="' + categoryForDiv + "_wrapper" + '"><h6>' + category + '</h6><hr/><div class="col-sm-12"><div class="row" id="' + categoryForDiv + '"></div></div></div>');
         categoryDiv = $("#" + categoryForDiv);
       }
@@ -2098,21 +2095,6 @@ var doUpdateCharts = function (rawMeasurements) {
       chart.chart.draw(chartData, chart.options);
     } catch (err) {
       throw "draw chart failed related to " + measurement.name + ": " + err;
-    }
-  });
-
-  // delete charts unless selected
-  rawMeasurements.forEach(function (measurement, i, a) {
-    var parts = getCategoryAnd(measurement);
-    var category = parts[0];
-
-    var re = /[^a-zA-Z0-9]/g;
-    var categoryForDiv = category.replace(re, "_");
-
-    if (filterSelected.indexOf(category) === -1) {
-      // get rid of element
-      var categoryDivWrapper = $("#" + categoryForDiv + "_wrapper");
-      categoryDivWrapper.remove();
     }
   });
 };

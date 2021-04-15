@@ -41,7 +41,6 @@ if (!branch.equals("stable"))
 
 sourceSets {
     main {
-        resources.srcDirs new File(project(':nodel-webui-js').buildDir, 'www-content')
     }
 }
 
@@ -55,7 +54,6 @@ jar {
 }
 
 dependencies {
-    project(':nodel-webui-js')
     compile 'joda-time:joda-time:2.6'
     compile 'org.slf4j:slf4j-api:1.7.10'
 }
