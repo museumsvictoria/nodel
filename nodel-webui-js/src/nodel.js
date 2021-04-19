@@ -2006,7 +2006,7 @@ var doUpdateCharts = function (rawMeasurements) {
     // append element
     $(".nodel-charts").append(
       '<div class="nodel-charts-filter">\
-        <select id="charts-filter" multiple data-actions-box="true" data-width="100%" data-size="10" data-header="Select"></select>\
+        <select id="charts-filter" multiple data-actions-box="true" data-width="100%" data-size="10"></select>\
       </div>'
     );
     // populate
