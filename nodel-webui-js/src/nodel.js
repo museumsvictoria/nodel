@@ -1773,7 +1773,7 @@ var setEvents = function(){
   $('body').on('mousedown', function (e) {
     if($(e.target).closest('.dropdown-menu').length){
       $('body').one('mouseup', function (e) {
-        $('.dropdown').one('hide.bs.dropdown', function (e) {
+        $('.dropdown').not('.bootstrap-select').one('hide.bs.dropdown', function (e) {
           return false;
         });
       });
@@ -2006,7 +2006,7 @@ var doUpdateCharts = function (rawMeasurements) {
     // append element
     $(".nodel-charts").append(
       '<div class="nodel-charts-filter">\
-        <select id="charts-filter" multiple data-actions-box="true" data-width="100%" data-size="10"></select>\
+        <select id="charts-filter" multiple data-actions-box="true" data-width="100%" data-size="10" data-header="Select"></select>\
       </div>'
     );
     // populate
