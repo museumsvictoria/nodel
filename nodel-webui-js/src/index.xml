@@ -123,5 +123,11 @@
         </group>
       </column>
     </row>
+    <row>
+      <column sm="1">
+        <text>Light Colour</text>
+        <colour width="100" height="100" action="Color"></colour>
+      </column>
+    </row>
   </page>
 </pages>

@@ -1238,6 +1238,42 @@
     <div><form><input class="form-control" data-arg-source="this" data-event="{@event}" readonly="true"/></form></div>
   </xsl:template>
   <!-- field -->
+  <!-- colour -->
+  <xsl:template match="colour">
+    <div><form>
+      <input type="color" class="form-control" data-arg-source="this">
+        <xsl:if test="@event or @action">
+          <xsl:choose>
+            <xsl:when test="@event">
+              <xsl:attribute name="data-event">
+                <xsl:value-of select="@event"/>
+              </xsl:attribute>
+            </xsl:when>
+            <xsl:otherwise>
+              <xsl:attribute name="data-action">
+                <xsl:value-of select="@action"/>
+              </xsl:attribute>
+            </xsl:otherwise>
+          </xsl:choose>
+        </xsl:if>        
+        <xsl:if test="@height|@width">
+          <xsl:attribute name="style">
+            <xsl:if test="@height">
+              <xsl:text>height:</xsl:text>
+              <xsl:value-of select="@height"/>
+              <xsl:text>px;</xsl:text>
+            </xsl:if>
+            <xsl:if test="@width">
+              <xsl:text>width:</xsl:text>
+              <xsl:value-of select="@width"/>
+              <xsl:text>px;</xsl:text>
+            </xsl:if>
+          </xsl:attribute>
+        </xsl:if>
+      </input>
+    </form></div>
+  </xsl:template>
+  <!-- colour -->  
   <!-- meter -->
   <xsl:template match="meter">
     <div class="meter" data-event="{@event}">

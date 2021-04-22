@@ -951,6 +951,18 @@ var setEvents = function(){
     }
     $(ele).data('throttle')(data.action, data.arg);
   });
+  $('body').on('input','input[type=color]input[data-action]', function (e){
+    var ele = $(this);
+    data = getAction(this);
+    if(!_.isFunction($(this).data('throttle'))) {
+      $(ele).data('throttle', _.throttle(function(act, ar) {
+        callAction(act, ar);
+      }, 250));
+    }
+    // Here you can do something to convert value (RGB -> HSL).
+    // input element will return RGB value ('#RRGGBB') only.
+    $(ele).data('throttle')(data.action, data.arg);
+  });
   $('body').on('touchstart mousedown touchend touchcancel mouseup','input[type=range]input[data-action]', function (e) {
     if($.inArray(e.type, ['touchstart','mousedown']) > -1) $(this).addClass('active');
     else $(this).removeClass('active');
@@ -962,7 +974,7 @@ var setEvents = function(){
     else $(this).removeClass('active');
     callAction(data.action, data.arg);
   });
-  $('body').on('click','*[data-arg], *[data-action]', function (e) {
+  $('body').find('*[data-arg], *[data-action]').not('input[type="color"]').on('click', function (e) {
     e.stopPropagation(); e.preventDefault();
     if(!$('body').hasClass('touched')) {
       if(navigator.issmart) $('body').addClass('touched');
