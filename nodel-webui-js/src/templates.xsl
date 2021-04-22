@@ -1248,6 +1248,8 @@
               <xsl:attribute name="data-event">
                 <xsl:value-of select="@event"/>
               </xsl:attribute>
+              <xsl:attribute name="disabled">
+              </xsl:attribute>
             </xsl:when>
             <xsl:otherwise>
               <xsl:attribute name="data-action">
@@ -1255,7 +1257,7 @@
               </xsl:attribute>
             </xsl:otherwise>
           </xsl:choose>
-        </xsl:if>        
+        </xsl:if>
         <xsl:if test="@height|@width">
           <xsl:attribute name="style">
             <xsl:if test="@height">
