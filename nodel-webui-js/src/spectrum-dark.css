@@ -29,3 +29,11 @@
 .sp-picker-container {
     border-left: none;
 }
+
+.sp-preview {
+    border: 4px solid #222;
+}
+
+.sp-color, .sp-hue {
+    border: 4px solid #424242;
+}
