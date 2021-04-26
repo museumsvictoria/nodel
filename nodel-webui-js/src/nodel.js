@@ -416,6 +416,7 @@ $(function() {
         // init toolkit
         initToolkit();
         fillUIPicker();
+        populateAuxComponents();
         checkReload();
       }));
     });
@@ -951,18 +952,7 @@ var setEvents = function(){
     }
     $(ele).data('throttle')(data.action, data.arg);
   });
-  $('body').on('input','input[type=color]input[data-action]', function (e){
-    var ele = $(this);
-    data = getAction(this);
-    if(!_.isFunction($(this).data('throttle'))) {
-      $(ele).data('throttle', _.throttle(function(act, ar) {
-        callAction(act, ar);
-      }, 250));
-    }
-    // Here you can do something to convert value (RGB -> HSL).
-    // input element will return RGB value ('#RRGGBB') only.
-    $(ele).data('throttle')(data.action, data.arg);
-  });
+  
   $('body').on('touchstart mousedown touchend touchcancel mouseup','input[type=range]input[data-action]', function (e) {
     if($.inArray(e.type, ['touchstart','mousedown']) > -1) $(this).addClass('active');
     else $(this).removeClass('active');
@@ -2069,7 +2059,27 @@ var updateCharts = function(){
       $('body').data('nodel-charts-timer', setTimeout(function() { updateCharts(); }, 10000));
     });
   }
-}
+};
+
+var populateAuxComponents = function() {
+  // Note : Please use with dashboard only.(not properly work with recipes)
+  // spectrum color picker
+  $('.spectrum-color-picker').spectrum({
+    preferredFormat: "rgb",
+    showInput: true,
+    showButtons: false
+  });
+  $('.spectrum-color-picker').on('move.spectrum', function(e, tinycolor) {
+    var ele = $(this);
+    data = getAction(this);
+    if(!_.isFunction($(this).data('throttle'))) {
+      $(ele).data('throttle', _.throttle(function(act, ar) {
+        callAction(act, ar);
+      }, 250));
+    }
+    $(ele).data('throttle')(data.action, stringify({'arg':tinycolor.toHexString()}));
+  });
+};
 
 var updateLogs = function(){
   if(!("WebSocket" in window) || ($('body').data('trypoll'))){
@@ -2339,6 +2349,8 @@ var process_event = function(log){
           $(ele).filter(function() {
             return $.inArray(log.arg, $.isArray($(this).data('arg')) ? $(this).data('arg') : [$(this).data('arg')]) >= 0;
           }).addClass($(ele).data('class-on'));
+        } else if ($(ele).hasClass('spectrum-color-picker')) {
+          $(ele).spectrum('set', log.arg); // can not use val(colorString) with spectrum color picker.
         } else {
           if ($(ele).is("span, h4, p")) $(ele).text(log.arg);
           // lists

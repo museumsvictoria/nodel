@@ -1241,7 +1241,7 @@
   <!-- colour -->
   <xsl:template match="colour">
     <div><form>
-      <input type="color" class="form-control" data-arg-source="this">
+      <input type="string" class="form-control spectrum-color-picker" data-arg-source="this">
         <xsl:if test="@event or @action">
           <xsl:choose>
             <xsl:when test="@event">
@@ -1257,20 +1257,6 @@
               </xsl:attribute>
             </xsl:otherwise>
           </xsl:choose>
-        </xsl:if>
-        <xsl:if test="@height|@width">
-          <xsl:attribute name="style">
-            <xsl:if test="@height">
-              <xsl:text>height:</xsl:text>
-              <xsl:value-of select="@height"/>
-              <xsl:text>px;</xsl:text>
-            </xsl:if>
-            <xsl:if test="@width">
-              <xsl:text>width:</xsl:text>
-              <xsl:value-of select="@width"/>
-              <xsl:text>px;</xsl:text>
-            </xsl:if>
-          </xsl:attribute>
         </xsl:if>
       </input>
     </form></div>

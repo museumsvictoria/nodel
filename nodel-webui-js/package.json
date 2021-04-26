@@ -17,6 +17,7 @@
     "jsviews": "^1.0.3",
     "moment": "^2.24.0",
     "pagedown": "^1.1.0",
+    "spectrum-colorpicker": "1.8.1",
     "xregexp": "^4.2.4",
     "xxhashjs": "^0.2.2"
   },
