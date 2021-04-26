@@ -177,7 +177,8 @@ module.exports = function(grunt) {
           './node_modules/codemirror/lib/codemirror.css',
           './node_modules/codemirror/addon/dialog/dialog.css',
           './temp/googlefonts.css',
-          './node_modules/spectrum-colorpicker/spectrum.css'
+          './node_modules/spectrum-colorpicker/spectrum.css',
+          './src/spectrum-dark.css'
         ],
         dest: './build/grunt/v1/css/components.css'
       },
@@ -190,7 +191,8 @@ module.exports = function(grunt) {
           './node_modules/codemirror/lib/codemirror.css',
           './node_modules/codemirror/addon/dialog/dialog.css',
           './temp/googlefonts.css',
-          './node_modules/spectrum-colorpicker/spectrum.css'
+          './node_modules/spectrum-colorpicker/spectrum.css',
+          './src/spectrum-dark.css'
         ],
         dest: './build/grunt/v1/css/components.default.css'
       }

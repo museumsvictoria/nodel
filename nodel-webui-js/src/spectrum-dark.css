@@ -1,0 +1,31 @@
+.sp-replacer {
+    background: #000;
+    color: #999999;
+    border: 1px solid #333333;
+    border-radius: 2px;
+}
+
+.sp-replacer:hover,
+.sp-replacer.sp-active {
+    border-color: #ffffff;
+    color: #d0d0d0;
+}
+
+.sp-replacer.sp-disabled {
+    color: #333333;
+    border: 1px solid #333333;
+}
+
+.sp-container {
+    background-color: #424242;
+    border: 1px solid #ececec;
+    border-radius: 4px;
+}
+
+.sp-input {
+    color: #ffffff;
+}
+
+.sp-picker-container {
+    border-left: none;
+}
