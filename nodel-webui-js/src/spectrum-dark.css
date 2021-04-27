@@ -3,7 +3,7 @@
     color: #999999;
     border: 1px solid #333333;
     border-radius: 2px;
-    padding: 6px;
+    padding: 8px;
 }
 
 .sp-replacer:hover,
@@ -33,16 +33,17 @@
 }
 
 .sp-preview {
-    width: 40px;
+    width: 50px;
     height: 30px;
-    border: 1px solid #222;
+    border: 4px solid #222;
+    margin-right: 0;
 }
 
 .sp-dd {
-    margin-top: 6px;
+    display: none;
 }
 
 .sp-color,
 .sp-hue {
-    border: 1px solid #424242;
+    border: 4px solid #424242;
 }

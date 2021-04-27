@@ -1242,19 +1242,31 @@
   <xsl:template match="colour">
     <div><form>
       <input type="string" class="form-control spectrum-color-picker" data-arg-source="this">
-        <xsl:if test="@event or @action">
+        <xsl:if test="@event or @action or @join">
           <xsl:choose>
-            <xsl:when test="@event">
+            <xsl:when test="@join">
               <xsl:attribute name="data-event">
-                <xsl:value-of select="@event"/>
+                <xsl:value-of select="@join"/>
               </xsl:attribute>
-              <xsl:attribute name="disabled">
+              <xsl:attribute name="data-action">
+                <xsl:value-of select="@join"/>
               </xsl:attribute>
             </xsl:when>
             <xsl:otherwise>
-              <xsl:attribute name="data-action">
-                <xsl:value-of select="@action"/>
-              </xsl:attribute>
+              <xsl:if test="@event">
+                <xsl:attribute name="data-event">
+                  <xsl:value-of select="@event"/>
+                </xsl:attribute>
+                <xsl:if test="not(@action)">
+                  <xsl:attribute name="disabled">
+                  </xsl:attribute>
+                </xsl:if>
+              </xsl:if>
+              <xsl:if test="@action">
+                <xsl:attribute name="data-action">
+                  <xsl:value-of select="@action"/>
+                </xsl:attribute>
+              </xsl:if>
             </xsl:otherwise>
           </xsl:choose>
         </xsl:if>
