@@ -2066,7 +2066,7 @@ var populateAuxComponents = function() {
   // spectrum color picker
   $('.spectrum-color-picker').spectrum({
     preferredFormat: "rgb",
-    showInput: true,
+    showInput: false,
     showButtons: false
   });
   $('.spectrum-color-picker').on('move.spectrum', function(e, tinycolor) {
