@@ -2068,8 +2068,9 @@ var populateAuxComponents = function() {
     var eventString = $(qrcodeDiv).data('event');
     var textString = $(qrcodeDiv).data('text');
 
+    // put 'place holder' if text is empty.
     if (!textString || textString.length < 1) {
-      return;
+      textString = ''; // white square
     }
 
     var height = $(qrcodeDiv).data('height');
