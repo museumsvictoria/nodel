@@ -1,0 +1,16 @@
+.qrcode-card {
+}
+
+.qrcode {
+  padding: 2px 2px;
+  background: #fff;
+}
+
+.qrcode-help {
+  font-size: 12px;
+  color: #fff;
+  text-align: center;
+  margin-top: 5px;
+  overflow: hidden;
+}
+

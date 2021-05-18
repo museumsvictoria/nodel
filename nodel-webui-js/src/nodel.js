@@ -416,6 +416,7 @@ $(function() {
         // init toolkit
         initToolkit();
         fillUIPicker();
+        populateAuxComponents();
         checkReload();
       }));
     });
@@ -2057,7 +2058,45 @@ var updateCharts = function(){
       $('body').data('nodel-charts-timer', setTimeout(function() { updateCharts(); }, 10000));
     });
   }
-}
+};
+
+var populateAuxComponents = function() {
+  // QR code
+  $('.qrcode-card').each(function() {
+    var qrcodeDiv = $(this).find('.qrcode')
+    var qrcodeHelpDiv = $(this).find('.qrcode-help')
+    var eventString = $(qrcodeDiv).data('event');
+    var textString = $(qrcodeDiv).data('text');
+
+    if (!textString || textString.length < 1) {
+      return;
+    }
+
+    var height = $(qrcodeDiv).data('height');
+    height = (parseInt(height) || 128);
+
+    var qrcodeInstance = $(qrcodeDiv).data('qrcode');
+    if (!qrcodeInstance) {
+      qrcodeInstance = new QRCode(document.getElementById("qrcode-" + eventString), {
+        text: textString,
+        width: height,
+        height: height,
+        colorDark : "#000000",
+        colorLight : "#ffffff",
+        correctLevel : QRCode.CorrectLevel.H
+      });
+      // adjust width
+      $(qrcodeDiv).css('width', height + 4); // plus padding
+      if (qrcodeHelpDiv.length > 0) {
+        $(qrcodeHelpDiv).css('width', height + 4); // plus padding
+      }
+      $(qrcodeDiv).data('qrcode', qrcodeInstance);
+    } else {
+      qrcodeInstance.clear();
+      qrcodeInstance.makeCode(textString);
+    }
+  });
+};
 
 var updateLogs = function(){
   if(!("WebSocket" in window) || ($('body').data('trypoll'))){
@@ -2327,6 +2366,12 @@ var process_event = function(log){
           $(ele).filter(function() {
             return $.inArray(log.arg, $.isArray($(this).data('arg')) ? $(this).data('arg') : [$(this).data('arg')]) >= 0;
           }).addClass($(ele).data('class-on'));
+        } else if ($(ele).hasClass('qrcode')) {
+          var qrcodeInstance = $(ele).data('qrcode');
+          if (qrcodeInstance) {
+            qrcodeInstance.clear();
+            qrcodeInstance.makeCode(log.arg); // can not use val() with QRCode.
+          }
         } else {
           if ($(ele).is("span, h4, p")) $(ele).text(log.arg);
           // lists

@@ -123,5 +123,11 @@
         </group>
       </column>
     </row>
+    <row>
+      <column sm="2">
+        <text>QRCode(128)</text>
+        <qrcode text="https://google.com" help="Google" event="qrcodeEvt" height="128"></qrcode>
+      </column>
+    </row>
   </page>
 </pages>
