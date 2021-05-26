@@ -2064,20 +2064,22 @@ var updateCharts = function(){
 var populateAuxComponents = function() {
   // Note : Please use with dashboard only.(not properly work with recipes)
   // spectrum color picker
-  $('.spectrum-color-picker').spectrum({
-    preferredFormat: "rgb",
-    showInput: false,
-    showButtons: false
-  });
-  $('.spectrum-color-picker').on('move.spectrum', function(e, tinycolor) {
-    var ele = $(this);
-    data = getAction(this);
-    if(!_.isFunction($(this).data('throttle'))) {
-      $(ele).data('throttle', _.throttle(function(act, ar) {
-        callAction(act, ar);
-      }, 250));
-    }
-    $(ele).data('throttle')(data.action, stringify({'arg':tinycolor.toHexString()}));
+  $('.spectrum-color-picker').each(function() {
+    $(this).spectrum({
+      preferredFormat: "rgb",
+      showInput: false,
+      showButtons: false
+    });
+    $(this).on('move.spectrum', function(e, tinycolor) {
+      var ele = $(this);
+      data = getAction(this);
+      if(!_.isFunction($(this).data('throttle'))) {
+        $(ele).data('throttle', _.throttle(function(act, ar) {
+          callAction(act, ar);
+        }, 250));
+      }
+      $(ele).data('throttle')(data.action, stringify({'arg':tinycolor.toHexString()}));
+    });
   });
 };
 
