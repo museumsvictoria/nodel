@@ -374,6 +374,8 @@ var allowedtxt = ['py','xml','xsl','js','json','html','htm','css','java','groovy
 var allowedbinary = ['png','jpg','ico','svg','zip','7z','exe'];
 var nodeList = {'lst':[], 'flt':'', 'end':20, 'hosts':{}};
 var nodeListreq = null;
+var localsList = {'lst':[], 'flt':'', 'end':20, 'hosts':{}};
+var localsListreq = null;
 
 var t0;
 
@@ -424,6 +426,9 @@ $(function() {
       updatepadding();
       getNodeList().then(function(){
         refreshNodeList();
+      });
+      getLocalsList().then(function(){
+        // need to update again?
       });
       checkHostList();
       setEvents();
@@ -700,6 +705,10 @@ var createDynamicElements = function(){
       $.templates("#listTmpl").link(ele, nodeList);
       $(ele).find('.base').addClass('bound');
       d.resolve();
+    } else if($(ele).data('nodel') == 'locals'){
+      $.templates("#localsTmpl").link(ele, localsList);
+      $(ele).find('.base').addClass('bound');
+      d.resolve();
     } else d.resolve();
     p.push(d);
   });
@@ -735,7 +744,7 @@ var generateHostIcon = function(host) {
   return new Identicon(hash, options).toString();
 }
 
-var updateHost = function(host) {
+var updateHost = function(host, targetList) {
   var data = generateHostIcon(host);
   var newhost = {};
   newhost.icon = data;
@@ -743,8 +752,9 @@ var updateHost = function(host) {
   newhost.checked = false;
   var hostobj = {}
   hostobj[encodr(host)] = newhost;
-  var hosts = $.extend({}, nodeList['hosts'], hostobj);
-  $.observable(nodeList).setProperty('hosts', hosts);
+  var hosts = $.extend({}, targetList['hosts'], hostobj);
+  $.observable(targetList).setProperty('hosts', hosts);
+  return hosts;
 };
 
 var checkHostList = function(){
@@ -812,9 +822,34 @@ var getNodeList = function(filterstr){
       data[i].host = getHost(data[i].address);
       data[i].name = data[i].node;
       data[i].node = getSimpleName(data[i].node);
-      if(_.isUndefined(nodeList['hosts'][encodr(data[i].host)])) updateHost(data[i].host);
+      if(_.isUndefined(nodeList['hosts'][encodr(data[i].host)])) updateHost(data[i].host, nodeList);
     }
     $.observable(nodeList['lst']).refresh(data);
+  }).always(function(){
+    d.resolve();
+  });
+  return d.promise();
+}
+
+var getLocalsList = function(filterstr){
+  if(!_.isUndefined(filterstr)) $.observable(localsList['flt'] = filterstr);
+  filter = {'filter': localsList['flt']};
+  var d = $.Deferred();
+  if(localsListreq) localsListreq.abort();
+  var localhost = 'localhost';
+  localsListreq = $.postJSON(proto+'//'+host+'/REST/locals', JSON.stringify(filter), function(data) {
+    for (i=0; i<data.length; i++) {
+      data[i].host = localhost;
+      data[i].address = '/nodes/' + encodeURIComponent(data[i].node) + '/nodel.xml';
+
+      if(_.isUndefined(localsList['hosts'][encodr(localhost)])) {
+        var hosts = updateHost(data[i].host, localsList);
+        hosts[localhost].checked = true; // always true
+        hosts[localhost].reachable = true; // always true
+        $.observable(localsList).setProperty('hosts', hosts);
+      } 
+    }
+    $.observable(localsList['lst']).refresh(data);
   }).always(function(){
     d.resolve();
   });
@@ -1759,11 +1794,23 @@ var setEvents = function(){
       getNodeList(filterstr);
     };
   });
+  $('body').on('keyup','.localslistfilter', function(e){
+    var charCode = e.charCode || e.keyCode;
+    if((charCode !== 40) && (charCode !== 38) && (charCode !== 13) && (charCode !== 27)) {
+      var filterstr = $(this).val();
+      getLocalsList(filterstr);
+    };
+  });  
   $('body').on('click','.nodel-list .listmore', function(){
     var ele = $(this).closest('.base').find('.nodelistshow');
     $(ele).find('option:selected').prop('selected', false).next().prop('selected', true);
     $(ele).trigger('change');
   });
+  $('body').on('click','.nodel-locals .listmore', function(){
+    var ele = $(this).closest('.base').find('.localslistshow');
+    $(ele).find('option:selected').prop('selected', false).next().prop('selected', true);
+    $(ele).trigger('change');
+  });  
   $('body').on('keydown','input', function(e){
     var charCode = e.charCode || e.keyCode;
     if(charCode == 27) {

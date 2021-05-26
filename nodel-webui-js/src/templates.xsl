@@ -1312,7 +1312,7 @@
   <!-- group -->
   <!-- nodel -->
   <xsl:template match="nodel">
-    <xsl:if test="@type='description' or @type='actsig' or @type='log' or @type='serverlog' or @type='charts' or @type='console' or @type='params' or @type='remote' or @type='list' or @type='diagnostics'">
+    <xsl:if test="@type='description' or @type='actsig' or @type='log' or @type='serverlog' or @type='charts' or @type='console' or @type='params' or @type='remote' or @type='list' or @type='locals' or @type='diagnostics'">
       <div data-nodel="{@type}" class="nodel-{@type}"></div>
     </xsl:if>
     <xsl:if test="@type='add'">

@@ -12,4 +12,11 @@
       </column>
     </row>
   </page>
+  <page title='Locals'>
+    <row>
+      <column>
+        <nodel type="locals"/>
+      </column>
+    </row>
+  </page>
 </pages>

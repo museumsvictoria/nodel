@@ -101,6 +101,11 @@ public class NodelHostHTTPD extends NanoHTTPD {
         public Map<SimpleName, BaseNode> getNodes() {
             return BaseNode.getNodes();
         }
+
+        @Service(name = "locals", order = 1.5, title = "Locals", desc = "All the managed local nodes.")
+        public List<Map<String, String>> getLocalNodes(@Param(name = "filter", title = "Filter", desc = "Optional string filter.") String filter) {
+            return _nodelHost.getLocalNodes(filter);
+        }
         
         @Service(name = "recipes", order = 1, title = "Recipes", desc = "Recipes that new nodes can be based on", genericClassA = String.class)
         public RecipesEndPoint recipes() {
