@@ -428,7 +428,7 @@ $(function() {
         refreshNodeList();
       });
       getLocalsList().then(function(){
-        // need to update again?
+        refreshLocalsList();
       });
       checkHostList();
       setEvents();
@@ -806,6 +806,14 @@ var refreshNodeList = function(){
   setTimeout(function(){
     getNodeList().then(function(){
       refreshNodeList();
+    })
+  }, 2000);
+}
+
+var refreshLocalsList = function(){
+  setTimeout(function(){
+    getLocalsList().then(function(){
+      refreshLocalsList();
     })
   }, 2000);
 }
