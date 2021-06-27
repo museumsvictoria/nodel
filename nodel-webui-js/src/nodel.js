@@ -2061,24 +2061,106 @@ var updateCharts = function(){
   }
 };
 
-var populateAuxComponents = function() {
+var populateAuxComponents = function () {
   // Note : Please use with dashboard only.(not properly work with recipes)
   // spectrum color picker
-  $('.spectrum-color-picker').each(function() {
+
+  // https://blog.saikoled.com/post/44677718712/how-to-convert-from-hsi-to-rgb-white
+  function HsiToRgbw(Hi, Si, Ii) {
+    var Ro;
+    var Go;
+    var Bo;
+    var Wo;
+
+    var H = Hi % 360; // cycle H around to 0-360 degrees
+    H = (3.14159 * H) / 180; // Convert to radians.
+    var S = Si > 0 ? (Si < 1 ? Si : 1) : 0; // clamp S and I to interval [0,1]
+    var I = Ii > 0 ? (Ii < 1 ? Ii : 1) : 0;
+
+    var cos_h;
+    var cos_1047_h;
+
+    if (H < 2.09439) {
+      cos_h = Math.cos(H);
+      cos_1047_h = Math.cos(1.047196667 - H);
+      Ro = ((S * 255 * I) / 3) * (1 + cos_h / cos_1047_h);
+      Go = ((S * 255 * I) / 3) * (1 + (1 - cos_h / cos_1047_h));
+      Bo = 0;
+      Wo = 255 * (1 - S) * I;
+    } else if (H < 4.188787) {
+      H = H - 2.09439;
+      cos_h = Math.cos(H);
+      cos_1047_h = Math.cos(1.047196667 - H);
+      Go = ((S * 255 * I) / 3) * (1 + cos_h / cos_1047_h);
+      Bo = ((S * 255 * I) / 3) * (1 + (1 - cos_h / cos_1047_h));
+      Ro = 0;
+      Wo = 255 * (1 - S) * I;
+    } else {
+      H = H - 4.188787;
+      cos_h = Math.cos(H);
+      cos_1047_h = Math.cos(1.047196667 - H);
+      Bo = ((S * 255 * I) / 3) * (1 + cos_h / cos_1047_h);
+      Ro = ((S * 255 * I) / 3) * (1 + (1 - cos_h / cos_1047_h));
+      Go = 0;
+      Wo = 255 * (1 - S) * I;
+    }
+
+    return {
+      'r': Math.floor(Ro),
+      'g': Math.floor(Go),
+      'b': Math.floor(Bo),
+      'w': Math.floor(Wo),
+    };
+  }
+
+  $('.spectrum-color-picker').each(function () {
     $(this).spectrum({
+      showPalette: true,
+      palette: [
+        ["#000","#444","#666","#999","#ccc","#eee","#f3f3f3","#fff"],
+        ["#f00","#f90","#ff0","#0f0","#0ff","#00f","#90f","#f0f"],
+        ["#f4cccc","#fce5cd","#fff2cc","#d9ead3","#d0e0e3","#cfe2f3","#d9d2e9","#ead1dc"],
+        ["#ea9999","#f9cb9c","#ffe599","#b6d7a8","#a2c4c9","#9fc5e8","#b4a7d6","#d5a6bd"],
+        ["#e06666","#f6b26b","#ffd966","#93c47d","#76a5af","#6fa8dc","#8e7cc3","#c27ba0"],
+        ["#c00","#e69138","#f1c232","#6aa84f","#45818e","#3d85c6","#674ea7","#a64d79"],
+        ["#900","#b45f06","#bf9000","#38761d","#134f5c","#0b5394","#351c75","#741b47"],
+        ["#600","#783f04","#7f6000","#274e13","#0c343d","#073763","#20124d","#4c1130"]
+      ],
       preferredFormat: "rgb",
       showInput: false,
       showButtons: false
     });
-    $(this).on('move.spectrum', function(e, tinycolor) {
+    $(this).on('move.spectrum', function (e, tinycolor) {
       var ele = $(this);
       data = getAction(this);
-      if(!_.isFunction($(this).data('throttle'))) {
-        $(ele).data('throttle', _.throttle(function(act, ar) {
+      if (!_.isFunction($(this).data('throttle'))) {
+        $(ele).data('throttle', _.throttle(function (act, ar) {
           callAction(act, ar);
         }, 250));
       }
-      $(ele).data('throttle')(data.action, stringify({'arg':tinycolor.toHexString()}));
+
+      // convert HSI to RGBW
+      // https://blog.saikoled.com/post/44677718712/how-to-convert-from-hsi-to-rgb-white
+      // https://en.wikipedia.org/wiki/HSL_and_HSV
+      var HSL = tinycolor.toHsl();
+      var RGB = tinycolor.toRgb();
+      var h_HSI = HSL['h'];
+      var i_HSI = (RGB['r'] + RGB['g'] + RGB['b']) / 3 / 255; // average
+      var s_HSI = i_HSI === 0 ? 0 : (1 - (Math.min(RGB['r'], RGB['g'], RGB['b']) / 255 / i_HSI));
+      var rgbw = HsiToRgbw(h_HSI, s_HSI, i_HSI);
+
+      $(ele).data('throttle')(data.action, stringify(
+        {
+          'arg': {
+            'hexString': tinycolor.toHexString(), // E.g.> #ffffff
+            'hsv': tinycolor.toHsv(), // E.g.> {"h":0, "s":1, "v": 1}
+            'hsl': tinycolor.toHsl(), // E.g.> {"h":0, "s":1, "l": 0.5}
+            'hsi': {'h': h_HSI, 's': s_HSI, 'i': i_HSI},
+            'rgb': RGB, // E.g.> {"r":0, "g":0, "b":0}
+            'rgbw': rgbw // E.g.> {"r":0, "g":0, "b":0, "w":255}
+          }
+        }
+      ));
     });
   });
 };

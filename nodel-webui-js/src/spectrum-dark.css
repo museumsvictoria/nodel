@@ -47,3 +47,10 @@
 .sp-hue {
     border: 4px solid #424242;
 }
+
+/* for mobile */
+@media screen and (max-width: 450px){
+    .sp-palette-container {
+        display: none;
+    }
+}
