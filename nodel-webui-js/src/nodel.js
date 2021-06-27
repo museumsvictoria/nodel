@@ -2154,7 +2154,7 @@ var populateAuxComponents = function () {
           'arg': {
             'hexString': tinycolor.toHexString(), // E.g.> #ffffff
             'hsv': tinycolor.toHsv(), // E.g.> {"h":0, "s":1, "v": 1}
-            'hsl': tinycolor.toHsl(), // E.g.> {"h":0, "s":1, "l": 0.5}
+            'hsl': HSL, // E.g.> {"h":0, "s":1, "l": 0.5}
             'hsi': {'h': h_HSI, 's': s_HSI, 'i': i_HSI},
             'rgb': RGB, // E.g.> {"r":0, "g":0, "b":0}
             'rgbw': rgbw // E.g.> {"r":0, "g":0, "b":0, "w":255}
