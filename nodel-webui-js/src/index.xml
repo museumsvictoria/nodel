@@ -126,11 +126,11 @@
     <row>
       <column sm="2">
         <text>Light Colour</text>
-        <colour action="Color"></colour>
+        <lighting action="Color" options="rgbkwaui"></lighting>
       </column>
       <column sm="2">
         <text>Light Colour</text>
-        <colour event="ColorEvent"></colour>
+        <lighting event="ColorEvent" options="rgbkwaui"></lighting>
       </column>
     </row>
   </page>

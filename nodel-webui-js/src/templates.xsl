@@ -1238,8 +1238,8 @@
     <div><form><input class="form-control" data-arg-source="this" data-event="{@event}" readonly="true"/></form></div>
   </xsl:template>
   <!-- field -->
-  <!-- colour -->
-  <xsl:template match="colour">
+  <!-- lighting -->
+  <xsl:template match="lighting">
     <div><form>
       <input type="string" class="form-control spectrum-color-picker" data-arg-source="this">
         <xsl:if test="@event or @action or @join">
@@ -1270,10 +1270,15 @@
             </xsl:otherwise>
           </xsl:choose>
         </xsl:if>
+        <xsl:if test="@options">
+          <xsl:attribute name="data-options">
+            <xsl:value-of select="@options"/>
+          </xsl:attribute>
+        </xsl:if>
       </input>
     </form></div>
   </xsl:template>
-  <!-- colour -->  
+  <!-- lighting -->
   <!-- meter -->
   <xsl:template match="meter">
     <div class="meter" data-event="{@event}">

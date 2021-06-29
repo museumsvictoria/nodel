@@ -177,8 +177,8 @@ module.exports = function(grunt) {
           './node_modules/codemirror/lib/codemirror.css',
           './node_modules/codemirror/addon/dialog/dialog.css',
           './temp/googlefonts.css',
-          './node_modules/spectrum-colorpicker/spectrum.css',
-          './src/spectrum-dark.css'
+          './src/spectrum/spectrum.css',
+          './src/spectrum/spectrum-dark.css'
         ],
         dest: './build/grunt/v1/css/components.css'
       },
@@ -191,8 +191,8 @@ module.exports = function(grunt) {
           './node_modules/codemirror/lib/codemirror.css',
           './node_modules/codemirror/addon/dialog/dialog.css',
           './temp/googlefonts.css',
-          './node_modules/spectrum-colorpicker/spectrum.css',
-          './src/spectrum-dark.css'
+          './src/spectrum/spectrum.css',
+          './src/spectrum/spectrum-dark.css'
         ],
         dest: './build/grunt/v1/css/components.default.css'
       }
@@ -242,7 +242,7 @@ module.exports = function(grunt) {
           './node_modules/google-charts/dist/googleCharts.js',
           './temp/lodash.build.js',
           './src/polyfill.js',
-          './node_modules/spectrum-colorpicker/spectrum.js'
+          './src/spectrum/spectrum.js'
         ],
         dest: './build/grunt/v1/js/components.js'
       }
