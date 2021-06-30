@@ -1008,6 +1008,10 @@
             var valuesString = colorSpaceString.substr(colorSpaceString.indexOf('(')+1, colorSpaceString.indexOf(')')-colorSpaceString.indexOf('(')-1);
             var values = valuesString.split(',');
 
+            if (formatWithChannels.length !== values.length) {
+                throw new Error('mismatch between format and values');
+            }
+
             // update channels first
             if (channels && channels.length > 0) {
                 for (var idx = 0 ; idx < channels.length ; idx++) {
