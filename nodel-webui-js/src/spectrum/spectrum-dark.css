@@ -65,6 +65,9 @@ input.spectrum-color-picker {
     width: 60px;
     height: 60px;
 }
+.sp-container.sp-dark .sp-input-container {
+    background-color: white;
+}
 
 /* for mobile */
 @media screen and (max-width: 450px){

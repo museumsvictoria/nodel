@@ -2079,7 +2079,7 @@ var populateAuxComponents = function () {
       showAlpha: false,
       allowEmpty: false,
       preferredFormat: "rgb",
-      showInput: false,
+      showInput: true,
       showButtons: false,
       formatWithChannels: format
     });

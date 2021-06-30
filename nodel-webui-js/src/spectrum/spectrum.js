@@ -680,41 +680,42 @@
             initialColorContainer.on(paletteEvent, ".sp-thumb-el:nth-child(1)", { ignore: true }, paletteElementClick);
 
             function relocateSlidesAnd() {
-                // fixed position : hue - colorTemp(k) - white(w) - amber(a) - uv(u) - Infrared(i)
+
+                var channels = formatWithChannels.substr(3);
+
+                // hue(fixed), colorTemp(k), white(w), amber(a), uv(u), Infrared(i)
                 var nextToHue = 0;
                 var nextToColorTemp = 0;
                 var nextToWhite = 0;
                 var nextToAmber = 0;
                 var nextToUV = 0;
+                var nextToInfrared = 0;
 
-                if (showColorTemp) {
-                    nextToHue++;
-                }
-
-                if (showWhite) { 
-                    nextToHue++;
-                    nextToColorTemp++;
-                }
-
-                if (showAmber) { 
-                    nextToHue++;
-                    nextToColorTemp++;
-                    nextToWhite++;
-                }
-
-                if (showUV) { 
-                    nextToHue++;
-                    nextToColorTemp++;
-                    nextToWhite++;
-                    nextToAmber++;
-                }
-
-                if (showInfrared) {
-                    nextToHue++;
-                    nextToColorTemp++;
-                    nextToWhite++;
-                    nextToAmber++;
-                    nextToUV++;
+                if (channels.length < 1) {
+                    // no channels
+                } else {
+                    nextToHue = channels.length;
+                    for (var idx = 0 ; idx < channels.length ; idx++) {
+                        switch(channels.charAt(idx)) {
+                            case 'k':
+                                nextToColorTemp = channels.length - idx - 1;
+                                break;
+                            case 'w':
+                                nextToWhite = channels.length - idx - 1;
+                                break;
+                            case 'a':
+                                nextToAmber = channels.length - idx - 1;
+                                break;
+                            case 'i':
+                                nextToInfrared = channels.length - idx - 1;
+                                break;
+                            case 'u':
+                                nextToUV = channels.length - idx - 1;
+                                break;
+                            default:
+                                break;
+                        }
+                    }
                 }
                 
                 $(pickerContainer).css("width", 200 + nextToHue*20 + "px");
@@ -724,6 +725,7 @@
                 $(sliderAmber).css("right", nextToAmber*20 + "px");
                 $(sliderUV).css("right", nextToUV*20 + "px");
                 $(sliderColorTemp).css("right", nextToColorTemp*20 + "px");
+                $(sliderInfrared).css("right", nextToInfrared*20 + "px");
 
                 // var sp_clear = container.find('.sp-clear-enabled .sp-clear');
                 var sp_clear = container.find('.sp-clear');
@@ -842,13 +844,12 @@
                 updateOriginalInput();
             }
             else {
-                var tiny = tinycolor(value);
-                if (tiny.isValid()) {
-                    set(tiny);
+                try {
+                    setWithChannels(value);
                     move();
                     updateOriginalInput();
-                }
-                else {
+                } catch (error) {
+                    // console.error(error);
                     textInput.addClass("sp-validation-error");
                 }
             }
@@ -1002,8 +1003,7 @@
             // get color format and compare
             var colorspace = colorSpaceString.substr(0, colorSpaceString.indexOf('('));
             if (colorspace !== formatWithChannels) {
-                // throw new Error('color space does not match');
-                return;
+                throw new Error('color space does not match');
             }
 
             var channels = formatWithChannels.substr(3);
@@ -1012,8 +1012,7 @@
             var values = valuesString.split(',');
 
             if (formatWithChannels.length !== values.length) {
-                // throw new Error('mismatch between format and values');
-                return;
+                throw new Error('mismatch between format and values');
             }
 
             // update channels first
@@ -1023,13 +1022,25 @@
                 }
             }
 
+            var tiny;
+            var valueString;
+
             // then update color
             if (formatWithChannels.startsWith('rgb')) {
-                set(['rgb', Math.ceil(values[0]*255/100), Math.ceil(values[1]*255/100), Math.ceil(values[2]*255/100)].join(' '));
+                valueString = ['rgb', Math.ceil(values[0]*255/100), Math.ceil(values[1]*255/100), Math.ceil(values[2]*255/100)].join(' ');
+                tiny = tinycolor(valueString);
+                if (!tiny.isValid()) throw new Error('color value not valid: ' + valueString);
+                set(valueString);
             } else if (formatWithChannels.startsWith('hsv') || formatWithChannels.startsWith('hsb')) {
-                set(['hsv', values[0], values[1]/100, values[2]/100].join(' '));
+                valueString = ['hsv', values[0], values[1]/100, values[2]/100].join(' ');
+                tiny = tinycolor(valueString);
+                if (!tiny.isValid()) throw new Error('color value not valid: ' + valueString);
+                set(valueString);
             } else if (formatWithChannels.startsWith('hsl')) {
-                set(['hsl', values[0], values[1]/100, values[2]/100].join(' '));
+                valueString = ['hsl', values[0], values[1]/100, values[2]/100].join(' ');
+                tiny = tinycolor(valueString);
+                if (!tiny.isValid()) throw new Error('color value not valid: ' + valueString);
+                set(valueString);
             } else {
                 throw new Error('Color space not supported: ' + colorSpaceString);
             }
@@ -1083,11 +1094,31 @@
             var values = [];
 
             function getChannelsValue(values) {
-                if (showColorTemp) values.push(1000 + Math.floor(11000*currentColorTemp)); // Kelvin
-                if (showWhite) values.push(currentWhite*100); // number, %
-                if (showAmber) values.push(currentAmber*100); // number, %
-                if (showUV) values.push(currentUV*100); // number, %
-                if (showInfrared) values.push(currentInfrared*100); // number, %
+                var channels = formatWithChannels.substr(3);
+                if (channels.length < 1) {
+                    return;
+                }
+                for (var idx = 0 ; idx < channels.length ; idx++) {
+                    switch(channels.charAt(idx)) {
+                        case 'k':
+                            values.push(1000 + Math.floor(11000*currentColorTemp)); // Kelvin
+                            break;
+                        case 'w':
+                            values.push(currentWhite*100); // number, %
+                            break;
+                        case 'a':
+                            values.push(currentAmber*100); // number, %
+                            break;
+                        case 'i':
+                            values.push(currentInfrared*100); // number, %
+                            break;
+                        case 'u':
+                            values.push(currentUV*100); // number, %
+                            break;
+                        default:
+                            break;
+                    }                    
+                }
             }
 
             if (formatWithChannels.startsWith('rgb')) {
@@ -1425,8 +1456,13 @@
                 updateOriginalInput();
             },
             setWithChannels: function(str) {
-                setWithChannels(str);
-                updateOriginalInput();
+                try {
+                    setWithChannels(str);
+                    updateOriginalInput();
+                } catch(error) {
+                    // ignore
+                    // console.error(error);
+                }
             },
             get: get,
             destroy: destroy,
