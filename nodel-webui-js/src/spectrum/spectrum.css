@@ -256,49 +256,49 @@ input.spectrum.with-add-on {
     background: linear-gradient(to bottom, #ff0000 0%, #ffff00 17%, #00ff00 33%, #00ffff 50%, #0000ff 67%, #ff00ff 83%, #ff0000 100%);
 }
 
+.sp-colortemp {
+    background: -moz-linear-gradient(top, #bacfff 0%, #cfffff 25%,#ffffff 50%, #ffcf9d 75%, #ff0000 100%);
+    background: -ms-linear-gradient(top, #bacfff 0%, #cfffff 25%,#ffffff 50%, #ffcf9d 75%, #ff0000 100%);
+    background: -o-linear-gradient(top, #bacfff 0%, #cfffff 25%,#ffffff 50%, #ffcf9d 75%, #ff0000 100%);
+    background: -webkit-gradient(linear, left top, left bottom, from(#bacfff), color-stop(0.25, #cfffff), color-stop(0.50, #ffffff), color-stop(0.75, #ffcf9d), to(#ff0000));
+    background: -webkit-linear-gradient(top, #bacfff 0%, #cfffff 25%,#ffffff 50%, #ffcf9d 75%, #ff0000 100%);
+    background: linear-gradient(to bottom, #bacfff 0%, #cfffff 25%,#ffffff 50%, #ffcf9d 75%, #ff0000 100%);
+}
+
 .sp-white {
-    background: -moz-linear-gradient(top, #000000 0%, #ffffff 100%);
-    background: -ms-linear-gradient(top, #000000 0%, #ffffff 100%);
-    background: -o-linear-gradient(top, #000000 0%, #ffffff 100%);
-    background: -webkit-gradient(linear, left top, left bottom, from(#000000), to(#ffffff));
-    background: -webkit-linear-gradient(top, #000000 0%, #ffffff 100%);
-    background: linear-gradient(to bottom, #000000 0%, #ffffff 100%);
+    background: -moz-linear-gradient(top, #ffffff 0%, #000000 100%);
+    background: -ms-linear-gradient(top, #ffffff 0%, #000000 100%);
+    background: -o-linear-gradient(top, #ffffff 0%, #000000 100%);
+    background: -webkit-gradient(linear, left top, left bottom, from(#ffffff), to(#000000));
+    background: -webkit-linear-gradient(top, #ffffff 0%, #000000 100%);
+    background: linear-gradient(to bottom, #ffffff 0%, #000000 100%);
 }
 
 .sp-amber {
-    background: -moz-linear-gradient(top, #000000 0%, #ffbf00 100%);
-    background: -ms-linear-gradient(top, #000000 0%, #ffbf00 100%);
-    background: -o-linear-gradient(top, #000000 0%, #ffbf00 100%);
-    background: -webkit-gradient(linear, left top, left bottom, from(#000000), to(#ffbf00));
-    background: -webkit-linear-gradient(top, #000000 0%, #ffbf00 100%);
-    background: linear-gradient(to bottom, #000000 0%, #ffbf00 100%);
+    background: -moz-linear-gradient(top, #ffbf00 0%, #000000 100%);
+    background: -ms-linear-gradient(top, #ffbf00 0%, #000000 100%);
+    background: -o-linear-gradient(top, #ffbf00 0%, #000000 100%);
+    background: -webkit-gradient(linear, left top, left bottom, from(#ffbf00), to(#000000));
+    background: -webkit-linear-gradient(top, #ffbf00 0%, #000000 100%);
+    background: linear-gradient(to bottom, #ffbf00 0%, #000000 100%);
 }
 
 .sp-uv {
-    background: -moz-linear-gradient(top, #000000 0%, #8f00ff 100%);
-    background: -ms-linear-gradient(top, #000000 0%, #8f00ff 100%);
-    background: -o-linear-gradient(top, #000000 0%, #8f00ff 100%);
-    background: -webkit-gradient(linear, left top, left bottom, from(#000000), to(#8f00ff));
-    background: -webkit-linear-gradient(top, #000000 0%, #8f00ff 100%);
-    background: linear-gradient(to bottom, #000000 0%, #8f00ff 100%);
-}
-
-.sp-colortemp {
-    background: -moz-linear-gradient(top, #ff0000 0%, #ffcf9d 25%,#ffffff 50%, #cfffff 75%, #bacfff 100%);
-    background: -ms-linear-gradient(top, #ff0000 0%, #ffcf9d 25%,#ffffff 50%, #cfffff 75%, #bacfff 100%);
-    background: -o-linear-gradient(top, #ff0000 0%, #ffcf9d 25%,#ffffff 50%, #cfffff 75%, #bacfff 100%);
-    background: -webkit-gradient(linear, left top, left bottom, from(#ff0000), color-stop(0.25, #ffcf9d), color-stop(0.50, #ffffff), color-stop(0.75, #cfffff), to(#bacfff));
-    background: -webkit-linear-gradient(top, #ff0000 0%, #ffcf9d 25%,#ffffff 50%, #cfffff 75%, #bacfff 100%);
-    background: linear-gradient(to bottom, #ff0000 0%, #ffcf9d 25%,#ffffff 50%, #cfffff 75%, #bacfff 100%);
+    background: -moz-linear-gradient(top, #8f00ff 0%, #000000 100%);
+    background: -ms-linear-gradient(top, #8f00ff 0%, #000000 100%);
+    background: -o-linear-gradient(top, #8f00ff 0%, #000000 100%);
+    background: -webkit-gradient(linear, left top, left bottom, from(#8f00ff), to(#000000));
+    background: -webkit-linear-gradient(top, #8f00ff 0%, #000000 100%);
+    background: linear-gradient(to bottom, #8f00ff 0%, #000000 100%);
 }
 
 .sp-infrared {
-    background: -moz-linear-gradient(top, #000000 0%, #ff0000 100%);
-    background: -ms-linear-gradient(top, #000000 0%, #ff0000 100%);
-    background: -o-linear-gradient(top, #000000 0%, #ff0000 100%);
-    background: -webkit-gradient(linear, left top, left bottom, from(#000000), to(#ff0000));
-    background: -webkit-linear-gradient(top, #000000 0%, #ff0000 100%);
-    background: linear-gradient(to bottom, #000000 0%, #ff0000 100%);
+    background: -moz-linear-gradient(top, #ff0000 0%, #000000 100%);
+    background: -ms-linear-gradient(top, #ff0000 0%, #000000 100%);
+    background: -o-linear-gradient(top, #ff0000 0%, #000000 100%);
+    background: -webkit-gradient(linear, left top, left bottom, from(#ff0000), to(#000000));
+    background: -webkit-linear-gradient(top, #ff0000 0%, #000000 100%);
+    background: linear-gradient(to bottom, #ff0000 0%, #000000 100%);
 }
 
 /* IE filters do not support multiple color stops.

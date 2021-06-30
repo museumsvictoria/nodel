@@ -2074,6 +2074,7 @@ var populateAuxComponents = function () {
 
     $(this).spectrum({
       type: 'text',
+      theme: 'sp-dark',
       showPalette: true,
       showAlpha: false,
       allowEmpty: false,

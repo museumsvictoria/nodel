@@ -67,6 +67,7 @@
         offset: null,
 
         formatWithChannels: '', // E.g.> rgb(hsv or hsl) + [kwaui]+
+        showColorSpaceString: false,
     },
     spectrums = [],
     IE = !!/msie/i.exec( window.navigator.userAgent ),
@@ -241,6 +242,7 @@
             shiftMovementDirection = null,
             
             formatWithChannels = opts.formatWithChannels,
+            showColorSpaceString = opts.showColorSpaceString,
             showWhite = formatWithChannels.indexOf('w') > -1 ? true : false,
             showAmber = formatWithChannels.indexOf('a') > -1 ? true : false,
             showUV = formatWithChannels.indexOf('u') > -1 ? true : false,
@@ -555,7 +557,7 @@
             }, dragStart, dragStop);
 
             draggable(sliderWhite, function (dragX, dragY) {
-                currentWhite = parseFloat(dragY / slideHeight);
+                currentWhite = parseFloat((slideHeight - dragY) / slideHeight);
                 isEmpty = false;
                 if (!opts.showAlpha) {
                     currentAlpha = 1;
@@ -564,7 +566,7 @@
             }, dragStart, dragStop);
 
             draggable(sliderAmber, function (dragX, dragY) {
-                currentAmber = parseFloat(dragY / slideHeight);
+                currentAmber = parseFloat((slideHeight - dragY) / slideHeight);
                 isEmpty = false;
                 if (!opts.showAlpha) {
                     currentAlpha = 1;
@@ -573,7 +575,7 @@
             }, dragStart, dragStop);
 
             draggable(sliderUV, function (dragX, dragY) {
-                currentUV = parseFloat(dragY / slideHeight);
+                currentUV = parseFloat((slideHeight - dragY) / slideHeight);
                 isEmpty = false;
                 if (!opts.showAlpha) {
                     currentAlpha = 1;
@@ -582,7 +584,7 @@
             }, dragStart, dragStop);
 
             draggable(sliderColorTemp, function (dragX, dragY) {
-                currentColorTemp = parseFloat(dragY / slideHeight);
+                currentColorTemp = parseFloat((slideHeight - dragY) / slideHeight);
                 isEmpty = false;
                 if (!opts.showAlpha) {
                     currentAlpha = 1;
@@ -591,7 +593,7 @@
             }, dragStart, dragStop);
 
             draggable(sliderInfrared, function (dragX, dragY) {
-                currentInfrared = parseFloat(dragY / slideHeight);
+                currentInfrared = parseFloat((slideHeight - dragY) / slideHeight);
                 isEmpty = false;
                 if (!opts.showAlpha) {
                     currentAlpha = 1;
@@ -997,10 +999,11 @@
                 }
             }
 
-            // get color format anc compare
+            // get color format and compare
             var colorspace = colorSpaceString.substr(0, colorSpaceString.indexOf('('));
             if (colorspace !== formatWithChannels) {
-                throw new Error('color space does not match');
+                // throw new Error('color space does not match');
+                return;
             }
 
             var channels = formatWithChannels.substr(3);
@@ -1009,7 +1012,8 @@
             var values = valuesString.split(',');
 
             if (formatWithChannels.length !== values.length) {
-                throw new Error('mismatch between format and values');
+                // throw new Error('mismatch between format and values');
+                return;
             }
 
             // update channels first
@@ -1184,7 +1188,7 @@
             if (opts.showInput) {
                 textInput.val(displayColor);
             }
-            boundElement.val(displayColor);
+            boundElement.val(showColorSpaceString ? displayColor : '');
             if (opts.type == "text" || opts.type == "component") {
                 var color = realColor;
                 if (color && colorizeElement) {
@@ -1273,31 +1277,31 @@
                 });
 
                 // White
-                slideY = (currentWhite) * slideHeight;
+                slideY = (1 - currentWhite) * slideHeight;
                 slideWhiteHelper.css({
                     "top": (slideY - slideHelperHeight) + "px"
                 });
 
                 // Amber
-                slideY = (currentAmber) * slideHeight;
+                slideY = (1 - currentAmber) * slideHeight;
                 slideAmberHelper.css({
                     "top": (slideY - slideHelperHeight) + "px"
                 });
 
                 // UV
-                slideY = (currentUV) * slideHeight;
+                slideY = (1 - currentUV) * slideHeight;
                 slideUVHelper.css({
                     "top": (slideY - slideHelperHeight) + "px"
                 });
 
                 // Color temperature
-                slideY = (currentColorTemp) * slideHeight;
+                slideY = (1 - currentColorTemp) * slideHeight;
                 slideColorTempHelper.css({
                     "top": (slideY - slideHelperHeight) + "px"
                 });
 
                 // Infrared
-                slideY = (currentInfrared) * slideHeight;
+                slideY = (1 - currentInfrared) * slideHeight;
                 slideInfraredHelper.css({
                     "top": (slideY - slideHelperHeight) + "px"
                 });                
