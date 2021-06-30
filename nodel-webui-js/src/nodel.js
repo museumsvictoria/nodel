@@ -964,7 +964,7 @@ var setEvents = function(){
     else $(this).removeClass('active');
     callAction(data.action, data.arg);
   });
-  $('body').find('*[data-arg], *[data-action]').not('input[type="color"]').on('click', function (e) {
+  $('body').find('*[data-arg], *[data-action]').not('input.spectrum-color-picker').on('click', function (e) {
     e.stopPropagation(); e.preventDefault();
     if(!$('body').hasClass('touched')) {
       if(navigator.issmart) $('body').addClass('touched');
