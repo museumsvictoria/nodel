@@ -721,12 +721,13 @@
                 $(pickerContainer).css("width", 200 + nextToHue*20 + "px");
                 $(dragger).css("right", 20 + nextToHue*20 + "px");
                 $(slider).css("right", nextToHue*20 + "px");
-                $(sliderWhite).css("right", nextToWhite*20 + "px");
-                $(sliderAmber).css("right", nextToAmber*20 + "px");
-                $(sliderUV).css("right", nextToUV*20 + "px");
-                $(sliderColorTemp).css("right", nextToColorTemp*20 + "px");
-                $(sliderInfrared).css("right", nextToInfrared*20 + "px");
-
+                
+                if (showWhite) { $(sliderWhite).css("right", nextToWhite*20 + "px"); }
+                if (showAmber) { $(sliderAmber).css("right", nextToAmber*20 + "px"); }
+                if (showUV) { $(sliderUV).css("right", nextToUV*20 + "px"); }
+                if (showColorTemp) { $(sliderColorTemp).css("right", nextToColorTemp*20 + "px"); }
+                if (showInfrared) { $(sliderInfrared).css("right", nextToInfrared*20 + "px"); }
+                
                 // var sp_clear = container.find('.sp-clear-enabled .sp-clear');
                 var sp_clear = container.find('.sp-clear');
                 $(sp_clear).css("right", nextToHue*20 + "px");
