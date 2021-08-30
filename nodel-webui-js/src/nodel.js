@@ -38,6 +38,9 @@ $.views.helpers({
     if (maxLength && value.length > maxLength) {
       return value.substring(0, maxLength ) + "...";
     }
+    value = value.replace("&","&amp;");
+    value = value.replace("<","&lt;");
+    value = value.replace(">","&gt;");
     return value;
   },
   nicetime: function(value, long){
