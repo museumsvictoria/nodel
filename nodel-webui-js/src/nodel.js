@@ -852,9 +852,9 @@ var getLocalsList = function(filterstr){
     for (i=0; i<data.length; i++) {
       data[i].host = localhost;
       data[i].address = '/nodes/' + encodeURIComponent(data[i].node) + '/nodel.xml';
-
       if(_.isUndefined(localsList['hosts'][encodr(localhost)])) {
         var hosts = updateHost(data[i].host, localsList);
+        hosts[localhost].icon = generateHostIcon(host); // makes it identical to the current host's one
         hosts[localhost].checked = true; // always true
         hosts[localhost].reachable = true; // always true
         $.observable(localsList).setProperty('hosts', hosts);
