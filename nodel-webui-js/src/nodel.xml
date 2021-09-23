@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <?xml-stylesheet type="text/xsl" href="v1/index.xsl"?>
 <pages core="true" theme="default" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="v1/index.xsd">
-  <header>
+  <header destination="locals.xml">
     <nodel type="hosticon"/>
     <nodel type="nav"/>
     <nodel type="edit"/>
