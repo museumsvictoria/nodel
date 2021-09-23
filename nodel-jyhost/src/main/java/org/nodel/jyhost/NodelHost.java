@@ -642,20 +642,6 @@ public class NodelHost {
         return Nodel.getNodeURLsForNode(name);
     }
 
-    public List<Map<String, String>> getLocalNodes(String filter) {
-        String lcFilter = Strings.isNullOrEmpty(filter) ? null : filter.toLowerCase();
-        List<Map<String, String>> list = new ArrayList<>();
-        for (SimpleName sn : BaseNode.getNodes().keySet()) {
-            if (Strings.isNullOrEmpty(lcFilter) || sn.getOriginalName().toLowerCase().contains(lcFilter)) {
-                Map<String, String> item = new HashMap<>();
-                item.put("name", sn.getOriginalName());
-                item.put("node", sn.getReducedName());
-                list.add(item);
-            }
-        }
-        return list;
-    }
-
     /**
      * Permanently shuts down this nodel host
      */

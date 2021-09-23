@@ -4,10 +4,11 @@
   <header destination="diagnostics.xml">
     <nodel type="hosticon"/>
   </header>
-  <page title='List'>
+  <page title='Locals'>
     <row>
       <column>
-        <nodel type="list"/>
+        <nodel type="add"/>
+        <nodel type="locals"/>
       </column>
     </row>
   </page>

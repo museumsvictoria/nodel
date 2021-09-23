@@ -844,23 +844,38 @@ var getNodeList = function(filterstr){
 
 var getLocalsList = function(filterstr){
   if(!_.isUndefined(filterstr)) $.observable(localsList['flt'] = filterstr);
-  filter = {'filter': localsList['flt']};
+  var fltstr = localsList['flt'];
   var d = $.Deferred();
   if(localsListreq) localsListreq.abort();
   var localhost = 'localhost';
-  localsListreq = $.postJSON(proto+'//'+host+'/REST/locals', JSON.stringify(filter), function(data) {
-    for (i=0; i<data.length; i++) {
-      data[i].host = localhost;
-      data[i].address = '/nodes/' + encodeURIComponent(data[i].node) + '/nodel.xml';
-      if(_.isUndefined(localsList['hosts'][encodr(localhost)])) {
-        var hosts = updateHost(data[i].host, localsList);
-        hosts[localhost].icon = generateHostIcon(host); // makes it identical to the current host's one
-        hosts[localhost].checked = true; // always true
-        hosts[localhost].reachable = true; // always true
-        $.observable(localsList).setProperty('hosts', hosts);
-      } 
+  localsListreq = $.getJSON(proto+'//'+host+'/REST',function(info) {
+    // info : {started:, nodes: { 'node-name': {}...}}
+    var data = info['nodes'];
+    var filtered = []; // [{name: 'aa-bb-cc', desc:, started:, nodelVersion:, webSocketPort: }...]
+    if (!_.isUndefined(data)) {
+      Object.keys(data).forEach(function (key) {
+        if (_.isUndefined(fltstr)) {
+          filtered.push(data[key]);
+        } else {
+          if (key.toLowerCase().indexOf(fltstr.toLowerCase()) > -1) {
+            filtered.push(data[key]);
+          }
+        }
+      });
+      for (var i=0; i<filtered.length; i++) {
+        filtered[i].host = localhost;
+        filtered[i].node = getSimpleName(filtered[i].name);
+        filtered[i].address = '/nodes/' + encodeURIComponent(getVerySimpleName(filtered[i].name)) + '/nodel.xml';
+        if(_.isUndefined(localsList['hosts'][encodr(localhost)])) {
+          var hosts = updateHost(filtered[i].host, localsList);
+          hosts[localhost].icon = generateHostIcon(host); // makes it identical to the current host's one
+          hosts[localhost].checked = true; // always true
+          hosts[localhost].reachable = true; // always true
+          $.observable(localsList).setProperty('hosts', hosts);
+        }
+      }
     }
-    $.observable(localsList['lst']).refresh(data);
+    $.observable(localsList['lst']).refresh(filtered);
   }).always(function(){
     d.resolve();
   });
