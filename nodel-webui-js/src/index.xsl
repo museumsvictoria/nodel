@@ -857,7 +857,7 @@
             <table class="table">
               <tbody>
                 <tr>
-                  <th scope="row">Build</th>
+                  <th scope="row">Release</th>
                   <td>Open-source build <a href="/build.json"><strong id="build">{{>build.version}}</strong></a> by <a href="http://museumvictoria.com.au">Museum Victoria</a> &amp; <a href="http://automatic.com.au">Automatic Pty Ltd</a></td>
                 </tr>
                 <tr>
@@ -874,7 +874,7 @@
                 </tr>
                 <tr>
                   <th scope="row">Uptime</th>
-                  <td>{{>~fromtime(startTime)}}<br/>started ({{>~nicetime(startTime)}})</td>
+                  <td>{{>~fromtime(startTime)}}, started {{>~nicetime(startTime, false, 'llll')}}</td>
                 </tr>
                 <tr>
                   <th scope="row">Host path</th>
@@ -893,16 +893,12 @@
                   <td>{{>agent}}</td>
                 </tr>
                 <tr>
-                  <th scope="row">Build server</th>
-                  <td>{{>build.host}}</td>
-                </tr>
-                <tr>
-                  <th scope="row">Build date</th>
-                  <td>{{>~nicetime(build.date)}}</td>
-                </tr>
-                <tr>
-                  <th scope="row">Commit</th>
-                  <td><a href="#" data-link="href{:'https://github.com/museumvictoria/nodel/commit/'+build.id}">{{>build.id}}</a></td>
+                  <th scope="row">Build details</th>
+                  <td>
+                    Built {{>~nicetime(build.date, false, 'll')}} on {{>build.host}}<br/>
+                    Origin <a href="#" data-link="href{:build.origin}">{{>build.origin}}</a><br/>
+                    Branch <a href="#" data-link="href{:build.origin+'/tree/'+build.branch}">{{>build.branch}}</a>, last commit <a href="#" data-link="href{:build.origin+'/commit/'+build.id}">{{>build.id}}</a>
+                  </td>
                 </tr>
               </tbody>
             </table>
