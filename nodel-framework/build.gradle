@@ -39,11 +39,6 @@ def buildSummary = gitId
 if (!branch.equals("stable"))
     version version + "-" + branch + "_r" + rev
 
-sourceSets {
-    main {
-    }
-}
-
 jar {
     from "$buildDir/output"
     baseName = 'nodel-framework'
@@ -53,8 +48,11 @@ jar {
     }    
 }
 
-dependencies {
+dependencies {    
     compile 'joda-time:joda-time:2.6'
     compile 'org.slf4j:slf4j-api:1.7.10'
+
+    // SSH features
+    implementation group: 'com.jcraft', name: 'jsch', version: '0.1.55'
 }
 

@@ -184,7 +184,12 @@ public class ManagedToolkit {
     /**
      * Holds all the UDP sockets
      */
-    private Set<ManagedUDP> _udpSockets = new HashSet<ManagedUDP>();    
+    private Set<ManagedUDP> _udpSockets = new HashSet<ManagedUDP>();
+
+    /**
+     * Holds all the SSH connections
+     */
+    private Set<ManagedSSH> _sshConnections = new HashSet<ManagedSSH>();
     
     /**
      * Holds all the long living managed processes
@@ -416,7 +421,47 @@ public class ManagedToolkit {
         
         return udp;        
     }
-    
+
+    /**
+     * Constructs a managed SSH connection.
+     */
+    public ManagedSSH createSSH(String dest,
+                                H0 onConnected,
+                                H1<String> onReceived,
+                                H1<String> onSent,
+                                H0 onDisconnected,
+                                H0 onTimeout,
+                                String sendDelimiters,
+                                String receiveDelimiters,
+                                String username,
+                                String password,
+                                boolean disableEcho) {
+        // create a new TCP connection providing this environment's facilities
+        ManagedSSH ssh = new ManagedSSH(_node, dest, _threadStateHandler, _tcpExceptionHandler, _callbackQueue, s_threadPool, s_timers);
+
+        // set up the callback handlers as provided by the user
+        ssh.setConnectedHandler(onConnected);
+        ssh.setReceivedHandler(onReceived);
+        ssh.setSentHandler(onSent);
+        ssh.setDisconnectedHandler(onDisconnected);
+        ssh.setTimeoutHandler(onTimeout);
+        ssh.setSendDelimeters(sendDelimiters);
+        ssh.setReceiveDelimiters(receiveDelimiters);
+
+        ssh.setDisableEcho(disableEcho);
+        ssh.setUsername(username);
+        ssh.setPassword(password);
+
+        synchronized (_lock) {
+            if (_closed)
+                Stream.safeClose(ssh);
+            else
+                _sshConnections.add(ssh);
+        }
+
+        return ssh;
+    }
+
     /**
      * Constructs a managed OS process.
      */
@@ -565,6 +610,19 @@ public class ManagedToolkit {
         }
     }    
     
+    /**
+     * Releases all secure shells
+     */
+    public void releaseSecureShells() {
+        synchronized (_lock) {
+            // close all secure shells
+            for (ManagedSSH ssh : _sshConnections)
+                Stream.safeClose(ssh);
+
+            _sshConnections.clear();
+        }
+    }
+
     /**
      * Creates a managed node
      */
@@ -866,6 +924,10 @@ public class ManagedToolkit {
                 udp.start();
             }
 
+            for (ManagedSSH ssh : _sshConnections) {
+                ssh.start();
+            }
+
             for (ManagedProcess process : _processes) {
                 process.init();
             }
@@ -943,6 +1005,8 @@ public class ManagedToolkit {
             
             releaseProcesses();
             
+            releaseSecureShells();
+
             releaseNodes();
             
             releaseHttpClient();

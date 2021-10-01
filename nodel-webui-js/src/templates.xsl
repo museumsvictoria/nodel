@@ -16,7 +16,7 @@
   </xsl:template>
   <!-- row -->
   <!-- column -->
-  <xsl:template match="column[not(@sm|md|xs)]">
+  <xsl:template match="column[not(@lg|@md|@sm|@xs)]">
     <div>
       <xsl:choose>
         <xsl:when test="@event or @showevent">
@@ -71,7 +71,7 @@
       <xsl:apply-templates/>
     </div>
   </xsl:template>
-  <xsl:template match="column[@sm|@md|@xs]">
+  <xsl:template match="column[@lg|@md|@sm|@xs]">
     <div>
       <xsl:choose>
         <xsl:when test="@event or @showevent">
@@ -89,6 +89,11 @@
             <xsl:if test="@md">
               <xsl:text>col-md-</xsl:text>
               <xsl:value-of select="@md"/>
+              <xsl:text> </xsl:text>
+            </xsl:if>            
+            <xsl:if test="@lg">
+              <xsl:text>col-lg-</xsl:text>
+              <xsl:value-of select="@lg"/>
             </xsl:if>
             <xsl:text> sect</xsl:text>
             <xsl:if test="@push">
@@ -138,6 +143,11 @@
             <xsl:if test="@md">
               <xsl:text>col-md-</xsl:text>
               <xsl:value-of select="@md"/>
+              <xsl:text> </xsl:text>
+            </xsl:if>
+            <xsl:if test="@lg">
+              <xsl:text>col-lg-</xsl:text>
+              <xsl:value-of select="@lg"/>
             </xsl:if>
             <xsl:if test="@push">
               <xsl:text> col-sm-push-</xsl:text>

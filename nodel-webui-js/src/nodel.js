@@ -38,10 +38,14 @@ $.views.helpers({
     if (maxLength && value.length > maxLength) {
       return value.substring(0, maxLength ) + "...";
     }
+    value = value.replace("&","&amp;");
+    value = value.replace("<","&lt;");
+    value = value.replace(">","&gt;");
     return value;
   },
-  nicetime: function(value, long){
-    if(long) return moment(value).format('MM-DD HH:mm:ss.SS');
+  nicetime: function (value, precise, format) {
+    if (precise) return moment(value).format('MM-DD HH:mm:ss.SS');
+    if (format) return moment(value).format(format);
     else return moment(value).format('Do MMM, h:mm a');
   },
   fromtime: function(value){
@@ -2129,15 +2133,11 @@ var updateLogs = function(){
         var noanimate = true;
         $('body').data('seq', -1);
         // get length minus duplicates
-        var len = data.filter(
-          (data, index, self) => index === self.findIndex(
-            (t) =>
-              data.seq !== 0 &&
-              t.source === data.source &&
-              t.type === data.type &&
-              t.alias === data.alias
-            )
-        ).length;
+        var len = data.filter(function (data, index, self) {
+          return index === self.findIndex(function (t) {
+            return data.seq !== 0 && t.source === data.source && t.type === data.type && t.alias === data.alias;
+          });
+        }).length;
         var eles = $(".nodel-log");
         $.each(eles, function (i, ele) {
           var src = $.view($(ele).find('.base')).data;
@@ -2179,15 +2179,11 @@ var updateLogs = function(){
               return a.seq < b.seq ? -1 : a.seq > b.seq ? 1 : 0;
             });
             // get data minus duplicates
-            var datafil = data['activityHistory'].filter(
-              (data, index, self) => index === self.findIndex(
-                (t) =>
-                  data.seq !== 0 &&
-                  t.source === data.source &&
-                  t.type === data.type &&
-                  t.alias === data.alias
-              )
-            );
+            var datafil = data['activityHistory'].filter(function (data, index, self) {
+              return index === self.findIndex(function (t) {
+                return data.seq !== 0 && t.source === data.source && t.type === data.type && t.alias === data.alias;
+              });
+            });
             var len = datafil.length;
             var eles = $(".nodel-log");
             $.each(eles, function (i, ele) {
