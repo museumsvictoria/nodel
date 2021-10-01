@@ -1,9 +1,10 @@
 {
 	"project" : "@buildProject@",
+	"origin" : "@buildOrigin@",
 	"branch" : "@buildBranch@",
 	"version" : "@buildVersion@",
 	"id" : "@buildId@",
-    "rev" : "@buildRev@",
+	"rev" : "@buildRev@",
 	"host" : "@buildHost@",
 	"date" : "@buildDate@"
 }

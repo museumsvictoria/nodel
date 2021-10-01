@@ -27,6 +27,7 @@ def now = DateTime.now().toString();
 def gitBranch = 'git rev-parse --abbrev-ref HEAD'.execute().text.trim()
 def gitId = 'git rev-parse HEAD'.execute().text.trim()
 def gitRev = 'git rev-list --count HEAD'.execute().text.trim()
+def gitOrigin = 'git config --get remote.origin.url'.execute().text.trim()
 
 def branch = gitBranch
 if (branch.equals("master"))
@@ -70,6 +71,7 @@ task filterContentTemplates(type: Copy) {
     include 'build.json'
     filter(ReplaceTokens, tokens: [
         buildSummary: project.name + "-" + project.version + " " + buildSummary + " (" + hostname + ") " + now,
+        buildOrigin: gitOrigin,
         buildProject: project.name,
         buildBranch : branch,
         buildVersion: project.version,
