@@ -1,6 +1,6 @@
 # Building from scratch
 * **gradle** is the primary build tool for the main Java project (runs on **Java**)
-* **grunt** (runs on **Node.js**, installed via **npm**) is used by the **nodel-webui-js** project component
+
 
 The steps below describe usage on both Windows and Linux
 * The example refers to **Windows**
@@ -12,22 +12,17 @@ The steps below describe usage on both Windows and Linux
   1. **Java JDK 8**, see [latest versions](https://adoptopenjdk.net/releases.html)
       * latest Windows [OpenJDK8U-jdk_x64_windows_hotspot_8u242b08.zip](https://github.com/AdoptOpenJDK/openjdk8-binaries/releases/download/jdk8u242-b08/OpenJDK8U-jdk_x64_windows_hotspot_8u242b08.zip)
       * latest Linux [OpenJDK8U-jdk_x64_linux_hotspot_8u242b08.tar.gz](https://github.com/AdoptOpenJDK/openjdk8-binaries/releases/download/jdk8u242-b08/OpenJDK8U-jdk_x64_linux_hotspot_8u242b08.tar.gz)
-  2. **Node.js**, see [latest versions](https://nodejs.org/en/download/)
-      * latest Windows [node-v12.16.2-win-x64.zip](https://nodejs.org/dist/v12.16.2/node-v12.16.2-win-x64.zip)
-      * latest Linux [node-v12.16.2-linux-x64.tar.xz](https://nodejs.org/dist/v12.16.2/node-v12.16.2-linux-x64.tar.xz)
-  3. **Git**, see [latest versions](https://git-scm.com/download)
+   3. **Git**, see [latest versions](https://git-scm.com/download)
       * latest Windows [PortableGit-2.26.0-64-bit.7z.exe](https://github.com/git-for-windows/git/releases/download/v2.26.0.windows.1/PortableGit-2.26.0-64-bit.7z.exe)
       * Linux install `apt-get install git`
 
  * all support "portable" installation, examples here are extracted to `C:\Apps`
 
-## STEP 2: ENSURE SECONDARY DEPENDENCIES ARE 'INSTALLED'
-* ensure primary dependencies, above, are on path, e.g. on Windows:
+## STEP 2: ENSURE DEPENDENCIES ARE 'READY'
+* ensure dependencies, above, are on path, e.g. on Windows:
 ```bat
-set PATH=%PATH%;C:\Apps\node-v12.16.2-win-x64;C:\Apps\git\bin;C:\Apps\jdk8u242-b08\bin
+set PATH=%PATH%;C:\Apps\git\bin;C:\Apps\jdk8u242-b08\bin
 ```
-* install **grunt** and **lodash** into the "global" location (sits alongside **Node.js** binaries)
-   * `npm install -g grunt-cli lodash-cli`
 
 ## STEP 3: ENSURE REPOSITORY IS CLONED
 * ensure primary dependencies, above, are on path (see example in STEP 2, above)
@@ -54,30 +49,18 @@ wget https://github.com/AdoptOpenJDK/openjdk8-binaries/releases/download/jdk8u24
 tar xf OpenJDK8U-jdk_x64_linux_hotspot_8u242b08.tar.gz
 # ends up in ./jdk8u242-b08
 
-# download and extract Node.js (and npm)
-wget https://nodejs.org/dist/v12.16.2/node-v12.16.2-linux-x64.tar.xz
-tar xf node-v12.16.2-linux-x64.tar.xz
-# ends up in ./node-v12.16.2-linux-x64
-
 # (git is normally already available)
 
 # adjust PATH
-export PATH=$PATH:~/jdk8u242-b08/bin/:~/node-v12.16.2-linux-x64/bin/
-
-# install 'grunt' and 'lodash' in "global" location
-npm install -g grunt-cli lodash-cli
+export PATH=$PATH:~/jdk8u242-b08/bin/
 
 # quickly verify versions of all dependencies
+
 java -version 
 # e.g. >> openjdk version "1.8.0_242"
-node --version
-# e.g. >> v12.16.2
+
 git version
 # e.g. >> git version 2.25.1
-grunt --version
-# e.g. >> grunt-cli v1.3.2
-lodash --version
-# e.g. >> 4.17.5
 
 # clone repo
 git clone https://github.com/museumsvictoria/nodel nodel-build
@@ -108,9 +91,8 @@ git clean -fxd
 **Full cleanup**
 ```bash
 rm -fr ~/jdk8u242-b08
-rm -fr ~/node-v12.16.2-linux-x64
 rm -fr ~/nodel-build
 ```
 
 ---
-¹ For OSX, adjust to suit.
+¹ For macOS, adjust to suit.

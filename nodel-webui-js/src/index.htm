@@ -3,7 +3,14 @@
     <script>
       var node = null;
       if(window.location.pathname.split( '/' )[1]=="nodes") node = decodeURIComponent(window.location.pathname.split( '/' )[2].replace(/\+/g, '%20'));
-      if(node) window.location.href = "nodel.xml";
+      if(node) {
+        var request = new XMLHttpRequest();
+        var testurl = window.location.href.replace(/\/$/, '') + '/index.xml';
+        request.open('GET', testurl, false);
+        request.send();
+        if (request.status === 200) window.location.href = "index.xml";
+        else window.location.href = "nodel.xml";
+      }
       else window.location.href = "nodes.xml";
     </script>
   </head>
