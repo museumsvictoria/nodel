@@ -40,12 +40,10 @@ $.views.helpers({
     }
     return value;
   },
-  nicetime: function(value, long){
-    if(long) return moment(value).format('MM-DD HH:mm:ss.SS');
+  nicetime: function (value, precise, format) {
+    if (precise) return moment(value).format('MM-DD HH:mm:ss.SS');
+    if (format) return moment(value).format(format);
     else return moment(value).format('Do MMM, h:mm a');
-  },
-  buildtime: function(value){
-    return moment(value).format('Do MMM YYYY, h:mm a');
   },
   fromtime: function(value){
     return moment(value).from(moment(), true);
