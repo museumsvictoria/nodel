@@ -38,6 +38,9 @@ $.views.helpers({
     if (maxLength && value.length > maxLength) {
       return value.substring(0, maxLength ) + "...";
     }
+    value = value.replace("&","&amp;");
+    value = value.replace("<","&lt;");
+    value = value.replace(">","&gt;");
     return value;
   },
   nicetime: function (value, precise, format) {
@@ -50,9 +53,9 @@ $.views.helpers({
   },
   srcflt: function(item, i, items) {
     if(this.view.data.flt) {
-      return item[this.props.srch].search(new RegExp(this.view.data.flt, "ig")) !== -1;
+      return (item[this.props.srch].toLocaleLowerCase().indexOf(encodr(this.view.data.flt.toLocaleLowerCase())) !== -1) && item.seq != 0;
     }
-    else return true;
+    else return item.seq != 0;
   },
   encodr: function(value){
     return encodr(value);
@@ -72,6 +75,9 @@ $.views.helpers({
   isset: function(value){
     return(!_.isUndefined(value));
   },
+  iswithin: function(value, srch){
+    return _.isUndefined(srch) || srch === "" || value.toLocaleLowerCase().indexOf(srch) !== -1;
+  },
   jsonhighlight: function(json) {
     json = json.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
     return json.replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, function (match) {
@@ -89,13 +95,8 @@ $.views.helpers({
       }
       return '<span class="' + cls + '">' + match + '</span>';
     });
-  },
-  sortReachable: function(a,b) {
-    return b.reachable - a.reachable;
   }
 });
-
-$.views.helpers.sortReachable.depends = "**";
 
 $.views.converters({
   intToStr: function(value) {
@@ -372,7 +373,7 @@ var converter = new Markdown.Converter();
 var unicodematch = new XRegExp("[^\\p{L}\\p{N}]", "gi");
 var simplematch = new RegExp(/^(.+?)(?:\(| \(|$)/i);
 var colours = {'primary':'','success':'','danger':'','warning':'','info':'','default':''};
-var throttle = {'logs': []};
+var throttle = {'logs': {}};
 var allowedtxt = ['py','xml','xsl','js','json','html','htm','css','java','groovy','sql','sh','cs','bat','ini','txt','md','cmd'];
 var allowedbinary = ['png','jpg','ico','svg','zip','7z','exe'];
 var nodeList = {'lst':[], 'flt':'', 'end':20, 'hosts':{}};
@@ -383,6 +384,8 @@ var t0;
 $(function() {
   t0 = performance.now();
   host = document.location.hostname + ':' + window.document.location.port;
+  proto = location.protocol;
+  updateFavicon(host);
   $('.nodel-icon img').attr("src", "data:image/svg+xml;base64,"+generateHostIcon(host));
   $('.nodel-icon a').attr("href", window.document.location.protocol+"//"+host);
   $('.nodel-icon a').attr("title", host);
@@ -423,7 +426,9 @@ $(function() {
   } else {
     $.when(createDynamicElements().then(function(){
       updatepadding();
-      getNodeList();
+      getNodeList().then(function(){
+        refreshNodeList();
+      });
       checkHostList();
       setEvents();
       updateLogForm();
@@ -431,7 +436,7 @@ $(function() {
       initToolkit();
       checkHostOnline();
       $('*[data-nav]').first().trigger('click');
-      $('.nodelistfilter').focus();
+      $('.nodelistfilter').trigger('focus');
       var filt = getParameterByName('filter');
       if(filt) $('.nodelistfilter').val(filt).trigger('keyup');
     }));
@@ -457,7 +462,7 @@ var clearTimers = function(){
 
 var getNodeDetails = function(){
   var d = $.Deferred();
-  $.getJSON('http://'+host+'/REST/nodes/'+encodeURIComponent(node)+'/', function(data) {
+  $.getJSON(proto+'//'+host+'/nodes/'+encodeURIComponent(node)+'/REST/', function(data) {
     if(!$('.navbar-brand #title').text()) $('.navbar-brand #title').text(getSimpleName(data.name));
     if(data.desc) $('.nodel-description').html(converter.makeHtml(data.desc));
     $('title').text(getSimpleName(data.name));
@@ -543,6 +548,21 @@ var initToolkit = function(){
   });
 };
 
+var creaeteFormElements = function(ele){
+  var d = $.Deferred();
+  var forms = $(ele).data('forms');
+  $(ele).html($.templates("#actsigTmpl").render(forms));
+  var p = [];
+  $(ele).find('[data-type="action"],[data-type="event"]').each(function(i, ele){
+    p.push(makeTemplate(ele, $(ele).data('schema')));
+  });
+  $.when.apply($, p).then(function (){
+    convertSchemaNames();
+    d.resolve();
+  });
+  return d;
+}
+
 var createDynamicElements = function(){
   var p = [];
   var dynres = $('div[data-nodel]');
@@ -551,10 +571,10 @@ var createDynamicElements = function(){
     var d = $.Deferred();
     if($(ele).data('nodel') == 'actsig'){
       var reqs = [];
-      reqs.push($.getJSON('http://'+host+'/REST/nodes/'+encodeURIComponent(node)+'/actions', function(list) {
+      reqs.push($.getJSON(proto+'//'+host+'/nodes/'+encodeURIComponent(node)+'/REST/actions', function(list) {
         actions = list;
       }));
-      reqs.push($.getJSON('http://'+host+'/REST/nodes/'+encodeURIComponent(node)+'/events', function(list) {
+      reqs.push($.getJSON(proto+'//'+host+'/nodes/'+encodeURIComponent(node)+'/REST/events', function(list) {
         events = list;
       }));
       var forms = {"forms":[],"groups":{}};
@@ -591,17 +611,39 @@ var createDynamicElements = function(){
             return a.order > b.order? 1: a.order == b.order? 0: -1;
           });
         });
-        $(ele).html($.templates("#actsigTmpl").render(forms));
-        var p = [];
-        $('[data-type="action"],[data-type="event"]').each(function(i, ele){
-          p.push(makeTemplate(ele, $(ele).data('schema')));
-        });
-        $.when.apply($, p).then(function(){
+        $(ele).data('forms', forms);
+        /* auto render when small */
+        var formcount = Object.keys(actions).length + Object.keys(events).length;
+        if(formcount < 100) {
+          creaeteFormElements(ele).then(function(){
+            d.resolve();
+          });
+        } else {
+          $(ele).html($.templates("#actsigHoldingTmpl").render());
+          $(ele).on('click', 'button.enable', function(){
+            $(this).prop('disabled', true);
+            $(this).siblings('.loader').show();
+            var form = $(this).closest('[data-nodel="actsig"]');
+            (function(form) {
+              setTimeout(function() {
+                creaeteFormElements(form).then(function(){
+                  // backfill values
+                  for (var i in throttle['logs']) {
+                    (function (i) {
+                      requestAnimationFrame(function() {
+                        process_form(throttle['logs'][i]);
+                      });
+                    })(i);
+                  }
+                });
+              }, 10);
+            })(form);
+          });
           d.resolve();
-        });
+        }
       });
     } else if($(ele).data('nodel') == 'params'){
-      $.getJSON('http://'+host+'/REST/nodes/'+encodeURIComponent(node)+'/params/schema', function(data) {
+      $.getJSON(proto+'//'+host+'/nodes/'+encodeURIComponent(node)+'/REST/params/schema', function(data) {
         if(!_.isEmpty(data)){
           $(ele).data('btntext','Save');
           $(ele).data('btncolour','success');
@@ -618,7 +660,7 @@ var createDynamicElements = function(){
         }
       }).fail(function(){d.resolve();});
     } else if($(ele).data('nodel') == 'remote'){
-      $.getJSON('http://'+host+'/REST/nodes/'+encodeURIComponent(node)+'/remote/schema', function(data) {
+      $.getJSON(proto+'//'+host+'/nodes/'+encodeURIComponent(node)+'/REST/remote/schema', function(data) {
         if(!_.isEmpty(data)){
           $(ele).data('target','remote/save');
           $(ele).data('source','remote');
@@ -633,29 +675,34 @@ var createDynamicElements = function(){
       }).fail(function(){d.resolve();});
     } else if($(ele).data('nodel') == 'toolkit'){
       var ele = this;
-      $.get('http://' + host + '/REST/toolkit', function(data) {
+      $.get(proto+'//' + host + '/REST/toolkit', function(data) {
         $(ele).find('textarea').val(data['script']);
         d.resolve();
       }).fail(function(){d.resolve();});
     } else if($(ele).data('nodel') == 'diagnostics'){
-      $.getJSON('http://'+host+'/REST/diagnostics', function(data) {
-        $.getJSON('http://'+host+'/build.json', function(build) {
+      $.getJSON(proto+'//'+host+'/REST/diagnostics', function(data) {
+        $.getJSON(proto+'//'+host+'/build.json', function(build) {
           $.extend(data, {'build':build});
           $.templates("#diagsTmpl").link(ele, data);
+          $(ele).find('.base').addClass('bound');
           d.resolve();
         }).fail(function(){d.resolve();});
       }).fail(function(){d.resolve();});
     } else if($(ele).data('nodel') == 'log'){ 
-      $.templates("#logTmpl").link(ele, {'logs':[],'flt':'','hold':false,'init':true,'end':10});
+      $.templates("#logTmpl").link(ele, {'logs':[],'flt':'','hold':false,'init':true,'initcount':'0','end':10});
+      $(ele).find('.base').addClass('bound');
       d.resolve();
     } else if($(ele).data('nodel') == 'console'){
       $.templates("#consoleTmpl").link(ele, {'logs':[]});
+      $(ele).find('.base').addClass('bound');
       d.resolve();
     } else if($(ele).data('nodel') == 'serverlog'){
       $.templates("#serverlogTmpl").link(ele, {'logs':[]});
+      $(ele).find('.base').addClass('bound');
       d.resolve();
     } else if($(ele).data('nodel') == 'list'){
       $.templates("#listTmpl").link(ele, nodeList);
+      $(ele).find('.base').addClass('bound');
       d.resolve();
     } else d.resolve();
     p.push(d);
@@ -671,6 +718,15 @@ var getVerySimpleName = function(name){
   var smp = simplematch.exec(name);
   return smp[1].replace(unicodematch,'');
 };
+
+var updateFavicon = function(host){
+  var newicon = generateHostIcon(host);
+  var link = document.querySelector("link[rel*='icon']") || document.createElement('link');
+  link.type = 'image/x-icon';
+  link.rel = 'shortcut icon';
+  link.href = 'data:image/svg+xml;base64,'+newicon;
+  document.getElementsByTagName('head')[0].appendChild(link);
+}
 
 var generateHostIcon = function(host) {
   var hash = XXH.h64(host, 0x4e6f64656c).toString(16).padStart(16,'0');
@@ -740,16 +796,23 @@ var checkHostList = function(){
   }
 };
 
+var refreshNodeList = function(){
+  setTimeout(function(){
+    getNodeList().then(function(){
+      refreshNodeList();
+    })
+  }, 2000);
+}
+
 var getNodeList = function(filterstr){
-  if(!_.isUndefined(filterstr)) filter={'filter':filterstr};
-  else filter = {};
+  if(!_.isUndefined(filterstr)) $.observable(nodeList['flt'] = filterstr);
+  filter = {'filter': nodeList['flt']};
   var d = $.Deferred();
   if(nodeListreq) nodeListreq.abort();
   // test list (for large Nodel networks performance testing)
-  //nodeListreq = $.getJSON('http://'+host+'/nodeURLs.json', function(data) {
-  nodeListreq = $.postJSON('http://'+host+'/REST/nodeURLs', JSON.stringify(filter), function(data) {
+  //nodeListreq = $.getJSON(proto+'//'+host+'/nodeURLs.json', function(data) {
+  nodeListreq = $.postJSON(proto+'//'+host+'/REST/nodeURLs', JSON.stringify(filter), function(data) {
     for (i=0; i<data.length; i++) {
-      var ind = -1;
       data[i].host = getHost(data[i].address);
       data[i].name = data[i].node;
       data[i].node = getSimpleName(data[i].node);
@@ -765,7 +828,7 @@ var getNodeList = function(filterstr){
 var checkReachable = function(host){
   var d = $.Deferred();
   $.ajax({
-    url: 'http://'+host+'/REST',
+    url: proto+'//'+host+'/REST',
     timeout: 3000
   }).done(function() {
     d.resolve(true);
@@ -797,17 +860,20 @@ var makeTemplate = function(ele, schema, tmpls){
   $.views.settings.delimiters("{{", "}}");
   var tmpl = $.templates(generatedTemplate);
   if(!(_.isUndefined($(ele).data('source'))) && ($(ele).data('source').charAt(0) != '/')){
-    $.getJSON('http://'+host+'/REST/nodes/'+encodeURIComponent(node)+'/'+$(ele).data('source'), function(data) {
+    $.getJSON(proto+'//'+host+'/nodes/'+encodeURIComponent(node)+'/REST/'+$(ele).data('source'), function(data) {
       tmpl.link(ele, data);
+      $(ele).find('.base').addClass('bound');
       d.resolve();
     });
   } else if(!(_.isUndefined($(ele).data('source'))) && ($(ele).data('source').charAt(0) == '/')){
-    $.getJSON('http://'+host+'/REST'+$(ele).data('source'), function(data) {
+    $.getJSON(proto+'//'+host+'/nodes/'+encodeURIComponent(node)+'/REST'+$(ele).data('source'), function(data) {
       tmpl.link(ele, data);
+      $(ele).find('.base').addClass('bound');
       d.resolve();
     }); 
   } else {
     tmpl.link(ele, {});
+    $(ele).find('.base').addClass('bound');
     d.resolve();
   }
   return d.promise();
@@ -817,7 +883,7 @@ var checkReload = function(){
   var params = {};
   if(!_.isUndefined($('body').data('timer'))) clearTimeout($('body').data('timer'));
   if(!_.isUndefined($('body').data('timestamp'))) params = {timestamp:$('body').data('timestamp')};
-  $.getJSON('http://'+host+'/REST/nodes/'+encodeURIComponent(node)+'/hasRestarted', params, function(data) {
+  $.getJSON(proto+'//'+host+'/nodes/'+encodeURIComponent(node)+'/REST/hasRestarted', params, function(data) {
     if(_.isUndefined($('body').data('timestamp'))){
       $('body').data('timestamp', data.timestamp);
     } else if ($('body').data('timestamp')!=data.timestamp) {
@@ -853,6 +919,9 @@ var convertNames = function(){
       return at.replace(unicodematch,'');
     }));
   });
+};
+
+var convertSchemaNames = function(){
   $.each($("[data-schema]"), function () {
     $(this).addClass('nodel-schema-'+$(this).data('type'));
     $(this).data('name', $.map($.isArray($(this).data('name')) ? $(this).data('name') : [$(this).data('name')], function(at){
@@ -932,13 +1001,13 @@ var setEvents = function(){
   $('body').on('click','*[data-link-event]', function (e) {
     e.stopPropagation(); e.preventDefault();
     var ele = $(this);
-    var newWindow = window.open('http://'+host);
-    $.getJSON('http://'+host+'/REST/nodes/'+encodeURIComponent(node)+'/remote', function(data) {
+    var newWindow = window.open(proto+'//'+host);
+    $.getJSON(proto+'//'+host+'/nodes/'+encodeURIComponent(node)+'/REST/remote', function(data) {
       if (!_.isUndefined(data['events'][$(ele).data('link-event')])) {
         var lnode = data['events'][$(ele).data('link-event')]['node'];
         if(lnode!==''){
-          newWindow.location = 'http://'+host+'/?filter='+lnode;
-          $.postJSON('http://'+host+'/REST/nodeURLsForNode',JSON.stringify({'name':lnode}), function(data) {
+          newWindow.location = proto+'//'+host+'/?filter='+lnode;
+          $.postJSON(proto+'//'+host+'/REST/nodeURLsForNode',JSON.stringify({'name':lnode}), function(data) {
             if (!_.isUndefined(data[0]['address'])){
               newWindow.location = data[0]['address'];
             }
@@ -946,6 +1015,20 @@ var setEvents = function(){
         }
       }
     });
+  });
+  $('body').on('click','*[data-link-node]', function (e) {
+    e.stopPropagation(); e.preventDefault();
+    var ele = $(this);
+    var lnode = $(ele).data('link-node');
+    var newWindow = window.open(proto+'//'+host);
+    if(lnode!==''){
+      newWindow.location = proto+'//'+host+'/?filter='+lnode;
+      $.postJSON(proto+'//'+host+'/REST/nodeURLsForNode',JSON.stringify({'name':lnode}), function(data) {
+        if (!_.isUndefined(data[0]['address'])){
+          newWindow.location = data[0]['address'];
+        }
+      });
+    }
   });
   $('body').on('click','*[data-link-url]', function (e) {
     e.stopPropagation(); e.preventDefault();
@@ -1012,7 +1095,7 @@ var setEvents = function(){
       //console.log(tosend);
       var nme = $(this).parent().data('btntitle');
       var alt = $(this).parent().data('alert');
-      $.postJSON('http://'+host+'/REST/nodes/'+encodeURIComponent(node)+'/'+$(this).parent().data('target'), JSON.stringify(tosend), function () {
+      $.postJSON(proto+'//'+host+'/nodes/'+encodeURIComponent(node)+'/REST/'+$(this).parent().data('target'), JSON.stringify(tosend), function () {
         console.log(nme+': success');
         if(alt) alert(alt);
       }).fail(function(e){
@@ -1054,7 +1137,7 @@ var setEvents = function(){
       if(text){
         $(this).empty();
         var arg = JSON.stringify({code: text});
-        $.postJSON('/REST/nodes/'+encodeURIComponent(node)+'/exec', arg, function(data){
+        $.postJSON(proto+'//'+host+'/nodes/'+encodeURIComponent(node)+'/REST/exec', arg, function(data){
         }).fail(function(e, s) {
           console.log('Console error: ' + s);
         }).always(function(e){
@@ -1142,11 +1225,12 @@ var setEvents = function(){
           $(ele).find('li.active').trigger('mousedown');
         }
       }
-    } else if ((charCode != 9) && (charCode != 27)) {
+    } else if ([9,27,16,17,18,37,39].indexOf(charCode) === -1) {
       if(e.ctrlKey || e.altKey) return true;
       var srchstr = $(this).val();
       var srchflt = srchstr.replace(new RegExp('[.\\\\+*?\\[\\^\\]$(){}=!<>|:\\-]', 'g'), '\\$&');
       var ele = this;
+      // TODO: change to basic standalone function
       getNodeList($(this).val()).then(function(){
         var data = nodeList.lst;
         if ((data.length == 1) && (srchstr == data[0].node)) $(ele).siblings('div.autocomplete').remove();
@@ -1192,7 +1276,7 @@ var setEvents = function(){
           $(ele).find('li.active').trigger('mousedown');
         }
       }
-    } else if ((charCode != 9) && (charCode != 27)) {
+    } else if ([9,27,16,17,18,37,39].indexOf(charCode) === -1) {
       if(e.ctrlKey || e.altKey) return true;
       var srchstr = $(this).val()
       var srchflt = srchstr.replace(new RegExp('[.\\\\+*?\\[\\^\\]$(){}=!<>|:\\-]', 'g'), '\\$&');
@@ -1208,7 +1292,7 @@ var setEvents = function(){
         });
         if(data.length > 0){
           $.each(data, function(key, value) {
-            reqs.push($.getJSON('http://'+value.host+'/REST/nodes/'+encodeURIComponent(value.node)+'/'+type, function(data) {
+            reqs.push($.getJSON(proto+'//'+value.host+'/nodes/'+encodeURIComponent(value.node)+'/REST/'+type, function(data) {
               $.each(data, function(key, value) {
                 if(value.name.search(new RegExp(srchflt, "ig")) >= 0 ||
                   (!_.isUndefined(value.title) && value.title.search(new RegExp(srchflt, "ig")) >= 0)) {
@@ -1268,7 +1352,7 @@ var setEvents = function(){
     $.each(data[grp], function(nme, val){
       if(val['_$checked'] == true){
         var lnode = val.node;
-        getNodeList(node).then(function(){
+        getNodeList(lnode).then(function(){
           var data = $.grep(nodeList.lst, function(v) {
             return v.node == lnode;
           });
@@ -1282,7 +1366,7 @@ var setEvents = function(){
               var host = parser.host;
               $(parser).remove();
               var lnode = value.node;
-              reqs.push($.getJSON('http://'+host+'/REST/nodes/'+encodeURIComponent(lnode)+'/'+grp, function(data) {
+              reqs.push($.getJSON(proto+'//'+host+'/nodes/'+encodeURIComponent(lnode)+'/REST/'+grp, function(data) {
                 $.each(data, function(key, value) {
                   strs.push(value.name);
                 });
@@ -1317,7 +1401,7 @@ var setEvents = function(){
       editor.setOption('readOnly', 'nocursor');
       var path = $(ele).find('.picker').val();
       $(ele).find('textarea').data('path', path);
-      $.get('http://' + host + '/REST/nodes/' + encodeURIComponent(node) + '/files/contents?path=' +encodeURIComponent(path), function (data) {
+      $.get(proto+'//' + host + '/nodes/' + encodeURIComponent(node) + '/REST/files/contents?path=' +encodeURIComponent(path), function (data) {
         switch(path.split('.').pop()){
           //'sh'
           case 'js':
@@ -1373,7 +1457,7 @@ var setEvents = function(){
     var path = $(ele).find('textarea').data('path');
     // use different method to save main script
     if(path == 'script.py') {
-      url = 'http://' + host + '/REST/nodes/' + encodeURIComponent(node) + '/script/save';
+      url = proto+'//' + host + '/nodes/' + encodeURIComponent(node) + '/REST/script/save';
       payload = JSON.stringify({'script': $(ele).find('textarea').val() });
       $.postJSON(url, payload, function (data) {
         alert("File saved: "+path);
@@ -1384,7 +1468,7 @@ var setEvents = function(){
         $(ele).find('.script_save, .script_delete').prop("disabled", false);
       });
     } else {
-      url = 'http://' + host + '/REST/nodes/' + encodeURIComponent(node) + '/files/save?path=' +encodeURIComponent(path);
+      url = proto+'//' + host + '/nodes/' + encodeURIComponent(node) + '/REST/files/save?path=' +encodeURIComponent(path);
       payload = $('#field_script').val();
       payload = $(ele).find('textarea').val();
       $.ajax({url:url, type:"POST", data:payload, contentType:"application/octet-stream", success: function (data) {
@@ -1404,7 +1488,7 @@ var setEvents = function(){
     editor.setOption('readOnly', 'nocursor');
     var path = $(ele).find('textarea').data('path');
     if((path != 'script.py') && (confirm("Are you sure?"))) {
-      $.get('http://' + host + '/REST/nodes/' + encodeURIComponent(node) + '/files/delete?path=' +encodeURIComponent(path), function (data) {
+      $.get(proto+'//' + host + '/nodes/' + encodeURIComponent(node) + '/REST/files/delete?path=' +encodeURIComponent(path), function (data) {
         editor.getDoc().setValue('');
         $(ele).find('.picker').val('');
         alert("File deleted: "+path);
@@ -1431,7 +1515,7 @@ var setEvents = function(){
     var path = $(ele).find('.scriptnamval').val();
     var grp = $(ele).find('.addgrp');
     if(allowedtxt.concat(allowedbinary).indexOf(path.split('.').pop()) > -1) {
-      var url = 'http://' + host + '/REST/nodes/' + encodeURIComponent(node) + '/files/save?path=' +encodeURIComponent(path);
+      var url = proto+'//' + host + '/nodes/' + encodeURIComponent(node) + '/REST/files/save?path=' +encodeURIComponent(path);
       var dta = '';
       var prc = true;
       if($(grp).data('filedata') !== null) {
@@ -1475,12 +1559,6 @@ var setEvents = function(){
   $('body').on('shown.bs.dropdown', '.edtgrp', function () {
     $(this).find('.renamenode').val(nodename).get(0).focus();
   });
-  $('body').on('click', '.uipicker', function (e) {
-    e.stopPropagation();
-  });
-  $('body').on('change', '.uipicker', function (e) {
-    window.location.href = $(this).val();
-  });
   $('body').on('keyup', '.renamenode', function(e) {
     var charCode = e.charCode || e.keyCode;
     if(charCode == 13) $(this).closest('.form').find('.renamenodesubmit').click();
@@ -1490,10 +1568,10 @@ var setEvents = function(){
     if(nodename != nodenameraw) {
       if(confirm('Are you sure?')) {
         var nodename = JSON.stringify({"value": nodenameraw});
-        $.postJSON('http://' + host + '/REST/nodes/' + encodeURIComponent(node) + '/rename', nodename, function (data) {
+        $.postJSON(proto+'//' + host + '/nodes/' + encodeURIComponent(node) + '/REST/rename', nodename, function (data) {
           alert("Rename successful, redirecting", "success", 0);
           clearTimers();
-          checkRedirect('http://' + host + '/nodes/' + encodeURIComponent(getVerySimpleName(nodenameraw)));
+          checkRedirect(proto+'//' + host + '/nodes/' + encodeURIComponent(getVerySimpleName(nodenameraw)));
         }).fail(function(e){
           alert("Error renaming node", "danger", 7000, e.responseText);
         });
@@ -1501,7 +1579,7 @@ var setEvents = function(){
     }
   });
   $('body').on('click', '.restartnodesubmit', function (e) {
-    $.get('http://' + host + '/REST/nodes/' + encodeURIComponent(node) + '/restart', function (data) {
+    $.get(proto+'//' + host + '/nodes/' + encodeURIComponent(node) + '/REST/restart', function (data) {
       alert("Restarting, please wait", "success", 7000);
     }).fail(function(e){
       alert("Error restarting", "danger", 7000, e.responseText);
@@ -1509,10 +1587,10 @@ var setEvents = function(){
   });
   $('body').on('click', '.deletenodesubmit', function (e) {
     if(confirm('Are you sure?')) {
-      $.getJSON('http://' + host + '/REST/nodes/' + encodeURIComponent(node) + '/remove?confirm=true', function (data) {
+      $.getJSON(proto+'//' + host + '/nodes/' + encodeURIComponent(node) + '/REST/remove?confirm=true', function (data) {
         alert("Delete successful, redirecting", "success", 0);
         clearTimers();
-        setTimeout(function() { window.location.href = 'http://' + host; }, 3000);
+        setTimeout(function() { window.location.href = proto+'//' + host; }, 3000);
       }).fail(function(e){
         alert("Error deleting", "danger", 7000, e.responseText);
       });
@@ -1524,7 +1602,7 @@ var setEvents = function(){
     $(ele).find('.recipepicker').empty();
     $(ele).find('.nodenamval').focus();
     $(ele).find('.nodenamval').val(null).get(0).focus();
-    $.getJSON('http://' + host + '/REST/recipes/list', function(data) {
+    $.getJSON(proto+'//' + host + '/REST/recipes/list', function(data) {
       if (data.length > 0) {
         var picker = $(ele).find('.recipepicker');
         $(picker).append('<option value="" selected disabled hidden></option>');
@@ -1554,9 +1632,9 @@ var setEvents = function(){
     if(nodenameraw) {
       var nodename = {"value": nodenameraw};
       if(recipeval && (recipeval !== 'error')) nodename["base"] = recipeval;
-      $.postJSON('http://' + host + '/REST/newNode', JSON.stringify(nodename), function() {
+      $.postJSON(proto+'//' + host + '/REST/newNode', JSON.stringify(nodename), function() {
         $(ele).find('.open > button').dropdown('toggle');
-        checkRedirect('http://' + host + '/nodes/' + encodeURIComponent(getVerySimpleName(nodenameraw)));
+        checkRedirect(proto+'//' + host + '/nodes/' + encodeURIComponent(getVerySimpleName(nodenameraw)));
       }).fail(function(req){
         if(req.statusText!="abort"){
           var error = 'Node add failed';
@@ -1580,7 +1658,11 @@ var setEvents = function(){
       if($(base).hasClass('isgrouped')){
         base = $(base).find('.base');
         $(base).each(function(){ $.observable($.view(this).data).setProperty('_$grpvisible', true)});
-      } else $.observable($.view(base).data).setProperty('_$visible', true);
+      } else {
+        if($(this).parents('.base.bound').length){
+          $.observable($.view(base).data).setProperty('_$visible', true);
+        }
+      }
     }
   });
   $('body').on('hide.bs.collapse', '[class*="nodel-"] .panel-collapse', function(e){
@@ -1602,7 +1684,9 @@ var setEvents = function(){
             });
           } else {
             if(!$(base).siblings('.panel').children('.in').length) {
-              setInvisible($.view(base).data);
+              if($(ele).parents('.base.bound').length){
+                setInvisible($.view(base).data);
+              }
             }
           }
         }
@@ -1699,6 +1783,9 @@ var setEvents = function(){
       });
     }
   });
+  document.onvisibilitychange = function() { 
+    if(!document.hidden) throttleLogProcess();
+  };
 };
 
 var getAction = function(ele){
@@ -1756,7 +1843,7 @@ var getAction = function(ele){
 
 var callAction = function(action, arg) {
   $.each($.isArray(action) ? action : [action], function(i, act){
-    $.postJSON('http://' + host + '/REST/nodes/' + node + '/actions/' + encodeURIComponent(act) + '/call', arg, function () {
+    $.postJSON(proto+'//' + host + '/nodes/' + encodeURIComponent(node) + '/REST/actions/' + encodeURIComponent(act) + '/call', arg, function () {
       console.log(act + " - Success");
     }).fail(function (e, s) {
       errtxt = s;
@@ -1772,7 +1859,7 @@ var fillPicker = function() {
   $.each(pickers, function(i,picker) {
     $(picker).empty();
     $(picker).append('<option value="" selected disabled hidden></option>');
-    $.getJSON('http://' + host + '/REST/nodes/' + encodeURIComponent(node) + '/files', function (data) {
+    $.getJSON(proto+'//' + host + '/nodes/' + encodeURIComponent(node) + '/REST/files', function (data) {
       data.sort(function(a, b){
         if (a['path'] == b['path']) return 0;
         if (a['path'] > b['path']) return 1;
@@ -1792,11 +1879,11 @@ var fillPicker = function() {
 
 var fillUIPicker = function() {
   // fill UI file list
-  var pickers = $('select.uipicker');
+  var pickers = $('.uipicker');
   $.each(pickers, function(i,picker) {
-    $(picker).empty();
-    $(picker).append('<option value="" selected disabled hidden>select UI</option>');
-    $.getJSON('http://' + host + '/REST/nodes/' + encodeURIComponent(node) + '/files', function (data) {
+    var pickerlist = $(picker).find('.dropdown-menu');
+    $(pickerlist).empty();
+    $.getJSON(proto+'//' + host + '/nodes/' + encodeURIComponent(node) + '/REST/files', function (data) {
       data.sort(function(a, b){
         if (a['path'] == b['path']) return 0;
         if (a['path'] > b['path']) return 1;
@@ -1804,13 +1891,13 @@ var fillUIPicker = function() {
       });
       $.each(data, function(i, file){
         if(file['path'].match(/content\/(?!index\.htm|nodes\.xml|index-sample.xml|index-sample\.xml\.htm)\w*\.(xml|html|htm)/g)) {
-          $(picker).append('<option value="'+file['path'].replace('content/','')+'">'+file['path'].replace('content/','')+'</option>');
+          $(pickerlist).append('<li><a href="'+file['path'].replace('content/','')+'">'+file['path'].replace('content/','')+'</a></li>');
         }
       });
-      if($(picker).find('option').length == 1 ) {
-        $(picker).prop('disabled', true);
+      if($(pickerlist).find('li').length == 0) {
+        $(picker).find('.dropdown-toggle').prop('disabled', 'disabled');
       } else {
-        $(picker).removeAttr('disabled');
+        $(picker).find('.dropdown-toggle').removeAttr('disabled');
       }
     });
   });
@@ -1825,8 +1912,8 @@ var updateConsoleForm = function(){
     if(!_.isUndefined($('body').data('nodel-console-timer'))) clearTimeout($('body').data('nodel-console-timer'));
     if(!_.isUndefined($('body').data('nodel-console-req'))) $('body').data('nodel-console-req').abort();
     var url;
-    if(typeof $('body').data('nodel-console-seq') === "undefined") url = 'http://'+host+'/REST/nodes/'+encodeURIComponent(node)+'/console?from=-1&max=200';
-    else url = 'http://'+host+'/REST/nodes/'+encodeURIComponent(node)+'/console?from='+$('body').data('nodel-console-seq')+'&max=9999';
+    if(typeof $('body').data('nodel-console-seq') === "undefined") url = proto+'//'+host+'/nodes/'+encodeURIComponent(node)+'/REST/console?from=-1&max=200';
+    else url = proto+'//'+host+'/nodes/'+encodeURIComponent(node)+'/REST/console?from='+$('body').data('nodel-console-seq')+'&max=9999';
     var req = $.getJSON(url, function(data) {
       if(!_.isEmpty(data)){
         data.reverse();
@@ -1868,8 +1955,8 @@ var updateLogForm = function(){
     if(!_.isUndefined($('body').data('nodel-serverlog-timer'))) clearTimeout($('body').data('nodel-serverlog-timer'));
     if(!_.isUndefined($('body').data('nodel-serverlog-req'))) $('body').data('nodel-serverlog-req').abort();
     var url;
-    if(typeof $('body').data('nodel-serverlog-seq') === "undefined") url = 'http://'+host+'/REST/logs?from=-1&max=200';
-    else url = 'http://'+host+'/REST/logs?from='+$('body').data('nodel-serverlog-seq')+'&max=9999';
+    if(typeof $('body').data('nodel-serverlog-seq') === "undefined") url = proto+'//'+host+'/REST/logs?from=-1&max=200';
+    else url = proto+'//'+host+'/REST/logs?from='+$('body').data('nodel-serverlog-seq')+'&max=9999';
     var req = $.getJSON(url, function(data) {
       if(!_.isEmpty(data)){
         data.reverse();
@@ -1979,19 +2066,31 @@ var updateCharts = function(){
 var updateLogs = function(){
   if(!("WebSocket" in window) || ($('body').data('trypoll'))){
     var url;
-    if (typeof $('body').data('seq') === "undefined") url = 'http://' + host + '/REST/nodes/' + encodeURIComponent(node) + '/activity?from=-1';
-    else url = 'http://' + host + '/REST/nodes/' + encodeURIComponent(node) + '/activity?from=' + $('body').data('seq');
+    if (typeof $('body').data('seq') === "undefined") url = proto+'//' + host + '/nodes/' + encodeURIComponent(node) + '/REST/activity?from=-1';
+    else url = proto+'//' + host + '/nodes/' + encodeURIComponent(node) + '/REST/activity?from=' + $('body').data('seq');
     $.getJSON(url, function (data) {
       online();
       if (typeof $('body').data('seq') === "undefined") {
         var noanimate = true;
         $('body').data('seq', -1);
+        // get length minus duplicates
+        var len = data.filter(function (data, index, self) {
+          return index === self.findIndex(function (t) {
+            return data.seq !== 0 && t.source === data.source && t.type === data.type && t.alias === data.alias;
+          });
+        }).length;
+        var eles = $(".nodel-log");
+        $.each(eles, function (i, ele) {
+          var src = $.view($(ele).find('.base')).data;
+          $.observable(src).setProperty('total', len);
+        });
+        if(len == 0) init_log();
       }
       data.sort(function (a, b) {
         return a.seq < b.seq ? -1 : a.seq > b.seq ? 1 : 0;
       });
       $.each(data, function (key, value) {
-        if (value.seq != 0) {
+        if(value.seq != 0) {
           $('body').data('seq', value.seq + 1);
           throttleLog(value, noanimate);
         }
@@ -2002,8 +2101,10 @@ var updateLogs = function(){
       $('body').data('update', setTimeout(function() { updateLogs(); }, 1000));
     });
   } else {
-    $.getJSON('http://'+host+'/REST/nodes/' + encodeURIComponent(node), function(data){
-      var wshost = "ws://"+document.location.hostname+":"+data['webSocketPort']+"/nodes/"+node;
+    $.getJSON(proto+'//'+host+'/nodes/' + encodeURIComponent(node) + '/REST/', function(data){
+      var wsproto = 'ws:';
+      if (proto == 'https:') wsproto = 'wss:';
+      var wshost = wsproto+"//"+document.location.hostname+":"+data['webSocketPort']+"/nodes/"+node;
       try{
         var socket = new WebSocket(wshost);
         socket.onopen = function(){
@@ -2018,15 +2119,24 @@ var updateLogs = function(){
             data['activityHistory'].sort(function (a, b) {
               return a.seq < b.seq ? -1 : a.seq > b.seq ? 1 : 0;
             });
-            len = data['activityHistory'].length;
-            $.each(data['activityHistory'], function(i) {
-              if(this.seq != 0) {
-                this.unprocessed = false;
-                throttle['logs'][throttle['logs'].length] = this;
-                if(i == len - 1) parseLog(this, true, true);
-                else parseLog(this, true);
-              }
+            // get data minus duplicates
+            var datafil = data['activityHistory'].filter(function (data, index, self) {
+              return index === self.findIndex(function (t) {
+                return data.seq !== 0 && t.source === data.source && t.type === data.type && t.alias === data.alias;
+              });
             });
+            var len = datafil.length;
+            var eles = $(".nodel-log");
+            $.each(eles, function (i, ele) {
+              var src = $.view($(ele).find('.base')).data;
+              $.observable(src).setProperty('total', len);
+            });
+            // TODO: disable auto log if > 1000 entries
+            if(len > 0) {
+              $.each(datafil, function(i) {
+                throttleLog(this, true);
+              });
+            } else init_log();
           } else throttleLog(data['activity']);
         }
         socket.onclose = function(){
@@ -2048,7 +2158,7 @@ var updateLogs = function(){
 };
 
 var checkHostOnline = function() {
-  var url = 'http://' + host + '/REST/logs?from=0&max=1';
+  var url = proto+'//' + host + '/REST/logs?from=0&max=1';
   $.getJSON(url, function (data) {
     online();
   }).fail(function() {
@@ -2077,33 +2187,26 @@ var offline = function(){
   }
 };
 
+throttleLogProcess = _.throttle(function(ani) {
+  for (var i in throttle['logs']) {
+    if(throttle['logs'][i]['unprocessed']) {
+      throttle['logs'][i]['unprocessed'] = false;
+      parseLog(throttle['logs'][i], ani);
+    }
+  }
+}, 100);
+
 var throttleLog = function(log, ani){
   log.unprocessed = true;
-  var delay = 200 + (throttle['logs'].length / 2);
-  if(!_.isFunction(throttle['throttle'])) {
-    throttle['throttle'] = _.throttle(function(ani) {
-      var i = throttle['logs'].length;
-      while (i--) {
-        if(throttle['logs'][i]['unprocessed']) {
-          parseLog(throttle['logs'][i], ani);
-          throttle['logs'][i]['unprocessed'] = false;
-        }
-      }
-    }, delay);
-  }
-  var ind = throttle['logs'].findIndex(function(_ref) {
-    id = _ref.type + '_' + _ref.alias;
-    return id == log.type + '_' + log.alias;
-  });
-  if(ind > -1) {
-    throttle['logs'].unshift(throttle['logs'].splice(ind, 1)[0]);
-    throttle['logs'][0] = log;
-  }
-  else throttle['logs'][throttle['logs'].length] = log;
-  throttle['throttle'](ani);
+  log.id = log.source + '_' + log.type + '_' + log.alias;
+  log.ani = ani;
+  if(typeof throttle['logs'][log.id] !== 'undefined' && _.isMatch(log.arg, throttle['logs'][log.id]['arg'])) log.changed = false;
+  else log.changed = true;
+  throttle['logs'][log.id] = log;
+  if(!document.hidden) throttleLogProcess(ani);
 };
 
-var process_showevent = function(log, ani){
+var process_showevent = function(log){
   var eles = $(".nodel-showevent").filter(function() {
     return $.inArray(log.alias, $.isArray($(this).data('showevent')) ? $(this).data('showevent') : [$(this).data('showevent')]) >= 0;
   });
@@ -2136,7 +2239,7 @@ var process_showevent = function(log, ani){
   if(eles.length) updatepadding();
 }
 
-var process_event = function(log, ani){
+var process_event = function(log){
   var eles = $(".nodel-event").filter(function() {
     return $.inArray(log.alias, $.isArray($(this).data('event')) ? $(this).data('event') : [$(this).data('event')]) >= 0;
   });
@@ -2267,7 +2370,7 @@ var process_event = function(log, ani){
   });
 }
 
-var process_status = function(log, ani) {
+var process_status = function(log) {
   var eles = $(".nodel-status").filter(function() {
     return $.inArray(log.alias, $.isArray($(this).data('status')) ? $(this).data('status') : [$(this).data('status')]) >= 0;
   });
@@ -2302,7 +2405,7 @@ var process_status = function(log, ani) {
   });
 }
 
-var process_render = function(log, ani){
+var process_render = function(log){
   var eles = $(".nodel-render").filter(function() {
     return $.inArray(log.alias, $.isArray($(this).data('render')) ? $(this).data('render') : [$(this).data('render')]) >= 0;
   });
@@ -2320,14 +2423,13 @@ var process_render = function(log, ani){
   });
 }
 
-var process_form = function(log, ani){
+var process_form = function(log){
   var eles = $(".nodel-schema-"+log.type).filter(function() {
     return $.inArray(log.alias, $.isArray($(this).data('name')) ? $(this).data('name') : [$(this).data('name')]) >= 0;
   });
   $.each(eles, function (i, ele) {
     setProps($.view($(ele).find('.base')).data, {'arg':log.arg});
-    //$.observable($.view($(ele).find('.base')).data).setProperty({'arg':log.arg});
-    if(!ani) {
+    if(!log.ani) {
       var col = log.type == 'action' ? colours['success'] : colours['danger'];
       var def = colours['default'];
       $(ele).find('button[type="submit"] > span').stop(true, true).css({'color': col}).animate({'color': def}, 1000);
@@ -2335,42 +2437,56 @@ var process_form = function(log, ani){
   });
 }
 
-var process_log = function(log, ani, last){
+var process_log = function(log, idx){
   var eles = $(".nodel-log");
   var alias = encodr(log.alias);
   $.each(eles, function (i, ele) {
     var src = $.view($(ele).find('.base')).data;
     var data = src['logs'];
-    var ind = data.findIndex(function(_ref) {
-      id = _ref.type + '_' + _ref.alias;
-      return id == log.type + '_' + alias;
-    });
-    var entry = {
-      'alias':alias,
-      'rawalias':log.alias,
-      'type':log.type,
-      'source':log.source,
-      'arg':log.arg,
-      'timestamp': log.timestamp};
-    if(ind > -1) {
-      // lock height while updating to prevent scrolling
-      var ul = $(ele).find('ul');
-      $(ul).css("height", $(ul).height());
-      $.observable(data[ind]).setProperty({'arg': entry.arg, 'timestamp': entry.timestamp});
-      if(!src.hold) $.observable(data).move(ind, 0);
-      $(ul).css("height", 'auto');
-    } else $.observable(data).insert(0, entry);
-    // animate icon
-    if(!ani) {
-      $(ele).find('.log_'+log.type+'_'+alias+ ' .logicon').stop(true,true).css({'opacity': 1}).animate({'opacity': 0.2}, 1000);
+    var srcid = log.source + '_' + log.type + '_' + log.alias;
+    var ind = -1;
+    for (var i = 0; i < data.length; i++) {
+      if (srcid === data[i].id) {
+        ind = i;
+        break;
+      }
     }
-    if(last) {
+    if(ind > -1) {
+      $.observable(data[ind]).setProperty({'arg': log.arg, 'timestamp': log.timestamp, 'seq': log.seq});
+      if(!src.hold && !log.ani) $.observable(data).move(ind, 0);
+    } else {
+      var entry = {
+        'id':log.source+'_'+log.type+'_'+log.alias,
+        'alias':alias,
+        'rawalias':log.alias,
+        'type':log.type,
+        'source':log.source,
+        'arg':log.arg,
+        'timestamp': log.timestamp,
+        'seq': log.seq
+      };
+      $.observable(data).insert(0, entry);
+    }
+    // animate icon
+    if(!log.ani) {
+      $(ele).find('.log_'+log.source+'_'+log.type+'_'+alias+ ' .logicon').stop(true,true).css({'opacity': 1}).animate({'opacity': 0.2}, 1000);
+    }
+    if((data.length >= src.total) && src.init == true) {
+      if(src.total > 100)  $.observable(src).setProperty('hold', true);
       $.observable(src).setProperty('init', false);
     }
   });
 }
 
-var parseLog = function(log, ani, last){
+var init_log = function(){
+  var eles = $(".nodel-log");
+  $.each(eles, function (i, ele) {
+    var src = $.view($(ele).find('.base')).data;
+    $.observable(src).setProperty('init', false);
+  });
+}
+
+var parseLog = function(log){
   if(log.type=='event' && log.source=='local'){
     switch(log.alias) {
       case "Title":
@@ -2383,28 +2499,28 @@ var parseLog = function(log, ani, last){
         break;
       default:
         // handle show-hide events
-        (function(log, ani) {
-          setTimeout(function() {process_showevent(log, ani), 0});
-        })(log, ani);
+        requestAnimationFrame(function() {
+          process_showevent(log);
+        });
         // handle event data updates
-        (function(log, ani) {
-          setTimeout(function() {process_event(log, ani), 0});
-        })(log, ani);
+        requestAnimationFrame(function() {
+          process_event(log);
+        });
         // handle status update
-        (function(log, ani) {
-          setTimeout(function() {process_status(log, ani), 0});
-        })(log, ani);
+        requestAnimationFrame(function() {
+          process_status(log);
+        });
         // handel dynamic templates
-        (function(log, ani) {
-          setTimeout(function() {process_render(log, ani), 0});
-        })(log, ani);
+        requestAnimationFrame(function() {
+          process_render(log);
+        });
     }
   }
   if(log.source=='local'){
     // nodel forms
-    (function(log, ani) {
-      setTimeout(function() {process_form(log, ani), 0});
-    })(log, ani);
+    requestAnimationFrame(function() {
+      process_form(log);
+    });
   }
   // process binding events
   if(log.source=='remote'){
@@ -2425,7 +2541,7 @@ var parseLog = function(log, ani, last){
     }
   }
   // nodel log
-  (function(log, ani, last) {
-    setTimeout(function() {process_log(log, ani, last), 0});
-  })(log, ani, last);
+  requestAnimationFrame(function() {
+    process_log(log);
+  });
 };

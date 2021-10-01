@@ -16,7 +16,7 @@
   </xsl:template>
   <!-- row -->
   <!-- column -->
-  <xsl:template match="column[not(@sm|md|xs)]">
+  <xsl:template match="column[not(@lg|@md|@sm|@xs)]">
     <div>
       <xsl:choose>
         <xsl:when test="@event or @showevent">
@@ -71,7 +71,7 @@
       <xsl:apply-templates/>
     </div>
   </xsl:template>
-  <xsl:template match="column[@sm|@md|@xs]">
+  <xsl:template match="column[@lg|@md|@sm|@xs]">
     <div>
       <xsl:choose>
         <xsl:when test="@event or @showevent">
@@ -89,6 +89,11 @@
             <xsl:if test="@md">
               <xsl:text>col-md-</xsl:text>
               <xsl:value-of select="@md"/>
+              <xsl:text> </xsl:text>
+            </xsl:if>            
+            <xsl:if test="@lg">
+              <xsl:text>col-lg-</xsl:text>
+              <xsl:value-of select="@lg"/>
             </xsl:if>
             <xsl:text> sect</xsl:text>
             <xsl:if test="@push">
@@ -138,6 +143,11 @@
             <xsl:if test="@md">
               <xsl:text>col-md-</xsl:text>
               <xsl:value-of select="@md"/>
+              <xsl:text> </xsl:text>
+            </xsl:if>
+            <xsl:if test="@lg">
+              <xsl:text>col-lg-</xsl:text>
+              <xsl:value-of select="@lg"/>
             </xsl:if>
             <xsl:if test="@push">
               <xsl:text> col-sm-push-</xsl:text>
@@ -154,31 +164,57 @@
     </div>
   </xsl:template>
   <!-- column -->
-  <!-- title -->
-  <xsl:template match="title">
-    <h4>
-      <xsl:if test="@showevent">
-        <xsl:attribute name="class">
-          <xsl:text>sect</xsl:text>
-        </xsl:attribute>
-        <xsl:attribute name="data-showevent">
-          <xsl:value-of select="@showevent"/>
-        </xsl:attribute>
-        <xsl:if test="@showvalue">
-          <xsl:attribute name="data-showarg">
-            <xsl:value-of select="@showvalue"/>
-          </xsl:attribute>
-        </xsl:if>
-      </xsl:if>
-      <xsl:if test="@event">
-        <xsl:attribute name="data-event">
-          <xsl:value-of select="@event"/>
+  <!-- title / subtitle -->
+  <xsl:template name="title_body">
+    <xsl:if test="@showevent">
+      <xsl:attribute name="class">
+        <xsl:text>sect</xsl:text>
+      </xsl:attribute>
+      <xsl:attribute name="data-showevent">
+        <xsl:value-of select="@showevent"/>
+      </xsl:attribute>
+      <xsl:if test="@showvalue">
+        <xsl:attribute name="data-showarg">
+          <xsl:value-of select="@showvalue"/>
         </xsl:attribute>
       </xsl:if>
-      <xsl:value-of select="current()"/>
-    </h4>
+    </xsl:if>
+    <xsl:if test="@event">
+      <xsl:attribute name="data-event">
+        <xsl:value-of select="@event"/>
+      </xsl:attribute>
+    </xsl:if>
+    <xsl:value-of select="current()"/>
   </xsl:template>
-  <!-- title -->
+  <xsl:template match="title">
+    <xsl:choose>
+      <xsl:when test="@size">
+        <xsl:element name="h{@size}">
+          <xsl:call-template name="title_body"/>
+        </xsl:element>
+      </xsl:when>
+      <xsl:otherwise>
+        <h4>
+          <xsl:call-template name="title_body"/>
+        </h4>
+      </xsl:otherwise>
+    </xsl:choose>
+  </xsl:template>
+  <xsl:template match="subtitle">
+    <xsl:choose>
+      <xsl:when test="@size">
+        <xsl:element name="h{@size}">
+          <xsl:call-template name="title_body"/>
+        </xsl:element>
+      </xsl:when>
+      <xsl:otherwise>
+        <h5>
+          <xsl:call-template name="title_body"/>
+        </h5>
+      </xsl:otherwise>
+    </xsl:choose>
+  </xsl:template>
+  <!-- title / subtitle -->
   <!-- text -->
   <xsl:template match="text">
     <p>
@@ -881,6 +917,11 @@
   <!-- status -->
   <xsl:template match="status">
     <div data-status="{@event}">
+      <xsl:if test="@event">
+        <xsl:attribute name="data-status">
+          <xsl:value-of select="@event"/>
+        </xsl:attribute>
+      </xsl:if>
       <xsl:attribute name="class">
         <xsl:text>panel panel-default statusgroup clearfix</xsl:text>
         <xsl:if test="@showevent">
@@ -903,9 +944,14 @@
         </xsl:attribute>
       </xsl:if>
       <div class="panel-body">
-        <xsl:apply-templates select="image"/><xsl:apply-templates select="link"/><xsl:apply-templates select="button|swich|partialswitch"/><xsl:apply-templates select="badge|partialbadge|signal"/><strong><xsl:value-of select="text()"/></strong><br/><span class="status">Unknown</span>
+        <xsl:apply-templates select="image"/><xsl:apply-templates select="link"/><xsl:apply-templates select="button|swich|partialswitch"/><xsl:apply-templates select="badge|partialbadge|signal"/><strong><xsl:value-of select="text()"/></strong>
+        <xsl:if test="@event">
+          <br/><span class="status">Unknown</span>
+        </xsl:if>
       </div>
-      <xsl:apply-templates select="statussleep"/>
+      <xsl:if test="@event">
+        <xsl:apply-templates select="statussleep"/>
+      </xsl:if>
     </div>
   </xsl:template>
   <!-- status -->

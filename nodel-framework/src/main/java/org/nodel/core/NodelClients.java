@@ -350,6 +350,11 @@ public class NodelClients {
             _logger.info("Releasing interest in event {}", event.getNodelPoint());
             
             NodeEntry.EventHandlerEntry eventEntry = nodeEntry.eventHandlerEntries.get(event._event);
+
+            if (eventEntry == null) {
+                // 'registerInterest' is sometimes never called, means nothing more to clean up
+                return;
+            }
             
             // remove the individual binding
             eventEntry.bindings.remove(event);
@@ -470,7 +475,12 @@ public class NodelClients {
             _logger.info("Releasing interest in action {}", action.getNodelPoint());
             
             NodeEntry.ActionEntry actionEntry = nodeEntry.actionEntries.get(action._action);
-            
+
+            if (actionEntry == null) {
+                // 'registerInterest' is sometimes never called, means nothing more to clean up
+                return;
+            }
+
             // remove the individual binding
             actionEntry.bindings.remove(action);
             

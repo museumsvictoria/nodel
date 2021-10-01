@@ -55,6 +55,20 @@ public class CallbackQueue {
             _fairLock.unlock();
         }
     }
+    
+    /**
+     * For synchronous functions.
+     */
+    public <R, T> R handle(Handler.F1<R, T> func, T arg) throws Exception {
+        try {
+            _fairLock.lock();
+            
+            return func.handle(arg);
+            
+        } finally {
+            _fairLock.unlock();
+        }
+    }    
         
     /**
      * Creates a callback instance.

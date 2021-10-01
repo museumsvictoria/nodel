@@ -59,6 +59,7 @@
         <row>
           <column sm="12">
             <title showevent="Show" showvalue="On">Testing button groups</title>
+            <subtitle showevent="Show" showvalue="On">Subtitle</subtitle>
             <buttongroup showevent="Show" showvalue="On">
               <button action='PresetChromecast' class='btn-default'>Chromecast</button>
               <button action='PresetTV' class='btn-default'>TV</button>
