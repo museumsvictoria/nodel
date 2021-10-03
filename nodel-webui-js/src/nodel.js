@@ -368,6 +368,31 @@ var checkRedirect = function(url) {
   });
 };
 
+var getPageType = function() {
+  var firstname = window.location.pathname.split( '/' )[1];
+  if (_.isUndefined(firstname)) {
+    pageType = ePageType.UNDEFINED;
+    return;
+  }
+  switch (firstname) {
+    case 'nodes':
+      pageType = ePageType.NODE;
+      break;
+    case 'nodes.xml':
+      pageType = ePageType.NODESLIST;
+      break;
+    case 'locals.xml':
+      pageType = ePageType.LOCALSLIST;
+      break;
+    case 'diagnostics.xml':
+      pageType = ePageType.DIAGNOSTICS;
+      break;
+    default:
+      pageType = ePageType.OTHER;
+      break;
+  }
+}
+
 var node = host = nodename = nodedesc = ''; //= opts = '';
 var converter = new Markdown.Converter();
 var unicodematch = new XRegExp("[^\\p{L}\\p{N}]", "gi");
@@ -380,6 +405,16 @@ var nodeList = {'lst':[], 'flt':'', 'end':20, 'hosts':{}};
 var nodeListreq = null;
 var localsList = {'lst':[], 'flt':'', 'end':20, 'hosts':{}};
 var localsListreq = null;
+
+var ePageType = {
+  NODESLIST : 0,
+  LOCALSLIST : 1,
+  NODE : 2, // /nodes/XXX/nodel.xml
+  DIAGNOSTICS : 3,
+  OTHER: 4,
+  UNDEFINED: 5
+}
+var pageType = ePageType.UNDEFINED;
 
 var t0;
 
@@ -395,8 +430,9 @@ $(function() {
     $('head').append('<style>.fixed-table-body{overflow-y: hidden;} body{zoom: 140%}</style>');
   };
   getColours();
+  getPageType();
   // get the node name
-  if(window.location.pathname.split( '/' )[1]=="nodes") node = decodeURIComponent(window.location.pathname.split( '/' )[2].replace(/\+/g, '%20'));
+  if(pageType === ePageType.NODE) node = decodeURIComponent(window.location.pathname.split( '/' )[2].replace(/\+/g, '%20'));
   if(node) {
     if($('body').hasClass('core')) $('.navbar-brand a').attr("href", window.document.location.protocol+"//"+host+"/locals.xml"); // go to locals
     getNodeDetails().then(function(){
@@ -428,12 +464,16 @@ $(function() {
   } else {
     $.when(createDynamicElements().then(function(){
       updatepadding();
-      getNodeList().then(function(){
-        refreshNodeList();
-      });
-      getLocalsList().then(function(){
-        refreshLocalsList();
-      });
+      if (pageType === ePageType.NODESLIST) {
+        getNodeList().then(function(){
+          refreshNodeList();
+        });
+      }
+      if (pageType === ePageType.LOCALSLIST) {
+        getLocalsList().then(function(){
+          refreshLocalsList();
+        });
+      }
       checkHostList();
       setEvents();
       updateLogForm();
