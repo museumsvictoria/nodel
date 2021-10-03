@@ -777,7 +777,12 @@ var updateFavicon = function(host){
   document.getElementsByTagName('head')[0].appendChild(link);
 }
 
+var hostIconMap = {};
 var generateHostIcon = function(host) {
+  var icon = hostIconMap[encodr(host)];
+  if (icon) {
+    return icon;
+  }
   var hash = XXH.h64(host, 0x4e6f64656c).toString(16).padStart(16,'0');
   var options = {
     background: [255, 255, 255, 0],
@@ -785,7 +790,9 @@ var generateHostIcon = function(host) {
     size: 20,
     format: 'svg'
   };
-  return new Identicon(hash, options).toString();
+  icon = new Identicon(hash, options).toString();
+  hostIconMap[encodr(host)] = icon;
+  return icon;
 }
 
 var updateHost = function(host, targetList) {
