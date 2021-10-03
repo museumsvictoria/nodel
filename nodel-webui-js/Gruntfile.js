@@ -238,9 +238,9 @@ module.exports = function(grunt) {
           './node_modules/identicon.js/identicon.js',
           './node_modules/xxhashjs/build/xxhash.js',
           './node_modules/google-charts/dist/googleCharts.js',
+          './node_modules/davidshimjs-qrcodejs/qrcode.min.js',
           './temp/lodash.build.js',
-          './src/polyfill.js',
-          './src/qrcode.min.js'
+          './src/polyfill.js'
         ],
         dest: './build/grunt/v1/js/components.js'
       }

@@ -8,6 +8,7 @@
     "bootstrap": "^3.4.1",
     "cm-resize": "^1.0.1",
     "codemirror": "^5.47.0",
+    "davidshimjs-qrcodejs": "^0.0.2",
     "fuzzyset.js": "0.0.8",
     "google-charts": "^2.0.0",
     "gsap": "^2.1.3",
