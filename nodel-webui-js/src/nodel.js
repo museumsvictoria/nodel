@@ -737,7 +737,12 @@ var updateFavicon = function(host){
   document.getElementsByTagName('head')[0].appendChild(link);
 }
 
+var hostIconMap = new Map();
 var generateHostIcon = function(host) {
+  var icon = hostIconMap.get(host);
+  if (icon) {
+    return icon;
+  }
   var hash = XXH.h64(host, 0x4e6f64656c).toString(16).padStart(16,'0');
   var options = {
     background: [255, 255, 255, 0],
@@ -745,7 +750,9 @@ var generateHostIcon = function(host) {
     size: 20,
     format: 'svg'
   };
-  return new Identicon(hash, options).toString();
+  icon = new Identicon(hash, options).toString();
+  hostIconMap.set(host, icon);
+  return icon;
 }
 
 var updateHost = function(host, targetList) {
@@ -823,6 +830,13 @@ var refreshLocalsList = function(){
 }
 
 var getNodeList = function(filterstr){
+  // check if relate element exist
+  if($(".nodel-list").length < 1) {
+    var deferred = $.Deferred();
+    setTimeout(function() { deferred.reject(); }, 100);
+    return deferred.promise();
+  }
+
   if(!_.isUndefined(filterstr)) $.observable(nodeList['flt'] = filterstr);
   filter = {'filter': nodeList['flt']};
   var d = $.Deferred();
@@ -844,6 +858,13 @@ var getNodeList = function(filterstr){
 }
 
 var getLocalsList = function(filterstr){
+  // check if relate element exist
+  if($(".nodel-locals").length < 1) {
+    var deferred = $.Deferred();
+    setTimeout(function() { deferred.reject(); }, 100);
+    return deferred.promise();
+  }
+
   if(!_.isUndefined(filterstr)) $.observable(localsList['flt'] = filterstr);
   var fltstr = localsList['flt'];
   var d = $.Deferred();
