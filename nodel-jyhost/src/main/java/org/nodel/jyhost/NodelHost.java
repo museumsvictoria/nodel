@@ -640,8 +640,8 @@ public class NodelHost {
     
     public List<NodeURL> getNodeURLsForNode(SimpleName name) throws IOException {
         return Nodel.getNodeURLsForNode(name);
-    }
-
+    }    
+    
     /**
      * Permanently shuts down this nodel host
      */
