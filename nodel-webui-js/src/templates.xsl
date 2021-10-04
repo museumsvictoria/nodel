@@ -1325,7 +1325,7 @@
                   <xsl:text>addgrp_</xsl:text>
                   <xsl:value-of select="generate-id(.)"/>
                 </xsl:attribute>
-                <xsl:text>Add node</xsl:text>
+                <xsl:text>Add node here</xsl:text>
               </button>
               <ul class="dropdown-menu">
                 <xsl:attribute name="aria-labelledby">

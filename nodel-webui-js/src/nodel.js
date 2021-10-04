@@ -434,7 +434,7 @@ $(function() {
   // get the node name
   if(pageType === ePageType.NODE) node = decodeURIComponent(window.location.pathname.split( '/' )[2].replace(/\+/g, '%20'));
   if(node) {
-    if($('body').hasClass('core')) $('.navbar-brand a').attr("href", window.document.location.protocol+"//"+host+"/locals.xml"); // go to locals
+    if($('body').hasClass('core')) $('.navbar-brand a').attr("href", window.document.location.protocol+"//"+host+"/nodes.xml"); // go to locals
     getNodeDetails().then(function(){
       updatepadding();
       $.when(createDynamicElements().then(function(){
@@ -890,45 +890,52 @@ var getNodeList = function(filterstr){
   return d.promise();
 }
 
-var getLocalsList = function(filterstr){
-  if(!_.isUndefined(filterstr)) $.observable(localsList['flt'] = filterstr);
-  var fltstr = localsList['flt'];
+var lastLocalNodes = null; // cache of last local nodes list
+
+var getLocalsList = function(){
   var d = $.Deferred();
   if(localsListreq) localsListreq.abort();
-  var localhost = 'localhost';
   localsListreq = $.getJSON(proto+'//'+host+'/REST',function(info) {
     // info : {started:, nodes: { 'node-name': {}...}}
-    var data = info['nodes'];
-    var filtered = []; // [{name: 'aa-bb-cc', desc:, started:, nodelVersion:, webSocketPort: }...]
-    if (!_.isUndefined(data)) {
-      Object.keys(data).forEach(function (key) {
-        if (_.isUndefined(fltstr)) {
-          filtered.push(data[key]);
-        } else {
-          if (key.toLowerCase().indexOf(fltstr.toLowerCase()) > -1) {
-            filtered.push(data[key]);
-          }
-        }
-      });
-      for (var i=0; i<filtered.length; i++) {
-        filtered[i].host = localhost;
-        filtered[i].node = getSimpleName(filtered[i].name);
-        filtered[i].address = '/nodes/' + encodeURIComponent(getVerySimpleName(filtered[i].name)) + '/nodel.xml';
-        if(_.isUndefined(localsList['hosts'][encodr(localhost)])) {
-          var hosts = updateHost(filtered[i].host, localsList);
-          hosts[localhost].icon = generateHostIcon(host); // makes it identical to the current host's one
-          hosts[localhost].checked = true; // always true
-          hosts[localhost].reachable = true; // always true
-          $.observable(localsList).setProperty('hosts', hosts);
-        }
-      }
-    }
-    $.observable(localsList['lst']).refresh(filtered);
+    lastLocalNodes = info['nodes'];
+    applyLocalsFilter();
   }).always(function(){
     d.resolve();
   });
   return d.promise();
 }
+
+var applyLocalsFilter = function(filterstr) {
+  if(!_.isUndefined(filterstr)) $.observable(localsList['flt'] = filterstr);
+  var fltstr = localsList['flt'];
+  var localhost = 'localhost';
+  var data = lastLocalNodes;
+  var filtered = []; // [{name: 'aa-bb-cc', desc:, started:, nodelVersion:, webSocketPort: }...]
+  if (!_.isUndefined(data)) {
+    Object.keys(data).forEach(function (key) {
+      if (_.isUndefined(fltstr)) {
+        filtered.push(data[key]);
+      } else {
+        if (key.toLowerCase().indexOf(fltstr.toLowerCase()) > -1) {
+          filtered.push(data[key]);
+        }
+      }
+    });
+    for (var i=0; i<filtered.length; i++) {
+      filtered[i].host = localhost;
+      filtered[i].node = getSimpleName(filtered[i].name);
+      filtered[i].address = '/nodes/' + encodeURIComponent(getVerySimpleName(filtered[i].name)) + '/nodel.xml';
+      if(_.isUndefined(localsList['hosts'][encodr(localhost)])) {
+        var hosts = updateHost(filtered[i].host, localsList);
+        hosts[localhost].icon = generateHostIcon(host); // makes it identical to the current host's one
+        hosts[localhost].checked = true; // always true
+        hosts[localhost].reachable = true; // always true
+        $.observable(localsList).setProperty('hosts', hosts);
+      }
+    }
+  }
+  $.observable(localsList['lst']).refresh(filtered);
+};
 
 var checkReachable = function(host){
   var d = $.Deferred();
@@ -1872,7 +1879,7 @@ var setEvents = function(){
     var charCode = e.charCode || e.keyCode;
     if((charCode !== 40) && (charCode !== 38) && (charCode !== 13) && (charCode !== 27)) {
       var filterstr = $(this).val();
-      getLocalsList(filterstr);
+      applyLocalsFilter(filterstr);
     };
   });  
   $('body').on('click','.nodel-list .listmore', function(){
