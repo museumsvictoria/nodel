@@ -865,11 +865,13 @@ var applyLocalsFilter = function(filterstr) {
   var data = lastLocalNodes;
   var filtered = []; // [{name: 'aa-bb-cc', desc:, started:, nodelVersion:, webSocketPort: }...]
   if (!_.isUndefined(data)) {
+    var fltstrLower = fltstr.toLowerCase();
     Object.keys(data).forEach(function (key) {
       if (_.isUndefined(fltstr)) {
         filtered.push(data[key]);
       } else {
-        if (key.toLowerCase().indexOf(fltstr.toLowerCase()) > -1) {
+        var entry = data[key];
+        if (entry.name.toLowerCase().indexOf(fltstrLower) > -1) {
           filtered.push(data[key]);
         }
       }
