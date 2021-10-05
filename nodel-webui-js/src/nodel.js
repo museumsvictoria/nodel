@@ -880,7 +880,7 @@ var applyLocalsFilter = function(filterstr) {
     for (var i=0; i<filtered.length; i++) {
       filtered[i].host = localhost;
       filtered[i].node = getSimpleName(filtered[i].name);
-      filtered[i].address = '/nodes/' + encodeURIComponent(getVerySimpleName(filtered[i].name)) + '/nodel.xml';
+      filtered[i].address = '/nodes/' + encodeURIComponent(getVerySimpleName(filtered[i].name));
       if(_.isUndefined(localsList['hosts'][encodr(localhost)])) {
         var hosts = updateHost(filtered[i].host, localsList);
         hosts[localhost].icon = generateHostIcon(host); // makes it identical to the current host's one
