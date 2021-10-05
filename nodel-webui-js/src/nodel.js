@@ -390,7 +390,7 @@ $(function() {
   updateFavicon(host);
   $('.nodel-icon img').attr("src", "data:image/svg+xml;base64,"+generateHostIcon(host));
   $('.nodel-icon a').attr("href", window.document.location.protocol+"//"+host);
-  $('.nodel-icon a').attr("title", host);
+  $('.nodel-icon a').attr("title", "Browse this host");
   if(navigator.issmart){
     $('head').append('<style>.fixed-table-body{overflow-y: hidden;} body{zoom: 140%}</style>');
   };
@@ -398,7 +398,10 @@ $(function() {
   // get the node name
   if(window.location.pathname.split( '/' )[1]=="nodes") node = decodeURIComponent(window.location.pathname.split( '/' )[2].replace(/\+/g, '%20'));
   if(node) {
-    if($('body').hasClass('core')) $('.navbar-brand a').attr("href", window.document.location.protocol+"//"+host);
+    if($('body').hasClass('core')) {
+      $('.navbar-brand a').attr("href", window.document.location.protocol+"//"+host+'/nodes.xml').attr('title', 'Browse Nodel network');;
+      $('.nodel-icon a').attr("href", window.document.location.protocol+"//"+host+'/').attr('title', 'Browse this host');;
+    }
     getNodeDetails().then(function(){
       updatepadding();
       $.when(createDynamicElements().then(function(){
