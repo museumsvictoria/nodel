@@ -428,12 +428,10 @@ $(function() {
   } else {
     $.when(createDynamicElements().then(function(){
       updatepadding();
-      getNodeList().then(function(){
-        refreshNodeList();
-      });
-      getLocalsList().then(function(){
-        refreshLocalsList();
-      });
+      if($('div').hasClass("nodel-list"))
+        getNodeList().then(refreshNodeList);
+      if($('div').hasClass("nodel-locals"))
+        getLocalsList().then(refreshLocalsList);
       checkHostList();
       setEvents();
       updateLogForm();
