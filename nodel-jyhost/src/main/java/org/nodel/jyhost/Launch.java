@@ -292,12 +292,22 @@ public class Launch {
             // ideally use 8085 as an arbitrary port
             tryPort = lastHTTPPort == 0 ? 8085 : lastHTTPPort;
 
+        // have got config now (default one or one from disk) so
+        // fire up pyNode console
+        File nodelRoot = prepareDirectory("nodelRoot", _root, _bootstrapConfig.getNodelRoot());
+
+        _nodelHost = new NodelHost(nodelRoot, _bootstrapConfig.getInclFilters(), _bootstrapConfig.getExclFilters(), recipesRoot);
+
         // make two attempts to bind to an arbitrary port (try previously used port first),
         // or one attempt to bind to a requested one.
         for (int a = 0; a < 2; a++) {
             try {
                 nodelHostHTTPD = new NodelHostHTTPD(tryPort, embeddedContentDirectory);
-                
+                nodelHostHTTPD.setFirstChoiceDir(customContentDirectory);
+                nodelHostHTTPD.setNodeHost(_nodelHost);
+
+                // kick off the HTTPDs
+                nodelHostHTTPD.start(); // throws exception if any
             } catch (Exception exc) {
                 // port would be in use
                 
@@ -322,9 +332,7 @@ public class Launch {
 
             break;
         }
-        
-        nodelHostHTTPD.setFirstChoiceDir(customContentDirectory);
-        
+
         // if this is the first time launch has run
         boolean firstTime = false;
         
@@ -357,17 +365,6 @@ public class Launch {
             // update the version stamp so extraction isn't done again
             Stream.writeFully(versionFile, VERSION);
         }
-        
-        // have got config now (default one or one from disk) so
-        // fire up pyNode console
-        File nodelRoot = prepareDirectory("nodelRoot", _root, _bootstrapConfig.getNodelRoot());
-
-        _nodelHost = new NodelHost(nodelRoot, _bootstrapConfig.getInclFilters(), _bootstrapConfig.getExclFilters(), recipesRoot);
-
-        nodelHostHTTPD.setNodeHost(_nodelHost);
-
-        // kick off the HTTPDs
-        nodelHostHTTPD.start();
 
         // update with actual listening port
         // Note: Socket binding happens later than expected due to a new NanoHTTPD.
