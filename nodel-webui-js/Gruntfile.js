@@ -130,6 +130,10 @@ module.exports = function(grunt) {
             dest: 'build/grunt/nodes.xml'
           },
           {
+            src: 'src/locals.xml',
+            dest: 'build/grunt/locals.xml'
+          },
+          {
             src: 'src/toolkit.xml',
             dest: 'build/grunt/toolkit.xml'
           },

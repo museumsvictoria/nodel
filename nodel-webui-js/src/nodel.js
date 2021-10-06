@@ -378,6 +378,8 @@ var allowedtxt = ['py','xml','xsl','js','json','html','htm','css','java','groovy
 var allowedbinary = ['png','jpg','ico','svg','zip','7z','exe'];
 var nodeList = {'lst':[], 'flt':'', 'end':20, 'hosts':{}};
 var nodeListreq = null;
+var localsList = {'lst':[], 'flt':'', 'end':20, 'hosts':{}};
+var localsListreq = null;
 
 var t0;
 
@@ -388,7 +390,7 @@ $(function() {
   updateFavicon(host);
   $('.nodel-icon img').attr("src", "data:image/svg+xml;base64,"+generateHostIcon(host));
   $('.nodel-icon a').attr("href", window.document.location.protocol+"//"+host);
-  $('.nodel-icon a').attr("title", host);
+  $('.nodel-icon a').attr("title", "Browse this host");
   if(navigator.issmart){
     $('head').append('<style>.fixed-table-body{overflow-y: hidden;} body{zoom: 140%}</style>');
   };
@@ -396,7 +398,10 @@ $(function() {
   // get the node name
   if(window.location.pathname.split( '/' )[1]=="nodes") node = decodeURIComponent(window.location.pathname.split( '/' )[2].replace(/\+/g, '%20'));
   if(node) {
-    if($('body').hasClass('core')) $('.navbar-brand a').attr("href", window.document.location.protocol+"//"+host);
+    if($('body').hasClass('core')) {
+      $('.navbar-brand a').attr("href", window.document.location.protocol+"//"+host+'/nodes.xml').attr('title', 'Browse Nodel network');;
+      $('.nodel-icon a').attr("href", window.document.location.protocol+"//"+host+'/').attr('title', 'Browse this host');;
+    }
     getNodeDetails().then(function(){
       updatepadding();
       $.when(createDynamicElements().then(function(){
@@ -427,9 +432,10 @@ $(function() {
   } else {
     $.when(createDynamicElements().then(function(){
       updatepadding();
-      getNodeList().then(function(){
-        refreshNodeList();
-      });
+      if($('div').hasClass("nodel-list"))
+        getNodeList().then(refreshNodeList);
+      if($('div').hasClass("nodel-locals"))
+        getLocalsList().then(refreshLocalsList);
       checkHostList();
       setEvents();
       updateLogForm();
@@ -705,6 +711,10 @@ var createDynamicElements = function(){
       $.templates("#listTmpl").link(ele, nodeList);
       $(ele).find('.base').addClass('bound');
       d.resolve();
+    } else if($(ele).data('nodel') == 'locals'){
+      $.templates("#localsTmpl").link(ele, localsList);
+      $(ele).find('.base').addClass('bound');
+      d.resolve();
     } else d.resolve();
     p.push(d);
   });
@@ -740,7 +750,7 @@ var generateHostIcon = function(host) {
   return new Identicon(hash, options).toString();
 }
 
-var updateHost = function(host) {
+var updateHost = function(host, targetList) {
   var data = generateHostIcon(host);
   var newhost = {};
   newhost.icon = data;
@@ -748,8 +758,9 @@ var updateHost = function(host) {
   newhost.checked = false;
   var hostobj = {}
   hostobj[encodr(host)] = newhost;
-  var hosts = $.extend({}, nodeList['hosts'], hostobj);
-  $.observable(nodeList).setProperty('hosts', hosts);
+  var hosts = $.extend({}, targetList['hosts'], hostobj);
+  $.observable(targetList).setProperty('hosts', hosts);
+  return hosts;
 };
 
 var checkHostList = function(){
@@ -805,6 +816,14 @@ var refreshNodeList = function(){
   }, 2000);
 }
 
+var refreshLocalsList = function(){
+  setTimeout(function(){
+    getLocalsList().then(function(){
+      refreshLocalsList();
+    })
+  }, 2000);
+}
+
 var getNodeList = function(filterstr){
   if(!_.isUndefined(filterstr)) $.observable(nodeList['flt'] = filterstr);
   filter = {'filter': nodeList['flt']};
@@ -817,7 +836,7 @@ var getNodeList = function(filterstr){
       data[i].host = getHost(data[i].address);
       data[i].name = data[i].node;
       data[i].node = getSimpleName(data[i].node);
-      if(_.isUndefined(nodeList['hosts'][encodr(data[i].host)])) updateHost(data[i].host);
+      if(_.isUndefined(nodeList['hosts'][encodr(data[i].host)])) updateHost(data[i].host, nodeList);
     }
     $.observable(nodeList['lst']).refresh(data);
   }).always(function(){
@@ -825,6 +844,55 @@ var getNodeList = function(filterstr){
   });
   return d.promise();
 }
+
+var lastLocalNodes = null; // cache of last local nodes list
+
+var getLocalsList = function(){
+  var d = $.Deferred();
+  if(localsListreq) localsListreq.abort();
+  localsListreq = $.getJSON(proto+'//'+host+'/REST',function(info) {
+    // info : {started:, nodes: { 'node-name': {}...}}
+    lastLocalNodes = info['nodes'];
+    applyLocalsFilter();
+  }).always(function(){
+    d.resolve();
+  });
+  return d.promise();
+}
+
+var applyLocalsFilter = function(filterstr) {
+  if(!_.isUndefined(filterstr)) $.observable(localsList['flt'] = filterstr);
+  var fltstr = localsList['flt'];
+  var localhost = 'localhost';
+  var data = lastLocalNodes;
+  var filtered = []; // [{name: 'aa-bb-cc', desc:, started:, nodelVersion:, webSocketPort: }...]
+  if (!_.isUndefined(data)) {
+    var fltstrLower = fltstr.toLowerCase();
+    Object.keys(data).forEach(function (key) {
+      if (_.isUndefined(fltstr)) {
+        filtered.push(data[key]);
+      } else {
+        var entry = data[key];
+        if (entry.name.toLowerCase().indexOf(fltstrLower) > -1) {
+          filtered.push(data[key]);
+        }
+      }
+    });
+    for (var i=0; i<filtered.length; i++) {
+      filtered[i].host = localhost;
+      filtered[i].node = getSimpleName(filtered[i].name);
+      filtered[i].address = '/nodes/' + encodeURIComponent(getVerySimpleName(filtered[i].name));
+      if(_.isUndefined(localsList['hosts'][encodr(localhost)])) {
+        var hosts = updateHost(filtered[i].host, localsList);
+        hosts[localhost].icon = generateHostIcon(host); // makes it identical to the current host's one
+        hosts[localhost].checked = true; // always true
+        hosts[localhost].reachable = true; // always true
+        $.observable(localsList).setProperty('hosts', hosts);
+      }
+    }
+  }
+  $.observable(localsList['lst']).refresh(filtered);
+};
 
 var checkReachable = function(host){
   var d = $.Deferred();
@@ -1765,11 +1833,23 @@ var setEvents = function(){
       getNodeList(filterstr);
     };
   });
+  $('body').on('keyup','.localslistfilter', function(e){
+    var charCode = e.charCode || e.keyCode;
+    if((charCode !== 40) && (charCode !== 38) && (charCode !== 13) && (charCode !== 27)) {
+      var filterstr = $(this).val();
+      applyLocalsFilter(filterstr);
+    };
+  });  
   $('body').on('click','.nodel-list .listmore', function(){
     var ele = $(this).closest('.base').find('.nodelistshow');
     $(ele).find('option:selected').prop('selected', false).next().prop('selected', true);
     $(ele).trigger('change');
   });
+  $('body').on('click','.nodel-locals .listmore', function(){
+    var ele = $(this).closest('.base').find('.localslistshow');
+    $(ele).find('option:selected').prop('selected', false).next().prop('selected', true);
+    $(ele).trigger('change');
+  });  
   $('body').on('keydown','input', function(e){
     var charCode = e.charCode || e.keyCode;
     if(charCode == 27) {

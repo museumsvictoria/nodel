@@ -1353,7 +1353,7 @@
   <!-- group -->
   <!-- nodel -->
   <xsl:template match="nodel">
-    <xsl:if test="@type='description' or @type='actsig' or @type='log' or @type='serverlog' or @type='charts' or @type='console' or @type='params' or @type='remote' or @type='list' or @type='diagnostics'">
+    <xsl:if test="@type='description' or @type='actsig' or @type='log' or @type='serverlog' or @type='charts' or @type='console' or @type='params' or @type='remote' or @type='list' or @type='locals' or @type='diagnostics'">
       <div data-nodel="{@type}" class="nodel-{@type}"></div>
     </xsl:if>
     <xsl:if test="@type='add'">
@@ -1366,7 +1366,7 @@
                   <xsl:text>addgrp_</xsl:text>
                   <xsl:value-of select="generate-id(.)"/>
                 </xsl:attribute>
-                <xsl:text>Add node</xsl:text>
+                <xsl:text>Add node here</xsl:text>
               </button>
               <ul class="dropdown-menu">
                 <xsl:attribute name="aria-labelledby">
