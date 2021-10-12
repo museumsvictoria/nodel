@@ -1635,8 +1635,8 @@ var setEvents = function(){
     var nodenameraw = $(this).closest('.form').find('.renamenode').val();
     if(nodename != nodenameraw) {
       if(confirm('Are you sure?')) {
-        var nodename = JSON.stringify({"value": nodenameraw});
-        $.postJSON(proto+'//' + host + '/nodes/' + encodeURIComponent(node) + '/REST/rename', nodename, function (data) {
+        var nodenameNew = JSON.stringify({"value": nodenameraw});
+        $.postJSON(proto+'//' + host + '/nodes/' + encodeURIComponent(node) + '/REST/rename', nodenameNew, function (data) {
           alert("Rename successful, redirecting", "success", 0);
           clearTimers();
           checkRedirect(proto+'//' + host + '/nodes/' + encodeURIComponent(getVerySimpleName(nodenameraw)));
