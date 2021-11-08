@@ -197,11 +197,6 @@ module.exports = function(grunt) {
         dest: './build/grunt/v1/css/components.default.css'
       }
     },
-    run: {
-      lodash: {
-        exec: 'lodash -d -o "./temp/lodash.build.js" --silent'
-      }
-    },
     concat: {
       options: {
         separator: ';'
@@ -240,7 +235,7 @@ module.exports = function(grunt) {
           './node_modules/identicon.js/identicon.js',
           './node_modules/xxhashjs/build/xxhash.js',
           './node_modules/google-charts/dist/googleCharts.js',
-          './temp/lodash.build.js',
+          './node_modules/lodash/lodash.js',
           './src/polyfill.js'
         ],
         dest: './build/grunt/v1/js/components.js'
@@ -261,15 +256,12 @@ module.exports = function(grunt) {
   grunt.loadNpmTasks('grunt-contrib-copy');
   grunt.loadNpmTasks('grunt-concat-css');
   grunt.loadNpmTasks('grunt-contrib-uglify');
-  grunt.loadNpmTasks('grunt-sftp-deploy');
   grunt.loadNpmTasks('grunt-twbs');
-  grunt.loadNpmTasks('grunt-run');
   grunt.loadNpmTasks('grunt-text-replace');
   grunt.loadNpmTasks('grunt-google-fonts');
   // Task definition
-  grunt.registerTask('default', ['googlefonts', 'run:lodash', 'copy:updatetheme','replace','twbs:dark','concat_css:dark','twbs:light','concat_css:light','copy:main','concat','uglify']);
+  grunt.registerTask('default', ['googlefonts', 'copy:updatetheme','replace','twbs:dark','concat_css:dark','twbs:light','concat_css:light','copy:main','concat','uglify']);
   grunt.registerTask('build', ['copy:updatetheme','replace','twbs:dark','concat_css:dark','twbs:light','concat_css:light','copy:main','concat','uglify']);
-  grunt.registerTask('lodash', ['run:lodash']);
   grunt.registerTask('gfonts', ['googlefonts']);
   grunt.registerTask('deploy', ['copy:main','copy:deploy']);
 };
