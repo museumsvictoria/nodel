@@ -1,18 +1,23 @@
-apply plugin: 'java'
-apply plugin: 'eclipse'
-apply plugin: 'maven'
-
 import org.apache.tools.ant.filters.ReplaceTokens
 import org.joda.time.DateTime;
 
 buildscript {
     repositories {
+        mavenCentral()
         jcenter()
+        gradlePluginPortal()
     }
 
     dependencies {
         classpath 'joda-time:joda-time:2.6'
     }
+}
+
+plugins {
+    id 'java'
+    id 'eclipse'
+    id 'maven'
+    id 'com.github.node-gradle.node' version '3.0.1'
 }
 
 def hostname = InetAddress.getLocalHost().getHostName().toUpperCase();
@@ -22,6 +27,7 @@ def now = DateTime.now().toString();
 def gitBranch = 'git rev-parse --abbrev-ref HEAD'.execute().text.trim()
 def gitId = 'git rev-parse HEAD'.execute().text.trim()
 def gitRev = 'git rev-list --count HEAD'.execute().text.trim()
+def gitOrigin = 'git config --get remote.origin.url'.execute().text.trim()
 
 def branch = gitBranch
 if (branch.equals("master"))
@@ -36,22 +42,16 @@ def buildSummary = gitId
 if (!branch.equals("stable"))
     version project.version + "-" + branch + "_r" + rev
 
-// <!-- grunt is embedded (via npm via node.js)
+node {
+    version = '12.19.0'
+    download = true
 
-task npmInstall(type:Exec) {
-  if (System.getProperty('os.name').toLowerCase(Locale.ROOT).contains('windows'))
-    commandLine 'npm.cmd', 'install'
-  else
-    commandLine 'npm', 'install'
-  workingDir "${projectDir}"  
+    workDir = file("${project.buildDir}/nodejs")
+    nodeModulesDir = file("${project.projectDir}")
 }
 
-task grunt(type:Exec, dependsOn: [npmInstall]) {
-  if (System.getProperty('os.name').toLowerCase(Locale.ROOT).contains('windows'))
-    commandLine 'grunt.cmd'
-  else
-    commandLine 'grunt'
-  workingDir "${projectDir}"    
+task gruntRun(type: NpmTask, dependsOn: [npmInstall]) {
+    args = ['run-script', 'run-grunt']
 }
 
 clean.doFirst {
@@ -59,9 +59,7 @@ clean.doFirst {
     delete "${projectDir}/temp/"
 }
 
-// grunt --!>
-
-task copyContent(type: Copy, dependsOn: [grunt]) {
+task copyContent(type: Copy, dependsOn: [gruntRun]) {
     from new File(project.buildDir, 'grunt')
     into new File(project.buildDir, 'www-content_stage')
     exclude 'build.json'
@@ -70,16 +68,17 @@ task copyContent(type: Copy, dependsOn: [grunt]) {
 task filterContentTemplates(type: Copy) {
     from 'src'
     into new File(project.buildDir, 'www-content_stage')
-    include 'build.json' 
-    filter(ReplaceTokens, tokens: [ 
+    include 'build.json'
+    filter(ReplaceTokens, tokens: [
         buildSummary: project.name + "-" + project.version + " " + buildSummary + " (" + hostname + ") " + now,
+        buildOrigin: gitOrigin,
         buildProject: project.name,
-        buildBranch: branch,
+        buildBranch : branch,
         buildVersion: project.version,
-        buildId: buildSummary,
-        buildRev: rev,
-        buildHost: hostname,
-        buildDate: now
+        buildId     : buildSummary,
+        buildRev    : rev,
+        buildHost   : hostname,
+        buildDate   : now
     ])
 }
 
@@ -104,9 +103,7 @@ sourceSets {
 compileJava.dependsOn(zipContentInterface)
 compileJava.dependsOn(copyBuildInfo)
 
-
 dependencies {
     compile 'joda-time:joda-time:2.6'
     compile 'org.joda:joda-convert:1.7'
 }
-
