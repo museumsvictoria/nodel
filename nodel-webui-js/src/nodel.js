@@ -2184,7 +2184,11 @@ var updateLogs = function(){
     $.getJSON(proto+'//'+host+'/nodes/' + encodeURIComponent(node) + '/REST/', function(data){
       var wsproto = 'ws:';
       if (proto == 'https:') wsproto = 'wss:';
-      var wshost = wsproto+"//"+document.location.hostname+":"+data['webSocketPort']+"/nodes/"+node;
+
+      // Websocket server is unified with http server.
+      // So we don't need to use data['webSocketPort'].
+      var wsPort = window.document.location.port;
+      var wshost = wsproto+"//"+document.location.hostname+":"+wsPort+"/nodes/"+node;
       try{
         var socket = new WebSocket(wshost);
         socket.onopen = function(){
