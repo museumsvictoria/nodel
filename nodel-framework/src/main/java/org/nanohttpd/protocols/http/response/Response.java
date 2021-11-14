@@ -282,7 +282,7 @@ public class Response implements Closeable {
             }
 
             // check if WebSocket handshaking is on
-            boolean wsHandshake = getHeader("upgrade") != null && getHeader("upgrade").equalsIgnoreCase("websocket");
+            boolean wsHandshake = this.status == Status.SWITCH_PROTOCOL;
 
             long pending = this.data != null ? this.contentLength : 0;
             if (this.requestMethod != Method.HEAD && this.chunkedTransfer) {
