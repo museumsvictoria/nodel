@@ -280,11 +280,16 @@ public class Response implements Closeable {
                 printHeader(pw, "Content-Encoding", "gzip");
                 setChunkedTransfer(true);
             }
+
+            // check if WebSocket handshaking is on
+            boolean wsHandshake = getHeader("upgrade") != null && getHeader("upgrade").equalsIgnoreCase("websocket");
+
             long pending = this.data != null ? this.contentLength : 0;
             if (this.requestMethod != Method.HEAD && this.chunkedTransfer) {
                 printHeader(pw, "Transfer-Encoding", "chunked");
             } else if (!useGzipWhenAccepted()) {
-                pending = sendContentLengthHeaderIfNotAlreadyPresent(pw, pending);
+                // https://github.com/SuaveIO/suave/issues/626
+                pending = wsHandshake ? 0 : sendContentLengthHeaderIfNotAlreadyPresent(pw, pending);
             }
             pw.append("\r\n");
             pw.flush();
