@@ -288,9 +288,10 @@ public class Launch {
         File lastHTTPPortCache = new File(".lastHTTPPort");
         int lastHTTPPort = lastHTTPPortCache.exists() ? Integer.parseInt(Stream.readFully(lastHTTPPortCache)) : 0;
 
-        if (requestedPort <= 0)
+        if (requestedPort <= 0) {
             // ideally use 8085 as an arbitrary port
             tryPort = lastHTTPPort == 0 ? 8085 : lastHTTPPort;
+        }
 
         // have got config now (default one or one from disk) so
         // fire up pyNode console
@@ -321,14 +322,8 @@ public class Launch {
                 // loop once more (will abort before third attempt)
                 continue;
             }
-            
-            // nodelHostHTTPD *will* have a value at this point 
 
-            // stamp the cache if it's a different port
-            if (lastHTTPPort != Nodel.getHTTPPort())
-                Stream.writeFully(lastHTTPPortCache, String.valueOf(Nodel.getHTTPPort()));
-
-            _logger.info("HTTP interface bound to TCP port " + Nodel.getHTTPPort());
+            // nodelHostHTTPD *will* have a value at this point
 
             break;
         }
@@ -370,6 +365,13 @@ public class Launch {
         // Note: Socket binding happens later than expected due to a new NanoHTTPD.
         Nodel.setHTTPPort(nodelHostHTTPD.getListeningPort());
         Nodel.setWebSocketPort(nodelHostHTTPD.getListeningPort());
+
+        // stamp the cache if it's a different port
+        if (lastHTTPPort != Nodel.getHTTPPort()) {
+            Stream.writeFully(lastHTTPPortCache, String.valueOf(Nodel.getHTTPPort()));
+        }
+
+        _logger.info("HTTP interface bound to TCP port " + Nodel.getHTTPPort());
 
         // that's all we need for bootstrap loading.
         // everything else can fail now if it wants to
