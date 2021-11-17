@@ -1511,7 +1511,7 @@ var setEvents = function(){
           editor.getDoc().setValue('binary file');
           $(ele).find('.script_delete').prop("disabled", false);
         }
-      }).fail(function(e){
+      }, 'text' /* to get plain text instead of object */ ).fail(function(e){
         alert("Error loading file: "+path, "danger", 7000, e.responseText);
       });
     }
