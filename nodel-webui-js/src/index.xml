@@ -123,5 +123,15 @@
         </group>
       </column>
     </row>
+    <row>
+      <column sm="2">
+        <text>Light Colour</text>
+        <lighting action="Color" options="rgbkwaui"></lighting>
+      </column>
+      <column sm="2">
+        <text>Light Colour</text>
+        <lighting event="ColorEvent" options="rgbkwaui"></lighting>
+      </column>
+    </row>
   </page>
 </pages>
