@@ -130,6 +130,10 @@ module.exports = function(grunt) {
             dest: 'build/grunt/nodes.xml'
           },
           {
+            src: 'src/locals.xml',
+            dest: 'build/grunt/locals.xml'
+          },
+          {
             src: 'src/toolkit.xml',
             dest: 'build/grunt/toolkit.xml'
           },
@@ -177,6 +181,8 @@ module.exports = function(grunt) {
           './node_modules/codemirror/lib/codemirror.css',
           './node_modules/codemirror/addon/dialog/dialog.css',
           './temp/googlefonts.css',
+          './src/spectrum/spectrum.css',
+          './src/spectrum/spectrum-dark.css',
           './src/qrcode.css'
         ],
         dest: './build/grunt/v1/css/components.css'
@@ -190,14 +196,11 @@ module.exports = function(grunt) {
           './node_modules/codemirror/lib/codemirror.css',
           './node_modules/codemirror/addon/dialog/dialog.css',
           './temp/googlefonts.css',
+          './src/spectrum/spectrum.css',
+          './src/spectrum/spectrum-dark.css',
           './src/qrcode.css'
         ],
         dest: './build/grunt/v1/css/components.default.css'
-      }
-    },
-    run: {
-      lodash: {
-        exec: 'lodash -d -o "./temp/lodash.build.js" --silent'
       }
     },
     concat: {
@@ -238,9 +241,10 @@ module.exports = function(grunt) {
           './node_modules/identicon.js/identicon.js',
           './node_modules/xxhashjs/build/xxhash.js',
           './node_modules/google-charts/dist/googleCharts.js',
+          './node_modules/lodash/lodash.js',
+          './src/polyfill.js',
+          './src/spectrum/spectrum.js',
           './node_modules/davidshimjs-qrcodejs/qrcode.min.js',
-          './temp/lodash.build.js',
-          './src/polyfill.js'
         ],
         dest: './build/grunt/v1/js/components.js'
       }
@@ -260,15 +264,12 @@ module.exports = function(grunt) {
   grunt.loadNpmTasks('grunt-contrib-copy');
   grunt.loadNpmTasks('grunt-concat-css');
   grunt.loadNpmTasks('grunt-contrib-uglify');
-  grunt.loadNpmTasks('grunt-sftp-deploy');
   grunt.loadNpmTasks('grunt-twbs');
-  grunt.loadNpmTasks('grunt-run');
   grunt.loadNpmTasks('grunt-text-replace');
   grunt.loadNpmTasks('grunt-google-fonts');
   // Task definition
-  grunt.registerTask('default', ['googlefonts', 'run:lodash', 'copy:updatetheme','replace','twbs:dark','concat_css:dark','twbs:light','concat_css:light','copy:main','concat','uglify']);
+  grunt.registerTask('default', ['googlefonts', 'copy:updatetheme','replace','twbs:dark','concat_css:dark','twbs:light','concat_css:light','copy:main','concat','uglify']);
   grunt.registerTask('build', ['copy:updatetheme','replace','twbs:dark','concat_css:dark','twbs:light','concat_css:light','copy:main','concat','uglify']);
-  grunt.registerTask('lodash', ['run:lodash']);
   grunt.registerTask('gfonts', ['googlefonts']);
   grunt.registerTask('deploy', ['copy:main','copy:deploy']);
 };

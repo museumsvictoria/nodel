@@ -125,6 +125,16 @@
     </row>
     <row>
       <column sm="2">
+        <text>Light Colour</text>
+        <lighting action="Color" options="rgbkwaui"></lighting>
+      </column>
+      <column sm="2">
+        <text>Light Colour</text>
+        <lighting event="ColorEvent" options="rgbkwaui"></lighting>
+      </column>
+    </row>
+    <row>
+      <column sm="2">
         <text>QRCode(128)</text>
         <qrcode text="https://google.com" help="Google" event="qrcodeEvt" height="128"></qrcode>
       </column>
