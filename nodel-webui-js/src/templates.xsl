@@ -1238,6 +1238,47 @@
     <div><form><input class="form-control" data-arg-source="this" data-event="{@event}" readonly="true"/></form></div>
   </xsl:template>
   <!-- field -->
+  <!-- lighting -->
+  <xsl:template match="lighting">
+    <div><form>
+      <input type="string" class="form-control spectrum-color-picker" data-arg-source="this">
+        <xsl:if test="@event or @action or @join">
+          <xsl:choose>
+            <xsl:when test="@join">
+              <xsl:attribute name="data-event">
+                <xsl:value-of select="@join"/>
+              </xsl:attribute>
+              <xsl:attribute name="data-action">
+                <xsl:value-of select="@join"/>
+              </xsl:attribute>
+            </xsl:when>
+            <xsl:otherwise>
+              <xsl:if test="@event">
+                <xsl:attribute name="data-event">
+                  <xsl:value-of select="@event"/>
+                </xsl:attribute>
+                <xsl:if test="not(@action)">
+                  <xsl:attribute name="disabled">
+                  </xsl:attribute>
+                </xsl:if>
+              </xsl:if>
+              <xsl:if test="@action">
+                <xsl:attribute name="data-action">
+                  <xsl:value-of select="@action"/>
+                </xsl:attribute>
+              </xsl:if>
+            </xsl:otherwise>
+          </xsl:choose>
+        </xsl:if>
+        <xsl:if test="@options">
+          <xsl:attribute name="data-options">
+            <xsl:value-of select="@options"/>
+          </xsl:attribute>
+        </xsl:if>
+      </input>
+    </form></div>
+  </xsl:template>
+  <!-- lighting -->
   <!-- meter -->
   <xsl:template match="meter">
     <div class="meter" data-event="{@event}">
@@ -1312,7 +1353,7 @@
   <!-- group -->
   <!-- nodel -->
   <xsl:template match="nodel">
-    <xsl:if test="@type='description' or @type='actsig' or @type='log' or @type='serverlog' or @type='charts' or @type='console' or @type='params' or @type='remote' or @type='list' or @type='diagnostics'">
+    <xsl:if test="@type='description' or @type='actsig' or @type='log' or @type='serverlog' or @type='charts' or @type='console' or @type='params' or @type='remote' or @type='list' or @type='locals' or @type='diagnostics'">
       <div data-nodel="{@type}" class="nodel-{@type}"></div>
     </xsl:if>
     <xsl:if test="@type='add'">
@@ -1325,7 +1366,7 @@
                   <xsl:text>addgrp_</xsl:text>
                   <xsl:value-of select="generate-id(.)"/>
                 </xsl:attribute>
-                <xsl:text>Add node</xsl:text>
+                <xsl:text>Add node here</xsl:text>
               </button>
               <ul class="dropdown-menu">
                 <xsl:attribute name="aria-labelledby">
