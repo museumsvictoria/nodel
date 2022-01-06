@@ -9,6 +9,7 @@
     "bootstrap-select": "1.13.10",
     "cm-resize": "^1.0.1",
     "codemirror": "^5.58.3",
+    "davidshimjs-qrcodejs": "^0.0.2",
     "fuzzyset.js": "0.0.8",
     "google-charts": "^2.0.0",
     "gsap": "^3.8.0",

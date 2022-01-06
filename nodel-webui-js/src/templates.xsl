@@ -1279,6 +1279,45 @@
     </form></div>
   </xsl:template>
   <!-- lighting -->
+  <!-- qrcode-->
+  <xsl:template match="qrcode">
+    <div class="qrcode-card">
+      <div class="qrcode-wrapper">
+        <div class="qrcode">
+          <xsl:if test="@event">
+            <xsl:attribute name="data-event">
+              <xsl:value-of select="@event"/>
+            </xsl:attribute>
+            <xsl:attribute name="id">qrcode-<xsl:value-of select="@event"/>
+            </xsl:attribute>
+          </xsl:if>
+          <xsl:if test="@text">
+            <xsl:attribute name="data-text">
+              <xsl:value-of select="@text"/>
+            </xsl:attribute>
+          </xsl:if>
+          <xsl:if test="@height">
+            <xsl:attribute name="data-height">
+              <xsl:value-of select="@height"/>
+            </xsl:attribute>
+          </xsl:if>
+          <xsl:if test="@help">
+            <xsl:attribute name="data-help">
+              <xsl:value-of select="@help"/>
+            </xsl:attribute>
+          </xsl:if>
+        </div>
+      </div>
+      <xsl:if test="@help">
+        <div class="qrcode-help">
+          <p>
+            <xsl:value-of select="@help"/>
+          </p>
+        </div>
+      </xsl:if>
+    </div>
+  </xsl:template>
+  <!-- qrcode-->
   <!-- meter -->
   <xsl:template match="meter">
     <div class="meter" data-event="{@event}">
