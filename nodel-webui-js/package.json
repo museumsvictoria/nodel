@@ -6,6 +6,7 @@
     "@fortawesome/fontawesome-free": "^5.9.0",
     "array.findindex": "^1.0.4",
     "bootstrap": "^3.4.1",
+    "bootstrap-select": "1.13.10",
     "cm-resize": "^1.0.1",
     "codemirror": "^5.58.3",
     "fuzzyset.js": "0.0.8",
