@@ -183,7 +183,8 @@ module.exports = function(grunt) {
           './node_modules/codemirror/addon/dialog/dialog.css',
           './temp/googlefonts.css',
           './src/spectrum/spectrum.css',
-          './src/spectrum/spectrum-dark.css'
+          './src/spectrum/spectrum-dark.css',
+          './src/qrcode.css'
         ],
         dest: './build/grunt/v1/css/components.css'
       },
@@ -198,7 +199,8 @@ module.exports = function(grunt) {
           './node_modules/codemirror/addon/dialog/dialog.css',
           './temp/googlefonts.css',
           './src/spectrum/spectrum.css',
-          './src/spectrum/spectrum-dark.css'
+          './src/spectrum/spectrum-dark.css',
+          './src/qrcode.css'
         ],
         dest: './build/grunt/v1/css/components.default.css'
       }
@@ -244,7 +246,8 @@ module.exports = function(grunt) {
           './node_modules/google-charts/dist/googleCharts.js',
           './node_modules/lodash/lodash.js',
           './src/polyfill.js',
-          './src/spectrum/spectrum.js'
+          './src/spectrum/spectrum.js',
+          './node_modules/davidshimjs-qrcodejs/qrcode.min.js',
         ],
         dest: './build/grunt/v1/js/components.js'
       }
