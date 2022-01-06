@@ -2259,7 +2259,7 @@ var populateAuxComponents = function () {
 
     var qrcodeInstance = $(qrcodeDiv).data('qrcode');
     if (!qrcodeInstance) {
-      qrcodeInstance = new QRCode(document.getElementById("qrcode-" + eventString), {
+      qrcodeInstance = new QRCode(qrcodeDiv[0], {
         text: textString,
         width: height,
         height: height,
