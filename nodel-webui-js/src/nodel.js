@@ -1859,7 +1859,7 @@ var setEvents = function(){
   $('body').on('mousedown', function (e) {
     if($(e.target).closest('.dropdown-menu').length){
       $('body').one('mouseup', function (e) {
-        $('.dropdown').one('hide.bs.dropdown', function (e) {
+        $('.dropdown').not('.bootstrap-select').one('hide.bs.dropdown', function (e) {
           return false;
         });
       });
@@ -2067,80 +2067,139 @@ var updateLogForm = function(){
   }
 };
 
-var updateCharts = function(){
-  if(typeof $('body').data('nodel-charts') == 'undefined'){
-    if($(".nodel-charts").length) {
-      $('body').data('nodel-charts', false);
+var filterSelected = [];
+var doUpdateCharts = function (rawMeasurements) {
+  var getCategoryAnd = function(measurement) {
+    var parts = measurement.name.split(".");
+    var category, subcategory;
+    if (parts.length === 2) {
+      category = parts[0];
+      subcategory = parts[1];
+    } else {
+      category = "general";
+      subcategory = measurement.name;
+    }
+    return [category, subcategory];
+  };
+
+  rawMeasurements.sort(function (x, y) {
+    return x.name.localeCompare(y.name);
+  });
+
+  // prepare <select> element
+  var filter = $(".nodel-charts-filter");
+  if (!filter || filter.length < 1) {
+    // append element
+    $(".nodel-charts").append(
+      '<div class="nodel-charts-filter">\
+        <select id="charts-filter" multiple data-actions-box="true" data-width="100%" data-size="10" data-header="Select"></select>\
+      </div>'
+    );
+    // populate
+    $("#charts-filter").selectpicker();
+
+    // add options (category only)
+    var categorySet = {};
+    rawMeasurements.forEach(function (measurement, i, a) {
+      var parts = getCategoryAnd(measurement);
+      var category = parts[0];
+      
+      if (!categorySet[category]) {
+        categorySet[category] = category;
+        $(".nodel-charts-filter select").append('<option value="' + category + '">' + category + "</option>");
+      }
+    });
+    // add callback
+    $(".nodel-charts-filter select").on("change", function (e) {
+      // console.info($(this).val()); // []
+      filterSelected = $(this).val();
+      // immediately update measurement
+      $.getJSON("/REST/diagnostics/measurements", function (rawMeasurements) {
+        doUpdateCharts(rawMeasurements);
+      });
+    });
+  }
+
+  // draw/delete charts
+  rawMeasurements.forEach(function (measurement, i, a) {
+    try {
+      var parts = getCategoryAnd(measurement);
+      var category = parts[0];
+      var subcategory = parts[1];
+
+      var re = /[^a-zA-Z0-9]/g;
+      var categoryForDiv = category.replace(re, "_");
+      var subcategoryForDiv = subcategory.replace(re, "_");
+      var nameForDiv = measurement.name.replace(re, "_");
+      var categoryDiv = $("#" + categoryForDiv);
+
+      // delete charts unless selected
+      if (filterSelected.indexOf(category) === -1) {
+        // get rid of element
+        $("#" + categoryForDiv + "_wrapper").remove();
+        return;
+      }
+
+      //drawChart(measurement.values, measurement.isRate, measurement.name);
+      var scale = measurement.isRate ? 10 : 1;
+      var chartData = new google.visualization.DataTable();
+      chartData.addColumn("string", measurement.name);
+      chartData.addColumn("number", measurement.name);
+      measurement.values.forEach(function (element, index, array) {
+        chartData.addRow(["", element / scale]);
+      });
+
+      if (categoryDiv.length === 0) {
+        $(".nodel-charts").append('<div id="' + categoryForDiv + "_wrapper" + '"><h6>' + category + '</h6><hr/><div class="col-sm-12"><div class="row" id="' + categoryForDiv + '"></div></div></div>');
+        categoryDiv = $("#" + categoryForDiv);
+      }
+      var chartDiv = $("#" + nameForDiv);
+      var chart;
+      if (chartDiv.length === 0) {
+        // console.log('Preparing new ' + nameForDiv);
+        chartDiv = categoryDiv.append(
+          '<div id="' + nameForDiv + '" class="col-sm-4 chart-min"></div>'
+        );
+        chart = {
+          chart: new google.visualization.LineChart(document.getElementById(nameForDiv)),
+          options: {
+            title: subcategory,
+            vAxis: {
+              minValue: 0,
+            },
+            legend: {
+              position: "none",
+            },
+          },
+        };
+        var prepared = {};
+        prepared[measurement.name] = chart;
+        $.extend($("body").data("nodel-charts-prepared"), prepared);
+      } else {
+        chart = $("body").data("nodel-charts-prepared")[measurement.name];
+      }
+      chart.chart.draw(chartData, chart.options);
+    } catch (err) {
+      throw "draw chart failed related to " + measurement.name + ": " + err;
+    }
+  });
+};
+
+var updateCharts = function () {
+  if (typeof $("body").data("nodel-charts") == "undefined") {
+    if ($(".nodel-charts").length) {
+      $("body").data("nodel-charts", false);
       googleCharts.GoogleCharts.load(updateCharts);
     }
-  } else if(!$('body').data('nodel-charts') && google){
+  } else if (!$("body").data("nodel-charts") && google) {
     google.setOnLoadCallback(updateCharts);
-    $('body').data('nodel-charts', true);
-    $('body').data('nodel-charts-prepared',{});
-  } else if($('body').data('nodel-charts')){
-    $.getJSON('/REST/diagnostics/measurements', function(rawMeasurements) {
-      rawMeasurements.sort(function(x, y) {
-        return x.name.localeCompare(y.name);
-      });
-      rawMeasurements.forEach(function(measurement, i, a) {
-        try {
-          //drawChart(measurement.values, measurement.isRate, measurement.name);
-          if (measurement.isRate) scale = 10;
-          else scale = 1;
-          var chartData = new google.visualization.DataTable();
-          chartData.addColumn('string', measurement.name);
-          chartData.addColumn('number', measurement.name);
-          measurement.values.forEach(function(element, index, array) {
-            chartData.addRow(['', element/scale]);
-          });
-          var parts = measurement.name.split('.');
-          var category, subcategory;
-          if (parts.length == 2) {
-              category = parts[0];
-              subcategory = parts[1];
-          } else {
-              category = 'general';
-              subcategory = measurement.name;
-          }
-          re = /[^a-zA-Z0-9]/g;
-          categoryForDiv = category.replace(re, '_');
-          subcategoryForDiv = subcategory.replace(re, '_');
-          nameForDiv = measurement.name.replace(re, '_');      
-          var categoryDiv = $('#' + categoryForDiv);
-          if (categoryDiv.length == 0) {
-            $('.nodel-charts').append('<div><h6>' + category + '</h6><hr/><div class="col-sm-12"><div class="row" id="'+categoryForDiv+'"></div></div></div>');
-            categoryDiv = $('#' + categoryForDiv);
-          }      
-          var chartDiv = $('#' + nameForDiv);
-          var chart;
-          if (chartDiv.length == 0) {
-            // console.log('Preparing new ' + nameForDiv);
-            chartDiv = categoryDiv.append('<div id="' + nameForDiv + '" class="col-sm-4 chart-min"></div>');    
-            chart = {
-              chart : new google.visualization.LineChart(document.getElementById(nameForDiv)),
-              options : {
-                title : subcategory,
-                vAxis : {
-                  minValue : 0
-                },
-                legend : {
-                  position : 'none'
-                }
-              }
-            };
-            var prepared = {};
-            prepared[measurement.name] = chart;
-            $.extend($('body').data('nodel-charts-prepared'), prepared);
-          } else {
-            chart = $('body').data('nodel-charts-prepared')[measurement.name];
-          }
-          chart.chart.draw(chartData, chart.options);
-        } catch (err) {
-          throw ('draw chart failed related to ' + measurement.name + ': ' + err);
-        }
-      });
-    }).always(function(){
-      $('body').data('nodel-charts-timer', setTimeout(function() { updateCharts(); }, 10000));
+    $("body").data("nodel-charts", true);
+    $("body").data("nodel-charts-prepared", {});
+  } else if ($("body").data("nodel-charts")) {
+    $.getJSON("/REST/diagnostics/measurements", function (rawMeasurements) {
+      doUpdateCharts(rawMeasurements);
+    }).always(function () {
+      $("body").data("nodel-charts-timer", setTimeout(function() { updateCharts(); }, 10000));
     });
   }
 };
@@ -2181,6 +2240,43 @@ var populateAuxComponents = function () {
         stringify({'arg': colorSpaceString})
       );
     });
+  });
+
+  // QR code
+  $('.qrcode-card').each(function() {
+    var qrcodeDiv = $(this).find('.qrcode')
+    var qrcodeHelpDiv = $(this).find('.qrcode-help')
+    var eventString = $(qrcodeDiv).data('event');
+    var textString = $(qrcodeDiv).data('text');
+
+    // put 'place holder' if text is empty.
+    if (!textString || textString.length < 1) {
+      textString = ''; // white square
+    }
+
+    var height = $(qrcodeDiv).data('height');
+    height = (parseInt(height) || 128);
+
+    var qrcodeInstance = $(qrcodeDiv).data('qrcode');
+    if (!qrcodeInstance) {
+      qrcodeInstance = new QRCode(qrcodeDiv[0], {
+        text: textString,
+        width: height,
+        height: height,
+        colorDark : "#000000",
+        colorLight : "#ffffff",
+        correctLevel : QRCode.CorrectLevel.H
+      });
+      // adjust width
+      $(qrcodeDiv).css('width', height + 4); // plus padding
+      if (qrcodeHelpDiv.length > 0) {
+        $(qrcodeHelpDiv).css('width', height + 4); // plus padding
+      }
+      $(qrcodeDiv).data('qrcode', qrcodeInstance);
+    } else {
+      qrcodeInstance.clear();
+      qrcodeInstance.makeCode(textString);
+    }
   });
 };
 
@@ -2454,6 +2550,12 @@ var process_event = function(log){
           }).addClass($(ele).data('class-on'));
         } else if ($(ele).hasClass('spectrum-color-picker')) {
           $(ele).spectrum('setWithChannels', log.arg); // can not use val(colorString) with spectrum color picker.
+        } else if ($(ele).hasClass('qrcode')) {
+          var qrcodeInstance = $(ele).data('qrcode');
+          if (qrcodeInstance) {
+            qrcodeInstance.clear();
+            qrcodeInstance.makeCode(log.arg); // can not use val() with QRCode.
+          }
         } else {
           if ($(ele).is("span, h4, p")) $(ele).text(log.arg);
           // lists

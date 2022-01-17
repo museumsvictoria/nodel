@@ -702,7 +702,8 @@
               <div class="col-sm-6">
                 <div {{props action}}
                   data-{{:key}}='{{:prop}}'
-                {{/props}} {{if ~isgrouped}}data-isgrouped="true"{{/if}} data-btnfaicon="running"/>
+                {{/props}} {{if ~isgrouped}}data-isgrouped="true"{{/if}} data-btnfaicon="running">
+                </div>
               </div>
             {{/if}}
             {{if event}}
@@ -713,7 +714,8 @@
               {{/if}}
                 <div {{props event}}
                   data-{{:key}}='{{:prop}}'
-                {{/props}} {{if ~isgrouped}}data-isgrouped="true"{{/if}} data-btnfaicon="traffic-light" data-disabled="true"/>
+                {{/props}} {{if ~isgrouped}}data-isgrouped="true"{{/if}} data-btnfaicon="traffic-light" data-disabled="true">
+                </div>
               </div>
             {{/if}}
           </div>
