@@ -133,5 +133,11 @@
         <lighting event="ColorEvent" options="rgbkwaui"></lighting>
       </column>
     </row>
+    <row>
+      <column sm="2">
+        <title>QR Code</title>
+        <qrcode text='https://google.com' help='Google' event='DynamicQRCode' height='128' />
+      </column>
+    </row>
   </page>
 </pages>

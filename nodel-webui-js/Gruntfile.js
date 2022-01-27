@@ -177,12 +177,14 @@ module.exports = function(grunt) {
           './node_modules/@fortawesome/fontawesome-free/css/all.local.css',
           './node_modules/bootstrap/dist/css/bootstrap.css',
           './node_modules/bootstrap/dist/css/bootstrap-theme.css',
+          './node_modules/bootstrap-select/dist/css/bootstrap-select.css',
           './node_modules/jquery.scrollbar/jquery.scrollbar.css',
           './node_modules/codemirror/lib/codemirror.css',
           './node_modules/codemirror/addon/dialog/dialog.css',
           './temp/googlefonts.css',
           './src/spectrum/spectrum.css',
-          './src/spectrum/spectrum-dark.css'
+          './src/spectrum/spectrum-dark.css',
+          './src/qrcode.css'
         ],
         dest: './build/grunt/v1/css/components.css'
       },
@@ -191,12 +193,14 @@ module.exports = function(grunt) {
           './node_modules/@fortawesome/fontawesome-free/css/all.local.css',
           './node_modules/bootstrap/dist/css/bootstrap.css',
           './node_modules/bootstrap/dist/css/bootstrap-theme.css',
+          './node_modules/bootstrap-select/dist/css/bootstrap-select.css',
           './node_modules/jquery.scrollbar/jquery.scrollbar.css',
           './node_modules/codemirror/lib/codemirror.css',
           './node_modules/codemirror/addon/dialog/dialog.css',
           './temp/googlefonts.css',
           './src/spectrum/spectrum.css',
-          './src/spectrum/spectrum-dark.css'
+          './src/spectrum/spectrum-dark.css',
+          './src/qrcode.css'
         ],
         dest: './build/grunt/v1/css/components.default.css'
       }
@@ -210,6 +214,7 @@ module.exports = function(grunt) {
           './node_modules/jquery/dist/jquery.js',
           './node_modules/jsviews/jsviews.js',
           './node_modules/bootstrap/dist/js/bootstrap.js',
+          './node_modules/bootstrap-select/dist/js/bootstrap-select.js',
           './node_modules/moment/moment.js',
           './node_modules/jquery.scrollbar/jquery.scrollbar.js',
           './node_modules/pagedown/Markdown.Converter.js',
@@ -241,7 +246,8 @@ module.exports = function(grunt) {
           './node_modules/google-charts/dist/googleCharts.js',
           './node_modules/lodash/lodash.js',
           './src/polyfill.js',
-          './src/spectrum/spectrum.js'
+          './src/spectrum/spectrum.js',
+          './node_modules/davidshimjs-qrcodejs/qrcode.min.js',
         ],
         dest: './build/grunt/v1/js/components.js'
       }
