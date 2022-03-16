@@ -1075,12 +1075,36 @@
   <!-- link -->
   <!-- panel -->
   <xsl:template match="panel">
-    <div class="panel panel-default">
-      <div class="panel-body">
-        <div data-event="{@event}" class="panel{@height}px scrollbar-inner"></div>
+    <div>
+      <xsl:choose>
+        <xsl:when test="@showevent">
+          <xsl:attribute name="class">
+            <xsl:text>sect</xsl:text>
+          </xsl:attribute>
+          <xsl:attribute name="data-showevent">
+            <xsl:value-of select="@showevent"/>
+          </xsl:attribute>
+          <xsl:if test="@value or @showvalue">
+            <xsl:attribute name="data-showarg">
+              <xsl:choose>
+                <xsl:when test="@value">
+                  <xsl:value-of select="@value"/>
+                </xsl:when>
+                <xsl:otherwise>
+                  <xsl:value-of select="@showvalue"/>
+                </xsl:otherwise>
+              </xsl:choose>
+            </xsl:attribute>
+          </xsl:if>
+        </xsl:when>
+      </xsl:choose>
+      <div class="panel panel-default">
+        <div class="panel-body">
+          <div data-event="{@event}" class="panel{@height}px scrollbar-inner"></div>
+        </div>
       </div>
+      <style>.panel<xsl:value-of select="@height"/>px {height: <xsl:value-of select="@height"/>px; overflow: hidden;}</style>
     </div>
-    <style>.panel<xsl:value-of select="@height"/>px {height: <xsl:value-of select="@height"/>px; overflow: hidden;}</style>
   </xsl:template>
   <!-- panel -->
   <!-- range -->
