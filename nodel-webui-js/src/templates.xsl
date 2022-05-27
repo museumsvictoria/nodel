@@ -1265,7 +1265,7 @@
   <!-- lighting -->
   <xsl:template match="lighting">
     <div><form>
-      <input type="string" class="form-control spectrum-color-picker" data-arg-source="this">
+      <input type="button" class="form-control spectrum-color-picker" data-arg-source="this">
         <xsl:if test="@event or @action or @join">
           <xsl:choose>
             <xsl:when test="@join">
