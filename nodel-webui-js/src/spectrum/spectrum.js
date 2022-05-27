@@ -681,7 +681,7 @@
 
             function relocateSlidesAnd() {
 
-                var channels = formatWithChannels.substr(3);
+                var channels = formatWithChannels.substring(3);
 
                 // hue(fixed), colorTemp(k), white(w), amber(a), uv(u), Infrared(i)
                 var nextToHue = 0;
@@ -1001,25 +1001,65 @@
                 }
             }
 
-            // get color format and compare
-            var colorspace = colorSpaceString.substr(0, colorSpaceString.indexOf('('));
-            if (colorspace !== formatWithChannels) {
+            // Note: 'hsb' is equal to 'hsv'
+
+            // color space with additional channels
+            var colorspace = colorSpaceString.substring(0, colorSpaceString.indexOf('('));
+
+            // 1. quarantine with tinycolor
+            
+            // Note: spectrum does not support 'hsb' format
+            var modColorSpaceString = colorSpaceString.replace('hsb', 'hsv');
+            var quarantined = tinycolor(modColorSpaceString);
+
+            if (quarantined.isValid()) { // tinycolor knows given format
+                // check if alpha ('a' character) is found. 
+                // Because Nodel uses 'a' as 'amber', not 'alpha'.
+                // E.g.> rgba, hsla, hsva
+                if (colorspace.indexOf('a') > -1) {
+                    // need to handle it as custom format
+                } else {
+                    if (quarantined.getFormat() === 'rgb') {
+                        // Nodel uses % (0-100). But Spectrum expects value between 0-255
+                        var rgbValues = quarantined.toRgb();
+                        var rgbString = ['rgb', Math.ceil(rgbValues.r*255/100), Math.ceil(rgbValues.g*255/100), Math.ceil(rgbValues.b*255/100)].join(' ');
+                        set(rgbString);
+                        return;
+                    } else {
+                        // No need to care about channels
+                        set(modColorSpaceString);
+                        return;
+                    }
+                }
+            }
+            
+            // 2. handle it as custom format
+
+            // given color format (the first 3 characters) should match
+            // Note: spectrum does not support 'hsb' format
+            if (colorspace.substring(0,3).replace('hsb', 'hsv') !== formatWithChannels.substring(0,3).replace('hsb', 'hsv')) {
                 throw new Error('color space does not match');
             }
 
-            var channels = formatWithChannels.substr(3);
-
-            var valuesString = colorSpaceString.substr(colorSpaceString.indexOf('(')+1, colorSpaceString.indexOf(')')-colorSpaceString.indexOf('(')-1);
+            var valuesString = colorSpaceString.substring(colorSpaceString.indexOf('(')+1, colorSpaceString.indexOf(')'));
             var values = valuesString.split(',');
 
-            if (formatWithChannels.length !== values.length) {
+            // It can handle even though parameters do not match with the given channels.
+            // E.g.> rgbkwaui <-> rgbui
+            if (colorspace.length !== values.length) {
                 throw new Error('mismatch between format and values');
             }
+
+            // So it should refer to parameter, not given format.
+            var channels = colorspace.substring(3);
 
             // update channels first
             if (channels && channels.length > 0) {
                 for (var idx = 0 ; idx < channels.length ; idx++) {
-                    setValueOfChannel(channels.charAt(idx), parseFloat(values[3 + idx]));
+                    // check if channel is supported
+                    if (formatWithChannels.indexOf(channels.charAt(idx)) > -1) {
+                        setValueOfChannel(channels.charAt(idx), parseFloat(values[3 + idx]));
+                    }
                 }
             }
 
@@ -1095,7 +1135,7 @@
             var values = [];
 
             function getChannelsValue(values) {
-                var channels = formatWithChannels.substr(3);
+                var channels = formatWithChannels.substring(3);
                 if (channels.length < 1) {
                     return;
                 }
@@ -2026,6 +2066,7 @@
             if (color.hasOwnProperty("r") && color.hasOwnProperty("g") && color.hasOwnProperty("b")) {
                 rgb = rgbToRgb(color.r, color.g, color.b);
                 ok = true;
+                // TODO: substr() deprecated
                 format = String(color.r).substr(-1) === "%" ? "prgb" : "rgb";
             }
             else if (color.hasOwnProperty("h") && color.hasOwnProperty("s") && color.hasOwnProperty("v")) {
