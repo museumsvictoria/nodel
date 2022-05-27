@@ -68,7 +68,7 @@ public class ManagedToolkit {
     /**
      * (for locking / synchronisation)
      */
-    private Object _lock = new Object();
+    private final Object _lock = new Object();
     
     /**
      * Keeps track of the number of threads in use.
@@ -271,6 +271,9 @@ public class ManagedToolkit {
             throw new IllegalArgumentException("No function provided.");
 
         synchronized (_lock) {
+            if (_closed)
+                throw new IllegalStateException("Node is closed.");
+
             final TimerEntry entry = new TimerEntry();
             entry.timerTask = s_timers.schedule(s_threadPool, new TimerTask() {
 
@@ -335,6 +338,9 @@ public class ManagedToolkit {
      */
     public ManagedTimer createTimer(H0 func, long delay, long interval, boolean stopped) {
         synchronized (_lock) {
+            if (_closed)
+                throw new IllegalStateException("Node is closed.");
+
             // create a timer (will be stopped)
             ManagedTimer timer = new ManagedTimer(func, stopped, _threadStateHandler, s_timers, s_threadPool, _timerExceptionHandler, _callbackQueue);
             
@@ -631,6 +637,9 @@ public class ManagedToolkit {
             throw new IllegalArgumentException("Name cannot be empty");
 
         synchronized (_lock) {
+            if (_closed)
+                throw new IllegalStateException("Node is closed.");
+
             ManagedNode node = new ManagedNode(new SimpleName(name), _callbackQueue, _threadStateHandler);
 
             _managedNodes.add(node);
@@ -647,6 +656,9 @@ public class ManagedToolkit {
             throw new IllegalArgumentException("Suffix cannot be empty");
 
         synchronized (_lock) {
+            if (_closed)
+                throw new IllegalStateException("Node is closed.");
+
             ManagedNode node = new ManagedNode(new SimpleName(Nodel.reduce(_node.getName().getOriginalName(), true) + " " + suffix), _callbackQueue, _threadStateHandler);
 
             _managedNodes.add(node);
@@ -979,6 +991,9 @@ public class ManagedToolkit {
      */
     public String getURL(String urlStr, String method, Map<String, String> query, String username, String password, Map<String, String> headers, String contentType, String post,
             Integer connectTimeout, Integer readTimeout, boolean resultWithHeaders) throws IOException {
+        if (_closed)
+            throw new IllegalStateException("Node is closed.");
+
         return getHttpClient().makeSimpleRequest(urlStr, method, query, username, password, headers, contentType, post, connectTimeout, readTimeout);
     }
 
