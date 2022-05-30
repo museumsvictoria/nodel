@@ -1498,6 +1498,9 @@
             },
             setWithChannels: function(str) {
                 try {
+                    if (visible) {
+                        return;
+                    }
                     setWithChannels(str);
                     updateOriginalInput();
                 } catch(error) {
