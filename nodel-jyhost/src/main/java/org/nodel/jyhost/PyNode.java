@@ -1076,9 +1076,17 @@ public class PyNode extends BaseDynamicNode {
                 
                 throw new IllegalStateException("Action call failure (internal server error) - '" + functionName + "'");
             }
-            
+
             PyFunction pyFunction = (PyFunction) pyObject;
-            PyBaseCode code = (PyBaseCode) pyFunction.func_code;
+            PyBaseCode code = null;
+            Class<?> objectClass = pyFunction.getClass();
+            try {
+                // Jython 2.5
+                code = (PyBaseCode) objectClass.getField("func_code").get(pyFunction);
+            } catch (NoSuchFieldException e) {
+                // Jython 2.7
+                code = (PyBaseCode) objectClass.getField("__code__").get(pyFunction);
+            }
 
             // only support either 0 or 1 args
             PyObject pyResult;
@@ -1346,7 +1354,15 @@ public class PyNode extends BaseDynamicNode {
             }
 
             PyFunction pyFunction = (PyFunction) pyObject;
-            PyBaseCode code = (PyBaseCode) pyFunction.func_code;
+            PyBaseCode code = null;
+            Class<?> objectClass = pyFunction.getClass();
+            try {
+                // Jython 2.5
+                code = (PyBaseCode) objectClass.getField("func_code").get(pyFunction);
+            } catch (NoSuchFieldException e) {
+                // Jython 2.7
+                code = (PyBaseCode) objectClass.getField("__code__").get(pyFunction);
+            }
 
             // only support either 0 or 1 args
             if (code.co_argcount == 0)
