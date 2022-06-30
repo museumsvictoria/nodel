@@ -742,28 +742,33 @@ public class PyNode extends BaseDynamicNode {
                     List<String> commentary = new ArrayList<>(3);
 
                     trackFunction("mains");
-                    
+
                     // handle @before_main functions (if present)
-                    PyFunction processBeforeMainFunctions = (PyFunction) _globals.get(Py.java2py("processBeforeMainFunctions"));
-                    long beforeFnCount = processBeforeMainFunctions.__call__().asLong();
-                    
-                    if (beforeFnCount > 0)
+                    if (_globals.get(Py.java2py("processBeforeMainFunctions")) instanceof PyFunction) {
+                        PyFunction processBeforeMainFunctions = (PyFunction) _globals.get(Py.java2py("processBeforeMainFunctions"));
+                        long beforeFnCount = processBeforeMainFunctions.__call__().asLong();
+
+                        if (beforeFnCount > 0)
                         commentary.add("'@before_main' function" + (beforeFnCount == 1 ? "" : "s"));
-                    
-                    // call 'main' if it exists
-                    PyFunction mainFunction = (PyFunction) _python.get("main");
-                    if (mainFunction != null) {
+                    }
+
+                    if (_python.get("main") instanceof PyFunction) {
+                        PyFunction mainFunction = (PyFunction) _python.get("main");
+                        if (mainFunction != null) {
                         mainFunction.__call__();
 
                         commentary.add("'main'");
+                        }
                     }
-                    
+
                     // handle @after_main functions (if present)
-                    PyFunction processAfterMainFunctions = (PyFunction) _globals.get(Py.java2py("processAfterMainFunctions"));
-                    long afterFnCount = processAfterMainFunctions.__call__().asLong();
-                    if (afterFnCount > 0)
+                    if (_globals.get(Py.java2py("processAfterMainFunctions")) instanceof PyFunction) {
+                        PyFunction processAfterMainFunctions = (PyFunction) _globals.get(Py.java2py("processAfterMainFunctions"));
+                        long afterFnCount = processAfterMainFunctions.__call__().asLong();
+                        if (afterFnCount > 0)
                         commentary.add("'@after_main' function" + (afterFnCount == 1 ? "" : "s"));
-                    
+                    }
+
 
                     // nothing went wrong, kick off toolkit
                     _toolkit.enable();
@@ -904,21 +909,23 @@ public class PyNode extends BaseDynamicNode {
 
             _logger.info(message);
             _outReader.inject(message);
-            
+
             try {
-                PyFunction processCleanupFunctions = (PyFunction) _globals.get(Py.java2py("processCleanupFunctions"));
-                long cleanupFnCount = processCleanupFunctions.__call__().asLong();
-                
-                if (cleanupFnCount > 0) {
-                    message = "('@at_cleanup' function" + (cleanupFnCount == 1 ? "" : "s") + " completed.)";
-                    _logger.info(message);
-                    _outReader.inject(message);
+                if (_globals.get(Py.java2py("processCleanupFunctions")) instanceof PyFunction) {
+                    PyFunction processCleanupFunctions = (PyFunction) _globals.get(Py.java2py("processCleanupFunctions"));
+                    long cleanupFnCount = processCleanupFunctions.__call__().asLong();
+
+                    if (cleanupFnCount > 0) {
+                        message = "('@at_cleanup' function" + (cleanupFnCount == 1 ? "" : "s") + " completed.)";
+                        _logger.info(message);
+                        _outReader.inject(message);
+                    }
                 }
             } catch (Exception exc) {
                 // upstream exception handling should mean we never get here, but just in case
                 _logger.warn("Unexpected exception during cleaning up; should be safe to ignore", exc);
             }
-            
+
             _python.cleanup();
             
             message = "(clean up complete)";
