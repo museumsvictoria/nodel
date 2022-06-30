@@ -71,6 +71,7 @@ import org.python.core.PyBaseCode;
 import org.python.core.PyDictionary;
 import org.python.core.PyException;
 import org.python.core.PyFunction;
+import org.python.core.PyInteger;
 import org.python.core.PyObject;
 import org.python.core.PyString;
 import org.python.core.PySystemState;
@@ -625,10 +626,16 @@ public class PyNode extends BaseDynamicNode {
                 lock = getAReentrantLock();
                 
                 trackFunction("(toolkit injection)");
-                
+
                 // use this import to provide a toolkit directly into the script
-                _python.exec("from nodetoolkit import *");
-                
+                if (((PyInteger) _python.eval("'nodetoolkit' in dir(__import__('sys'))")).asInt() > 0) {
+                        // Jython 2.7 exposes system state through sys
+                        _python.exec("from sys.nodetoolkit import *");
+                } else {
+                        // Jython 2.5 exposes system state at top-level
+                        _python.exec("from nodetoolkit import *");
+                }
+
             } finally {
                 untrackFunction("(toolkit injection)");
                 
