@@ -259,6 +259,11 @@ var updatemeter = function(el, val) {
   var pxheight = $(el).data('pxheight');
   if(!pxheight) {
     var pxheight = $(el).find('.bar').height() / 100;
+    if (pxheight === 0) {
+      // The parent or this may be invisible.
+      // https://stackoverflow.com/questions/9292529/jquery-height-returns-0-on-a-visible-div-why
+      return;
+    }
     $(el).data('pxheight', pxheight);
   }
   var width = $(el).data('width');
