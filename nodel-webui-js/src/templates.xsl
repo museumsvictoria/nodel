@@ -913,7 +913,39 @@
       </ul>
     </div>
   </xsl:template>
-  <!-- select -->
+  <!-- dynamicselect -->
+  <!-- dynamicselectbuttons -->
+  <xsl:template match="dynamicselectbuttons">
+    <div class="select-buttons-wrapper">
+      <div class="btn-group-vertical dynamic select-buttons" role="group" data-render="{@data}" data-render-template="#dynamicSelectButtons">
+        <xsl:if test="@event or @action or @join">
+          <xsl:choose>
+            <xsl:when test="@join">
+              <xsl:attribute name="data-event">
+                <xsl:value-of select="@join"/>
+              </xsl:attribute>
+              <xsl:attribute name="data-arg-action">
+                <xsl:value-of select="@join"/>
+              </xsl:attribute>
+            </xsl:when>
+            <xsl:otherwise>
+              <xsl:if test="@event">
+                <xsl:attribute name="data-event">
+                  <xsl:value-of select="@event"/>
+                </xsl:attribute>
+              </xsl:if>
+              <xsl:if test="@action">
+                <xsl:attribute name="data-arg-action">
+                  <xsl:value-of select="@action"/>
+                </xsl:attribute>
+              </xsl:if>
+            </xsl:otherwise>
+          </xsl:choose>
+        </xsl:if>
+      </div>
+    </div>
+  </xsl:template>
+  <!-- dynamicselectbuttons -->
   <!-- status -->
   <xsl:template match="status">
     <div data-status="{@event}">

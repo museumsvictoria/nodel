@@ -337,6 +337,18 @@
           {{/for}}
         ]]>
         </script>
+        <script id="dynamicSelectButtons" type="text/x-jsrender">
+          <![CDATA[
+          {{for arg}}
+            <button
+              type="button"
+              class="btn btn-default btn-lg btn-of-groups {{if active}} active{{/if}}"
+              data-title="{{>title}}"
+              data-arg="{{>arg}}"
+            >{{>title}}</button>
+          {{/for}}
+        ]]>
+        </script>
         <script id="switchTmpl" type="text/x-jsrender">
         <![CDATA[
           <%if type=="string"%>
