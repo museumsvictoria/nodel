@@ -1042,32 +1042,28 @@ var setEvents = function(){
     callAction(data.action, data.arg);
   });
   function handleSelectButtons(element) {
+    if ($(element).attr('disabled')) {
+      return;
+    }
     var data = getAction(element);
     if(data.action) {
       var jqParent = $(element).parent('.btn-group-vertical');
       // disable all buttons
       jqParent.find('.btn-of-groups').attr('disabled', 'disabled');
-
       $.each($.isArray(data.action) ? data.action : [data.action], function(i, act){
-        setTimeout(() => {
-          $.postJSON(proto+'//' + host + '/nodes/' + encodeURIComponent(node) + '/REST/actions/' + encodeURIComponent(act) + '/call', data.arg, function () {
-            console.log(act + " - Success");
-
-            // enable all buttons
-            jqParent.find('.btn-of-groups').attr('disabled', null);
-
-            // set 'active'
-            jqParent.find('.btn-of-groups').removeClass('active');
-            $(element).addClass('active');
-          }).fail(function (e, s) {
-            let errTxt = s;
-            if (e.responseText) errTxt = s + "\n" + e.responseText;
-            console.log("exec - Error:\n" + errTxt, "error");
-
-            // enable all buttons
-            jqParent.find('.btn-of-groups').attr('disabled', null);
-          });
-        }, 300);
+        $.postJSON(proto+'//' + host + '/nodes/' + encodeURIComponent(node) + '/REST/actions/' + encodeURIComponent(act) + '/call', data.arg, function () {
+          console.log(act + " - Success");
+          // enable all buttons
+          jqParent.find('.btn-of-groups').attr('disabled', null);
+          jqParent.find('.btn-of-groups').removeClass('btn-success').addClass('btn-default');
+          $(element).removeClass('btn-default').addClass('btn-success');
+        }).fail(function (e, s) {
+          let errTxt = s;
+          if (e.responseText) errTxt = s + "\n" + e.responseText;
+          console.log("exec - Error:\n" + errTxt, "error");
+          // enable all buttons
+          jqParent.find('.btn-of-groups').attr('disabled', null);
+        });
       });
     }
   }
@@ -1077,12 +1073,6 @@ var setEvents = function(){
       if(navigator.issmart) $('body').addClass('touched');
       data = getAction(this);
       if(data.action) {
-        // handle buttons of groups
-        var isButtonOfGroups = $(this).hasClass('btn-of-groups');
-        if (isButtonOfGroups) {
-          handleSelectButtons(this)
-          return;
-        }
         if(data.confirm){
           $('#confirmlabel').text(data.confirmtitle);
           $('#confirmtext').text(data.confirmtext);
@@ -1096,7 +1086,14 @@ var setEvents = function(){
             $('#confirmaction').removeAttr('disabled');
           }
           $('#confirm').modal('show');
-        } else callAction(data.action, data.arg);
+        } else {
+          // handle dynamic buttons
+          if ($(this).hasClass('btn-of-groups')) {
+            handleSelectButtons(this)
+            return;
+          }
+          callAction(data.action, data.arg);
+        }
         $(this).parents('.btn-select.open').find('.dropdown-toggle').dropdown('toggle');
       }
     }
@@ -2590,10 +2587,10 @@ var process_event = function(log){
             return $.inArray(log.arg, $.isArray($(this).data('arg')) ? $(this).data('arg') : [$(this).data('arg')]) >= 0;
           }).addClass($(ele).data('class-on'));
         } else if ($(ele).hasClass('select-buttons')) { // group of buttons
-          $(ele).find('.btn-of-groups').removeClass('active');
+          $(ele).find('.btn-of-groups').removeClass('btn-success').addClass('btn-default');
           $(ele).find('.btn-of-groups').filter(function() {
             return $.inArray(log.arg, $.isArray($(this).data('arg')) ? $(this).data('arg') : [$(this).data('arg')]) >= 0;
-          }).addClass('active');
+          }).removeClass('btn-default').addClass('btn-success');
         } else if ($(ele).hasClass('spectrum-color-picker')) {
           $(ele).spectrum('setWithChannels', log.arg); // can not use val(colorString) with spectrum color picker.
         } else if ($(ele).hasClass('qrcode')) {

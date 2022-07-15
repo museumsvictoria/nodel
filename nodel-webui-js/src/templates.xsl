@@ -942,6 +942,24 @@
             </xsl:otherwise>
           </xsl:choose>
         </xsl:if>
+        <xsl:if test="(@confirm or @confirmtext)">
+          <xsl:attribute name="data-confirm">
+            <xsl:choose>
+              <xsl:when test="@confirm"><xsl:value-of select="@confirm"/></xsl:when>
+              <xsl:otherwise>true</xsl:otherwise>
+            </xsl:choose>
+          </xsl:attribute>
+        </xsl:if>
+        <xsl:if test="@confirmtitle">
+          <xsl:attribute name="data-confirmtitle">
+            <xsl:value-of select="@confirmtitle"/>
+          </xsl:attribute>
+        </xsl:if>
+        <xsl:if test="@confirmtext">
+          <xsl:attribute name="data-confirmtext">
+            <xsl:value-of select="@confirmtext"/>
+          </xsl:attribute>
+        </xsl:if>
       </div>
     </div>
   </xsl:template>

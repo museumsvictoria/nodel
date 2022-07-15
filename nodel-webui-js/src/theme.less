@@ -1097,34 +1097,3 @@ legend {
   border-bottom-left-radius: @panel-border-radius;
   border-bottom-right-radius: @panel-border-radius;
 }
-
-// dynamic select buttons
-.select-buttons-wrapper {
-
-  > .select-buttons {
-    width: 100%;
-    > .btn {
-      margin-top: 10px;
-      margin-bottom: 10px;
-      display: block;
-      float: none;
-      width: 100%;
-      max-width: 100%;
-      color: @gray-light;
-    }
-    > .btn:first-child:not(:last-child) {
-      border-radius: @border-radius-base;
-    }
-    > .btn:last-child:not(:first-child) {
-      border-radius: @border-radius-base;
-    }
-    > .btn:not(:first-child):not(:last-child) {
-      border-radius: @border-radius-base;
-    }
-    > .btn.active {
-      color: @btn-success-color;
-      background-color: @btn-success-bg;
-      font-weight: bold;
-    }
-  }
-}
