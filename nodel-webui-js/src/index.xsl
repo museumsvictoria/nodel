@@ -340,7 +340,7 @@
         <script id="dynamicSelectButtons" type="text/x-jsrender">
           <![CDATA[
           {{for arg}}
-            <a href="#" class="btn btn-default btn-lg btn-of-groups" data-arg="{{if key}}{{>key}}{{else}}{{>value}}{{/if}}">{{>value}}</a>
+            <a href="#" class="btn btn-default btn-of-groups" data-arg="{{if key}}{{>key}}{{else}}{{>value}}{{/if}}">{{>value}}</a>
           {{/for}}
         ]]>
         </script>
