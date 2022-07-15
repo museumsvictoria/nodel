@@ -1042,7 +1042,7 @@ var setEvents = function(){
     callAction(data.action, data.arg);
   });
   function handleSelectButtons(element) {
-    if ($(element).attr('disabled')) {
+    if ($(element).attr('disabled') || $(element).hasClass('btn-success')) {
       return;
     }
     var data = getAction(element);
