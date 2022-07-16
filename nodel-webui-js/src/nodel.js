@@ -2505,7 +2505,7 @@ var process_event = function(log){
     }
     switch ($.type(log.arg)) {
       case "number":
-        if ($(ele).not('.meter, .signal').is("div")) {
+        if ($(ele).not('.meter, .signal, .select-buttons').is("div")) {
           $(ele).children().filter(function () {
             return $(this).attr("data-arg") > log.arg;
           }).removeClass('btn-success').addClass('btn-default');
@@ -2525,6 +2525,11 @@ var process_event = function(log){
           $(ele).filter(function() {
             return $.inArray(log.arg, $.isArray($(this).data('arg')) ? $(this).data('arg') : [$(this).data('arg')]) >= 0;
           }).addClass($(ele).data('class-on'));
+        } else if ($(ele).hasClass('select-buttons')) {
+          $(ele).find('.btn-of-groups').removeClass('btn-success').addClass('btn-default');
+          $(ele).find('.btn-of-groups').filter(function() {
+            return $.inArray(log.arg, $.isArray($(this).data('arg')) ? $(this).data('arg') : [$(this).data('arg')]) >= 0;
+          }).removeClass('btn-default').addClass('btn-success');
         } else {
           if ($(ele).is("output, span, h4, p")) $(ele).text(log.arg);
           // lists
@@ -2586,7 +2591,7 @@ var process_event = function(log){
           $(ele).filter(function() {
             return $.inArray(log.arg, $.isArray($(this).data('arg')) ? $(this).data('arg') : [$(this).data('arg')]) >= 0;
           }).addClass($(ele).data('class-on'));
-        } else if ($(ele).hasClass('select-buttons')) { // group of buttons
+        } else if ($(ele).hasClass('select-buttons')) {
           $(ele).find('.btn-of-groups').removeClass('btn-success').addClass('btn-default');
           $(ele).find('.btn-of-groups').filter(function() {
             return $.inArray(log.arg, $.isArray($(this).data('arg')) ? $(this).data('arg') : [$(this).data('arg')]) >= 0;
