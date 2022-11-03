@@ -23,7 +23,7 @@
     "xxhashjs": "^0.2.2"
   },
   "devDependencies": {
-    "grunt": "^1.4.1",
+    "grunt": "^1.5.3",
     "grunt-concat-css": "^0.3.2",
     "grunt-contrib-concat": "^2.0.0",
     "grunt-contrib-copy": "^1.0.0",
