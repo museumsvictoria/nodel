@@ -17,7 +17,7 @@
     "jquery": "3.4.1",
     "jquery.scrollbar": "^0.2.11",
     "jsviews": "^1.0.3",
-    "moment": "^2.29.2",
+    "moment": "^2.29.4",
     "pagedown": "^1.1.0",
     "xregexp": "^4.2.4",
     "xxhashjs": "^0.2.2"
