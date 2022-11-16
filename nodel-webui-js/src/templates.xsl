@@ -960,7 +960,7 @@
         </xsl:attribute>
       </xsl:if>
       <xsl:attribute name="class">
-        <xsl:text>btn-group-vertical dynamic select-buttons</xsl:text>
+        <xsl:text>btn-group-vertical dynamic btn-block select-buttons</xsl:text>
         <xsl:if test="@showevent">
           <xsl:text> sect</xsl:text>
         </xsl:if>
