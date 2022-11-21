@@ -913,7 +913,66 @@
       </ul>
     </div>
   </xsl:template>
-  <!-- select -->
+  <!-- dynamicselect -->
+  <!-- dynamicbuttongroup -->
+  <xsl:template match="dynamicbuttongroup">
+    <div role="group" data-render="{@data}" data-render-template="#dynamicButtonGroup">
+      <xsl:if test="@event or @action or @join">
+        <xsl:choose>
+          <xsl:when test="@join">
+            <xsl:attribute name="data-event">
+              <xsl:value-of select="@join"/>
+            </xsl:attribute>
+            <xsl:attribute name="data-arg-action">
+              <xsl:value-of select="@join"/>
+            </xsl:attribute>
+          </xsl:when>
+          <xsl:otherwise>
+            <xsl:if test="@event">
+              <xsl:attribute name="data-event">
+                <xsl:value-of select="@event"/>
+              </xsl:attribute>
+            </xsl:if>
+            <xsl:if test="@action">
+              <xsl:attribute name="data-arg-action">
+                <xsl:value-of select="@action"/>
+              </xsl:attribute>
+            </xsl:if>
+          </xsl:otherwise>
+        </xsl:choose>
+      </xsl:if>
+      <xsl:if test="(@confirm or @confirmtext)">
+        <xsl:attribute name="data-confirm">
+          <xsl:choose>
+            <xsl:when test="@confirm"><xsl:value-of select="@confirm"/></xsl:when>
+            <xsl:otherwise>true</xsl:otherwise>
+          </xsl:choose>
+        </xsl:attribute>
+      </xsl:if>
+      <xsl:if test="@confirmtitle">
+        <xsl:attribute name="data-confirmtitle">
+          <xsl:value-of select="@confirmtitle"/>
+        </xsl:attribute>
+      </xsl:if>
+      <xsl:if test="@confirmtext">
+        <xsl:attribute name="data-confirmtext">
+          <xsl:value-of select="@confirmtext"/>
+        </xsl:attribute>
+      </xsl:if>
+      <xsl:attribute name="class">
+        <xsl:text>btn-group-vertical dynamic btn-block button-group</xsl:text>
+        <xsl:if test="@showevent">
+          <xsl:text> sect</xsl:text>
+        </xsl:if>
+      </xsl:attribute>
+      <xsl:if test="@showevent">
+        <xsl:attribute name="data-showevent">
+          <xsl:value-of select="@showevent"/>
+        </xsl:attribute>
+      </xsl:if>
+    </div>
+  </xsl:template>
+  <!-- dynamicbuttongroup -->
   <!-- status -->
   <xsl:template match="status">
     <div data-status="{@event}">

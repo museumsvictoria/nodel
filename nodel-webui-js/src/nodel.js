@@ -1041,6 +1041,32 @@ var setEvents = function(){
     else $(this).removeClass('active');
     callAction(data.action, data.arg);
   });
+  function handleSelectButtons(element) {
+    if ($(element).attr('disabled') || $(element).hasClass('btn-success')) {
+      return;
+    }
+    var data = getAction(element);
+    if(data.action) {
+      var jqParent = $(element).parent('.btn-group-vertical');
+      // disable all buttons
+      jqParent.find('.btn-of-groups').not($(element)).attr('disabled', 'disabled');
+      $.each($.isArray(data.action) ? data.action : [data.action], function(i, act){
+        $.postJSON(proto+'//' + host + '/nodes/' + encodeURIComponent(node) + '/REST/actions/' + encodeURIComponent(act) + '/call', data.arg, function () {
+          console.log(act + " - Success");
+          // enable all buttons
+          jqParent.find('.btn-of-groups').attr('disabled', null);
+          jqParent.find('.btn-of-groups').removeClass('btn-success').addClass('btn-default');
+          $(element).removeClass('btn-default').addClass('btn-success');
+        }).fail(function (e, s) {
+          let errTxt = s;
+          if (e.responseText) errTxt = s + "\n" + e.responseText;
+          console.log("exec - Error:\n" + errTxt, "error");
+          // enable all buttons
+          jqParent.find('.btn-of-groups').attr('disabled', null);
+        });
+      });
+    }
+  }
   $('body').on('click', '*[data-arg], *[data-action]:not(.spectrum-color-picker)', function (e) {
     e.stopPropagation(); e.preventDefault();
     if(!$('body').hasClass('touched')) {
@@ -1060,7 +1086,14 @@ var setEvents = function(){
             $('#confirmaction').removeAttr('disabled');
           }
           $('#confirm').modal('show');
-        } else callAction(data.action, data.arg);
+        } else {
+          // handle dynamic buttons
+          if ($(this).hasClass('btn-of-groups')) {
+            handleSelectButtons(this)
+            return;
+          }
+          callAction(data.action, data.arg);
+        }
         $(this).parents('.btn-select.open').find('.dropdown-toggle').dropdown('toggle');
       }
     }
@@ -2472,7 +2505,7 @@ var process_event = function(log){
     }
     switch ($.type(log.arg)) {
       case "number":
-        if ($(ele).not('.meter, .signal').is("div")) {
+        if ($(ele).not('.meter, .signal, .button-group').is("div")) {
           $(ele).children().filter(function () {
             return $(this).attr("data-arg") > log.arg;
           }).removeClass('btn-success').addClass('btn-default');
@@ -2492,6 +2525,11 @@ var process_event = function(log){
           $(ele).filter(function() {
             return $.inArray(log.arg, $.isArray($(this).data('arg')) ? $(this).data('arg') : [$(this).data('arg')]) >= 0;
           }).addClass($(ele).data('class-on'));
+        } else if ($(ele).hasClass('button-group')) {
+          $(ele).find('.btn-of-groups').removeClass('btn-success').addClass('btn-default');
+          $(ele).find('.btn-of-groups').filter(function() {
+            return $.inArray(log.arg, $.isArray($(this).data('arg')) ? $(this).data('arg') : [$(this).data('arg')]) >= 0;
+          }).removeClass('btn-default').addClass('btn-success');
         } else {
           if ($(ele).is("output, span, h4, p")) $(ele).text(log.arg);
           // lists
@@ -2553,6 +2591,11 @@ var process_event = function(log){
           $(ele).filter(function() {
             return $.inArray(log.arg, $.isArray($(this).data('arg')) ? $(this).data('arg') : [$(this).data('arg')]) >= 0;
           }).addClass($(ele).data('class-on'));
+        } else if ($(ele).hasClass('button-group')) {
+          $(ele).find('.btn-of-groups').removeClass('btn-success').addClass('btn-default');
+          $(ele).find('.btn-of-groups').filter(function() {
+            return $.inArray(log.arg, $.isArray($(this).data('arg')) ? $(this).data('arg') : [$(this).data('arg')]) >= 0;
+          }).removeClass('btn-default').addClass('btn-success');
         } else if ($(ele).hasClass('spectrum-color-picker')) {
           $(ele).spectrum('setWithChannels', log.arg); // can not use val(colorString) with spectrum color picker.
         } else if ($(ele).hasClass('qrcode')) {
