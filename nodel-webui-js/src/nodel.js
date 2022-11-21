@@ -2505,7 +2505,7 @@ var process_event = function(log){
     }
     switch ($.type(log.arg)) {
       case "number":
-        if ($(ele).not('.meter, .signal, .select-buttons').is("div")) {
+        if ($(ele).not('.meter, .signal, .button-group').is("div")) {
           $(ele).children().filter(function () {
             return $(this).attr("data-arg") > log.arg;
           }).removeClass('btn-success').addClass('btn-default');
@@ -2525,7 +2525,7 @@ var process_event = function(log){
           $(ele).filter(function() {
             return $.inArray(log.arg, $.isArray($(this).data('arg')) ? $(this).data('arg') : [$(this).data('arg')]) >= 0;
           }).addClass($(ele).data('class-on'));
-        } else if ($(ele).hasClass('select-buttons')) {
+        } else if ($(ele).hasClass('button-group')) {
           $(ele).find('.btn-of-groups').removeClass('btn-success').addClass('btn-default');
           $(ele).find('.btn-of-groups').filter(function() {
             return $.inArray(log.arg, $.isArray($(this).data('arg')) ? $(this).data('arg') : [$(this).data('arg')]) >= 0;
@@ -2591,7 +2591,7 @@ var process_event = function(log){
           $(ele).filter(function() {
             return $.inArray(log.arg, $.isArray($(this).data('arg')) ? $(this).data('arg') : [$(this).data('arg')]) >= 0;
           }).addClass($(ele).data('class-on'));
-        } else if ($(ele).hasClass('select-buttons')) {
+        } else if ($(ele).hasClass('button-group')) {
           $(ele).find('.btn-of-groups').removeClass('btn-success').addClass('btn-default');
           $(ele).find('.btn-of-groups').filter(function() {
             return $.inArray(log.arg, $.isArray($(this).data('arg')) ? $(this).data('arg') : [$(this).data('arg')]) >= 0;

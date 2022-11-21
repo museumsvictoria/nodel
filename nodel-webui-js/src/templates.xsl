@@ -914,9 +914,9 @@
     </div>
   </xsl:template>
   <!-- dynamicselect -->
-  <!-- dynamicselectbuttons -->
-  <xsl:template match="dynamicselectbuttons">
-    <div role="group" data-render="{@data}" data-render-template="#dynamicSelectButtons">
+  <!-- dynamicbuttongroup -->
+  <xsl:template match="dynamicbuttongroup">
+    <div role="group" data-render="{@data}" data-render-template="#dynamicButtonGroup">
       <xsl:if test="@event or @action or @join">
         <xsl:choose>
           <xsl:when test="@join">
@@ -960,7 +960,7 @@
         </xsl:attribute>
       </xsl:if>
       <xsl:attribute name="class">
-        <xsl:text>btn-group-vertical dynamic btn-block select-buttons</xsl:text>
+        <xsl:text>btn-group-vertical dynamic btn-block button-group</xsl:text>
         <xsl:if test="@showevent">
           <xsl:text> sect</xsl:text>
         </xsl:if>
@@ -972,7 +972,7 @@
       </xsl:if>
     </div>
   </xsl:template>
-  <!-- dynamicselectbuttons -->
+  <!-- dynamicbuttongroup -->
   <!-- status -->
   <xsl:template match="status">
     <div data-status="{@event}">
