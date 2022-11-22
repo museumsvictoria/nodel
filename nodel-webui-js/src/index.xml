@@ -138,6 +138,10 @@
         <title>QR Code</title>
         <qrcode text='https://google.com' help='Google' event='DynamicQRCode' height='128' />
       </column>
+      <column sm="4">
+        <title>Dynamic Button Group</title>
+        <dynamicbuttongroup join="Screen1" data="screen1Data" confirmtext="Are you sure?" confirmtitle="Confirm"></dynamicbuttongroup>
+      </column>
     </row>
   </page>
 </pages>
