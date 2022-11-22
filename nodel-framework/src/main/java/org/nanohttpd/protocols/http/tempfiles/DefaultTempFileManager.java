@@ -1,6 +1,8 @@
 package org.nanohttpd.protocols.http.tempfiles;
 
 /*
+ * ALTERED FROM ORIGINAL
+ *
  * #%L
  * NanoHttpd-Core
  * %%
@@ -56,11 +58,8 @@ public class DefaultTempFileManager implements ITempFileManager {
 
     private final List<ITempFile> tempFiles;
 
-    public DefaultTempFileManager() {
-        this.tmpdir = new File(System.getProperty("java.io.tmpdir"));
-        if (!tmpdir.exists()) {
-            tmpdir.mkdirs();
-        }
+    public DefaultTempFileManager(File tmpdir) {
+        this.tmpdir = tmpdir;
         this.tempFiles = new ArrayList<ITempFile>();
     }
 

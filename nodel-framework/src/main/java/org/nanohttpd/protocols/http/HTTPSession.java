@@ -120,9 +120,9 @@ public class HTTPSession implements IHTTPSession {
 
     private byte[] bodyBytes;
 
-    private static SharableMeasurementProvider s_dataRecvRate = Diagnostics.shared().registerSharableCounter("Nano HTTP.Receive rate", true);
+    private static final SharableMeasurementProvider s_dataRecvRate = Diagnostics.shared().registerSharableCounter("Nodel HTTP server.Receive rate", true);
 
-    private static SharableMeasurementProvider s_dataSendRate = Diagnostics.shared().registerSharableCounter("Nano HTTP.Send rate", true);
+    private static final SharableMeasurementProvider s_dataSendRate = Diagnostics.shared().registerSharableCounter("Nodel HTTP server.Send rate", true);
 
     public HTTPSession(NanoHTTPD httpd, ITempFileManager tempFileManager, InputStream inputStream, OutputStream outputStream) {
         this.httpd = httpd;

@@ -1,6 +1,8 @@
 package org.nanohttpd.protocols.http.tempfiles;
 
 /*
+ * ALTERED FROM ORIGINAL
+ *
  * #%L
  * NanoHttpd-Core
  * %%
@@ -35,13 +37,30 @@ package org.nanohttpd.protocols.http.tempfiles;
 
 import org.nanohttpd.util.IFactory;
 
+import java.io.File;
+
 /**
  * Default strategy for creating and cleaning up temporary files.
  */
 public class DefaultTempFileManagerFactory implements IFactory<ITempFileManager> {
 
+    /**
+     * (not original)
+     */
+    private final File _tmpdir;
+
+    /**
+     * (different from original nanohttpd code, only checking temporary folder existence once, )
+     */
+    public DefaultTempFileManagerFactory() {
+        _tmpdir = new File(System.getProperty("java.io.tmpdir"));
+        if (!_tmpdir.exists())
+            _tmpdir.mkdirs();
+    }
+
     @Override
     public ITempFileManager create() {
-        return new DefaultTempFileManager();
+        return new DefaultTempFileManager(_tmpdir);
     }
+
 }
