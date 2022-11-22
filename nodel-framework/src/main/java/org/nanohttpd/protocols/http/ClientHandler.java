@@ -1,6 +1,8 @@
 package org.nanohttpd.protocols.http;
 
 /*
+ * ALTERED FROM ORIGINAL
+ *
  * #%L
  * NanoHttpd-Core
  * %%
@@ -41,11 +43,18 @@ import java.net.SocketTimeoutException;
 import java.util.logging.Level;
 
 import org.nanohttpd.protocols.http.tempfiles.ITempFileManager;
+import org.nodel.diagnostics.Diagnostics;
+import org.nodel.diagnostics.SharableMeasurementProvider;
 
 /**
  * The runnable that will be used for every new client connection.
  */
 public class ClientHandler implements Runnable {
+
+    /**
+     * (not from original code)
+     */
+    private final static SharableMeasurementProvider s_httpServerConnections = Diagnostics.shared().registerSharableCounter("Nodel HTTP server.Connections", false);
 
     private final NanoHTTPD httpd;
 
@@ -66,6 +75,8 @@ public class ClientHandler implements Runnable {
 
     @Override
     public void run() {
+        s_httpServerConnections.incr();
+
         OutputStream outputStream = null;
         try {
             outputStream = this.acceptSocket.getOutputStream();
@@ -86,6 +97,8 @@ public class ClientHandler implements Runnable {
                 NanoHTTPD.LOG.log(Level.SEVERE, "Communication with the client broken, or an bug in the handler code", e);
             }
         } finally {
+            s_httpServerConnections.decr();
+
             NanoHTTPD.safeClose(outputStream);
             NanoHTTPD.safeClose(this.inputStream);
             NanoHTTPD.safeClose(this.acceptSocket);

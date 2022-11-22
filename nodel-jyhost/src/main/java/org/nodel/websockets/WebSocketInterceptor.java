@@ -22,15 +22,16 @@ public class WebSocketInterceptor extends Interceptor {
 
     /**
      * Timers, used for 'ping/pong'
+     * (opting-out of Diagnostics registration)
      */
-    private static Timers s_timers = new Timers("WebSocketInterceptor");
+    private static Timers s_timers = new Timers("_Nodel WebSocket interceptor");
 
     /**
      * Holds the one-to-one WebSocket/Node sessions.
      */
     private static Map<WebSocket, SessionEntry> _sessions = new HashMap<WebSocket, SessionEntry>();
 
-    private static ThreadPool s_threadPool = new ThreadPool("WebSocketInterceptor", 128);
+    private static ThreadPool s_threadPool = new ThreadPool("Nodel WebSocket interceptor", 128);
 
 
     public WebSocketInterceptor() {

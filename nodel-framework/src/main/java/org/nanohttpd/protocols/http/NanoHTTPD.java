@@ -124,10 +124,6 @@ import org.nodel.net.Credentials;
  */
 public abstract class NanoHTTPD {
 
-    private static SharableMeasurementProvider s_dataRecvRate = Diagnostics.shared().registerSharableCounter("Nano HTTP.Receive rate", true);
-
-    private static SharableMeasurementProvider s_dataSendRate = Diagnostics.shared().registerSharableCounter("Nano HTTP.Send rate", true);
-
     public static final String CONTENT_DISPOSITION_REGEX = "([ |\t]*Content-Disposition[ |\t]*:)(.*)";
 
     public static final Pattern CONTENT_DISPOSITION_PATTERN = Pattern.compile(CONTENT_DISPOSITION_REGEX, Pattern.CASE_INSENSITIVE);
