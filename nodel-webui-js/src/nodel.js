@@ -1551,7 +1551,7 @@ var setEvents = function(){
           editor.getDoc().setValue('binary file');
           $(ele).find('.script_delete').prop("disabled", false);
         }
-      }).fail(function(e){
+      }, 'text' /* to get plain text instead of object */ ).fail(function(e){
         alert("Error loading file: "+path, "danger", 7000, e.responseText);
       });
     }
@@ -2359,7 +2359,11 @@ var updateLogs = function(){
     $.getJSON(proto+'//'+host+'/nodes/' + encodeURIComponent(node) + '/REST/', function(data){
       var wsproto = 'ws:';
       if (proto == 'https:') wsproto = 'wss:';
-      var wshost = wsproto+"//"+document.location.hostname+":"+data['webSocketPort']+"/nodes/"+node;
+
+      // Websocket server is unified with http server.
+      // So we don't need to use data['webSocketPort'].
+      var wsPort = window.document.location.port;
+      var wshost = wsproto+"//"+document.location.hostname+":"+wsPort+"/nodes/"+node;
       try{
         var socket = new WebSocket(wshost);
         socket.onopen = function(){

@@ -1,9 +1,9 @@
 package org.nodel.jyhost;
 
-/* 
+/*
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
- * file, You can obtain one at http://mozilla.org/MPL/2.0/. 
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
 import java.io.File;
@@ -34,7 +34,6 @@ import org.nodel.discovery.AdvertisementInfo;
 import org.nodel.discovery.AutoDNS;
 import org.nodel.discovery.TopologyWatcher;
 import org.nodel.host.BaseNode;
-import org.nodel.host.NanoHTTPD;
 import org.nodel.io.Stream;
 import org.nodel.io.UTF8Charset;
 import org.nodel.json.XML;
@@ -47,6 +46,7 @@ import org.nodel.reflection.Service;
 import org.nodel.reflection.Value;
 import org.nodel.rest.EndpointNotFoundException;
 import org.nodel.rest.REST;
+import org.nodel.websockets.WebSocketInterceptor;
 import org.python.core.Py;
 import org.python.core.PyCode;
 import org.python.core.PyException;
@@ -54,6 +54,12 @@ import org.python.core.PyStringMap;
 import org.python.util.PythonInterpreter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import org.nanohttpd.protocols.http.request.Request;
+import org.nanohttpd.protocols.http.response.Response;
+import org.nanohttpd.protocols.http.response.Status;
+import org.nanohttpd.protocols.http.NanoHTTPD;
+import org.nanohttpd.protocols.http.response.IStatus;
 
 public class NodelHostHTTPD extends NanoHTTPD {
 
@@ -118,7 +124,7 @@ public class NodelHostHTTPD extends NanoHTTPD {
         @Service(name = "discovery", order = 6, title = "Discovery service", desc = "Multicast discovery services.")
         public AutoDNS discovery() {
             return AutoDNS.instance();
-        }        
+        }
         
         @Service(name = "nodeURLs", order = 6, title = "Node URLs", desc = "Returns the addresses of all advertised nodes.")
         public List<NodeURL> nodeURLs(@Param(name = "filter", title = "Filter", desc = "Optional string filter.") String filter) throws IOException {
@@ -132,7 +138,7 @@ public class NodelHostHTTPD extends NanoHTTPD {
 
         @Service(name = "logs", title = "Logs", desc = "Detailed program logs.")
         public LogEntry[] getLogs(
-                @Param(name = "from", title = "From", desc = "Start inclusion point.") long from, 
+                @Param(name = "from", title = "From", desc = "Start inclusion point.") long from,
                 @Param(name = "max", title = "Max", desc = "Results count limit.") int max) {
             List<LogEntry> result = Logging.instance().getLogs(from, max);
             
@@ -141,7 +147,7 @@ public class NodelHostHTTPD extends NanoHTTPD {
 
         @Service(name = "warningLogs", title = "Warning logs", desc = "Same as 'logs' except filtered by warning-level.")
         public LogEntry[] getWarningLogs(
-                @Param(name = "from", title = "From", desc = "Start inclusion point.") long from, 
+                @Param(name = "from", title = "From", desc = "Start inclusion point.") long from,
                 @Param(name = "max", title = "Max", desc = "Results count limit.") int max) {
             List<LogEntry> result = Logging.instance().getWarningLogs(from, max);
 
@@ -186,9 +192,6 @@ public class NodelHostHTTPD extends NanoHTTPD {
     public NodelHostHTTPD(int port, File directory) throws IOException {
         super(port, directory, false);
 
-        // update with actual listening port
-        Nodel.setHTTPPort(getListeningPort());
-        
         // and watch for future interface changes
         TopologyWatcher.shared().addOnChangeHandler(new TopologyWatcher.ChangeHandler() {
 
@@ -198,6 +201,9 @@ public class NodelHostHTTPD extends NanoHTTPD {
             }
 
         });
+
+        // do more things
+        init();
     }
 
     /**
@@ -207,7 +213,7 @@ public class NodelHostHTTPD extends NanoHTTPD {
         InetAddress[] addresses = TopologyWatcher.shared().getInterfaces();
         
         String[] httpAddresses = new String[addresses.length];
-        String[]  httpNodeAddresses = new String[addresses.length];
+        String[] httpNodeAddresses = new String[addresses.length];
 
         for (int a = 0; a < addresses.length; a++) {
             httpAddresses[a] = String.format("http://%s:%s%s", addresses[a].getHostAddress(), Nodel.getHTTPPort(), Nodel.getHTTPSuffix());
@@ -224,6 +230,11 @@ public class NodelHostHTTPD extends NanoHTTPD {
             System.out.println("    (" + gone.getHostAddress() + " interface disappeared)");
     }
     
+    private void init() {
+        WebSocketInterceptor wsInterceptor = new WebSocketInterceptor();
+        addHTTPInterceptor(wsInterceptor);
+    }
+
     /**
      * Sets the host.
      */
@@ -242,7 +253,7 @@ public class NodelHostHTTPD extends NanoHTTPD {
         Object restTarget = _restModel;
 
         // get the user-agent
-        String userAgent = request.headers.getProperty("user-agent");
+        String userAgent = request.header.getProperty("user-agent");
         if (userAgent != null)
             _userAgent = userAgent;
 
@@ -321,7 +332,7 @@ public class NodelHostHTTPD extends NanoHTTPD {
                 } else {
                     // otherwise serialise the target into JSON
                     String targetAsJSON = Serialisation.serialise(target);
-                    resp = new Response(HTTP_OK, "application/json; charset=utf-8", targetAsJSON);
+                    resp = new Response(Status.OK, "application/json; charset=utf-8", targetAsJSON);
                 }
 
                 // adjust the response headers for script compatibility
@@ -330,27 +341,27 @@ public class NodelHostHTTPD extends NanoHTTPD {
                 return resp;
 
             } catch (EndpointNotFoundException exc) {
-                return prepareExceptionMessageResponse(HTTP_NOTFOUND, exc, false);
+                return prepareExceptionMessageResponse(Status.NOT_FOUND, exc, false);
 
             } catch (FileNotFoundException exc) {
-                return prepareExceptionMessageResponse(HTTP_NOTFOUND, exc, false);
+                return prepareExceptionMessageResponse(Status.NOT_FOUND, exc, false);
 
             } catch (SerialisationException exc) {
-                return prepareExceptionMessageResponse(HTTP_INTERNALERROR, exc, params.containsKey("trace"));
+                return prepareExceptionMessageResponse(Status.INTERNAL_ERROR, exc, params.containsKey("trace"));
 
             } catch (UnknownServiceException exc) {
-                return prepareExceptionMessageResponse(HTTP_INTERNALERROR, exc, false);
+                return prepareExceptionMessageResponse(Status.INTERNAL_ERROR, exc, false);
                 
             } catch (PyException exc) {
                 // use cleaner PyException stack trace
                 _logger.warn("Python script exception during REST operation. {}", exc.toString());
 
-                return prepareExceptionMessageResponse(HTTP_INTERNALERROR, exc, params.contains("trace"));
+                return prepareExceptionMessageResponse(Status.INTERNAL_ERROR, exc, params.contains("trace"));
 
             } catch (Exception exc) {
                 _logger.warn("Unexpected exception during REST operation.", exc);
 
-                return prepareExceptionMessageResponse(HTTP_INTERNALERROR, exc, params.contains("trace"));
+                return prepareExceptionMessageResponse(Status.INTERNAL_ERROR, exc, params.contains("trace"));
             }
         } else {
             // TODO: this could be done a lot better:
@@ -364,17 +375,17 @@ public class NodelHostHTTPD extends NanoHTTPD {
                 
                 File target = resolveFile(uri, root);
                 if (target == null)
-                    return new Response(HTTP_NOTFOUND, "text/plain", "Not found - " + uri);
+                    return new Response(Status.NOT_FOUND, "text/plain", "Not found - " + uri);
                 else
-                    return new Response(HTTP_OK, "text/plain; charset=utf-8", Stream.tryReadFully(target));
+                    return new Response(Status.OK, "text/plain; charset=utf-8", Stream.tryReadFully(target));
                 
             } else if (params.containsKey("_write")) {
                 File target = resolveFile(uri, root);
                 if (target == null)
-                    return new Response(HTTP_NOTFOUND, "text/plain", "Not found - " + uri);
+                    return new Response(Status.NOT_FOUND, "text/plain", "Not found - " + uri);
 
                 if (request.raw == null || request.raw.length == 0)
-                    return new Response(HTTP_FORBIDDEN, "text/plain", "No POST data provided.");
+                    return new Response(Status.FORBIDDEN, "text/plain", "No POST data provided.");
 
                 FileOutputStream fos = null;
                 
@@ -385,15 +396,15 @@ public class NodelHostHTTPD extends NanoHTTPD {
                     
                     fos.write(request.raw);
                     
-                    return new Response(HTTP_OK, "text/plain", request.raw.length + " bytes written.");
+                    return new Response(Status.OK, "text/plain", request.raw.length + " bytes written.");
                     
                 } catch (Exception exc) {
-                    return new Response(HTTP_INTERNALERROR, "text/plain", "Problem writing file.");
+                    return new Response(Status.INTERNAL_ERROR, "text/plain", "Problem writing file.");
 
                 } finally {
                     Stream.safeClose(fos);
                 }
-            } 
+            }
 
             // not a REST call, py-server page page?
             if (restTarget instanceof PyNode) {
@@ -405,7 +416,7 @@ public class NodelHostHTTPD extends NanoHTTPD {
                     response = handlePySp((PyNode) restTarget, uri + ".pysp", root, method, params, request);
             }
 
-            if (response == null || HTTP_NOTFOUND.equals(response.status))
+            if (response == null || Status.NOT_FOUND.equals(response.getStatus()))
                 return super.serve(uri, root, method, params, request);
 
             return response;
@@ -437,15 +448,15 @@ public class NodelHostHTTPD extends NanoHTTPD {
     /**
      * Prepares a neat exception tree for returning back to the HTTP client.
      */
-    private Response prepareExceptionMessageResponse(String httpCode, Exception exc, boolean includeStackTrace) {
-        assert exc != null : "Argument should not be null."; 
+    private Response prepareExceptionMessageResponse(IStatus httpCode, Exception exc, boolean includeStackTrace) {
+        assert exc != null : "Argument should not be null.";
         
         ExceptionMessage message = new ExceptionMessage();
         
         Throwable currentExc = exc;
         ExceptionMessage currentMessage = message;
         
-        while(currentExc != null) {
+        while (currentExc != null) {
             currentMessage.error = currentExc.getClass().getSimpleName();
             currentMessage.message = currentExc.getMessage();
             if (Strings.isNullOrEmpty(currentMessage.message))
@@ -476,6 +487,7 @@ public class NodelHostHTTPD extends NanoHTTPD {
     
     /**
      * Prepares a standard 404 Not Found HTTP response.
+     *
      * @type e.g. 'Node' or 'Type' (capitalise first letter)
      */
     private Response prepareNotFoundResponse(String path, String type) {
@@ -487,7 +499,7 @@ public class NodelHostHTTPD extends NanoHTTPD {
 		errorResponse.message = type + " '" + path + "' was not found.";
 		errorResponse.code = "404";
 		
-		return new Response(HTTP_NOTFOUND, "application/json; charset=utf-8", Serialisation.serialise(errorResponse));
+		return new Response(Status.NOT_FOUND, "application/json; charset=utf-8", Serialisation.serialise(errorResponse));
     }
     
     /**
@@ -563,7 +575,7 @@ public class NodelHostHTTPD extends NanoHTTPD {
         }
         
         public void escape(Object value) {
-            String escaped = value != null ? XML.escape(value.toString()) : ""; 
+            String escaped = value != null ? XML.escape(value.toString()) : "";
             _sb.append(escaped);
         }
         
@@ -575,7 +587,7 @@ public class NodelHostHTTPD extends NanoHTTPD {
     
     /**
      * @param node (pre-checked)
-     * @return 
+     * @return
      */
     private Response handlePySp(final PyNode node, String uri, File root, String method, Properties params, final Request request) {
         // resolve the file
@@ -583,11 +595,11 @@ public class NodelHostHTTPD extends NanoHTTPD {
         Response originalResponse = super.serve(uri, root, method, params, request, true);
         
         // only deal with things if an HTTP_OK is received
-        if (!HTTP_OK.equalsIgnoreCase(originalResponse.status))
+        if (!Status.OK.equals(originalResponse.getStatus()))
                 return originalResponse;
         
         final ServerPageResponse response = new ServerPageResponse();
-        response.status = HTTP_OK;
+        response.status = "200 OK"; // HTTP_OK
         response.mimeType = "text/html";
         
         PythonInterpreter python = node.getPython();
@@ -600,7 +612,7 @@ public class NodelHostHTTPD extends NanoHTTPD {
         final StringBuilder scriptBuilder = new StringBuilder();
         
         try {
-            String template = Stream.readFully(new InputStreamReader(originalResponse.data, UTF8Charset.instance()));
+            String template = Stream.readFully(new InputStreamReader(originalResponse.getData(), UTF8Charset.instance()));
 
             final Throwable[] exceptionHolder = new Exception[1];
             
@@ -658,7 +670,7 @@ public class NodelHostHTTPD extends NanoHTTPD {
             // TODO: convert this to a class resource
             
             if (params.containsKey("_compiled"))
-                return new Response(HTTP_OK, "text/plain; charset=utf-8", script);
+                return new Response(Status.OK, "text/plain; charset=utf-8", script);
             
             locals.clear();
             locals.__setitem__("req".intern(), Py.java2py(request));
@@ -675,21 +687,21 @@ public class NodelHostHTTPD extends NanoHTTPD {
             
             Py.exec(pyCode, node.getPyGlobals(), locals);
             
-            Response nanoResponse = new Response(response.status, response.mimeType, response.getData());
-            nanoResponse.header = response.headers;
+            Response nanoResponse = new Response(Status.OK, response.mimeType, response.getData()); // response.status
+            nanoResponse.setHeaders(response.headers);
 
             return nanoResponse;
             
         } catch (Exception exc) {
             _logger.warn("Unexpected exception during PySP filter handling URI:" + uri, exc);
 
-            return prepareExceptionMessageResponse(HTTP_INTERNALERROR, exc, params.contains("trace"));
+            return prepareExceptionMessageResponse(Status.INTERNAL_ERROR, exc, params.contains("trace"));
             
         } finally {
             try {
                 python.getLocals().__delitem__(responseVariable.intern());
             } catch (Exception ignore) {
-            }         
+            }
         }
     }
 

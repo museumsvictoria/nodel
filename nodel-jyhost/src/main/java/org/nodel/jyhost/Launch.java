@@ -20,7 +20,6 @@ import org.nodel.Threads;
 import org.nodel.Version;
 import org.nodel.core.Nodel;
 import org.nodel.host.BootstrapConfig;
-import org.nodel.host.NanoHTTPD;
 import org.nodel.io.Files;
 import org.nodel.io.Packages;
 import org.nodel.io.Stream;
@@ -41,6 +40,8 @@ import org.python.util.PythonInterpreter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.impl.JDK14LoggingHandler;
+
+import org.nanohttpd.protocols.http.NanoHTTPD;
 
 /**
  * Main program entry-point.
@@ -98,7 +99,7 @@ public class Launch {
     }
     
     /**
-     * @param working A non-default working directory instead of "." (current folder)
+     * @param workingDirectory A non-default working directory instead of "." (current folder)
      * @param args A set of arguments (normally from the command-line) 
      */
     public Launch(File workingDirectory, String[] args) throws StartupException, IOException, JSONException {
@@ -287,16 +288,27 @@ public class Launch {
         File lastHTTPPortCache = new File(".lastHTTPPort");
         int lastHTTPPort = lastHTTPPortCache.exists() ? Integer.parseInt(Stream.readFully(lastHTTPPortCache)) : 0;
 
-        if (requestedPort <= 0)
+        if (requestedPort <= 0) {
             // ideally use 8085 as an arbitrary port
             tryPort = lastHTTPPort == 0 ? 8085 : lastHTTPPort;
+        }
+
+        // have got config now (default one or one from disk) so
+        // fire up pyNode console
+        File nodelRoot = prepareDirectory("nodelRoot", _root, _bootstrapConfig.getNodelRoot());
+
+        _nodelHost = new NodelHost(nodelRoot, _bootstrapConfig.getInclFilters(), _bootstrapConfig.getExclFilters(), recipesRoot);
 
         // make two attempts to bind to an arbitrary port (try previously used port first),
         // or one attempt to bind to a requested one.
         for (int a = 0; a < 2; a++) {
             try {
                 nodelHostHTTPD = new NodelHostHTTPD(tryPort, embeddedContentDirectory);
-                
+                nodelHostHTTPD.setFirstChoiceDir(customContentDirectory);
+                nodelHostHTTPD.setNodeHost(_nodelHost);
+
+                // kick off the HTTPDs
+                nodelHostHTTPD.start(); // throws exception if any
             } catch (Exception exc) {
                 // port would be in use
                 
@@ -310,29 +322,12 @@ public class Launch {
                 // loop once more (will abort before third attempt)
                 continue;
             }
-            
-            // nodelHostHTTPD *will* have a value at this point 
 
-            // update with actual listening port
-            Nodel.setHTTPPort(nodelHostHTTPD.getListeningPort());
-
-            // stamp the cache if it's a different port
-            if (lastHTTPPort != Nodel.getHTTPPort())
-                Stream.writeFully(lastHTTPPortCache, String.valueOf(Nodel.getHTTPPort()));
-
-            _logger.info("HTTP interface bound to TCP port " + Nodel.getHTTPPort());
+            // nodelHostHTTPD *will* have a value at this point
 
             break;
         }
-        
-        nodelHostHTTPD.setFirstChoiceDir(customContentDirectory);
-        
-        // start the WebSocket server (using bootstrap port override if specified)
-        NodelHostWebSocketServer nodelHostWSServer = new NodelHostWebSocketServer(_bootstrapConfig.getNodelHostWSPort());
-        nodelHostWSServer.start(90000);
-        _logger.info("Started WebSocket server on port " + nodelHostWSServer.getListeningPort());
-        Nodel.setWebSocketPort(nodelHostWSServer.getListeningPort());
-        
+
         // if this is the first time launch has run
         boolean firstTime = false;
         
@@ -365,19 +360,18 @@ public class Launch {
             // update the version stamp so extraction isn't done again
             Stream.writeFully(versionFile, VERSION);
         }
-        
-        // have got config now (default one or one from disk) so
-        // fire up pyNode console
-        File nodelRoot = prepareDirectory("nodelRoot", _root, _bootstrapConfig.getNodelRoot());
 
-        _nodelHost = new NodelHost(nodelRoot, _bootstrapConfig.getInclFilters(), _bootstrapConfig.getExclFilters(), recipesRoot);
-
-        nodelHostHTTPD.setNodeHost(_nodelHost);
-
+        // update with actual listening port
+        // Note: Socket binding happens later than expected due to a new NanoHTTPD.
         Nodel.setHTTPPort(nodelHostHTTPD.getListeningPort());
+        Nodel.setWebSocketPort(nodelHostHTTPD.getListeningPort());
 
-        // kick off the HTTPDs
-        nodelHostHTTPD.start();
+        // stamp the cache if it's a different port
+        if (lastHTTPPort != Nodel.getHTTPPort()) {
+            Stream.writeFully(lastHTTPPortCache, String.valueOf(Nodel.getHTTPPort()));
+        }
+
+        _logger.info("HTTP interface bound to TCP port " + Nodel.getHTTPPort());
 
         // that's all we need for bootstrap loading.
         // everything else can fail now if it wants to
@@ -480,7 +474,7 @@ public class Launch {
 
         InputStream is = null;
         try {
-            is = NanoHTTPD.class.getResourceAsStream(packageType + ".zip");
+            is = BootstrapConfig.class.getResourceAsStream(packageType + ".zip");
             if (is != null) {
                 if (!Packages.unpackZip(is, outDirectory))
                     throw new IOException("Could not extract package '" + packageType + "'");
