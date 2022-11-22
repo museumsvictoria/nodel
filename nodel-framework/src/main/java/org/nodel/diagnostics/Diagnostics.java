@@ -43,10 +43,15 @@ public class Diagnostics {
     private final static int PERIOD = 2500;
     
     /**
+     * Used to calculate accurate uptime independently of date-time stamps which can be wrong, System.nanoTime based.
+     */
+    public final static long START_INSTANT = System.nanoTime();
+
+    /**
      * Start time.
      */
     private DateTime _startTime = DateTime.now();
-    
+
     /**
      * The permanent non-daemon thread to keep track of the counters.
      * (may not be started in thread-restricted environments)
@@ -56,7 +61,7 @@ public class Diagnostics {
     /**
      * The last time stamp
      */
-    private long _lastTime = System.nanoTime();
+    private long _lastTime = START_INSTANT;
     
     @Service(name = "measurements", title = "Measurements", desc = "The list of performance measurement data.", genericClassA = MeasurementHistory.class)
     public Queue<MeasurementHistory> _measurements = new ConcurrentLinkedQueue<MeasurementHistory>();
@@ -131,6 +136,12 @@ public class Diagnostics {
     @Value(name="startTime", title = "Start time", desc = "When this service was started.")
     public DateTime startTime() {
         return _startTime;
+    }
+
+
+    @Value(name = "uptime", title = "Uptime", desc = "In milliseconds", order = 1)
+    public long uptime() {
+        return (System.nanoTime() - START_INSTANT) / 1000000;
     }
     
     @Value(name = "systemProperties", title = "System properties", desc = "The list of built-in system properties.")

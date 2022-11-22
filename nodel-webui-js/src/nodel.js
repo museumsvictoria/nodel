@@ -48,8 +48,13 @@ $.views.helpers({
     if (format) return moment(value).format(format);
     else return moment(value).format('Do MMM, h:mm a');
   },
-  fromtime: function(value){
-    return moment(value).from(moment(), true);
+  fromtime: function(value) {
+    // value could be a string timestamp or offset number in milliseconds e.g. an uptime
+    now = moment()
+    if (value < 1640955600000) // a string will be evaluated as false, and as number, less than year 2022 in milliseconds.
+      return now.subtract(value, 'ms').from(now, true);
+    else
+      return moment(value).from(now, true);
   },
   srcflt: function(item, i, items) {
     if(this.view.data.flt) {
