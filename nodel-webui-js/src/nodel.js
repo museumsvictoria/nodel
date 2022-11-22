@@ -1062,7 +1062,7 @@ var setEvents = function(){
       // disable all buttons
       jqParent.find('.btn-of-groups').not($(element)).attr('disabled', 'disabled');
       $.each($.isArray(data.action) ? data.action : [data.action], function(i, act){
-        $.postJSON(proto+'//' + host + '/nodes/' + encodeURIComponent(node) + '/REST/actions/' + encodeURIComponent(act) + '/call', data.arg, function () {
+        $.postJSON('REST/actions/' + encodeURIComponent(act) + '/call', data.arg, function () {
           console.log(act + " - Success");
           // enable all buttons
           jqParent.find('.btn-of-groups').attr('disabled', null);
