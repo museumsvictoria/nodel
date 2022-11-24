@@ -793,7 +793,7 @@
           <div class="base">
             <div>
               {^{for logs}}
-                <div data-link="class{:'consoletype_'+level}"><span class="consoletimestamp">{^{>~nicetime(timestamp,true)}}</span>&nbsp;<span class="consolecomment">{^{>message}}</span></div>
+                <div data-link="class{:'consoletype_'+level}"><span class="consoletimestamp">{^{>~nicetime(timestamp,true)}}</span>&nbsp;<span class="consolecomment">[{^{>tag}}] {^{>message}}</span></div>
                 {^{if error}}
                   <div data-link="class{:'consoletype_'+level+ ' consoledetail'}"><span class="consolecomment">{^{>error}}</span></div>
                 {{/if}}
