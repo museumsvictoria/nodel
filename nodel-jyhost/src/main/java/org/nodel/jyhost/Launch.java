@@ -309,9 +309,19 @@ public class Launch {
 
                 // kick off the HTTPDs
                 nodelHostHTTPD.start(); // throws exception if any
+
+                // update with actual listening port
+                Nodel.setHTTPPort(nodelHostHTTPD.getListeningPort());
+
             } catch (Exception exc) {
                 // port would be in use
-                
+
+                // need to clear all registered callbacks
+                if (nodelHostHTTPD != null) {
+                    nodelHostHTTPD.stop();
+                    nodelHostHTTPD = null;
+                }
+
                 // specific port was requested?
                 if (requestedPort > 0)
                     throw exc;
@@ -360,11 +370,6 @@ public class Launch {
             // update the version stamp so extraction isn't done again
             Stream.writeFully(versionFile, VERSION);
         }
-
-        // update with actual listening port
-        // Note: Socket binding happens later than expected due to a new NanoHTTPD.
-        Nodel.setHTTPPort(nodelHostHTTPD.getListeningPort());
-        Nodel.setWebSocketPort(nodelHostHTTPD.getListeningPort());
 
         // stamp the cache if it's a different port
         if (lastHTTPPort != Nodel.getHTTPPort()) {

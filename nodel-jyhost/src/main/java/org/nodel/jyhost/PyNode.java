@@ -137,13 +137,7 @@ public class PyNode extends BaseDynamicNode {
      * The general purpose toolkit related to this node.
      */
     protected ManagedToolkit _toolkit;
-    
-    /**
-     * Holds the web-socket port
-     */
-    @Value(name = "webSocketPort", title = "WebSocket port", order = 10000)
-    private int webSocketPort = Nodel.getWebSocketPort();
-    
+
     /**
      * (init. in constructor)
      */

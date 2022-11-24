@@ -123,12 +123,24 @@ public class TopologyWatcher {
         }
     }
 
+    public void removeFromAddOnChangeHandlers(ChangeHandler handler) {
+        synchronized (_newOnChangeHandlers) {
+            _newOnChangeHandlers.remove(handler);
+        }
+    }
+
     /**
      * (see related 'add__Handler')
      */
     public void removeOnChangeHandler(ChangeHandler handler) {
         synchronized (_removedOnChangeHandlers) {
             _removedOnChangeHandlers.add(handler);
+        }
+    }
+
+    public void removeFromRemoveOnChangeHandlers(ChangeHandler handler) {
+        synchronized (_removedOnChangeHandlers) {
+            _removedOnChangeHandlers.remove(handler);
         }
     }
 
