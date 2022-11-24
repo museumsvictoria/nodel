@@ -883,7 +883,7 @@
                 </tr>
                 <tr>
                   <th scope="row">Uptime</th>
-                  <td>{{>~fromtime(startTime)}}, started {{>~nicetime(startTime, false, 'llll')}}</td>
+                  <td>{{>~fromtime(uptime)}}, start timestamp {{>~nicetime(startTime, false, 'llll')}}</td>
                 </tr>
                 <tr>
                   <th scope="row">Host path</th>

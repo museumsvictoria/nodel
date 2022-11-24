@@ -48,8 +48,12 @@ $.views.helpers({
     if (format) return moment(value).format(format);
     else return moment(value).format('Do MMM, h:mm a');
   },
-  fromtime: function(value){
-    return moment(value).from(moment(), true);
+  fromtime: function(value) {
+    now = moment();
+    if (typeof(value) == 'string') // treat value as an absolute timestamp
+      return moment(value).from(now, true);
+    else // treat value as a duration in millis
+      return moment(now).subtract(value, 'ms').from(now, true);
   },
   srcflt: function(item, i, items) {
     if(this.view.data.flt) {
