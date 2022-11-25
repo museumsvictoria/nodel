@@ -43,10 +43,16 @@ public class Diagnostics {
     private final static int PERIOD = 2500;
     
     /**
-     * Start time.
+     * Start time based on the system wall clock time timestamp
      */
     private DateTime _startTime = DateTime.now();
-    
+
+    /**
+     * The start instant of the framework used for uptime unaffected by wall clock accuracy
+     * (.nanoTime based, public for convenience)
+     */
+    public final static long START_INSTANT = System.nanoTime();
+
     /**
      * The permanent non-daemon thread to keep track of the counters.
      * (may not be started in thread-restricted environments)
@@ -128,11 +134,16 @@ public class Diagnostics {
         _logger.info("Environment dump: {}", Serialisation.serialise(this));
     } // (init)
     
-    @Value(name="startTime", title = "Start time", desc = "When this service was started.")
+    @Value(name="startTime", title = "Start time", desc = "When this service was started according to system's wall clock.")
     public DateTime startTime() {
         return _startTime;
     }
-    
+
+    @Value(name="uptime", title = "Uptime", desc = "Uptime in milliseconds unaffected by wall clock accuracy.")
+    public long uptime() {
+        return (System.nanoTime() - START_INSTANT) / 1000000;
+    }
+
     @Value(name = "systemProperties", title = "System properties", desc = "The list of built-in system properties.")
     public Properties properties() {
         return System.getProperties();
