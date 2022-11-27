@@ -239,7 +239,7 @@ public class NodelHostHTTPD extends NanoHTTPD {
     public void stop() {
         super.stop();
         if (_topologyWatcherChangeHandler != null) {
-            TopologyWatcher.shared().removeFromAddOnChangeHandlers(_topologyWatcherChangeHandler);
+            TopologyWatcher.shared().removeOnChangeHandler(_topologyWatcherChangeHandler);
         }
     }
 
