@@ -1088,8 +1088,7 @@ public abstract class NanoHTTPD {
             }
         }
         if (serverRunnable.getBindException() != null) {
-            // wrap up within a sensible, descriptive exception
-            throw new UnexpectedIOException("Cannot bind to TCP port " + myPort + "; another process must already be bound to the port; use '-p 0' if \"any port\" binding is preferred", serverRunnable.getBindException());
+            throw serverRunnable.getBindException();
         }
     }
 
