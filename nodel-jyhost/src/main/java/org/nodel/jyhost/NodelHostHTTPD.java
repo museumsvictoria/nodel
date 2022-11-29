@@ -188,19 +188,19 @@ public class NodelHostHTTPD extends NanoHTTPD {
      * Holds the object bound to the REST layer
      */
     private RESTModel _restModel = new RESTModel();
-    
+
+    private final TopologyWatcher.ChangeHandler _topologyWatcherChangeHandler = new TopologyWatcher.ChangeHandler() {
+        @Override
+        public void handle(List<InetAddress> appeared, List<InetAddress> disappeared) {
+            handleTopologyChange(appeared, disappeared);
+        }
+    };
+
     public NodelHostHTTPD(int port, File directory) throws IOException {
         super(port, directory, false);
 
         // and watch for future interface changes
-        TopologyWatcher.shared().addOnChangeHandler(new TopologyWatcher.ChangeHandler() {
-
-            @Override
-            public void handle(List<InetAddress> appeared, List<InetAddress> disappeared) {
-                handleTopologyChange(appeared, disappeared);
-            }
-
-        });
+        TopologyWatcher.shared().addOnChangeHandler(_topologyWatcherChangeHandler);
 
         // do more things
         init();
@@ -233,6 +233,14 @@ public class NodelHostHTTPD extends NanoHTTPD {
     private void init() {
         WebSocketInterceptor wsInterceptor = new WebSocketInterceptor();
         addHTTPInterceptor(wsInterceptor);
+    }
+
+    @Override
+    public void stop() {
+        super.stop();
+        if (_topologyWatcherChangeHandler != null) {
+            TopologyWatcher.shared().removeOnChangeHandler(_topologyWatcherChangeHandler);
+        }
     }
 
     /**

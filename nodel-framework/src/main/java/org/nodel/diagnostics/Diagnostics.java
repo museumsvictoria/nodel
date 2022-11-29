@@ -187,12 +187,7 @@ public class Diagnostics {
             return "UNKNOWN";
         }
     }
-    
-    @Value(name = "webSocketPort", title = "Web socket port")
-    public int webSocketPort() {
-        return Nodel.getWebSocketPort();
-    }
-    
+
     /**
      * Where this host is running from.
      */
