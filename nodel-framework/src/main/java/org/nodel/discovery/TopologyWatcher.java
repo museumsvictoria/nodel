@@ -130,6 +130,10 @@ public class TopologyWatcher {
         synchronized (_removedOnChangeHandlers) {
             _removedOnChangeHandlers.add(handler);
         }
+        // in case of 'add' then immediate 'remove'
+        synchronized (_newOnChangeHandlers) {
+            _newOnChangeHandlers.remove(handler);
+        }
     }
 
     /**
@@ -253,8 +257,8 @@ public class TopologyWatcher {
             if (_removedOnChangeHandlers.size() > 0) {
                 for (ChangeHandler handler : _removedOnChangeHandlers) {
                     _onChangeHandlers.remove(handler);
-                    _newOnChangeHandlers.remove(handler);
                 }
+                _removedOnChangeHandlers.clear();
             }
         }
 
