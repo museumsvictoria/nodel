@@ -22,6 +22,7 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReentrantLock;
+import java.lang.reflect.Method;
 
 import org.joda.time.DateTime;
 import org.nodel.DateTimes;
@@ -71,6 +72,7 @@ import org.python.core.PyBaseCode;
 import org.python.core.PyDictionary;
 import org.python.core.PyException;
 import org.python.core.PyFunction;
+import org.python.core.PyInteger;
 import org.python.core.PyObject;
 import org.python.core.PyString;
 import org.python.core.PySystemState;
@@ -543,16 +545,6 @@ public class PyNode extends BaseDynamicNode {
         
         _logger.info("Initialising new Python interpreter...");
         
-        PySystemState pySystemState = new PySystemState();
-
-        // set the current working directory
-        pySystemState.setCurrentWorkingDir(_root.getAbsolutePath());
-        
-        // append the Node's root directory to the path
-        pySystemState.path.append(new PyString(_root.getAbsolutePath()));
-        pySystemState.path.append(new PyString(_metaRoot.getAbsolutePath()));
-        Py.setSystemState(pySystemState);
-        
         _globals = new PyDictionary();
         
         ReentrantLock lock = null;
@@ -562,7 +554,6 @@ public class PyNode extends BaseDynamicNode {
             
             trackFunction("(instance creation)");
 
-            // _python = new PythonInterpreter(globals, pySystemState);
             _python = PythonInterpreter.threadLocalStateInterpreter(_globals);
 
         } finally {
@@ -746,6 +737,7 @@ public class PyNode extends BaseDynamicNode {
                         commentary.add("'@before_main' function" + (beforeFnCount == 1 ? "" : "s"));
                     }
 
+                    // handle main function (if present)
                     if (_python.get("main") instanceof PyFunction) {
                         PyFunction mainFunction = (PyFunction) _python.get("main");
                         if (mainFunction != null) {
@@ -888,8 +880,13 @@ public class PyNode extends BaseDynamicNode {
         
         // inject into 'sys'
         _pySystemState.__setattr__("nodetoolkit", Py.java2py(_toolkit));
+
+        // set the current working directory
+        _pySystemState.setCurrentWorkingDir(_root.getAbsolutePath());
         
-        
+        // append the Node's root directory to the path
+        _pySystemState.path.append(new PyString(_root.getAbsolutePath()));
+        _pySystemState.path.append(new PyString(_metaRoot.getAbsolutePath()));
     }
 
     /**
