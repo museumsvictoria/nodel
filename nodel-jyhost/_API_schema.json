@@ -1590,11 +1590,6 @@
                     "title": "VM arguments",
                     "desc": "The arguments supplied to this instance of the VM.",
                     "items": {"type": "object"}
-                },
-                "webSocketPort": {
-                    "type": "integer",
-                    "required": true,
-                    "title": "Web socket port"
                 }
             },
             "services": {
