@@ -869,7 +869,7 @@ public class ManagedToolkit {
             clientEvent.setHandler(new NodelEventHandler() {
                 
                 @Override
-                public void handleEvent(SimpleName node, SimpleName event, Object arg) {
+                public void handleEvent(SimpleName node, SimpleName cEvent, Object arg) {
                     _node.injectLog(DateTime.now(), LogEntry.Source.remote, LogEntry.Type.event, event, arg);
                     
                     _threadStateHandler.handle();
