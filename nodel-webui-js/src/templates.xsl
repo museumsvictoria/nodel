@@ -10,7 +10,15 @@
           <xsl:text> </xsl:text>
           <xsl:value-of select="@class"/>
         </xsl:if>
+        <xsl:if test="@showevent">
+          <xsl:text> sect</xsl:text>
+        </xsl:if>
       </xsl:attribute>
+      <xsl:if test="@showevent">
+        <xsl:attribute name="data-showevent">
+          <xsl:value-of select="@showevent"/>
+        </xsl:attribute>
+      </xsl:if>
       <xsl:apply-templates select="column"/>
     </div>
   </xsl:template>
