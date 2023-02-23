@@ -18,6 +18,11 @@
         <xsl:attribute name="data-showevent">
           <xsl:value-of select="@showevent"/>
         </xsl:attribute>
+        <xsl:if test="@showvalue">
+          <xsl:attribute name="data-showarg">
+            <xsl:value-of select="@showvalue"/>
+          </xsl:attribute>
+        </xsl:if>
       </xsl:if>
       <xsl:apply-templates select="column"/>
     </div>
