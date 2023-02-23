@@ -1225,7 +1225,7 @@
         </xsl:if>
         <form>
           <xsl:if test="@action or @join">
-            <button class="btn btn-default nudge nudge-down"><span class="glyphicon glyphicon-chevron-left"></span></button>
+            <button class="btn btn-default nudge nudge-down"><span class="glyphicon glyphicon-minus"></span></button>
           </xsl:if>
           <input data-arg-source="this" data-arg-type="number" type="range" min="{@min}" max="{@max}">
             <xsl:if test="@event or @action or @join">
@@ -1269,7 +1269,7 @@
             </xsl:if>
           </input>
           <xsl:if test="@action or @join">
-            <button class="btn btn-default nudge nudge-up"><span class="glyphicon glyphicon-chevron-right"></span></button>
+            <button class="btn btn-default nudge nudge-up"><span class="glyphicon glyphicon-plus"></span></button>
           </xsl:if>
           <output class="toint">
             <xsl:if test="@event or @join">
