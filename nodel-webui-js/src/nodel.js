@@ -1047,14 +1047,14 @@ var setEvents = function(){
 
   $('body').on('click','.nudge', function (e) {
     e.stopPropagation(); e.preventDefault();
-    const direction = $(this).hasClass('nudge-up') ? 'up' : 'down';
-    const inputRangeEl = $(this).siblings('input[type=range]input[data-action]');
-    const curVal = parseFloat($(inputRangeEl).val());
-    const step = parseFloat($(inputRangeEl).attr('step'));
-    let nudgeVal = parseFloat($(inputRangeEl).data('nudge'));
+    var direction = $(this).hasClass('nudge-up') ? 'up' : 'down';
+    var inputRangeEl = $(this).siblings('input[type=range]input[data-action]');
+    var curVal = parseFloat($(inputRangeEl).val());
+    var step = parseFloat($(inputRangeEl).attr('step'));
+    var nudgeVal = parseFloat($(inputRangeEl).data('nudge'));
     // Note: nudge should be equal or greater than step and multiple of step
     nudgeVal = !nudgeVal ? step : (nudgeVal < step ? step : nudgeVal);
-    const newVal = direction === 'down' ? (curVal - nudgeVal) : (curVal + nudgeVal);
+    var newVal = direction === 'down' ? (curVal - nudgeVal) : (curVal + nudgeVal);
     $(inputRangeEl).val(newVal).trigger('input');
   });
 
@@ -1086,7 +1086,7 @@ var setEvents = function(){
           jqParent.find('.btn-of-groups').removeClass('btn-success').addClass('btn-default');
           $(element).removeClass('btn-default').addClass('btn-success');
         }).fail(function (e, s) {
-          let errTxt = s;
+          var errTxt = s;
           if (e.responseText) errTxt = s + "\n" + e.responseText;
           console.log("exec - Error:\n" + errTxt, "error");
           // enable all buttons
