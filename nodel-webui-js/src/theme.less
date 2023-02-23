@@ -328,6 +328,7 @@ label {
 .generate-meter-colour-red();
 .range {
   form {
+    display: flex;
     position: relative;
     overflow: hidden;
     > output {
@@ -335,6 +336,15 @@ label {
       top: 0;
       left: 15px;
       pointer-events: none;
+    }
+    .nudge {
+      border-radius: 50%;
+    }
+    .nudge-down {
+      margin-right: 5px;
+    }
+    .nudge-up {
+      margin-left: 5px;
     }
   }
   &[data-type="vertical"] {
@@ -355,6 +365,9 @@ label {
     }
     .btn {
       float: right;
+    }
+    .nudge-up {
+      margin-right: 5px;
     }
   }
 }

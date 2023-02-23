@@ -1044,7 +1044,20 @@ var setEvents = function(){
     }
     $(ele).data('throttle')(data.action, data.arg);
   });
-  
+
+  $('body').on('click','.nudge', function (e) {
+    e.stopPropagation(); e.preventDefault();
+    const direction = $(this).hasClass('nudge-up') ? 'up' : 'down';
+    const inputRangeEl = $(this).siblings('input[type=range]input[data-action]');
+    const curVal = parseFloat($(inputRangeEl).val());
+    const step = parseFloat($(inputRangeEl).attr('step'));
+    let nudgeVal = parseFloat($(inputRangeEl).data('nudge'));
+    // Note: nudge should be equal or greater than step
+    nudgeVal = !nudgeVal ? step : (nudgeVal < step ? step : nudgeVal);
+    const newVal = direction === 'down' ? (curVal - nudgeVal) : (curVal + nudgeVal);
+    $(inputRangeEl).val(newVal).trigger('input');
+  });
+
   $('body').on('touchstart mousedown touchend touchcancel mouseup','input[type=range]input[data-action]', function (e) {
     if($.inArray(e.type, ['touchstart','mousedown']) > -1) $(this).addClass('active');
     else $(this).removeClass('active');
