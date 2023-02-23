@@ -1252,12 +1252,6 @@
                 </xsl:otherwise>
               </xsl:choose>
             </xsl:if>
-            <!-- Note: nudge should be equal or greater than step -->
-            <xsl:if test="@nudge">
-              <xsl:attribute name="data-nudge">
-                <xsl:value-of select="@nudge"/>
-              </xsl:attribute>
-            </xsl:if>
             <!-- step -->
             <xsl:attribute name="step">
               <xsl:choose>
@@ -1267,6 +1261,12 @@
                 <xsl:otherwise>1</xsl:otherwise>
               </xsl:choose>
             </xsl:attribute>
+            <!-- Note: nudge should be equal or greater than step and multiple of step -->
+            <xsl:if test="@nudge">
+              <xsl:attribute name="data-nudge">
+                <xsl:value-of select="@nudge"/>
+              </xsl:attribute>
+            </xsl:if>
           </input>
           <xsl:if test="@action or @join">
             <button class="btn btn-default nudge nudge-up"><span class="glyphicon glyphicon-chevron-right"></span></button>

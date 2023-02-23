@@ -1052,7 +1052,7 @@ var setEvents = function(){
     const curVal = parseFloat($(inputRangeEl).val());
     const step = parseFloat($(inputRangeEl).attr('step'));
     let nudgeVal = parseFloat($(inputRangeEl).data('nudge'));
-    // Note: nudge should be equal or greater than step
+    // Note: nudge should be equal or greater than step and multiple of step
     nudgeVal = !nudgeVal ? step : (nudgeVal < step ? step : nudgeVal);
     const newVal = direction === 'down' ? (curVal - nudgeVal) : (curVal + nudgeVal);
     $(inputRangeEl).val(newVal).trigger('input');
