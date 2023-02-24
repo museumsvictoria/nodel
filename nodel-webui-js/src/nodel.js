@@ -1045,17 +1045,73 @@ var setEvents = function(){
     $(ele).data('throttle')(data.action, data.arg);
   });
 
-  $('body').on('click','.nudge', function (e) {
-    e.stopPropagation(); e.preventDefault();
-    var direction = $(this).hasClass('nudge-up') ? 'up' : 'down';
-    var inputRangeEl = $(this).siblings('input[type=range]input[data-action]');
+  /**
+   * Long Press
+   *
+   * 1) mouse event flow
+   *  - mousedown -> mouseup -> click
+   *  - mousedown -> mouseleave
+   *
+   * 2) touch event flow
+   *  - touchstart -> touchend
+   *  - touchmove
+   */
+
+  function callNudgeAction(jqObj, weight) {
+    var direction = $(jqObj).hasClass('nudge-up') ? 'up' : 'down';
+    var inputRangeEl = $(jqObj).siblings('input[type=range]input[data-action]');
     var curVal = parseFloat($(inputRangeEl).val());
     var step = parseFloat($(inputRangeEl).attr('step'));
     var nudgeVal = parseFloat($(inputRangeEl).data('nudge'));
     // Note: nudge should be equal or greater than step and multiple of step
     nudgeVal = !nudgeVal ? step : (nudgeVal < step ? step : nudgeVal);
-    var newVal = direction === 'down' ? (curVal - nudgeVal) : (curVal + nudgeVal);
+    var newVal = direction === 'down' ? (curVal - nudgeVal * weight) : (curVal + nudgeVal * weight);
     $(inputRangeEl).val(newVal).trigger('input');
+  }
+
+  $('body').on('mousedown touchstart', '.nudge', function(e) {
+    var that = this;
+    var timerId = setTimeout(function() {
+      // creat timer
+      clearTimeout(timerId);
+      $(that).data('timerId', null);
+      // create interval
+      var weightCount = 0;
+      var intervalId = setInterval(function() {
+        callNudgeAction(that, 4**Math.floor(weightCount / 3));
+        weightCount++;
+      }, 100);
+      $(that).data('intervalId', intervalId);
+    }, 1500);
+    $(that).data('timerId', timerId);
+  });
+
+  $('body').on('mouseleave', '.nudge', function(e) {
+    var timerId = $(this).data('timerId');
+    var intervalId = $(this).data('intervalId');
+    if (timerId) {
+      clearTimeout(timerId);
+      $(this).data('timerId', null);
+    }
+    if (intervalId) {
+      clearInterval(intervalId);
+      $(this).data('intervalId', null);
+    }
+  });
+
+  $('body').on('click touchend','.nudge', function (e) {
+    e.stopPropagation(); e.preventDefault();
+    var timerId = $(this).data('timerId');
+    var intervalId = $(this).data('intervalId');
+
+    if (timerId) { // Long press not activated
+      callNudgeAction(this, 1);
+      clearTimeout(timerId);
+      $(this).data('timerId', null);
+    } else if (intervalId) { // Long press activated
+      clearInterval(intervalId);
+      $(this).data('intervalId', null);
+    }
   });
 
   $('body').on('touchstart mousedown touchend touchcancel mouseup','input[type=range]input[data-action]', function (e) {
