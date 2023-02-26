@@ -1224,8 +1224,10 @@
             </xsl:choose>px;}</style>
         </xsl:if>
         <form>
-          <xsl:if test="@action or @join">
-            <a role="button" class="btn btn-default nudge nudge-down"><span class="glyphicon glyphicon-minus"></span></a>
+          <xsl:if test="@nudge">
+            <xsl:if test="@action or @join">
+              <a role="button" class="btn btn-default nudge nudge-down"><span class="fa fa-minus"></span></a>
+            </xsl:if>
           </xsl:if>
           <input data-arg-source="this" data-arg-type="number" type="range" min="{@min}" max="{@max}">
             <xsl:if test="@event or @action or @join">
@@ -1268,10 +1270,18 @@
               </xsl:attribute>
             </xsl:if>
           </input>
-          <xsl:if test="@action or @join">
-            <a role="button" class="btn btn-default nudge nudge-up"><span class="glyphicon glyphicon-plus"></span></a>
+          <xsl:if test="@nudge">
+            <xsl:if test="@action or @join">
+              <a role="button" class="btn btn-default nudge nudge-up"><span class="fa fa-plus"></span></a>
+            </xsl:if>
           </xsl:if>
-          <output class="toint">
+          <output>
+            <xsl:attribute name="class">
+              <xsl:text>toint</xsl:text>
+              <xsl:if test="@nudge">
+                <xsl:text> nudge</xsl:text>
+              </xsl:if>
+            </xsl:attribute>
             <xsl:if test="@event or @join">
               <xsl:choose>
                 <xsl:when test="@join">

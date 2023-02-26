@@ -329,6 +329,9 @@ label {
 .range {
   form {
     display: flex;
+    flex-direction: row;
+    align-items: center;
+    align-content: center;
     position: relative;
     overflow: hidden;
     > output {
@@ -337,8 +340,12 @@ label {
       left: 15px;
       pointer-events: none;
     }
+    > output.nudge {
+      left: 58px;
+    }
     .nudge {
       border-radius: 50%;
+      height: 38.25px;
     }
     .nudge-down {
       margin-right: 5px;

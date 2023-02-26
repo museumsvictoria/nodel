@@ -1076,11 +1076,9 @@ var setEvents = function(){
       clearTimeout(timerId);
       $(that).data('timerId', null);
       // create interval
-      var weightCount = 0;
       var intervalId = setInterval(function() {
-        callNudgeAction(that, 4**Math.floor(weightCount / 3));
-        weightCount++;
-      }, 100);
+        callNudgeAction(that, 1);
+      }, 200);
       $(that).data('intervalId', intervalId);
     }, 1500);
     $(that).data('timerId', timerId);
