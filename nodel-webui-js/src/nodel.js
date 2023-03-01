@@ -1069,6 +1069,15 @@ var setEvents = function(){
     $(inputRangeEl).val(newVal).trigger('input');
   }
 
+  function makeNudgeInputActive(jqObj, active) {
+    var inputRangeEl = $(jqObj).siblings('input[type=range]input[data-action]');
+    if (!active) {
+      $(inputRangeEl).removeClass('active');
+    } else {
+      $(inputRangeEl).addClass('active');
+    }
+  }
+
   $('body').on('mousedown touchstart', '.nudge', function(e) {
     var that = this;
     var timerId = setTimeout(function() {
@@ -1080,6 +1089,8 @@ var setEvents = function(){
         callNudgeAction(that, 1);
       }, 200);
       $(that).data('intervalId', intervalId);
+      // should make sibling <input> active
+      makeNudgeInputActive(that, true);
     }, 300);
     $(that).data('timerId', timerId);
   });
@@ -1094,6 +1105,8 @@ var setEvents = function(){
     if (intervalId) {
       clearInterval(intervalId);
       $(this).data('intervalId', null);
+      // should make sibling <input> inactive
+      makeNudgeInputActive(this, false);
     }
   });
 
@@ -1109,6 +1122,8 @@ var setEvents = function(){
     } else if (intervalId) { // Long press activated
       clearInterval(intervalId);
       $(this).data('intervalId', null);
+      // should make sibling <input> inactive
+      makeNudgeInputActive(this, false);
     }
   });
 
