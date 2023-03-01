@@ -1080,7 +1080,7 @@ var setEvents = function(){
         callNudgeAction(that, 1);
       }, 200);
       $(that).data('intervalId', intervalId);
-    }, 750);
+    }, 300);
     $(that).data('timerId', timerId);
   });
 
