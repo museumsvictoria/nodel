@@ -715,7 +715,9 @@ public class ManagedProcess implements Closeable {
 
             // fire the STOPPED handler if it had fully started previously
             if (os != null)
-                Handler.tryHandle(_stoppedCallback, process.exitValue(), _callbackErrorHandler);
+                // .waitFor() is required instead of .exitValue() because it is possible (but rare) to get here
+                // with the process not fully dead and cleaned up yet
+                Handler.tryHandle(_stoppedCallback, process.waitFor(), _callbackErrorHandler);
 
             // propagate exception only on unusual termination
             if (_state == State.Started)
@@ -835,7 +837,7 @@ public class ManagedProcess implements Closeable {
                 handleReceivedData(str);
             
             // then fire the stopped event and pass through the exit value
-            Handler.tryHandle(_stoppedCallback, _process.waitFor(), _callbackErrorHandler);
+            Handler.tryHandle(_stoppedCallback, process.waitFor(), _callbackErrorHandler);
         }
     }
     
@@ -901,7 +903,7 @@ public class ManagedProcess implements Closeable {
      * No read-delimiters specified, so fire events as data segments arrive.
      * (suppress was used with resource-free CountableInputStream)
      */
-    private void readUnboundedRawLoop(Process process) throws IOException {
+    private void readUnboundedRawLoop(Process process) throws Exception {
         InputStream stdout = process.getInputStream();
         
         @SuppressWarnings("resource")
@@ -926,8 +928,8 @@ public class ManagedProcess implements Closeable {
         // the peer has gracefully closed down the connection or we're shutting down
         
         if (!_shutdown) {
-            // then fire the disconnected callback
-            Handler.tryHandle(_stoppedCallback, _process.exitValue(), _callbackErrorHandler);
+            // then fire the stopped callback
+            Handler.tryHandle(_stoppedCallback, process.waitFor(), _callbackErrorHandler);
         }        
     }    
 
