@@ -1044,7 +1044,89 @@ var setEvents = function(){
     }
     $(ele).data('throttle')(data.action, data.arg);
   });
-  
+
+  /**
+   * Long Press
+   *
+   * 1) mouse event flow
+   *  - mousedown -> mouseup -> click
+   *  - mousedown -> mouseleave
+   *
+   * 2) touch event flow
+   *  - touchstart -> touchend
+   *  - touchmove
+   */
+
+  function callNudgeAction(jqObj, weight) {
+    var direction = $(jqObj).hasClass('nudge-up') ? 'up' : 'down';
+    var inputRangeEl = $(jqObj).siblings('input[type=range]input[data-action]');
+    var curVal = parseFloat($(inputRangeEl).val());
+    var step = parseFloat($(inputRangeEl).attr('step'));
+    var nudgeVal = parseFloat($(inputRangeEl).data('nudge'));
+    // Note: nudge should be equal or greater than step and multiple of step
+    nudgeVal = !nudgeVal ? step : (nudgeVal < step ? step : nudgeVal);
+    var newVal = direction === 'down' ? (curVal - nudgeVal * weight) : (curVal + nudgeVal * weight);
+    $(inputRangeEl).val(newVal).trigger('input');
+  }
+
+  function makeNudgeInputActive(jqObj, active) {
+    var inputRangeEl = $(jqObj).siblings('input[type=range]input[data-action]');
+    if (!active) {
+      $(inputRangeEl).removeClass('active');
+    } else {
+      $(inputRangeEl).addClass('active');
+    }
+  }
+
+  $('body').on('mousedown touchstart', '.nudge', function(e) {
+    var that = this;
+    var timerId = setTimeout(function() {
+      // creat timer
+      clearTimeout(timerId);
+      $(that).data('timerId', null);
+      // create interval
+      var intervalId = setInterval(function() {
+        callNudgeAction(that, 1);
+      }, 200);
+      $(that).data('intervalId', intervalId);
+      // should make sibling <input> active
+      makeNudgeInputActive(that, true);
+    }, 300);
+    $(that).data('timerId', timerId);
+  });
+
+  $('body').on('mouseleave', '.nudge', function(e) {
+    var timerId = $(this).data('timerId');
+    var intervalId = $(this).data('intervalId');
+    if (timerId) {
+      clearTimeout(timerId);
+      $(this).data('timerId', null);
+    }
+    if (intervalId) {
+      clearInterval(intervalId);
+      $(this).data('intervalId', null);
+      // should make sibling <input> inactive
+      makeNudgeInputActive(this, false);
+    }
+  });
+
+  $('body').on('click touchend','.nudge', function (e) {
+    e.stopPropagation(); e.preventDefault();
+    var timerId = $(this).data('timerId');
+    var intervalId = $(this).data('intervalId');
+
+    if (timerId) { // Long press not activated
+      callNudgeAction(this, 1);
+      clearTimeout(timerId);
+      $(this).data('timerId', null);
+    } else if (intervalId) { // Long press activated
+      clearInterval(intervalId);
+      $(this).data('intervalId', null);
+      // should make sibling <input> inactive
+      makeNudgeInputActive(this, false);
+    }
+  });
+
   $('body').on('touchstart mousedown touchend touchcancel mouseup','input[type=range]input[data-action]', function (e) {
     if($.inArray(e.type, ['touchstart','mousedown']) > -1) $(this).addClass('active');
     else $(this).removeClass('active');
@@ -1073,7 +1155,7 @@ var setEvents = function(){
           jqParent.find('.btn-of-groups').removeClass('btn-success').addClass('btn-default');
           $(element).removeClass('btn-default').addClass('btn-success');
         }).fail(function (e, s) {
-          let errTxt = s;
+          var errTxt = s;
           if (e.responseText) errTxt = s + "\n" + e.responseText;
           console.log("exec - Error:\n" + errTxt, "error");
           // enable all buttons

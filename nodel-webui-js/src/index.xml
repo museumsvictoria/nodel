@@ -71,14 +71,26 @@
         </row>
         <row>
           <column sm="12">
-            <title>Range</title>
-            <range action='Range' event="Range"></range>
+            <title>Range (default step:1)</title>
+            <range event="Range" min="0" max="100"></range>
           </column>
         </row>
         <row>
           <column sm="12">
-            <title>Range</title>
-            <range action='Range' event="Range" type="mute"></range>
+            <title>Range with mute (step:10)</title>
+            <range action='Range' event="Range" type="mute" min="0" max="100" step="10"></range>
+          </column>
+        </row>
+        <row>
+          <column sm="12">
+            <title>Range with nudge (step:0.1, nudge:0.1)</title>
+            <range action='Range' event="Range" min="0" max="100" step="0.1" nudge="0.1"></range>
+          </column>
+        </row>
+        <row>
+          <column sm="12">
+            <title>Range with mute and nudge (default step:1, nudge:1)</title>
+            <range action='Range' event="Range" type="mute" min="0" max="100" nudge="1"></range>
           </column>
         </row>
       </column>
@@ -86,6 +98,12 @@
         <title>Range</title>
         <range action='Range' event="Range" type="vertical" height="250"></range>
       </column>
+      <column sm="1">
+        <title>Range</title>
+        <range action='Range' event="Range" type="vertical" height="250" min="0" max="100" step="0.5" nudge="2"></range>
+      </column>
+    </row>
+    <row>
       <column sm="4">
         <row>
           <column sm="12">
