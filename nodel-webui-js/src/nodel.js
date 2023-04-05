@@ -1055,6 +1055,16 @@ var setEvents = function(){
    * 2) touch event flow
    *  - touchstart -> touchend
    *  - touchmove
+   *
+   * 3) Panel's webview
+   *  - click touchend
+   *  - "mousedown touchstart" : When quickly clicking, can be called 2x, which causes problem.
+   *  - click touchend
+   *
+   * 4) Desktop's chrome
+   *  - mousedown touchstart
+   *  - click touchend
+   *
    */
 
   function callNudgeAction(jqObj, weight) {
@@ -1079,6 +1089,13 @@ var setEvents = function(){
   }
 
   $('body').on('mousedown touchstart', '.nudge', function(e) {
+    // check if already existing to prevent issues
+    var timerId_ = $(this).data('timerId');
+    var intervalId_ = $(this).data('intervalId');
+    if (timerId_ || intervalId_) {
+      return;
+    }
+
     var that = this;
     var timerId = setTimeout(function() {
       // creat timer
@@ -1119,7 +1136,8 @@ var setEvents = function(){
       callNudgeAction(this, 1);
       clearTimeout(timerId);
       $(this).data('timerId', null);
-    } else if (intervalId) { // Long press activated
+    }
+    if (intervalId) { // Long press activated
       clearInterval(intervalId);
       $(this).data('intervalId', null);
       // should make sibling <input> inactive
