@@ -36,12 +36,15 @@ $.views.helpers({
   sanitize: function(value, maxLength) {
     var value = JSON.stringify(value, null, 2);
     if (maxLength && value.length > maxLength) {
-      return value.substring(0, maxLength ) + "...";
+      value = value.substring(0, maxLength ) + "...";
     }
-    value = value.replace("&","&amp;");
-    value = value.replace("<","&lt;");
-    value = value.replace(">","&gt;");
-    return value;
+    return value.replace(/[<>&]/g, function (c) {
+        switch (c) {
+            case '<': return '&lt;';
+            case '>': return '&gt;';
+            case '&': return '&amp;';
+        }
+    });
   },
   nicetime: function (value, precise, format) {
     if (precise) return moment(value).format('MM-DD HH:mm:ss.SS');
