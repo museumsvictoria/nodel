@@ -68,7 +68,7 @@ $.views.helpers({
     return encodr(value);
   },
   initHid: function (id) {
-    if(!(id in this.data)) Object.defineProperty(this.data, id, {enumerable:false, writable:true});
+    if((typeof data !== 'undefined') && !(id in this.data)) Object.defineProperty(this.data, id, {enumerable:false, writable:true});
     return true;
   },
   highlight: function(value, sub) {
