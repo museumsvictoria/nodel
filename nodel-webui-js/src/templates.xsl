@@ -1035,7 +1035,7 @@
         </xsl:attribute>
       </xsl:if>
       <div class="panel-body">
-        <xsl:apply-templates select="image"/><xsl:apply-templates select="link"/><xsl:apply-templates select="button|swich|partialswitch"/><xsl:apply-templates select="badge|partialbadge|signal"/><strong><xsl:value-of select="text()"/></strong>
+        <xsl:apply-templates select="image"/><xsl:apply-templates select="link"/><xsl:apply-templates select="button|switch|partialswitch"/><xsl:apply-templates select="badge|partialbadge|signal"/><strong><xsl:value-of select="text()"/></strong>
         <xsl:if test="@event">
           <br/><span class="status">Unknown</span>
         </xsl:if>
