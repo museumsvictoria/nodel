@@ -291,7 +291,7 @@
         <!-- end offline modal -->
         <!-- duplicate modal -->
         <div class="modal" id="duplicate" tabindex="-1" role="dialog" aria-labelledby="duplicate" aria-hidden="true">
-          <div class="modal-dialog">
+          <div class="modal-dialog modal-lg">
             <div class="modal-content">
               <div class="modal-header">
                 <button type="button" class="close" data-dismiss="modal">&#215;</button>
@@ -301,6 +301,82 @@
                 <div class="form">
                   <p>New Node Name:</p>
                   <input id="duplicateNodeval" class="form-control duplicatenodeval" type="text" />     
+                </div>
+                <br/>
+                <div data-nodel="editor" class="nodel-editor">
+                  <div class="base">
+                    <div class="panel panel-default">
+                      <div class="panel-heading accordion-toggle collapsed" data-toggle="collapse" aria-expanded="false">
+                        <xsl:attribute name="data-target">
+                          <xsl:text>#editgrp_</xsl:text>
+                          <xsl:value-of select="generate-id(.)"/>
+                        </xsl:attribute>
+                        <div class="panel-title"><h5 class="panel-title">Editor</h5></div>
+                      </div>
+                      <div class="panel-collapse collapse" aria-expanded="false">
+                        <xsl:attribute name="id">
+                          <xsl:text>editgrp_</xsl:text>
+                          <xsl:value-of select="generate-id(.)"/>
+                        </xsl:attribute>
+                        <div class="panel-body">           
+                          <div class="row">
+                            <div class="col-sm-12">
+                              <div class="flex">
+                                <div class="flexgrow">
+                                  <select class="picker form-control"></select>
+                                </div>
+                                <div>
+                                  <button class="btn btn-danger script_delete" disabled="disabled">Delete</button><xsl:text>&#8196;</xsl:text>
+                                  <div class="addgrp">
+                                    <div class="dropdown">
+                                      <button class="btn btn-default" type="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                                        <xsl:attribute name="id">
+                                          <xsl:text>addgrp_</xsl:text>
+                                          <xsl:value-of select="generate-id(.)"/>
+                                        </xsl:attribute>
+                                        <xsl:text>Add</xsl:text>
+                                      </button>
+                                      <ul class="dropdown-menu" aria-labelledby="addgrp_{{:~gid}}">
+                                        <li>
+                                          <form>
+                                            <fieldset>
+                                              <label>
+                                                <xsl:attribute name="for">
+                                                  <xsl:text>scriptnameval_</xsl:text>
+                                                  <xsl:value-of select="generate-id(.)"/>
+                                                </xsl:attribute>
+                                                <xsl:text>File name</xsl:text>
+                                              </label>
+                                              <input class="form-control scriptnamval" type="text">
+                                                <xsl:attribute name="id">
+                                                  <xsl:text>scriptnameval_</xsl:text>
+                                                  <xsl:value-of select="generate-id(.)"/>
+                                                </xsl:attribute>
+                                              </input>
+                                            </fieldset>
+                                            <button type="submit" class="btn btn-success scriptsubmit">Add</button>
+                                          </form>
+                                        </li>
+                                      </ul>
+                                    </div>
+                                  </div>
+                                  <button class="btn btn-default script_default">Edit script.py</button><xsl:text>&#8196;</xsl:text>
+                                  <button class="btn btn-success script_save" disabled="disabled">Save</button>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                          <div class="row">
+                            <div class="col-sm-12">
+                              <div class="editor">
+                                <textarea></textarea>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
               <div class="modal-footer">
