@@ -522,6 +522,29 @@ public class NodelHost {
             Files.copyDir(baseDir, newNodeDir);
         }
     }
+    /**
+     * Creates a new node based on existing node.
+     */
+    public void duplicateNode(PyNode existing, SimpleName name) {
+        testNameFilters(name);
+
+        File newNodeDir = new File(_root, encodeIntoSafeFilename(name));
+
+        if (_nodeMap.containsKey(name) || newNodeDir.exists())
+            throw new RuntimeException("A node with the name '" + name + "' already exists.");
+
+        if (existing == null) {
+            // we need an existing node to copy from.
+            throw new RuntimeException("No Existing Node Given.");
+            
+        } else {
+            // based on an existing node (from recipes folder or self nodes)
+            File root = existing.getRoot();
+            
+            // copy the entire folder
+            Files.copyDir(root, newNodeDir);
+        }
+    }
 
     /**
      * Same as 'shouldBeIncluded' but throws exception with naming conflict error details.

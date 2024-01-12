@@ -1525,6 +1525,16 @@ public class PyNode extends BaseDynamicNode {
         _logger.info("This node has been renamed. It will close down and restart under a new name shortly.");
     }
     
+    
+    /**
+     * Duplicate the node.
+     */
+    @Service(name = "duplicate", title = "Duplicate", desc = "Duplicates a node.")
+    public void duplicate(SimpleName newNode) {
+        _nodelHost.duplicateNode(this, newNode);
+        
+    }
+    
     /**
      * Renames the node.
      */

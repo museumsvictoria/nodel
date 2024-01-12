@@ -1793,6 +1793,7 @@ var setEvents = function(){
   $('body').on('shown.bs.dropdown', '.edtgrp', function () {
     $(this).find('.renamenode').val(nodename).get(0).focus();
   });
+
   $('body').on('keyup', '.renamenode', function(e) {
     var charCode = e.charCode || e.keyCode;
     if(charCode == 13) $(this).closest('.form').find('.renamenodesubmit').click();
@@ -1816,34 +1817,32 @@ var setEvents = function(){
   // Duplicate button
   $('body').on('click', '.duplicatenodesubmit', function (e) {
     $('#duplicate').modal('show');
-
+  });
+  $('body').on('shown.bs.modal', '#duplicate', function () {
     $(this).find('.duplicatenodeval').get(0).focus();
   });
   // Duplicate Node 
-  $('body').on('click', '.confirmDuplicate', function (e) {
-    var nodenameraw = $(this).closest('.form').find('.duplicatenodeval').val();
+  $('body').on('click', '#confirmDuplicate', function (e) {
+    var nodenameraw = $('#duplicateNodeval').val();
     if(nodenameraw) {
       var nodename = {"value": nodenameraw};
-      if(recipeval && (recipeval !== 'error')) nodename["base"] = recipeval;
-      $.postJSON(proto+'//' + host + '/REST/newNode', JSON.stringify(nodename), function() {
-        $(ele).find('.open > button').dropdown('toggle');
+      $.postJSON('REST/duplicate', JSON.stringify(nodename), function() {
         checkRedirect(proto+'//' + host + '/nodes/' + encodeURIComponent(getVerySimpleName(nodenameraw)));
       }).fail(function(req){
         if(req.statusText!="abort"){
-          var error = 'Node add failed';
+          var error = 'Node duplicate failed';
           if(req.responseText) {
             var message = JSON.parse(req.responseText);
             error = error + '<br/>' + message['message'];
           }
           alert(error, 'danger');
-          $(ele).find('.nodeaddsubmit').prop('disabled', false);
         }
       });
     }
   });
-  $('body').on('keyup', '.duplicatenodeval', function(e) {
+  $('body').on('keyup', '#duplicateNodeval', function(e) {
     var charCode = e.charCode || e.keyCode;
-    if(charCode == 13) $(this).closest('form').find('.confirmDuplicate').click();
+    if(charCode == 13) $(this).closest('form').find('#confirmDuplicate').click();
   });
 
   

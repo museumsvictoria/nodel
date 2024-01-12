@@ -166,8 +166,10 @@
                                 <input class="form-control renamenode" type="text"/>
                                 <button class="btn btn-default renamenodesubmit">Rename</button>
                               </div>
+                            </li>
+                            <li class="form">
                               <div>
-                                <button class="btn btn-default duplicatenodesubmit">Duplicate</button>
+                                <button class="btn btn-info duplicatenodesubmit">Duplicate</button>
                               </div>
                             </li>
                             <li class="form">
@@ -298,7 +300,7 @@
               <div class="modal-body">
                 <div class="form">
                   <p>Duplicated Node Name:</p>
-                  <input class="form-control duplicatenodeval" type="text" />     
+                  <input id="duplicateNodeval" class="form-control duplicatenodeval" type="text" />     
                 </div>
               </div>
               <div class="modal-footer">
