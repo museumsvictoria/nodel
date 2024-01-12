@@ -1840,11 +1840,11 @@ var setEvents = function(){
       });
     }
   });
-  $('body').on('keyup', '#duplicateNodeval', function(e) {
-    var charCode = e.charCode || e.keyCode;
-    if(charCode == 13) $(this).closest('form').find('#confirmDuplicate').click();
-  });
 
+  $('body').on('keyup', '.duplicatenodeval', function(e) {
+    var charCode = e.charCode || e.keyCode;
+    if(charCode == 13) $('#confirmDuplicate').click();
+  });
   
   $('body').on('click', '.restartnodesubmit', function (e) {
     // Relative path : $.get(proto+'//' + host + '/nodes/' + encodeURIComponent(node) + '/REST/restart', function (data) {

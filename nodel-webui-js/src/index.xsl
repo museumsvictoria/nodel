@@ -299,13 +299,13 @@
               </div>
               <div class="modal-body">
                 <div class="form">
-                  <p>Duplicated Node Name:</p>
+                  <p>New Node Name:</p>
                   <input id="duplicateNodeval" class="form-control duplicatenodeval" type="text" />     
                 </div>
               </div>
               <div class="modal-footer">
                 <button type="button" class="btn btn-default" data-dismiss="modal">Cancel</button>
-                <button id="confirmDuplicate" class="btn btn-danger btn-ok">Duplicate Node</button>
+                <button id="confirmDuplicate" class="btn btn-success btn-ok">Duplicate Node</button>
               </div>
             </div>
           </div>

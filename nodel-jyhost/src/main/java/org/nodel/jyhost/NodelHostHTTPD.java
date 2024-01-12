@@ -163,11 +163,6 @@ public class NodelHostHTTPD extends NanoHTTPD {
         public void newNode(@Param(name = "base") String base, SimpleName name) {
             _nodelHost.newNode(base, name);
         }
-        // // duplicate Node
-        // @Service(name = "duplicateNode", order = 7, title = "Duplicate node", desc = "Creates a new node by copying an existing node.")
-        // public void duplicateNode(@Param(name = "existing") String existing, SimpleName name) {
-        //     _nodelHost.duplicateNode(existing, name);
-        // }
         
         @Service(name = "toolkit", title = "Toolkit", desc = "The toolkit reference.")
         public Info getToolkitReference() throws IOException {
