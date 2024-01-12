@@ -1813,6 +1813,40 @@ var setEvents = function(){
       }
     }
   });
+  // Duplicate button
+  $('body').on('click', '.duplicatenodesubmit', function (e) {
+    $('#duplicate').modal('show');
+
+    $(this).find('.duplicatenodeval').get(0).focus();
+  });
+  // Duplicate Node 
+  $('body').on('click', '.confirmDuplicate', function (e) {
+    var nodenameraw = $(this).closest('.form').find('.duplicatenodeval').val();
+    if(nodenameraw) {
+      var nodename = {"value": nodenameraw};
+      if(recipeval && (recipeval !== 'error')) nodename["base"] = recipeval;
+      $.postJSON(proto+'//' + host + '/REST/newNode', JSON.stringify(nodename), function() {
+        $(ele).find('.open > button').dropdown('toggle');
+        checkRedirect(proto+'//' + host + '/nodes/' + encodeURIComponent(getVerySimpleName(nodenameraw)));
+      }).fail(function(req){
+        if(req.statusText!="abort"){
+          var error = 'Node add failed';
+          if(req.responseText) {
+            var message = JSON.parse(req.responseText);
+            error = error + '<br/>' + message['message'];
+          }
+          alert(error, 'danger');
+          $(ele).find('.nodeaddsubmit').prop('disabled', false);
+        }
+      });
+    }
+  });
+  $('body').on('keyup', '.duplicatenodeval', function(e) {
+    var charCode = e.charCode || e.keyCode;
+    if(charCode == 13) $(this).closest('form').find('.confirmDuplicate').click();
+  });
+
+  
   $('body').on('click', '.restartnodesubmit', function (e) {
     // Relative path : $.get(proto+'//' + host + '/nodes/' + encodeURIComponent(node) + '/REST/restart', function (data) {
     $.get('REST/restart', function (data) {
