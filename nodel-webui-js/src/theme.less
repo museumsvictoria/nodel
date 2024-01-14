@@ -828,10 +828,13 @@ div.nodel-charts {
       min-width: 340px;
       form {
         margin: @padding-base-vertical @padding-base-horizontal;
-        input:not(:last-child) {
+        input {
           margin-bottom: 5px;
         }
       }
+    }
+    .dropdown {
+      display: inline-block;
     }
   }
   .btn {
@@ -893,6 +896,13 @@ div.nodel-charts {
       > input + .btn {
         margin-top: @padding-base-vertical;
       }
+    }
+  }
+}
+.addgrp {
+  fieldset {
+    > div {
+      position: relative;
     }
   }
 }

@@ -735,6 +735,10 @@ var createDynamicElements = function(){
       $.templates("#localsTmpl").link(ele, localsList);
       $(ele).find('.base').addClass('bound');
       d.resolve();
+    } else if($(ele).data('nodel') == 'locals'){
+      $.templates("#localsTmpl").link(ele, localsList);
+      $(ele).find('.base').addClass('bound');
+      d.resolve();
     } else d.resolve();
     p.push(d);
   });
@@ -1470,7 +1474,8 @@ var setEvents = function(){
           $.each(data, function(key, value) {
             var re = new RegExp("(.*)("+srchflt+")(.*)","ig");
             var val = value.node.replace(re, '$1<strong>$2</strong>$3')
-            $('<li>'+val+'</li>').data('address', value.address).appendTo(list);
+            $('<li>'+val+'</li>').data('node', value.node).data('address', value.address).appendTo(list);
+            
             return key < 20;
           });
         } else $(ele).siblings('div.autocomplete').remove();
@@ -1561,7 +1566,12 @@ var setEvents = function(){
   $('body').on('mousedown touchstart', 'div.autocomplete ul li', function() {
     if($(this).closest('div.autocomplete').siblings('input').hasClass('goto')) {
       window.open($(this).data()['address']);
-    } else {
+    } 
+    else if($(this).closest('div.autocomplete').siblings('input').hasClass('existnodenamval')){
+      var data = $(this).data().node;
+      $(this).closest('div.autocomplete').siblings('input').prop('value', data)
+    }
+    else {
       var data = $.view(this).data;
       var fld = $(this).closest('div.autocomplete').siblings('input').data('link');
       if(!fld) fld = '_$filldown';
