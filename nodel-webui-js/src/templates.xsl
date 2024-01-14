@@ -1614,20 +1614,17 @@
                       <label>
                         <xsl:attribute name="for">
                           <xsl:text>duplinodenamval_</xsl:text>
-                          <xsl:value-of select="generate-id(.)"/>
                         </xsl:attribute>
                         <xsl:text>Node name</xsl:text>
                       </label>
                       <input class="form-control duplinodenamval" type="text">
                         <xsl:attribute name="id">
                           <xsl:text>duplinodenamval_</xsl:text>
-                          <xsl:value-of select="generate-id(.)"/>
                         </xsl:attribute>
                       </input>
                       <label>
                         <xsl:attribute name="for">
                           <xsl:text>existnodenamval_</xsl:text>
-                          <xsl:value-of select="generate-id(.)"/>
                         </xsl:attribute>
                         <xsl:text>Existing node</xsl:text>
                       </label>
@@ -1640,7 +1637,7 @@
                       </div>
                     </fieldset>
                     <div class="btn-toolbar">
-                      <button type="submit" class="btn btn-success nodeaddsubmit">Add</button>
+                      <button type="submit" id='confirmDuplicateExisting' class="btn btn-success duplicateexistingsubmit">Add</button>
                     </div>
                   </form>
                 </li>

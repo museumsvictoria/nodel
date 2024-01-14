@@ -1474,6 +1474,7 @@ var setEvents = function(){
           $.each(data, function(key, value) {
             var re = new RegExp("(.*)("+srchflt+")(.*)","ig");
             var val = value.node.replace(re, '$1<strong>$2</strong>$3')
+            // stitched on the node name for the 'create node from existing' function, sorry! -Troy
             $('<li>'+val+'</li>').data('node', value.node).data('address', value.address).appendTo(list);
             
             return key < 20;
@@ -1567,6 +1568,10 @@ var setEvents = function(){
     if($(this).closest('div.autocomplete').siblings('input').hasClass('goto')) {
       window.open($(this).data()['address']);
     } 
+    // for create node based on existing - autocomplete list isnt created dynamically!
+    // this means $.view(this).data is undefined, rather than make this element dynamic or make it populate data
+    // some other way, i've chosen to break the observer pattern, make the autocomplete entries also include node name (see nodel.js:1478),
+    // and then set the value of the text box dumbly - Troy
     else if($(this).closest('div.autocomplete').siblings('input').hasClass('existnodenamval')){
       var data = $(this).data().node;
       $(this).closest('div.autocomplete').siblings('input').prop('value', data)
@@ -1850,7 +1855,45 @@ var setEvents = function(){
       });
     }
   });
-
+  // Duplicate Node 
+  $('body').on('click', '#confirmDuplicate', function (e) {
+    var nodenameraw = $('#duplicateNodeval').val();
+    if(nodenameraw) {
+      var nodename = {"value": nodenameraw};
+      $.postJSON('REST/duplicate', JSON.stringify(nodename), function() {
+        checkRedirect(proto+'//' + host + '/nodes/' + encodeURIComponent(getVerySimpleName(nodenameraw)));
+      }).fail(function(req){
+        if(req.statusText!="abort"){
+          var error = 'Node duplicate failed';
+          if(req.responseText) {
+            var message = JSON.parse(req.responseText);
+            error = error + '<br/>' + message['message'];
+          }
+          alert(error, 'danger');
+        }
+      });
+    }
+  });
+  // Duplicate Node from Existing
+  $('body').on('click', '#confirmDuplicateExisting', function (e) {
+    var nodenameraw = $('#duplinodenamval_').val();
+    if(nodenameraw) {
+      var nodename = {"value": nodenameraw};
+      nodename["existingNode"] = $('#existnodenamval_').val()
+      $.postJSON('REST/newNodeFromExisting', JSON.stringify(nodename), function() {
+        checkRedirect(proto+'//' + host + '/nodes/' + encodeURIComponent(getVerySimpleName(nodenameraw)));
+      }).fail(function(req){
+        if(req.statusText!="abort"){
+          var error = 'Node duplicate failed';
+          if(req.responseText) {
+            var message = JSON.parse(req.responseText);
+            error = error + '<br/>' + message['message'];
+          }
+          alert(error, 'danger');
+        }
+      });
+    }
+  });
   $('body').on('keyup', '.duplicatenodeval', function(e) {
     var charCode = e.charCode || e.keyCode;
     if(charCode == 13) $('#confirmDuplicate').click();

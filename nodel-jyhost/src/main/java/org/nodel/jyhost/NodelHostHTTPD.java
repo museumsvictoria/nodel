@@ -164,6 +164,17 @@ public class NodelHostHTTPD extends NanoHTTPD {
             _nodelHost.newNode(base, name);
         }
         
+        /**
+         * Duplicate the node based on existing node.
+         */
+        @Service(name = "newNodeFromExisting", title = "New Node From Existing", desc = "Creates a node by duplicating an existing one.")
+        public void newNodeFromExisitng(@Param(name = "existingNode") SimpleName existingNode, SimpleName newNode) {
+            // grab the full node object from name
+            BaseNode node = BaseNode.getNode(existingNode);
+            _nodelHost.duplicateNode(node, newNode); 
+        }
+    
+
         @Service(name = "toolkit", title = "Toolkit", desc = "The toolkit reference.")
         public Info getToolkitReference() throws IOException {
             try (InputStream nodetoolkitStream = PyNode.class.getResourceAsStream("nodetoolkit.py")) {

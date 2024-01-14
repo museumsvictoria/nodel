@@ -525,7 +525,7 @@ public class NodelHost {
     /**
      * Creates a new node based on existing node.
      */
-    public void duplicateNode(PyNode existing, SimpleName name) {
+    public void duplicateNode(BaseNode existing, SimpleName name) {
         testNameFilters(name);
 
         File newNodeDir = new File(_root, encodeIntoSafeFilename(name));
