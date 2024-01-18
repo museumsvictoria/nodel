@@ -9,7 +9,9 @@ import java.nio.channels.FileChannel;
 import java.nio.channels.ReadableByteChannel;
 
 public class HTTPDownload {
-
+    /**
+     * Downloads a file from a given URL to a folder, using tmp files to ensure integrity.
+     */
     public static void downloadFile(String[] fileURL, File folder) {
         try {
             // successfully avoided regex
