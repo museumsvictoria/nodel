@@ -735,6 +735,10 @@ var createDynamicElements = function(){
       $.templates("#localsTmpl").link(ele, localsList);
       $(ele).find('.base').addClass('bound');
       d.resolve();
+    } else if($(ele).data('nodel') == 'locals'){
+      $.templates("#localsTmpl").link(ele, localsList);
+      $(ele).find('.base').addClass('bound');
+      d.resolve();
     } else d.resolve();
     p.push(d);
   });
@@ -1470,7 +1474,9 @@ var setEvents = function(){
           $.each(data, function(key, value) {
             var re = new RegExp("(.*)("+srchflt+")(.*)","ig");
             var val = value.node.replace(re, '$1<strong>$2</strong>$3')
-            $('<li>'+val+'</li>').data('address', value.address).appendTo(list);
+            // stitched on the node name for the 'create node from existing' function, sorry! -Troy
+            $('<li>'+val+'</li>').data('node', value.node).data('address', value.address).appendTo(list);
+            
             return key < 20;
           });
         } else $(ele).siblings('div.autocomplete').remove();
@@ -1561,7 +1567,17 @@ var setEvents = function(){
   $('body').on('mousedown touchstart', 'div.autocomplete ul li', function() {
     if($(this).closest('div.autocomplete').siblings('input').hasClass('goto')) {
       window.open($(this).data()['address']);
-    } else {
+    } 
+    // for create node based on existing - autocomplete list isnt created dynamically!
+    // this means $.view(this).data is undefined, rather than make this element dynamic or make it populate data
+    // some other way, i've chosen to break the observer pattern, make the autocomplete entries also include node name (see nodel.js:1478),
+    // and then set the value of the text box dumbly - Troy
+    else if($(this).closest('div.autocomplete').siblings('input').hasClass('existnodenamval')){
+      var data = $(this).data();
+      $(this).closest('div.autocomplete').siblings('input').prop('value', data.node)
+      $(this).closest('div.autocomplete').siblings('input').prop('nodeURL', data.address)
+    }
+    else {
       var data = $.view(this).data;
       var fld = $(this).closest('div.autocomplete').siblings('input').data('link');
       if(!fld) fld = '_$filldown';
@@ -1787,12 +1803,14 @@ var setEvents = function(){
     $(this).find('.scriptnamval').val(null);
     $(this).data('filedata', null);
   });
+
   $('body').on('shown.bs.dropdown', '.srchgrp', function () {
     $(this).find('.node').val(null).get(0).focus();
   });
   $('body').on('shown.bs.dropdown', '.edtgrp', function () {
     $(this).find('.renamenode').val(nodename).get(0).focus();
   });
+
   $('body').on('keyup', '.renamenode', function(e) {
     var charCode = e.charCode || e.keyCode;
     if(charCode == 13) $(this).closest('.form').find('.renamenodesubmit').click();
@@ -1813,6 +1831,64 @@ var setEvents = function(){
       }
     }
   });
+  // Duplicate button
+  $('body').on('click', '.duplicatenodesubmit', function (e) {
+    $('#duplicate').modal('show');
+  });
+  $('body').on('shown.bs.modal', '#duplicate', function () {
+    $(this).find('.duplicatenodeval').get(0).focus();
+  });
+  // Duplicate Node 
+  $('body').on('click', '#confirmDuplicate', function (e) {
+    var nodenameraw = $('#duplicateNodeval').val();
+    if(nodenameraw) {
+      var nodename = {"value": nodenameraw};
+      $.postJSON('REST/duplicate', JSON.stringify(nodename), function() {
+        checkRedirect(proto+'//' + host + '/nodes/' + encodeURIComponent(getVerySimpleName(nodenameraw)));
+      }).fail(function(req){
+        if(req.statusText!="abort"){
+          var error = 'Node duplicate failed';
+          if(req.responseText) {
+            var message = JSON.parse(req.responseText);
+            error = error + '<br/>' + message['message'];
+          }
+          alert(error, 'danger');
+        }
+      });
+    }
+  });
+  // Duplicate Node from Existing
+  $('body').on('click', '#confirmDuplicateExisting', function (e) {
+    var nodenameraw = $('#duplinodenamval_').val();
+    if(nodenameraw) {
+      var nodename = {"value": nodenameraw};
+      nodename["existingNodeURL"] = $('#existnodenamval_').prop("nodeURL")
+      nodeFiles = $.getJSON(nodename["existingNodeURL"] + 'REST/files', function(data) {
+        if (data.length > 0) {
+          nodename["existingNodeFiles"] = JSON.stringify(data) //double stringify for java 
+          $.postJSON('REST/newNodeFromExisting', JSON.stringify(nodename), function() {
+            checkRedirect(proto+'//' + host + '/nodes/' + encodeURIComponent(getVerySimpleName(nodenameraw)));
+          }).fail(function(req){
+            if(req.statusText!="abort"){
+              var error = 'Node duplicate failed';
+              if(req.responseText) {
+                var message = JSON.parse(req.responseText);
+                error = error + '<br/>' + message['message'];
+              }
+              alert(error, 'danger');
+            }
+          });
+        }
+        // console.log(data)
+      });
+      
+    }
+  });
+  $('body').on('keyup', '.duplicatenodeval', function(e) {
+    var charCode = e.charCode || e.keyCode;
+    if(charCode == 13) $('#confirmDuplicate').click();
+  });
+  
   $('body').on('click', '.restartnodesubmit', function (e) {
     // Relative path : $.get(proto+'//' + host + '/nodes/' + encodeURIComponent(node) + '/REST/restart', function (data) {
     $.get('REST/restart', function (data) {
@@ -1839,6 +1915,10 @@ var setEvents = function(){
     $(ele).find('.recipepicker').empty();
     $(ele).find('.nodenamval').focus();
     $(ele).find('.nodenamval').val(null).get(0).focus();
+    // clear duplicate fields
+    $(ele).find('.existnodenamval').empty();
+    $(ele).find('.duplinodenamval').focus();
+    $(ele).find('.duplinodenamval').val(null).get(0).focus();
     $.getJSON(proto+'//' + host + '/REST/recipes/list', function(data) {
       if (data.length > 0) {
         var picker = $(ele).find('.recipepicker');
@@ -1857,6 +1937,7 @@ var setEvents = function(){
     });
     //return false;
   });
+
   $('body').on('keyup', '.nodenamval', function(e) {
     var charCode = e.charCode || e.keyCode;
     if(charCode == 13) $(this).closest('form').find('.nodeaddsubmit').click();

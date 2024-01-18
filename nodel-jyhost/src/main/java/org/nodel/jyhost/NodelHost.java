@@ -7,6 +7,7 @@ package org.nodel.jyhost;
  */
 
 import java.io.File;
+import java.io.InputStream;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.net.InetAddress;
@@ -38,7 +39,12 @@ import org.nodel.discovery.AdvertisementInfo;
 import org.nodel.discovery.TopologyWatcher;
 import org.nodel.host.BaseNode;
 import org.nodel.io.Files;
+import org.nodel.io.Stream;
+import org.nodel.io.HTTPDownload;
 import org.nodel.io.UTF8Charset;
+import org.nodel.json.JSONArray;
+import org.nodel.json.JSONException;
+import org.nodel.json.JSONObject;
 import org.nodel.reflection.Reflection;
 import org.nodel.reflection.Serialisation;
 import org.nodel.rest.REST;
@@ -520,6 +526,70 @@ public class NodelHost {
 
             // copy the entire folder
             Files.copyDir(baseDir, newNodeDir);
+        }
+    }
+
+    public void newNodeFromExisting(String existingNodeURL, String existingNodeFiles, SimpleName name) throws JSONException, IOException {
+        testNameFilters(name);
+
+        String safeFilename = encodeIntoSafeFilename(name);
+        String safeTmpFilename = "_tmp_" + encodeIntoSafeFilename(name);
+        
+        File tmpNodeDir = new File(_root, safeTmpFilename);
+        File finalNodeDir = new File(_root, safeFilename);
+
+        if (_nodeMap.containsKey(name) || tmpNodeDir.exists())
+            throw new RuntimeException("A node with the name '" + name + "' already exists.");
+
+        if (!tmpNodeDir.mkdir())
+           throw new RuntimeException("The platform did not allow the creation of the node folder for unspecified reasons (security issues?).");
+        
+        // nodetoolkit.py isn't copied across. it's created for us but only after throwing an exception
+        // may as well just stream it to a new file to avoid the exception.
+        try (InputStream nodetoolkitStream = PyNode.class.getResourceAsStream("nodetoolkit.py")) {
+                String nodetoolkitString = Stream.readFully(nodetoolkitStream);
+                File nodetoolkit = new File(_root, ".nodel/nodetoolkit.py");
+                nodetoolkit.getParentFile().mkdirs();
+                Stream.writeFully(nodetoolkit, nodetoolkitString);
+            }
+
+        JSONArray jsonArray = new JSONArray(existingNodeFiles);
+        
+            for (int i = 0; i < jsonArray.length(); i++) {
+                JSONObject jsonobject = jsonArray.getJSONObject(i);
+                String path = jsonobject.getString("path");
+                // seperate URL into array so I dont have to write regex
+                String[] fileURL = new String[2]; 
+                fileURL[0] = existingNodeURL + "REST/files/contents?path=";
+                fileURL[1] = path;
+
+                HTTPDownload.downloadFile(fileURL,tmpNodeDir);
+            }
+        tmpNodeDir.renameTo(finalNodeDir);
+
+    }
+
+    /**
+     * Creates a new node based on existing node.
+     */
+    public void duplicateNode(BaseNode existing, SimpleName name) {
+        testNameFilters(name);
+
+        File newNodeDir = new File(_root, encodeIntoSafeFilename(name));
+
+        if (_nodeMap.containsKey(name) || newNodeDir.exists())
+            throw new RuntimeException("A node with the name '" + name + "' already exists.");
+
+        if (existing == null) {
+            // we need an existing node to copy from.
+            throw new RuntimeException("No Existing Node Given.");
+            
+        } else {
+            // based on an existing node (from recipes folder or self nodes)
+            File root = existing.getRoot();
+            
+            // copy the entire folder
+            Files.copyDir(root, newNodeDir);
         }
     }
 

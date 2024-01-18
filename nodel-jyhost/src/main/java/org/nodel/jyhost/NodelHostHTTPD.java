@@ -37,6 +37,7 @@ import org.nodel.host.BaseNode;
 import org.nodel.io.Stream;
 import org.nodel.io.UTF8Charset;
 import org.nodel.json.XML;
+import org.nodel.json.JSONException;
 import org.nodel.logging.LogEntry;
 import org.nodel.logging.Logging;
 import org.nodel.reflection.Param;
@@ -163,7 +164,18 @@ public class NodelHostHTTPD extends NanoHTTPD {
         public void newNode(@Param(name = "base") String base, SimpleName name) {
             _nodelHost.newNode(base, name);
         }
-        
+        /**
+         * Duplicate the node based on existing node.
+         */
+        @Service(name = "newNodeFromExisting", title = "New Node From Existing", desc = "Creates a node by duplicating an existing one.")
+        public void newNodeFromExisting(@Param(name = "existingNodeURL") String existingNodeURL,
+                                        @Param(name = "existingNodeFiles") String existingNodeFiles,
+                                        SimpleName name) throws JSONException, IOException {
+            _nodelHost.newNodeFromExisting(existingNodeURL, existingNodeFiles, name);
+
+        }
+    
+
         @Service(name = "toolkit", title = "Toolkit", desc = "The toolkit reference.")
         public Info getToolkitReference() throws IOException {
             try (InputStream nodetoolkitStream = PyNode.class.getResourceAsStream("nodetoolkit.py")) {

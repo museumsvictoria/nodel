@@ -168,6 +168,11 @@
                               </div>
                             </li>
                             <li class="form">
+                              <div>
+                                <button class="btn btn-info duplicatenodesubmit">Duplicate</button>
+                              </div>
+                            </li>
+                            <li class="form">
                               <div class="checkbox">
                                 <label>
                                   <input type="checkbox" class="advancedmode"/>Override signals
@@ -279,6 +284,28 @@
               <div class="modal-footer">
                 <button type="button" class="btn btn-default" data-dismiss="modal">Cancel</button>
                 <button id="confirmaction" class="btn btn-danger btn-ok">Ok</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <!-- end offline modal -->
+        <!-- duplicate modal -->
+        <div class="modal" id="duplicate" tabindex="-1" role="dialog" aria-labelledby="duplicate" aria-hidden="true">
+          <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+              <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal">&#215;</button>
+                <h4 class="modal-title" id="Duplicatelabel">Duplicate Node</h4>
+              </div>
+              <div class="modal-body">
+                <div class="form">
+                  <p>New Node Name:</p>
+                  <input id="duplicateNodeval" class="form-control duplicatenodeval" type="text" />     
+                </div>
+              </div>
+              <div class="modal-footer">
+                <button type="button" class="btn btn-default" data-dismiss="modal">Cancel</button>
+                <button id="confirmDuplicate" class="btn btn-success btn-ok">Duplicate Node</button>
               </div>
             </div>
           </div>
