@@ -173,7 +173,7 @@ public class NodelHostHTTPD extends NanoHTTPD {
         @Service(name = "newNodeFromExisting", title = "New Node From Existing", desc = "Creates a node by duplicating an existing one.")
         public void newNodeFromExisting(@Param(name = "existingNodeURL") String existingNodeURL,
                                         @Param(name = "existingNodeFiles") String existingNodeFiles,
-                                        SimpleName name) throws JSONException {
+                                        SimpleName name) throws JSONException, IOException {
             _nodelHost.newNodeFromExisting(existingNodeURL, existingNodeFiles, name);
 
         }
