@@ -38,7 +38,12 @@ import org.nodel.discovery.AdvertisementInfo;
 import org.nodel.discovery.TopologyWatcher;
 import org.nodel.host.BaseNode;
 import org.nodel.io.Files;
+import org.nodel.io.Packages;
+import org.nodel.io.HTTPDownload;
 import org.nodel.io.UTF8Charset;
+import org.nodel.json.JSONArray;
+import org.nodel.json.JSONException;
+import org.nodel.json.JSONObject;
 import org.nodel.reflection.Reflection;
 import org.nodel.reflection.Serialisation;
 import org.nodel.rest.REST;
@@ -522,6 +527,38 @@ public class NodelHost {
             Files.copyDir(baseDir, newNodeDir);
         }
     }
+
+    public void newNodeFromExisting(String existingNodeURL, String existingNodeFiles, SimpleName name) throws JSONException {
+        testNameFilters(name);
+
+        String safeFilename = encodeIntoSafeFilename(name);
+        String safeTmpFilename = "_tmp_" + encodeIntoSafeFilename(name);
+        
+        File tmpNodeDir = new File(_root, safeTmpFilename);
+        File finalNodeDir = new File(_root, safeFilename);
+
+        if (_nodeMap.containsKey(name) || tmpNodeDir.exists())
+            throw new RuntimeException("A node with the name '" + name + "' already exists.");
+
+        if (!tmpNodeDir.mkdir())
+           throw new RuntimeException("The platform did not allow the creation of the node folder for unspecified reasons (security issues?).");
+        
+        JSONArray jsonArray = new JSONArray(existingNodeFiles);
+        
+            for (int i = 0; i < jsonArray.length(); i++) {
+                JSONObject jsonobject = jsonArray.getJSONObject(i);
+                String path = jsonobject.getString("path");
+                // seperate URL into array so I dont have to write regex
+                String[] fileURL = new String[2]; 
+                fileURL[0] = existingNodeURL + "REST/files/contents?path=";
+                fileURL[1] = path;
+
+                HTTPDownload.downloadFile(fileURL,tmpNodeDir);
+            }
+        tmpNodeDir.renameTo(finalNodeDir);
+
+    }
+
     /**
      * Creates a new node based on existing node.
      */

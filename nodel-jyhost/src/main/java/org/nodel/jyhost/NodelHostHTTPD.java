@@ -9,6 +9,7 @@ package org.nodel.jyhost;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
+import java.io.FileReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -37,6 +38,9 @@ import org.nodel.host.BaseNode;
 import org.nodel.io.Stream;
 import org.nodel.io.UTF8Charset;
 import org.nodel.json.XML;
+import org.nodel.json.JSONException;
+import org.nodel.json.JSONArray;
+import org.nodel.json.JSONObject;
 import org.nodel.logging.LogEntry;
 import org.nodel.logging.Logging;
 import org.nodel.reflection.Param;
@@ -163,15 +167,15 @@ public class NodelHostHTTPD extends NanoHTTPD {
         public void newNode(@Param(name = "base") String base, SimpleName name) {
             _nodelHost.newNode(base, name);
         }
-        
         /**
          * Duplicate the node based on existing node.
          */
         @Service(name = "newNodeFromExisting", title = "New Node From Existing", desc = "Creates a node by duplicating an existing one.")
-        public void newNodeFromExisitng(@Param(name = "existingNode") SimpleName existingNode, SimpleName newNode) {
-            // grab the full node object from name
-            BaseNode node = BaseNode.getNode(existingNode);
-            _nodelHost.duplicateNode(node, newNode); 
+        public void newNodeFromExisting(@Param(name = "existingNodeURL") String existingNodeURL,
+                                        @Param(name = "existingNodeFiles") String existingNodeFiles,
+                                        SimpleName name) throws JSONException {
+            _nodelHost.newNodeFromExisting(existingNodeURL, existingNodeFiles, name);
+
         }
     
 

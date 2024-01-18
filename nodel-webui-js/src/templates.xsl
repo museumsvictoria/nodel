@@ -1553,7 +1553,7 @@
                 </xsl:attribute>
                 <xsl:text>Add node here</xsl:text>
               </button>
-              <ul class="dropdown-menu">
+              <ul class="dropdown-menu add-node-regular">
                 <xsl:attribute name="aria-labelledby">
                   <xsl:text>addgrp_</xsl:text>
                   <xsl:value-of select="generate-id(.)"/>
@@ -1603,7 +1603,7 @@
                 </xsl:attribute>
                 <xsl:text>Add node based on existing</xsl:text>
               </button>
-              <ul class="dropdown-menu">
+              <ul class="dropdown-menu add-node-dupli">
                 <xsl:attribute name="aria-labelledby">
                   <xsl:text>dupligrp_</xsl:text>
                   <xsl:value-of select="generate-id(.)"/>

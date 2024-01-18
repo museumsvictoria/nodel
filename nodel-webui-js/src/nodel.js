@@ -1573,8 +1573,9 @@ var setEvents = function(){
     // some other way, i've chosen to break the observer pattern, make the autocomplete entries also include node name (see nodel.js:1478),
     // and then set the value of the text box dumbly - Troy
     else if($(this).closest('div.autocomplete').siblings('input').hasClass('existnodenamval')){
-      var data = $(this).data().node;
-      $(this).closest('div.autocomplete').siblings('input').prop('value', data)
+      var data = $(this).data();
+      $(this).closest('div.autocomplete').siblings('input').prop('value', data.node)
+      $(this).closest('div.autocomplete').siblings('input').prop('nodeURL', data.address)
     }
     else {
       var data = $.view(this).data;
@@ -1802,6 +1803,7 @@ var setEvents = function(){
     $(this).find('.scriptnamval').val(null);
     $(this).data('filedata', null);
   });
+
   $('body').on('shown.bs.dropdown', '.srchgrp', function () {
     $(this).find('.node').val(null).get(0).focus();
   });
@@ -1855,43 +1857,31 @@ var setEvents = function(){
       });
     }
   });
-  // Duplicate Node 
-  $('body').on('click', '#confirmDuplicate', function (e) {
-    var nodenameraw = $('#duplicateNodeval').val();
-    if(nodenameraw) {
-      var nodename = {"value": nodenameraw};
-      $.postJSON('REST/duplicate', JSON.stringify(nodename), function() {
-        checkRedirect(proto+'//' + host + '/nodes/' + encodeURIComponent(getVerySimpleName(nodenameraw)));
-      }).fail(function(req){
-        if(req.statusText!="abort"){
-          var error = 'Node duplicate failed';
-          if(req.responseText) {
-            var message = JSON.parse(req.responseText);
-            error = error + '<br/>' + message['message'];
-          }
-          alert(error, 'danger');
-        }
-      });
-    }
-  });
   // Duplicate Node from Existing
   $('body').on('click', '#confirmDuplicateExisting', function (e) {
     var nodenameraw = $('#duplinodenamval_').val();
     if(nodenameraw) {
       var nodename = {"value": nodenameraw};
-      nodename["existingNode"] = $('#existnodenamval_').val()
-      $.postJSON('REST/newNodeFromExisting', JSON.stringify(nodename), function() {
-        checkRedirect(proto+'//' + host + '/nodes/' + encodeURIComponent(getVerySimpleName(nodenameraw)));
-      }).fail(function(req){
-        if(req.statusText!="abort"){
-          var error = 'Node duplicate failed';
-          if(req.responseText) {
-            var message = JSON.parse(req.responseText);
-            error = error + '<br/>' + message['message'];
-          }
-          alert(error, 'danger');
+      nodename["existingNodeURL"] = $('#existnodenamval_').prop("nodeURL")
+      nodeFiles = $.getJSON(nodename["existingNodeURL"] + 'REST/files', function(data) {
+        if (data.length > 0) {
+          nodename["existingNodeFiles"] = JSON.stringify(data) //double stringify for java 
+          $.postJSON('REST/newNodeFromExisting', JSON.stringify(nodename), function() {
+            checkRedirect(proto+'//' + host + '/nodes/' + encodeURIComponent(getVerySimpleName(nodenameraw)));
+          }).fail(function(req){
+            if(req.statusText!="abort"){
+              var error = 'Node duplicate failed';
+              if(req.responseText) {
+                var message = JSON.parse(req.responseText);
+                error = error + '<br/>' + message['message'];
+              }
+              alert(error, 'danger');
+            }
+          });
         }
+        // console.log(data)
       });
+      
     }
   });
   $('body').on('keyup', '.duplicatenodeval', function(e) {
@@ -1925,6 +1915,10 @@ var setEvents = function(){
     $(ele).find('.recipepicker').empty();
     $(ele).find('.nodenamval').focus();
     $(ele).find('.nodenamval').val(null).get(0).focus();
+    // clear duplicate fields
+    $(ele).find('.existnodenamval').empty();
+    $(ele).find('.duplinodenamval').focus();
+    $(ele).find('.duplinodenamval').val(null).get(0).focus();
     $.getJSON(proto+'//' + host + '/REST/recipes/list', function(data) {
       if (data.length > 0) {
         var picker = $(ele).find('.recipepicker');
@@ -1943,6 +1937,7 @@ var setEvents = function(){
     });
     //return false;
   });
+
   $('body').on('keyup', '.nodenamval', function(e) {
     var charCode = e.charCode || e.keyCode;
     if(charCode == 13) $(this).closest('form').find('.nodeaddsubmit').click();
