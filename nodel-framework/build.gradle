@@ -2,7 +2,7 @@ import org.apache.tools.ant.filters.ReplaceTokens
 import org.joda.time.DateTime;
 
 apply plugin: 'java'
-apply plugin: 'maven'
+apply plugin: 'maven-publish'
 apply plugin: 'eclipse'
 
 buildscript {
@@ -49,8 +49,8 @@ jar {
 }
 
 dependencies {    
-    compile 'joda-time:joda-time:2.6'
-    compile 'org.slf4j:slf4j-api:1.7.10'
+    implementation 'joda-time:joda-time:2.6'
+    implementation 'org.slf4j:slf4j-api:1.7.10'
 
     // SSH features
     implementation group: 'com.jcraft', name: 'jsch', version: '0.1.55'

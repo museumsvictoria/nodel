@@ -1,7 +1,9 @@
-apply plugin: 'java'
-apply plugin: 'application'
-apply plugin: 'maven'
-apply plugin: 'eclipse'
+plugins {
+    id 'java'
+    id 'application'
+    id 'maven-publish'
+    id 'eclipse'
+}
 
 repositories {
     mavenCentral()
@@ -21,33 +23,37 @@ rev = rev.replaceAll(/[^a-zA-Z0-9]/, '')
 
 def buildSummary = gitId
 
-mainClassName = "org.nodel.jyhost.Launch"
+application {
+    mainClass = 'org.nodel.jyhost.Launch'
+}
 
 jar {
     from "$buildDir/output"
-    baseName = 'nodel-jyhost'
+    archiveBaseName = 'nodel-jyhost'
     manifest {
-         attributes 'Implementation-Title': 'Nodel JyHost',
-                    'Implementation-Version': version
-    }    
+        attributes 'Implementation-Title': 'Nodel JyHost',
+                'Implementation-Version': version
+    }
 }
 
-task fatJar(type: Jar) {
+tasks.register('fatJar', Jar) {
     manifest {
-        attributes 'Implementation-Title': 'Nodel JyHost',  
-            'Implementation-Version': version,
-            'Main-Class': mainClassName
+        attributes 'Implementation-Title': 'Nodel JyHost',
+                'Implementation-Version': version,
+                'Main-Class': application.mainClass
     }
-    appendix = branch 
-    baseName = 'nodelhost'
-    classifier = 'rev' + rev
-    destinationDir new File(buildDir, 'distributions/standalone')
-    from { configurations.compile.collect { it.isDirectory() ? it : zipTree(it) } }
+    archiveAppendix = branch
+    archiveBaseName = 'nodelhost'
+    archiveClassifier = 'rev' + rev
+    destinationDirectory = new File(buildDir, 'distributions/standalone')
+    from { configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) } }
     with jar
     exclude 'META-INF/*.RSA', 'META-INF/*.SF','META-INF/*.DSA'
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
 }
 
-task unversioned(dependsOn:'fatJar', type: Copy) {
+tasks.register('unversioned', Copy) {
+    dependsOn 'fatJar'
     from(new File(buildDir, 'distributions/standalone')) {
         rename '.*($version)*', 'nodelhost.jar'
     }
@@ -55,28 +61,33 @@ task unversioned(dependsOn:'fatJar', type: Copy) {
     into new File(buildDir, 'distributions/standalone')
 }
 
-build.finalizedBy(fatJar)
+tasks.build {
+    finalizedBy 'fatJar'
+}
 
 dependencies {
-    compile project(':nodel-webui-js')
-    compile project(':nodel-framework')
-    compile 'commons-daemon:commons-daemon:1.0.15'
-    compile 'org.slf4j:slf4j-api:1.7.10'
-    compile 'org.python:jython-standalone:2.5.4-rc1'
+    implementation project(':nodel-webui-js')
+    implementation project(':nodel-framework')
+    implementation 'commons-daemon:commons-daemon:1.0.15'
+    implementation 'org.slf4j:slf4j-api:1.7.10'
+    implementation 'org.python:jython-standalone:2.5.4-rc1'
 
     // for the Nodel HTTP client:
-    compile group: 'org.apache.httpcomponents', name: 'httpclient', version: '4.5.5'
+    implementation group: 'org.apache.httpcomponents', name: 'httpclient', version: '4.5.5'
 
     // convenience dependency: required *only* for 'recipe sync' node
-    compile 'org.eclipse.jgit:org.eclipse.jgit:3.7.1.+'
+    implementation 'org.eclipse.jgit:org.eclipse.jgit:3.7.1.+'
 
-    // convenience dependency: required for new SNMP-based nodes 
-    compile('org.snmp4j:snmp4j:2.5.8') {
+    // convenience dependency: required for new SNMP-based nodes
+    implementation('org.snmp4j:snmp4j:2.5.8') {
         exclude group:'log4j', module:'log4j' // (brings one extra dependency: log4j; can explicity exclude it because it's optional at runtime)
     }
 
     // convenience dependency: JWTs (JSON Web Tokens), see https://github.com/museumsvictoria/nodel/discussions/297
     implementation 'io.jsonwebtoken:jjwt-api:0.11.5'
     runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.11.5'
-    runtimeOnly 'io.jsonwebtoken:jjwt-orgjson:0.11.5'    
+    runtimeOnly 'io.jsonwebtoken:jjwt-orgjson:0.11.5'
+
+    // Add joda-time dependency
+    implementation 'joda-time:joda-time:2.10.14'
 }

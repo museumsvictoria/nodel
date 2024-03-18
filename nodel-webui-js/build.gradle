@@ -1,28 +1,36 @@
 import org.apache.tools.ant.filters.ReplaceTokens
-import org.joda.time.DateTime;
+import org.joda.time.DateTime
 
 buildscript {
     repositories {
         mavenCentral()
-        jcenter()
         gradlePluginPortal()
     }
 
     dependencies {
-        classpath 'joda-time:joda-time:2.6'
+        classpath 'joda-time:joda-time:2.10.10'
     }
 }
 
 plugins {
     id 'java'
     id 'eclipse'
-    id 'maven'
-    id 'com.github.node-gradle.node' version '3.0.1'
+    id 'maven-publish'
+    id 'com.github.node-gradle.node' version '3.4.0'
 }
 
-def hostname = InetAddress.getLocalHost().getHostName().toUpperCase();
+repositories {
+    mavenCentral()
+    gradlePluginPortal()
+}
 
-def now = DateTime.now().toString();
+dependencies {
+    implementation 'joda-time:joda-time:2.10.10'
+    implementation 'org.joda:joda-convert:2.2.1'
+}
+
+def hostname = InetAddress.getLocalHost().getHostName().toUpperCase()
+def now = DateTime.now().toString()
 
 def gitBranch = 'git rev-parse --abbrev-ref HEAD'.execute().text.trim()
 def gitId = 'git rev-parse HEAD'.execute().text.trim()
@@ -34,7 +42,6 @@ if (branch.equals("master"))
     branch = "dev"
 
 def rev = gitRev
-// strip out non-alphanumeric (e.g. the '+' in '1234+')
 rev = rev.replaceAll(/[^a-zA-Z0-9]/, '')
 
 def buildSummary = gitId
@@ -43,67 +50,102 @@ if (!branch.equals("stable"))
     version project.version + "-" + branch + "_r" + rev
 
 node {
-    version = '12.19.0'
+    version = '16.20.2'
     download = true
-
     workDir = file("${project.buildDir}/nodejs")
-    nodeModulesDir = file("${project.projectDir}")
+    npmInstallCommand = System.getenv("CI") ? 'ci' : 'install'
 }
 
-task gruntRun(type: NpmTask, dependsOn: [npmInstall]) {
+tasks.register('installGruntCli', NpmTask) {
+    args = ['install', 'grunt-cli', '--save-dev', '--legacy-peer-deps']
+}
+
+tasks.register('gruntRun', NpmTask) {
+    dependsOn installGruntCli
     args = ['run-script', 'run-grunt']
+    inputs.file("Gruntfile.js")
+    inputs.dir("src")
+    inputs.dir("node_modules")
+    outputs.dir("build/grunt")
 }
 
-clean.doFirst {
-    delete "${projectDir}/node_modules/"
-    delete "${projectDir}/temp/"
+tasks.named('clean') {
+    doFirst {
+        delete "${projectDir}/node_modules/"
+        delete "${projectDir}/temp/"
+    }
 }
 
-task copyContent(type: Copy, dependsOn: [gruntRun]) {
-    from new File(project.buildDir, 'grunt')
-    into new File(project.buildDir, 'www-content_stage')
+tasks.register('checkDistDirectory', Task) {
+    dependsOn gruntRun
+    doLast {
+        def distDir = file("${project.buildDir}/dist")
+        if (distDir.exists()) {
+            println "Contents of 'dist' directory:"
+            distDir.eachFile { file ->
+                println file.name
+            }
+        } else {
+            println "'dist' directory does not exist"
+        }
+    }
+}
+
+tasks.register('copyContent', Copy) {
+    dependsOn gruntRun, checkDistDirectory
+    from file("${project.buildDir}/grunt")
+    into file("${project.buildDir}/www-content_stage")
     exclude 'build.json'
 }
 
-task filterContentTemplates(type: Copy) {
+tasks.register('filterContentTemplates', Copy) {
     from 'src'
-    into new File(project.buildDir, 'www-content_stage')
+    into file("${project.buildDir}/www-content_stage")
     include 'build.json'
     filter(ReplaceTokens, tokens: [
-        buildSummary: project.name + "-" + project.version + " " + buildSummary + " (" + hostname + ") " + now,
-        buildOrigin: gitOrigin,
-        buildProject: project.name,
-        buildBranch : branch,
-        buildVersion: project.version,
-        buildId     : buildSummary,
-        buildRev    : rev,
-        buildHost   : hostname,
-        buildDate   : now
+            buildSummary: project.name + "-" + project.version + " " + buildSummary + " (" + hostname + ") " + now,
+            buildOrigin: gitOrigin,
+            buildProject: project.name,
+            buildBranch : branch,
+            buildVersion: project.version,
+            buildId     : buildSummary,
+            buildRev    : rev,
+            buildHost   : hostname,
+            buildDate   : now
     ])
 }
 
-task zipContentInterface(type: Zip, dependsOn: [copyContent, filterContentTemplates]) {
-    from new File(project.buildDir, 'www-content_stage')
+// ... (previous code remains the same)
+
+tasks.register('zipContentInterface', Zip) {
+    dependsOn copyContent, filterContentTemplates
+    from file("${project.buildDir}/www-content_stage")
     archiveName 'content.zip'
-    destinationDir new File(project.buildDir, 'www-content/org/nodel/host')
+    destinationDirectory = file("${project.buildDir}/www-content/org/nodel/host")
 }
 
-task copyBuildInfo(type: Copy, dependsOn: [copyContent, filterContentTemplates]) {
-    from new File(project.buildDir, 'www-content_stage')
+tasks.register('copyBuildInfo', Copy) {
+    dependsOn copyContent, filterContentTemplates
+    from file("${project.buildDir}/www-content_stage")
     include 'build.json'
-    destinationDir new File(project.buildDir, 'www-content/org/nodel')
+    into file("${project.buildDir}/www-content/org/nodel")
 }
 
 sourceSets {
     main {
-        resources.srcDir new File(project.buildDir, 'www-content')
+        resources.srcDirs = [file("${project.buildDir}/www-content")]
     }
 }
 
-compileJava.dependsOn(zipContentInterface)
-compileJava.dependsOn(copyBuildInfo)
+tasks.named('compileJava') {
+    dependsOn zipContentInterface, copyBuildInfo
+}
+
+tasks.named('processResources') {
+    dependsOn zipContentInterface, copyBuildInfo
+}
 
 dependencies {
-    compile 'joda-time:joda-time:2.6'
-    compile 'org.joda:joda-convert:1.7'
+    implementation 'joda-time:joda-time:2.10.10'
+    implementation 'org.joda:joda-convert:2.2.1'
 }
