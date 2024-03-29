@@ -27,44 +27,22 @@ dependencies {
     implementation 'org.joda:joda-convert:2.2.1'
 }
 
-gradle.taskGraph.whenReady { taskGraph ->
-    taskGraph.allTasks.each { task ->
-        task.outputs.upToDateWhen { false } // Always consider outputs as out-of-date
-
-        task.doFirst {
-            def inputsChanged = task.inputs.files.any { inputFile ->
-                !inputFile.exists() || inputFile.lastModified() > task.inputs.properties[inputFile.absolutePath].lastModified
-            }
-
-            if (inputsChanged) {
-                println "Running task '${task.name}' because inputs have changed."
-            } else {
-                println "Skipping task '${task.name}' as inputs have not changed."
-                task.enabled = false // Skip the task execution
-            }
-        }
-    }
+static def getGitInfo() {
+    return [
+            branch : 'git rev-parse --abbrev-ref HEAD'.execute().text.trim(),
+            id     : 'git rev-parse HEAD'.execute().text.trim(),
+            rev    : 'git rev-list --count HEAD'.execute().text.trim(),
+            origin : 'git config --get remote.origin.url'.execute().text.trim()
+    ]
 }
 
+def buildSummary = gitInfo.id
 def hostname = InetAddress.getLocalHost().getHostName().toUpperCase()
 def now = DateTime.now().toString()
+def rev = gitInfo.rev.replaceAll(/[^a-zA-Z0-9]/, '')
+def branch = gitInfo.branch
 
-def gitBranch = 'git rev-parse --abbrev-ref HEAD'.execute().text.trim()
-def gitId = 'git rev-parse HEAD'.execute().text.trim()
-def gitRev = 'git rev-list --count HEAD'.execute().text.trim()
-def gitOrigin = 'git config --get remote.origin.url'.execute().text.trim()
-
-def branch = gitBranch
-if (branch.equals("master"))
-    branch = "dev"
-
-def rev = gitRev
-rev = rev.replaceAll(/[^a-zA-Z0-9]/, '')
-
-def buildSummary = gitId
-
-if (!branch.equals("stable"))
-    version project.version + "-" + branch + "_r" + rev
+version = gitInfo.branch != 'stable' ? "${project.version}-${branch}_r${rev}" : project.version
 
 node {
     version = '16.20.2'
@@ -75,15 +53,13 @@ node {
 }
 
 tasks.register('installGruntCli', NpmTask) {
-    args = ['install', 'grunt-cli', 'grunt-contrib-clean', '--save-dev', '--legacy-peer-deps']
+    args = ['install', 'grunt-cli', '--save-dev', '--legacy-peer-deps']
 }
 
 tasks.register('gruntRun', NpxTask) {
     dependsOn installGruntCli, clean
     command = "grunt"
     args = ["build"]
-    inputs.file("Gruntfile.js")
-    inputs.dir("src")
     inputs.dir("node_modules")
     outputs.dir("build/grunt")
 }
@@ -92,6 +68,15 @@ tasks.named('clean') {
     doFirst {
         delete "${projectDir}/node_modules/"
         delete "${projectDir}/temp/"
+    }
+}
+
+tasks.configureEach { task ->
+    if (task.name != 'clean') {
+        task.inputs.dir('src')
+        task.inputs.file('Gruntfile.js')
+        task.inputs.file('package.json')
+        task.inputs.file('package-lock.json')
     }
 }
 
@@ -122,19 +107,17 @@ tasks.register('filterContentTemplates', Copy) {
     into file("${project.buildDir}/www-content_stage")
     include 'build.json'
     filter(ReplaceTokens, tokens: [
-            buildSummary: project.name + "-" + project.version + " " + buildSummary + " (" + hostname + ") " + now,
-            buildOrigin: gitOrigin,
-            buildProject: project.name,
-            buildBranch : branch,
-            buildVersion: project.version,
-            buildId     : buildSummary,
-            buildRev    : rev,
-            buildHost   : hostname,
-            buildDate   : now
+            buildSummary: (project.name + "-" + project.version + " " + buildSummary + " (" + hostname + ") " + now).toString(),
+            buildOrigin : gitInfo.origin.toString(),
+            buildProject: project.name.toString(),
+            buildBranch : branch.toString(),
+            buildVersion: project.version.toString(),
+            buildId     : buildSummary.toString(),
+            buildRev    : rev.toString(),
+            buildHost   : hostname.toString(),
+            buildDate   : now.toString()
     ])
 }
-
-// ... (previous code remains the same)
 
 tasks.register('zipContentInterface', Zip) {
     dependsOn copyContent, filterContentTemplates
