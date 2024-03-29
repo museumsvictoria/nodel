@@ -4,7 +4,6 @@ import org.joda.time.DateTime
 buildscript {
     repositories {
         mavenCentral()
-        gradlePluginPortal()
     }
 
     dependencies {
@@ -16,12 +15,11 @@ plugins {
     id 'java'
     id 'eclipse'
     id 'maven-publish'
-    id 'com.github.node-gradle.node' version '3.4.0'
+    id 'com.github.node-gradle.node' version '7.0.2'
 }
 
 repositories {
     mavenCentral()
-    gradlePluginPortal()
 }
 
 dependencies {
@@ -53,6 +51,7 @@ node {
     version = '16.20.2'
     download = true
     workDir = file("${project.buildDir}/nodejs")
+
     npmInstallCommand = System.getenv("CI") ? 'ci' : 'install'
 }
 
@@ -60,9 +59,10 @@ tasks.register('installGruntCli', NpmTask) {
     args = ['install', 'grunt-cli', '--save-dev', '--legacy-peer-deps']
 }
 
-tasks.register('gruntRun', NpmTask) {
+tasks.register('gruntRun', NpxTask) {
     dependsOn installGruntCli
-    args = ['run-script', 'run-grunt']
+    command = "grunt"
+    args = ["build"]
     inputs.file("Gruntfile.js")
     inputs.dir("src")
     inputs.dir("node_modules")
