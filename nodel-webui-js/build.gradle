@@ -52,53 +52,43 @@ node {
     npmInstallCommand = System.getenv("CI") ? 'ci' : 'install'
 }
 
-tasks.register('checkNodeModules') {
-    def nodeModulesDir = file("${projectDir}/node_modules")
-    outputs.upToDateWhen { nodeModulesDir.exists() }
-}
+class FileChecker {
+    def nodeModulesDir
+    def srcDir
+    def packageJson
+    def packageLockJson
+    def gruntFile
 
-def srcDir = file('src')
-def packageJson = file('package.json')
-def packageLockJson = file('package-lock.json')
-def gruntFile = file('Gruntfile.js')
+    FileChecker(Project project) {
+        nodeModulesDir = project.file("${project.projectDir}/node_modules")
+        srcDir = project.file('src')
+        packageJson = project.file('package.json')
+        packageLockJson = project.file('package-lock.json')
+        gruntFile = project.file('Gruntfile.js')
+    }
 
-def filesChanged = false
+    def checkFilesChanged() {
+        if (!nodeModulesDir.exists()) {
+            return true
+        } else {
+            def srcDirModified = srcDir.exists() && srcDir.lastModified() > nodeModulesDir.lastModified()
+            def packageJsonModified = packageJson.exists() && packageJson.lastModified() > nodeModulesDir.lastModified()
+            def packageLockJsonModified = packageLockJson.exists() && packageLockJson.lastModified() > nodeModulesDir.lastModified()
+            def gruntFileModified = gruntFile.exists() && gruntFile.lastModified() > nodeModulesDir.lastModified()
 
-static def checkFilesChanged(Project project) {
-    def nodeModulesDir = project.file("${project.projectDir}/node_modules")
-    def srcDir = project.file('src')
-    def packageJson = project.file('package.json')
-    def packageLockJson = project.file('package-lock.json')
-    def gruntFile = project.file('Gruntfile.js')
+            def filesChanged = srcDirModified || packageJsonModified || packageLockJsonModified || gruntFileModified
 
-    if (!nodeModulesDir.exists()) {
-        // println "node_modules directory does not exist. Setting filesChanged to true."
-        return true
-    } else {
-        def srcDirModified = srcDir.exists() && srcDir.lastModified() > nodeModulesDir.lastModified()
-        def packageJsonModified = packageJson.exists() && packageJson.lastModified() > nodeModulesDir.lastModified()
-        def packageLockJsonModified = packageLockJson.exists() && packageLockJson.lastModified() > nodeModulesDir.lastModified()
-        def gruntFileModified = gruntFile.exists() && gruntFile.lastModified() > nodeModulesDir.lastModified()
-
-        def filesChanged = srcDirModified || packageJsonModified || packageLockJsonModified || gruntFileModified
-
-        // println "srcDirModified: ${srcDirModified}"
-        // println "packageJsonModified: ${packageJsonModified}"
-        // println "packageLockJsonModified: ${packageLockJsonModified}"
-        // println "gruntFileModified: ${gruntFileModified}"
-        // println "filesChanged: ${filesChanged}"
-
-        return filesChanged
+            return filesChanged
+        }
     }
 }
 
-tasks.named('clean', Delete) {
-    delete "${projectDir}/node_modules/"
-    delete "${projectDir}/build/grunt/"
-}
+def fileChecker = new FileChecker(project)
+
+
 
 tasks.register('installGruntCli', NpmTask) {
-    def shouldInstall = checkFilesChanged(project)
+    def shouldInstall = fileChecker.checkFilesChanged()
 
     if (shouldInstall) {
         dependsOn clean
@@ -113,8 +103,7 @@ tasks.register('installGruntCli', NpmTask) {
 }
 
 tasks.register('gruntRun', NpxTask) {
-    def shouldInstall = checkFilesChanged(project)
-
+    def shouldInstall = fileChecker.checkFilesChanged()
 
     dependsOn 'installGruntCli'
     command = "grunt"
@@ -124,6 +113,11 @@ tasks.register('gruntRun', NpxTask) {
     outputs.dir("build/grunt")
 
     onlyIf { shouldInstall }
+}
+
+tasks.named('clean', Delete) {
+    delete "${projectDir}/node_modules/"
+    delete "${projectDir}/build/grunt/"
 }
 
 tasks.register('copyContent', Copy) {
@@ -171,10 +165,6 @@ sourceSets {
 }
 
 tasks.named('compileJava') {
-    dependsOn zipContentInterface, copyBuildInfo
-}
-
-tasks.named('processResources') {
     dependsOn zipContentInterface, copyBuildInfo
 }
 
