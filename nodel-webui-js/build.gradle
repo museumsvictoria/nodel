@@ -64,19 +64,31 @@ def gruntFile = file('Gruntfile.js')
 
 def filesChanged = false
 
-tasks.register('checkFilesChanged', Task) {
-    doLast {
-        def nodeModulesDir = file("${projectDir}/node_modules")
-        if (!nodeModulesDir.exists()) {
-            filesChanged = true
-        } else {
-            def srcDirModified = srcDir.exists() && srcDir.lastModified() > nodeModulesDir.lastModified()
-            def packageJsonModified = packageJson.exists() && packageJson.lastModified() > nodeModulesDir.lastModified()
-            def packageLockJsonModified = packageLockJson.exists() && packageLockJson.lastModified() > nodeModulesDir.lastModified()
-            def gruntFileModified = gruntFile.exists() && gruntFile.lastModified() > nodeModulesDir.lastModified()
+static def checkFilesChanged(Project project) {
+    def nodeModulesDir = project.file("${project.projectDir}/node_modules")
+    def srcDir = project.file('src')
+    def packageJson = project.file('package.json')
+    def packageLockJson = project.file('package-lock.json')
+    def gruntFile = project.file('Gruntfile.js')
 
-            filesChanged = srcDirModified || packageJsonModified || packageLockJsonModified || gruntFileModified
-        }
+    if (!nodeModulesDir.exists()) {
+        // println "node_modules directory does not exist. Setting filesChanged to true."
+        return true
+    } else {
+        def srcDirModified = srcDir.exists() && srcDir.lastModified() > nodeModulesDir.lastModified()
+        def packageJsonModified = packageJson.exists() && packageJson.lastModified() > nodeModulesDir.lastModified()
+        def packageLockJsonModified = packageLockJson.exists() && packageLockJson.lastModified() > nodeModulesDir.lastModified()
+        def gruntFileModified = gruntFile.exists() && gruntFile.lastModified() > nodeModulesDir.lastModified()
+
+        def filesChanged = srcDirModified || packageJsonModified || packageLockJsonModified || gruntFileModified
+
+        // println "srcDirModified: ${srcDirModified}"
+        // println "packageJsonModified: ${packageJsonModified}"
+        // println "packageLockJsonModified: ${packageLockJsonModified}"
+        // println "gruntFileModified: ${gruntFileModified}"
+        // println "filesChanged: ${filesChanged}"
+
+        return filesChanged
     }
 }
 
@@ -86,29 +98,32 @@ tasks.named('clean', Delete) {
 }
 
 tasks.register('installGruntCli', NpmTask) {
-    dependsOn checkFilesChanged
+    def shouldInstall = checkFilesChanged(project)
+
+    if (shouldInstall) {
+        dependsOn clean
+    }
 
     args = ['install', 'grunt-cli', '--save-dev', '--legacy-peer-deps']
 
-    inputs.property('filesChanged', filesChanged)
+    inputs.property('filesChanged', shouldInstall)
     outputs.dir('node_modules')
 
-    onlyIf { filesChanged }
-
-    if (filesChanged) {
-        dependsOn clean
-    }
+    onlyIf { shouldInstall }
 }
 
 tasks.register('gruntRun', NpxTask) {
+    def shouldInstall = checkFilesChanged(project)
+
+
     dependsOn 'installGruntCli'
     command = "grunt"
     args = ["build"]
+    inputs.property('filesChanged', shouldInstall)
+    inputs.dir("node_modules")
+    outputs.dir("build/grunt")
 
-    inputs.property('filesChanged', filesChanged)
-    outputs.dir("dist")
-
-    onlyIf { filesChanged }
+    onlyIf { shouldInstall }
 }
 
 tasks.register('checkDistDirectory', Task) {
