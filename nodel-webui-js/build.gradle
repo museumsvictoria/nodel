@@ -126,23 +126,8 @@ tasks.register('gruntRun', NpxTask) {
     onlyIf { shouldInstall }
 }
 
-tasks.register('checkDistDirectory', Task) {
-    dependsOn gruntRun
-    doLast {
-        def distDir = file("${project.buildDir}/dist")
-        if (distDir.exists()) {
-            println "Contents of 'dist' directory:"
-            distDir.eachFile { file ->
-                println file.name
-            }
-        } else {
-            println "'dist' directory does not exist"
-        }
-    }
-}
-
 tasks.register('copyContent', Copy) {
-    dependsOn gruntRun, checkDistDirectory
+    dependsOn gruntRun
     from file("${project.buildDir}/grunt")
     into file("${project.buildDir}/www-content_stage")
     exclude 'build.json'
