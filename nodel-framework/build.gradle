@@ -37,22 +37,21 @@ rev = rev.replaceAll(/[^a-zA-Z0-9]/, '')
 def buildSummary = gitId
 
 if (!branch.equals("stable"))
-    version version + "-" + branch + "_r" + rev
+    version = version + "-" + branch + "_r" + rev
 
 jar {
     from "$buildDir/output"
-    baseName = 'nodel-framework'
+    archiveBaseName = 'nodel-framework'
     manifest {
-         attributes 'Implementation-Title': 'Nodel framework for Java',
-                    'Implementation-Version': version
-    }    
+        attributes 'Implementation-Title': 'Nodel framework for Java',
+                'Implementation-Version': version
+    }
 }
 
-dependencies {    
+dependencies {
     implementation 'joda-time:joda-time:2.6'
     implementation 'org.slf4j:slf4j-api:1.7.10'
 
     // SSH features
     implementation group: 'com.jcraft', name: 'jsch', version: '0.1.55'
 }
-

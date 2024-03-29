@@ -32,15 +32,15 @@ jar {
     archiveBaseName = 'nodel-jyhost'
     manifest {
         attributes 'Implementation-Title': 'Nodel JyHost',
-                'Implementation-Version': version
+                'Implementation-Version': archiveVersion
     }
 }
 
 tasks.register('fatJar', Jar) {
     manifest {
         attributes 'Implementation-Title': 'Nodel JyHost',
-                'Implementation-Version': version,
-                'Main-Class': application.mainClass
+                'Implementation-Version': archiveVersion,
+                'Main-Class': application.mainClassName
     }
     archiveAppendix = branch
     archiveBaseName = 'nodelhost'
@@ -55,7 +55,7 @@ tasks.register('fatJar', Jar) {
 tasks.register('unversioned', Copy) {
     dependsOn 'fatJar'
     from(new File(buildDir, 'distributions/standalone')) {
-        rename '.*($version)*', 'nodelhost.jar'
+        rename '.*($archiveVersion)*', 'nodelhost.jar'
     }
 
     into new File(buildDir, 'distributions/standalone')
@@ -63,6 +63,14 @@ tasks.register('unversioned', Copy) {
 
 tasks.build {
     finalizedBy 'fatJar'
+}
+
+tasks.named('distTar') {
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+}
+
+tasks.named('distZip') {
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
 }
 
 dependencies {
