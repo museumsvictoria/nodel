@@ -52,32 +52,63 @@ node {
     npmInstallCommand = System.getenv("CI") ? 'ci' : 'install'
 }
 
+tasks.register('checkNodeModules') {
+    def nodeModulesDir = file("${projectDir}/node_modules")
+    outputs.upToDateWhen { nodeModulesDir.exists() }
+}
+
+def srcDir = file('src')
+def packageJson = file('package.json')
+def packageLockJson = file('package-lock.json')
+def gruntFile = file('Gruntfile.js')
+
+def filesChanged = false
+
+tasks.register('checkFilesChanged', Task) {
+    doLast {
+        def nodeModulesDir = file("${projectDir}/node_modules")
+        if (!nodeModulesDir.exists()) {
+            filesChanged = true
+        } else {
+            def srcDirModified = srcDir.exists() && srcDir.lastModified() > nodeModulesDir.lastModified()
+            def packageJsonModified = packageJson.exists() && packageJson.lastModified() > nodeModulesDir.lastModified()
+            def packageLockJsonModified = packageLockJson.exists() && packageLockJson.lastModified() > nodeModulesDir.lastModified()
+            def gruntFileModified = gruntFile.exists() && gruntFile.lastModified() > nodeModulesDir.lastModified()
+
+            filesChanged = srcDirModified || packageJsonModified || packageLockJsonModified || gruntFileModified
+        }
+    }
+}
+
+tasks.named('clean', Delete) {
+    delete "${projectDir}/node_modules/"
+    delete "${projectDir}/build/grunt/"
+}
+
 tasks.register('installGruntCli', NpmTask) {
+    dependsOn checkFilesChanged
+
     args = ['install', 'grunt-cli', '--save-dev', '--legacy-peer-deps']
+
+    inputs.property('filesChanged', filesChanged)
+    outputs.dir('node_modules')
+
+    onlyIf { filesChanged }
+
+    if (filesChanged) {
+        dependsOn clean
+    }
 }
 
 tasks.register('gruntRun', NpxTask) {
-    dependsOn installGruntCli, clean
+    dependsOn 'installGruntCli'
     command = "grunt"
     args = ["build"]
-    inputs.dir("node_modules")
-    outputs.dir("build/grunt")
-}
 
-tasks.named('clean') {
-    doFirst {
-        delete "${projectDir}/node_modules/"
-        delete "${projectDir}/temp/"
-    }
-}
+    inputs.property('filesChanged', filesChanged)
+    outputs.dir("dist")
 
-tasks.configureEach { task ->
-    if (task.name != 'clean') {
-        task.inputs.dir('src')
-        task.inputs.file('Gruntfile.js')
-        task.inputs.file('package.json')
-        task.inputs.file('package-lock.json')
-    }
+    onlyIf { filesChanged }
 }
 
 tasks.register('checkDistDirectory', Task) {
