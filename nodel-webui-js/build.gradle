@@ -47,9 +47,9 @@ version = gitInfo.branch != 'stable' ? "${project.version}-${branch}_r${rev}" : 
 node {
     version = '16.20.2'
     download = true
-    workDir = file("${project.buildDir}/nodejs")
 
-    npmInstallCommand = System.getenv("CI") ? 'ci' : 'install'
+    workDir = file("${project.buildDir}/nodejs")
+    nodeProjectDir = file("${project.projectDir}")
 }
 
 class FileChecker {
@@ -88,27 +88,25 @@ def fileChecker = new FileChecker(project)
 
 
 tasks.register('installGruntCli', NpmTask) {
+    def gruntCliInstalled = file('node_modules/grunt-cli').exists()
+
+    onlyIf { !gruntCliInstalled }
+
+    args = ['install', 'grunt-cli', '--save-dev', '--legacy-peer-deps']
+
+    outputs.dir('node_modules')
+}
+
+tasks.register('gruntRun', NpxTask) {
     def shouldInstall = fileChecker.checkFilesChanged()
 
     if (shouldInstall) {
         dependsOn clean
     }
 
-    args = ['install', 'grunt-cli', '--save-dev', '--legacy-peer-deps']
-
-    inputs.property('filesChanged', shouldInstall)
-    outputs.dir('node_modules')
-
-    onlyIf { shouldInstall }
-}
-
-tasks.register('gruntRun', NpxTask) {
-    def shouldInstall = fileChecker.checkFilesChanged()
-
     dependsOn 'installGruntCli'
     command = "grunt"
     args = ["build"]
-    inputs.property('filesChanged', shouldInstall)
     inputs.dir("node_modules")
     outputs.dir("build/grunt")
 
@@ -165,6 +163,10 @@ sourceSets {
 }
 
 tasks.named('compileJava') {
+    dependsOn zipContentInterface, copyBuildInfo
+}
+
+tasks.named('processResources') {
     dependsOn zipContentInterface, copyBuildInfo
 }
 
