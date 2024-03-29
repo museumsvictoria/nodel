@@ -27,6 +27,25 @@ dependencies {
     implementation 'org.joda:joda-convert:2.2.1'
 }
 
+gradle.taskGraph.whenReady { taskGraph ->
+    taskGraph.allTasks.each { task ->
+        task.outputs.upToDateWhen { false } // Always consider outputs as out-of-date
+
+        task.doFirst {
+            def inputsChanged = task.inputs.files.any { inputFile ->
+                !inputFile.exists() || inputFile.lastModified() > task.inputs.properties[inputFile.absolutePath].lastModified
+            }
+
+            if (inputsChanged) {
+                println "Running task '${task.name}' because inputs have changed."
+            } else {
+                println "Skipping task '${task.name}' as inputs have not changed."
+                task.enabled = false // Skip the task execution
+            }
+        }
+    }
+}
+
 def hostname = InetAddress.getLocalHost().getHostName().toUpperCase()
 def now = DateTime.now().toString()
 
@@ -56,11 +75,11 @@ node {
 }
 
 tasks.register('installGruntCli', NpmTask) {
-    args = ['install', 'grunt-cli', '--save-dev', '--legacy-peer-deps']
+    args = ['install', 'grunt-cli', 'grunt-contrib-clean', '--save-dev', '--legacy-peer-deps']
 }
 
 tasks.register('gruntRun', NpxTask) {
-    dependsOn installGruntCli
+    dependsOn installGruntCli, clean
     command = "grunt"
     args = ["build"]
     inputs.file("Gruntfile.js")
