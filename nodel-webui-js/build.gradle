@@ -1,5 +1,4 @@
 import org.apache.tools.ant.filters.ReplaceTokens
-import org.joda.time.DateTime
 
 buildscript {
     repositories {
@@ -26,23 +25,6 @@ dependencies {
     implementation 'joda-time:joda-time:2.10.10'
     implementation 'org.joda:joda-convert:2.2.1'
 }
-
-static def getGitInfo() {
-    return [
-            branch : 'git rev-parse --abbrev-ref HEAD'.execute().text.trim(),
-            id     : 'git rev-parse HEAD'.execute().text.trim(),
-            rev    : 'git rev-list --count HEAD'.execute().text.trim(),
-            origin : 'git config --get remote.origin.url'.execute().text.trim()
-    ]
-}
-
-def buildSummary = gitInfo.id
-def hostname = InetAddress.getLocalHost().getHostName().toUpperCase()
-def now = DateTime.now().toString()
-def rev = gitInfo.rev.replaceAll(/[^a-zA-Z0-9]/, '')
-def branch = gitInfo.branch
-
-version = gitInfo.branch != 'stable' ? "${project.version}-${branch}_r${rev}" : project.version
 
 node {
     version = '12.19.0'
@@ -126,15 +108,15 @@ tasks.register('filterContentTemplates', Copy) {
     into file("${project.buildDir}/www-content_stage")
     include 'build.json'
     filter(ReplaceTokens, tokens: [
-            buildSummary: (project.name + "-" + project.version + " " + buildSummary + " (" + hostname + ") " + now).toString(),
-            buildOrigin : gitInfo.origin.toString(),
+            buildSummary: (project.name + "-" + project.version + " " + rootProject.ext.buildSummary + " (" + rootProject.ext.hostname + ") " + rootProject.ext.now).toString(),
+            buildOrigin : rootProject.ext.gitInfo.origin.toString(),
             buildProject: project.name.toString(),
-            buildBranch : branch.toString(),
-            buildVersion: project.version.toString(),
-            buildId     : buildSummary.toString(),
-            buildRev    : rev.toString(),
-            buildHost   : hostname.toString(),
-            buildDate   : now.toString()
+            buildBranch : rootProject.ext.branch.toString(),
+            buildVersion: rootProject.ext.version.toString(),
+            buildId     : rootProject.ext.buildSummary.toString(),
+            buildRev    : rootProject.ext.rev.toString(),
+            buildHost   : rootProject.ext.hostname.toString(),
+            buildDate   : rootProject.ext.now.toString()
     ])
 }
 

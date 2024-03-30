@@ -9,20 +9,6 @@ repositories {
     mavenCentral()
 }
 
-def gitBranch = 'git rev-parse --abbrev-ref HEAD'.execute().text.trim()
-def gitId = 'git rev-parse HEAD'.execute().text.trim()
-def gitRev = 'git rev-list --count HEAD'.execute().text.trim()
-
-def branch = gitBranch
-if (branch.equals("master"))
-    branch = "dev"
-
-def rev = gitRev
-// strip out non-alphanumeric (e.g. the '+' in '1234+')
-rev = rev.replaceAll(/[^a-zA-Z0-9]/, '')
-
-def buildSummary = gitId
-
 application {
     mainClass = 'org.nodel.jyhost.Launch'
 }
@@ -42,9 +28,9 @@ tasks.register('fatJar', Jar) {
                 'Implementation-Version': archiveVersion,
                 'Main-Class': application.mainClassName
     }
-    archiveAppendix = branch
+    archiveAppendix = rootProject.ext.branch
     archiveBaseName = 'nodelhost'
-    archiveClassifier = 'rev' + rev
+    archiveClassifier = 'rev' + rootProject.ext.rev
     destinationDirectory = new File(buildDir, 'distributions/standalone')
     from { configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) } }
     with jar

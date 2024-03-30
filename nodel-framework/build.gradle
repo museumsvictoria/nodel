@@ -1,50 +1,18 @@
-import org.apache.tools.ant.filters.ReplaceTokens
-import org.joda.time.DateTime;
-
 apply plugin: 'java'
 apply plugin: 'maven-publish'
 apply plugin: 'eclipse'
 
-buildscript {
-    repositories {
-        mavenCentral()
-    }
-
-    dependencies {
-        classpath 'joda-time:joda-time:2.6'
-    }
-}
-
 // some extended unicode is used in SimpleName
 compileJava.options.encoding = 'utf-8'
 
-def hostname = InetAddress.getLocalHost().getHostName().toUpperCase();
-
-def now = DateTime.now().toString();
-
-def gitBranch = 'git rev-parse --abbrev-ref HEAD'.execute().text.trim()
-def gitId = 'git rev-parse HEAD'.execute().text.trim()
-def gitRev = 'git rev-list --count HEAD'.execute().text.trim()
-
-def branch = gitBranch
-if (branch.equals("master"))
-    branch = "dev"
-
-def rev = gitRev
-// strip out non-alphanumeric (e.g. the '+' in '1234+')
-rev = rev.replaceAll(/[^a-zA-Z0-9]/, '')
-
-def buildSummary = gitId
-
-if (!branch.equals("stable"))
-    version = version + "-" + branch + "_r" + rev
+version = rootProject.ext.gitInfo.branch != 'stable' ? "${project.version}-${rootProject.ext.branch}_r${rootProject.ext.rev}" : project.version
 
 jar {
     from "$buildDir/output"
     archiveBaseName = 'nodel-framework'
     manifest {
         attributes 'Implementation-Title': 'Nodel framework for Java',
-                'Implementation-Version': version
+                'Implementation-Version': rootProject.ext.version
     }
 }
 

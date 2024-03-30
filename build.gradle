@@ -1,3 +1,33 @@
+import org.joda.time.DateTime
+
+buildscript {
+    repositories {
+        mavenCentral()
+    }
+    dependencies {
+        classpath 'joda-time:joda-time:2.10.10'
+    }
+}
+
+ext {
+    getGitInfo = {
+        return [
+                branch : 'git rev-parse --abbrev-ref HEAD'.execute().text.trim(),
+                id     : 'git rev-parse HEAD'.execute().text.trim(),
+                rev    : 'git rev-list --count HEAD'.execute().text.trim(),
+                origin : 'git config --get remote.origin.url'.execute().text.trim()
+        ]
+    }
+
+    gitInfo = getGitInfo()
+    buildSummary = gitInfo.id
+    hostname = InetAddress.getLocalHost().getHostName().toUpperCase()
+    now = DateTime.now().toString()
+    rev = gitInfo.rev.replaceAll(/[^a-zA-Z0-9]/, '')
+    branch = gitInfo.branch
+    version = gitInfo.branch != 'stable' ? "${project.version}-${branch}_r${rev}" : project.version
+}
+
 subprojects {
     apply plugin: 'java'
     group = 'org.nodel'
