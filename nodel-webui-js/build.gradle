@@ -75,7 +75,6 @@ tasks.register('gruntRun', NpxTask) {
     }
 
     command = "grunt"
-    args = ["build"]
     inputs.property('filesChanged', shouldInstall)
     inputs.dir("node_modules")
     outputs.dir("build/grunt")
