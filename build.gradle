@@ -24,7 +24,14 @@ ext {
     hostname = InetAddress.getLocalHost().getHostName().toUpperCase()
     now = DateTime.now().toString()
     rev = gitInfo.rev.replaceAll(/[^a-zA-Z0-9]/, '')
+
     branch = gitInfo.branch
+    if (branch == 'master') {
+        branch = 'dev'
+    } else if (branch.contains('/')) {
+        branch = branch.substring(branch.indexOf('/') + 1)
+    }
+
     version = gitInfo.branch != 'stable' ? "${project.version}-${branch}_r${rev}" : project.version
 }
 
