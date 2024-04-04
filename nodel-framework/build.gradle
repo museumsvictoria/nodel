@@ -16,13 +16,19 @@ jar {
     }
 }
 
+test {
+    useJUnitPlatform()
+    testLogging {
+        events 'passed', 'skipped', 'failed'
+    }
+}
+
 dependencies {
     implementation 'joda-time:joda-time:2.6'
     implementation 'org.slf4j:slf4j-api:1.7.10'
 
     // SSH features
     implementation group: 'com.jcraft', name: 'jsch', version: '0.1.55'
-}
 
     // Test dependencies
     testImplementation 'org.junit.jupiter:junit-jupiter-api:5.7.0'
