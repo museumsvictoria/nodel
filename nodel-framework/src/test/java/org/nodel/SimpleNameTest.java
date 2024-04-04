@@ -30,7 +30,7 @@ class SimpleNameTest {
             "node.name, nodename",
             "node name, nodename"
     })
-    void testGetReducedName(String originalName, String expectedReducedName) {
+    public void testGetReducedName(String originalName, String expectedReducedName) {
         SimpleName name = new SimpleName(originalName);
         assertEquals(expectedReducedName, name.getReducedName());
     }
