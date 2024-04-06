@@ -1,109 +1,153 @@
 import org.apache.tools.ant.filters.ReplaceTokens
-import org.joda.time.DateTime;
 
 buildscript {
     repositories {
         mavenCentral()
-        jcenter()
-        gradlePluginPortal()
     }
 
     dependencies {
-        classpath 'joda-time:joda-time:2.6'
+        classpath 'joda-time:joda-time:2.10.10'
     }
 }
 
 plugins {
     id 'java'
     id 'eclipse'
-    id 'maven'
-    id 'com.github.node-gradle.node' version '3.0.1'
+    id 'maven-publish'
+    id 'com.github.node-gradle.node' version '7.0.2'
 }
 
-def hostname = InetAddress.getLocalHost().getHostName().toUpperCase();
+repositories {
+    mavenCentral()
+}
 
-def now = DateTime.now().toString();
-
-def gitBranch = 'git rev-parse --abbrev-ref HEAD'.execute().text.trim()
-def gitId = 'git rev-parse HEAD'.execute().text.trim()
-def gitRev = 'git rev-list --count HEAD'.execute().text.trim()
-def gitOrigin = 'git config --get remote.origin.url'.execute().text.trim()
-
-def branch = gitBranch
-if (branch.equals("master"))
-    branch = "dev"
-
-def rev = gitRev
-// strip out non-alphanumeric (e.g. the '+' in '1234+')
-rev = rev.replaceAll(/[^a-zA-Z0-9]/, '')
-
-def buildSummary = gitId
-
-if (!branch.equals("stable"))
-    version project.version + "-" + branch + "_r" + rev
+dependencies {
+    implementation 'joda-time:joda-time:2.10.10'
+    implementation 'org.joda:joda-convert:2.2.1'
+}
 
 node {
     version = '12.19.0'
     download = true
 
     workDir = file("${project.buildDir}/nodejs")
-    nodeModulesDir = file("${project.projectDir}")
+    nodeProjectDir = file("${project.projectDir}")
 }
 
-task gruntRun(type: NpmTask, dependsOn: [npmInstall]) {
-    args = ['run-script', 'run-grunt']
+class FileChecker {
+    def nodeModulesDir
+    def srcDir
+    def packageJson
+    def packageLockJson
+    def gruntFile
+
+    FileChecker(Project project) {
+        nodeModulesDir = project.file("${project.projectDir}/node_modules")
+        srcDir = project.file('src')
+        packageJson = project.file('package.json')
+        packageLockJson = project.file('package-lock.json')
+        gruntFile = project.file('Gruntfile.js')
+    }
+
+    def checkFilesChanged() {
+        if (!nodeModulesDir.exists()) {
+            return true
+        } else {
+            def srcDirModified = srcDir.exists() && srcDir.lastModified() > nodeModulesDir.lastModified()
+            def packageJsonModified = packageJson.exists() && packageJson.lastModified() > nodeModulesDir.lastModified()
+            def packageLockJsonModified = packageLockJson.exists() && packageLockJson.lastModified() > nodeModulesDir.lastModified()
+            def gruntFileModified = gruntFile.exists() && gruntFile.lastModified() > nodeModulesDir.lastModified()
+
+            def filesChanged = srcDirModified || packageJsonModified || packageLockJsonModified || gruntFileModified
+
+            return filesChanged
+        }
+    }
 }
 
-clean.doFirst {
+def fileChecker = new FileChecker(project)
+
+tasks.register('gruntRun', NpxTask) {
+    def shouldInstall = fileChecker.checkFilesChanged()
+
+    if (shouldInstall) {
+        dependsOn clean, npmInstall
+    }
+
+    command = "grunt"
+    inputs.property('filesChanged', shouldInstall)
+    inputs.dir("node_modules")
+    outputs.dir("build/grunt")
+
+    onlyIf { shouldInstall }
+
+    doLast {
+        if (shouldInstall) {
+            logger.info('Running Grunt build task as files have changed or node_modules is missing.')
+        } else {
+            logger.info('Skipping Grunt build task as no files have changed and node_modules is present.')
+        }
+    }
+}
+
+tasks.named('clean', Delete) {
     delete "${projectDir}/node_modules/"
-    delete "${projectDir}/temp/"
+    delete "${projectDir}/build/grunt/"
 }
 
-task copyContent(type: Copy, dependsOn: [gruntRun]) {
-    from new File(project.buildDir, 'grunt')
-    into new File(project.buildDir, 'www-content_stage')
+tasks.register('copyContent', Copy) {
+    dependsOn gruntRun
+    from file("${project.buildDir}/grunt")
+    into file("${project.buildDir}/www-content_stage")
     exclude 'build.json'
 }
 
-task filterContentTemplates(type: Copy) {
+tasks.register('filterContentTemplates', Copy) {
     from 'src'
-    into new File(project.buildDir, 'www-content_stage')
+    into file("${project.buildDir}/www-content_stage")
     include 'build.json'
     filter(ReplaceTokens, tokens: [
-        buildSummary: project.name + "-" + project.version + " " + buildSummary + " (" + hostname + ") " + now,
-        buildOrigin: gitOrigin,
-        buildProject: project.name,
-        buildBranch : branch,
-        buildVersion: project.version,
-        buildId     : buildSummary,
-        buildRev    : rev,
-        buildHost   : hostname,
-        buildDate   : now
+            buildSummary: (project.name + "-" + project.version + " " + rootProject.ext.buildSummary + " (" + rootProject.ext.hostname + ") " + rootProject.ext.now).toString(),
+            buildOrigin : rootProject.ext.gitInfo.origin.toString(),
+            buildProject: project.name.toString(),
+            buildBranch : rootProject.ext.branch.toString(),
+            buildVersion: rootProject.ext.version.toString(),
+            buildId     : rootProject.ext.buildSummary.toString(),
+            buildRev    : rootProject.ext.rev.toString(),
+            buildHost   : rootProject.ext.hostname.toString(),
+            buildDate   : rootProject.ext.now.toString()
     ])
 }
 
-task zipContentInterface(type: Zip, dependsOn: [copyContent, filterContentTemplates]) {
-    from new File(project.buildDir, 'www-content_stage')
+tasks.register('zipContentInterface', Zip) {
+    dependsOn copyContent, filterContentTemplates
+    from file("${project.buildDir}/www-content_stage")
     archiveName 'content.zip'
-    destinationDir new File(project.buildDir, 'www-content/org/nodel/host')
+    destinationDirectory = file("${project.buildDir}/www-content/org/nodel/host")
 }
 
-task copyBuildInfo(type: Copy, dependsOn: [copyContent, filterContentTemplates]) {
-    from new File(project.buildDir, 'www-content_stage')
+tasks.register('copyBuildInfo', Copy) {
+    dependsOn copyContent, filterContentTemplates
+    from file("${project.buildDir}/www-content_stage")
     include 'build.json'
-    destinationDir new File(project.buildDir, 'www-content/org/nodel')
+    into file("${project.buildDir}/www-content/org/nodel")
 }
 
 sourceSets {
     main {
-        resources.srcDir new File(project.buildDir, 'www-content')
+        resources.srcDirs = [file("${project.buildDir}/www-content")]
     }
 }
 
-compileJava.dependsOn(zipContentInterface)
-compileJava.dependsOn(copyBuildInfo)
+tasks.named('compileJava') {
+    dependsOn zipContentInterface, copyBuildInfo
+}
+
+tasks.named('processResources') {
+    dependsOn zipContentInterface, copyBuildInfo
+}
 
 dependencies {
-    compile 'joda-time:joda-time:2.6'
-    compile 'org.joda:joda-convert:1.7'
+    implementation 'joda-time:joda-time:2.10.10'
+    implementation 'org.joda:joda-convert:2.2.1'
 }
