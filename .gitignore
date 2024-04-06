@@ -35,6 +35,3 @@ nodel-webui-js/src/dark/theme.less
 nodel-webui-js/src/light/theme.less
 nodel-webui-js/.ftppass
 nodel-webui-js/sftpCache.json
-
-# Ignore IDE files
-.idea
