@@ -1526,6 +1526,14 @@ public class PyNode extends BaseDynamicNode {
     }
     
     /**
+     * Duplicate the node.
+     */
+    @Service(name = "duplicate", title = "Duplicate", desc = "Duplicates a node.")
+    public void duplicate(SimpleName newNode) {
+        _nodelHost.duplicateNode(this, newNode);     
+    }
+    
+    /**
      * Renames the node.
      */
     @Service(name = "update", title = "Updates", desc = "Updates a node from a recipe.")
