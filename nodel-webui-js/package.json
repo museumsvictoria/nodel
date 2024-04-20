@@ -40,9 +40,6 @@
     "grunt-cli": "^1.4.3",
     "lodash": "^4.17.21"
   },
-  "scripts": {
-    "run-grunt": "node_modules/.bin/grunt"
-  },
   "license": "MPL-2.0",
   "repository": {
     "type": "git",
