@@ -27,18 +27,20 @@ ext {
 
     branch = gitInfo.branch
     if (branch == 'master') {
-        branch = 'dev'
+        branch = 'release'
     } else if (branch.contains('/')) {
         branch = branch.substring(branch.indexOf('/') + 1)
     }
 
-    version = gitInfo.branch != 'stable' ? "${project.version}-${branch}_r${rev}" : project.version
+    baseVersion = '2.2.1'
+    versionIdentifier = "${baseVersion}-${branch}_r${rev}"
+    println "versionIdentifier: ${versionIdentifier}"
 }
 
 subprojects {
     apply plugin: 'java'
     group = 'org.nodel'
-    version = '2.2.1'
+    version = rootProject.ext.baseVersion
     repositories {
         mavenCentral()
     }

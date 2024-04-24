@@ -111,7 +111,7 @@ tasks.register('filterContentTemplates', Copy) {
             buildOrigin : rootProject.ext.gitInfo.origin.toString(),
             buildProject: project.name.toString(),
             buildBranch : rootProject.ext.branch.toString(),
-            buildVersion: rootProject.ext.version.toString(),
+            buildVersion: rootProject.ext.versionIdentifier.toString(),
             buildId     : rootProject.ext.buildSummary.toString(),
             buildRev    : rootProject.ext.rev.toString(),
             buildHost   : rootProject.ext.hostname.toString(),

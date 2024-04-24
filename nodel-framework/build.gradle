@@ -5,14 +5,12 @@ apply plugin: 'eclipse'
 // some extended unicode is used in SimpleName
 compileJava.options.encoding = 'utf-8'
 
-version = rootProject.ext.gitInfo.branch != 'stable' ? "${project.version}-${rootProject.ext.branch}_r${rootProject.ext.rev}" : project.version
-
 jar {
     from "$buildDir/output"
     archiveBaseName = 'nodel-framework'
     manifest {
         attributes 'Implementation-Title': 'Nodel framework for Java',
-                'Implementation-Version': rootProject.ext.version
+                'Implementation-Version': rootProject.ext.versionIdentifier
     }
 }
 
