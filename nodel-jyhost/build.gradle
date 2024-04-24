@@ -13,6 +13,10 @@ application {
     mainClass = 'org.nodel.jyhost.Launch'
 }
 
+compileJava {
+    options.release = 8
+}
+
 jar {
     from "$buildDir/output"
     archiveBaseName = 'nodel-jyhost'

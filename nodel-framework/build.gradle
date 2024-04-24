@@ -16,6 +16,10 @@ jar {
     }
 }
 
+compileJava {
+    options.release = 8
+}
+
 test {
     useJUnitPlatform()
     testLogging {

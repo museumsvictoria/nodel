@@ -17,6 +17,10 @@ plugins {
     id 'com.github.node-gradle.node' version '7.0.2'
 }
 
+compileJava {
+    options.release = 8
+}
+
 repositories {
     mavenCentral()
 }
