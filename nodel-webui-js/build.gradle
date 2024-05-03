@@ -43,12 +43,14 @@ if (!branch.equals("stable"))
     version project.version + "-" + branch + "_r" + rev
 
 node {
-    version = '12.19.0'
+    version = '20.12.0'
     download = true
 
     workDir = file("${project.buildDir}/nodejs")
-    nodeModulesDir = file("${project.projectDir}")
+    nodeProjectDir = file("${project.projectDir}")
 }
+
+npmInstall.args = ['--legacy-peer-deps']
 
 task gruntRun(type: NpmTask, dependsOn: [npmInstall]) {
     args = ['run-script', 'run-grunt']
