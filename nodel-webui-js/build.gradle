@@ -31,12 +31,15 @@ dependencies {
 }
 
 node {
-    version = '12.19.0'
+    version = '20.12.0'
     download = true
 
     workDir = file("${project.buildDir}/nodejs")
     nodeProjectDir = file("${project.projectDir}")
 }
+
+// ensures compatibility with older dependencies that are otherwise forced to be updated
+npmInstall.args = ['--legacy-peer-deps']
 
 class FileChecker {
     def nodeModulesDir
