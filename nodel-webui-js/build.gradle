@@ -38,6 +38,7 @@ node {
     nodeProjectDir = file("${project.projectDir}")
 }
 
+// ensures compatibility with older dependencies that are otherwise forced to be updated
 npmInstall.args = ['--legacy-peer-deps']
 
 class FileChecker {
