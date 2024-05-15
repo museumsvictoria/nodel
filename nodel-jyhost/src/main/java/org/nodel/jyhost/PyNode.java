@@ -1646,14 +1646,16 @@ public class PyNode extends BaseDynamicNode {
     }
 
     /**
-     * Waits no longer than 10s to try and get a reentrant lock.
+     * Waits no longer than 60s to try and get a reentrant lock.
      * Starts off sharing one lock, but may need more if nodes lock up or take too long to initialise.
+     * This is done to deliberately constrain parallelism during intialisation so as to not encourage 
+     * race-conditions the Python code that isn't necessarily used to being executed in a free-threaded environment.
      */
     private ReentrantLock getAReentrantLock() throws InterruptedException {
         ReentrantLock lock = null;
 
         for (;;) {
-            if (lock != null && lock.tryLock(10, TimeUnit.SECONDS)) {
+            if (lock != null && lock.tryLock(60, TimeUnit.SECONDS)) {
                 return lock;
 
             } else {
@@ -1667,7 +1669,7 @@ public class PyNode extends BaseDynamicNode {
                         // won't get here the first iteration
                         s_currentGlobalRentrantLock = new ReentrantLock();
 
-                        _logger.warn("The interlocked initialisation sequence of the scripting engines is slow or dead-locked. A new lock has been created to hopefully release any potential dead-lock.");
+                        _logger.warn("A node is taking more than 60s to initialise.");
 
                         lock = s_currentGlobalRentrantLock;
                     }
