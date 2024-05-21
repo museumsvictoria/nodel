@@ -2,7 +2,6 @@ using Microsoft.Win32.SafeHandles;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.IO;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
@@ -10,7 +9,7 @@ using System.Threading;
 /// <summary>
 /// This program is a simple launcher that uses native Windows Job objects to prevent
 /// child processes from being orphaned should itself or its parent die.
-/// 
+///
 /// Using minimal threads and resources, it waits for its child process or parent (if specified) to finish, and then it dies.
 /// </summary>
 namespace ProcessSandbox
@@ -24,7 +23,7 @@ namespace ProcessSandbox
                                               "//       [--windowStyle STYLE]      // one of " + String.Join(", ", Enum.GetNames(typeof(ProcessPriorityClass))) + " (DOES NOT ALWAYS WORK)\r\n" +
                                               "//       EXECUTABLE PARAMS...";
 
-        static void Main(string[] args)
+        static void Main()
         {
             // outside of try to ensure safely cleaned up
             Process child = null;
@@ -40,7 +39,8 @@ namespace ProcessSandbox
                 ProcessPriorityClass? priorityClass = null;
                 ProcessWindowStyle? windowStyle = null;
 
-                ParseArgs(args, ref ppid, ref working, ref exec, ref priorityClass, ref windowStyle, execArgs);
+                string commandLine = Environment.CommandLine;
+                ParseArgs(commandLine, ref ppid, ref working, ref exec, ref priorityClass, ref windowStyle, execArgs);
 
                 // verify args
                 if (exec == null)
@@ -60,8 +60,10 @@ namespace ProcessSandbox
                 job.AddProcess(self.Id);
 
                 // kick off the child process...
-                var startInfo = new ProcessStartInfo(exec, string.Join(" ", execArgs))
+                var startInfo = new ProcessStartInfo
                 {
+                    FileName = exec,
+                    Arguments = string.Join(" ", execArgs),
                     UseShellExecute = false,
                     RedirectStandardError = false,
                     RedirectStandardInput = false,
@@ -118,17 +120,70 @@ namespace ProcessSandbox
 
                 // produce a response message (for possible JSON consumption) and quit
                 Console.WriteLine("{\"event\": \"LaunchFailure\", \"arg\": \"" + JSONEscape(exc.Message + " (" + exc.GetType() + ")") + "\"}");
-                return;
             }
 
         }
 
         /// <summary>
+        /// Splits the command line string into an array of arguments while preserving quotes around arguments containing spaces.
+        /// </summary>
+        private static string[] SplitCommandLine(string commandLine)
+        {
+            var args = new List<string>();
+            var currentArg = new StringBuilder();
+            bool inQuotes = false;
+
+            for (int i = 0; i < commandLine.Length; i++)
+            {
+                char c = commandLine[i];
+
+                if (c == '"')
+                {
+                    if (inQuotes && i + 1 < commandLine.Length && commandLine[i + 1] == '"')
+                    {
+                        // Handle escaped quotes ""
+                        currentArg.Append(c);
+                        i++;
+                    }
+                    else
+                    {
+                        inQuotes = !inQuotes;
+                        currentArg.Append(c);
+                    }
+                }
+                else if (c == ' ' && !inQuotes)
+                {
+                    if (currentArg.Length > 0)
+                    {
+                        args.Add(currentArg.ToString());
+                        currentArg.Clear();
+                    }
+                }
+                else
+                {
+                    currentArg.Append(c);
+                }
+            }
+
+            if (currentArg.Length > 0)
+            {
+                args.Add(currentArg.ToString());
+            }
+
+            return args.ToArray();
+        }
+
+
+        /// <summary>
         /// This argument parses has to allow for arbitrary arguments after its own are parsed.
         /// </summary>
-        private static void ParseArgs(string[] args, ref uint ppid, ref string working, ref string exec, ref ProcessPriorityClass? priorityClass, ref ProcessWindowStyle? windowStyle, List<string> execArgs)
+        private static void ParseArgs(string commandLine, ref uint ppid, ref string working, ref string exec, ref ProcessPriorityClass? priorityClass, ref ProcessWindowStyle? windowStyle, List<string> execArgs)
         {
+            var args = SplitCommandLine(commandLine);
             var argStream = StringStream(args);
+
+            // Skip the first argument, which is the executable path
+            argStream.MoveNext();
 
             bool parsingSelfArgs = true;
 
@@ -149,7 +204,6 @@ namespace ProcessSandbox
                     {
                         argStream.MoveNext();
                         ppid = uint.Parse(argStream.Current);
-
                     }
                     else if (parsingSelfArgs && lcArg.Equals("--working"))
                     {
@@ -177,7 +231,7 @@ namespace ProcessSandbox
                         // first arg must be executable
                         exec = arg;
 
-                        // now all args are executable args 
+                        // now all args are executable args
                         parsingSelfArgs = false;
                     }
                     else
