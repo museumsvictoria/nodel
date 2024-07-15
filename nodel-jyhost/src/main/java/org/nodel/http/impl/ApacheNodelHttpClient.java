@@ -144,7 +144,7 @@ public class ApacheNodelHttpClient extends NodelHTTPClient {
         
         try {
             int lastIndexOfColon = proxyAddress.lastIndexOf(':');
-            proxyHost = proxyAddress.substring(0, lastIndexOfColon - 1);
+            proxyHost = proxyAddress.substring(0, lastIndexOfColon);
             proxyPort = Integer.parseInt(proxyAddress.substring(lastIndexOfColon + 1));
         } catch (Exception ignore) {
         }

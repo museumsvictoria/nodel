@@ -93,6 +93,12 @@ def get_url(url, method=None, query=None, username=None, password=None, headers=
     return nodetoolkit.getHttpClient().makeRequest(url, method, query, username, password, headers, contentType, post, long(connectTimeout*1000), long(readTimeout*1000))
   else:
     return nodetoolkit.getHttpClient().makeSimpleRequest(url, method, query, username, password, headers, contentType, post, long(connectTimeout*1000), long(readTimeout*1000))
+  
+# For HTTP proxy use, call this before any other HTTP client operations: 
+#     _toolkit.getHttpClient().setProxy("PROXY_HOST:PORT_PORT", USERNAME or None, PASSWORD or None)
+
+# To ignore HTTPS certificate verification:
+#     _toolkit.getHttpClient().setIgnoreSSL(True)
 
 # DEPRECATED (same as above)
 def getURL(url, method=None, query=None, username=None, password=None, headers=None, contentType=None, post=None, connectTimeout=10, readTimeout=15):
