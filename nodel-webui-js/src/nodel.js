@@ -33,18 +33,22 @@ $.views.helpers({
   idxid: function (idx,id) {
     return !_.isUndefined(idx)? String(idx)+'_'+id : id;
   },
-  sanitize: function(value, maxLength) {
+  sanitize: function(value, maxLength, nostrip) {
     var value = JSON.stringify(value, null, 2);
     if (maxLength && value.length > maxLength) {
       value = value.substring(0, maxLength ) + "...";
     }
-    return value.replace(/[<>&]/g, function (c) {
-        switch (c) {
-            case '<': return '&lt;';
-            case '>': return '&gt;';
-            case '&': return '&amp;';
-        }
-    });
+    if(nostrip){
+      return value;
+    } else {
+      return value.replaceAll(/[<>&]/g, function (c) {
+          switch (c) {
+              case '<': return '&lt;';
+              case '>': return '&gt;';
+              case '&': return '&amp;';
+          }
+      });
+    }
   },
   nicetime: function (value, precise, format) {
     if (precise) return moment(value).format('MM-DD HH:mm:ss.SS');
@@ -1270,7 +1274,6 @@ var setEvents = function(){
     $("[data-section="+id+"]").show();
     history.replaceState(undefined, undefined, '#'+id);
     $("[data-section="+id+"]").find('.nodel-console').scrollTop(999999);
-    return false;
   });
   $('body').on('click', '#confirmkeypad *[data-keypad]', function () {
     var number = $(this).data('keypad');
@@ -2543,6 +2546,18 @@ var updateLogs = function(){
           offline();
           $('body').data('update', setTimeout(function() { updateLogs(); }, 1000));
         }
+        // proactively disconnect websocket when the page is not being viewed
+        $(document).off("visibilitychange.socket").on("visibilitychange.socket", function() {
+          if(document.hidden) socket.close();
+          else updateLogs();
+        });
+        // proactively disconnect when network is disconnected
+        $(window).off("offline.socket").on("offline.socket", function() {
+          socket.close();
+        });
+        $(window).off("online.socket").on("online.socket", function() {
+          if(!document.hidden) updateLogs();
+        });
       } catch(exception){
         console.log('Error: '+exception);
         offline();
