@@ -382,7 +382,7 @@ public class ApacheNodelHttpClient extends NodelHTTPClient {
         // nonstandard / uncommon method has been specified - related issue #344
         HttpRequestBase request;
 
-        // select a request type that supports content (enclosed entity)
+        // select a method class that does or does not support content (enclosed entity)
         if (Strings.isEmpty(body)) {
             request = new HttpRequestBase() {
 
