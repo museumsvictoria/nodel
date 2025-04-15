@@ -892,17 +892,28 @@ public class PyNode extends BaseDynamicNode {
      */
     private void cleanupInterpreter() {
         String message;
-        
+
         if (_python != null) {
             message = "(closing this interpreter...)";
 
             _logger.info(message);
             _outReader.inject(message);
-            
+
             try {
+                // Ensure the PySystemState is set before executing cleanup functions
+                PySystemState systemState = _python.getSystemState();
+                if (systemState == null)
+                    throw new IllegalStateException("Python interpreter not ready.");
+
+                Py.setSystemState(systemState);
+
+                // Reassign the output streams
+                _python.setOut(_outReader);
+                _python.setErr(_errReader);
+
                 PyFunction processCleanupFunctions = (PyFunction) _globals.get(Py.java2py("processCleanupFunctions"));
                 long cleanupFnCount = processCleanupFunctions.__call__().asLong();
-                
+
                 if (cleanupFnCount > 0) {
                     message = "('@at_cleanup' function" + (cleanupFnCount == 1 ? "" : "s") + " completed.)";
                     _logger.info(message);
@@ -912,14 +923,14 @@ public class PyNode extends BaseDynamicNode {
                 // upstream exception handling should mean we never get here, but just in case
                 _logger.warn("Unexpected exception during cleaning up; should be safe to ignore", exc);
             }
-            
+
             _python.cleanup();
-            
+
             message = "(clean up complete)";
             _logger.info(message);
             _outReader.inject(message);
         }
-        
+
         if (_toolkit != null) {
             _toolkit.shutdown();
         }
