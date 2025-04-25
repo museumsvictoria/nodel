@@ -15,9 +15,6 @@ def branch = gitBranch
 if (branch.equals("master"))
     branch = "dev"
 
-// sanitize branch: replace slashes and other non-filename characters with hyphens
-branch = branch.replaceAll(/[^A-Za-z0-9._-]+/, '-')
-
 def rev = gitRev
 // strip out non-alphanumeric (e.g. the '+' in '1234+')
 rev = rev.replaceAll(/[^a-zA-Z0-9]/, '')
