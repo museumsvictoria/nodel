@@ -9,6 +9,7 @@ package org.nodel.host;
 import java.net.Inet4Address;
 import java.net.InetAddress;
 import java.net.NetworkInterface;
+import java.net.SocketException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -307,19 +308,42 @@ public class BootstrapConfig {
 
         System.out.println();
         System.out.println("// Available network interfaces:");
-        System.out.println("// (use --interface ... [--interface ...] to enable opt-in interface binding)");
+        System.out.println("// (use --interface ... [--interface ...] to enable binding by interface name or MAC)");
         System.out.println("{ \"networkInterfaces\": [");
 
         String[] names = networkInterfaceNames();
         for (int i = 0; i < names.length; i++) {
+            String name = names[i];
             try {
-                System.out.format("    \"%s\"%s  // %s%n", names[i], i != names.length - 1 ? "," : "", NetworkInterface.getByName(names[i]).getDisplayName());
-
+                NetworkInterface ni = NetworkInterface.getByName(name);
+                String display = ni.getDisplayName();
+                String mac;
+                try {
+                    byte[] hw = ni.getHardwareAddress();
+                    if (hw != null && hw.length > 0) {
+                        StringBuilder sb = new StringBuilder();
+                        for (int j = 0; j < hw.length; j++) {
+                            sb.append(String.format("%02X", hw[j]));
+                            if (j < hw.length - 1) sb.append(":");
+                        }
+                        mac = sb.toString();
+                    } else {
+                        mac = "n/a";
+                    }
+                } catch (SocketException se) {
+                    mac = "n/a";
+                }
+                System.out.format(
+                    "    \"%s\"%s  // %s, MAC=%s%n",
+                    name,
+                    (i != names.length - 1 ? "," : ""),
+                    display,
+                    mac
+                );
             } catch (Exception exc) {
                 // ignore
             }
-
-        } // (for)
+        }
         System.out.println("}");
 
         System.out.println();
