@@ -12,8 +12,13 @@ import java.io.InputStream;
 import java.io.PrintWriter;
 import java.io.RandomAccessFile;
 import java.net.BindException;
+import java.net.NetworkInterface;
 import java.net.ServerSocket;
+import java.net.SocketException;
 import java.nio.channels.FileLock;
+import java.util.ArrayList;
+import java.util.Enumeration;
+import java.util.List;
 
 import org.joda.time.DateTime;
 import org.nodel.StartupException;
@@ -235,9 +240,13 @@ public class Launch {
         createHostInstanceLockOrFail();
 	    
         // opt-in interfaces
-        String[] interfaces = _bootstrapConfig.getNetworkInterfaces();
-        if (interfaces != null && interfaces.length > 0) {
-            Nodel.setInterfacesToUse(_bootstrapConfig.getNetworkInterfaces());
+        String[] specs = _bootstrapConfig.getNetworkInterfaces();
+        if (specs != null && specs.length > 0) {
+            List<String> resolved = new ArrayList<>();
+            for (String spec : specs) {
+                resolved.add(resolveNetworkInterface(spec));
+            }
+            Nodel.setInterfacesToUse(resolved.toArray(new String[0]));
         }
         
         // check if advertisements should be disabled
@@ -621,4 +630,37 @@ public class Launch {
         }
     }
     
+    /** Heuristic to detect MAC address specs. */
+    private boolean looksLikeMac(String spec) {
+        return spec.matches("(?i)^(?:[0-9A-F]{2}(?:[:-])){5}[0-9A-F]{2}$")
+            || spec.matches("(?i)^[0-9A-F]{12}$");
+    }
+
+    /** Resolve spec to interface name: MAC→name; else literal spec. */
+    private String resolveNetworkInterface(String spec) {
+        if (looksLikeMac(spec)) {
+            String normSpec = spec.replaceAll("[:-]", "").toUpperCase();
+            try {
+                Enumeration<NetworkInterface> ifaces = NetworkInterface.getNetworkInterfaces();
+                while (ifaces.hasMoreElements()) {
+                    NetworkInterface ni = ifaces.nextElement();
+                    byte[] hw = ni.getHardwareAddress();
+                    if (hw != null) {
+                        StringBuilder sb = new StringBuilder();
+                        for (byte b : hw) {
+                            sb.append(String.format("%02X", b));
+                        }
+                        if (sb.toString().equals(normSpec)) {
+                            _logger.info("Resolved MAC spec " + spec + " → interface " + ni.getName());
+                            return ni.getName();
+                        }
+                    }
+                }
+            } catch (SocketException e) {
+                _logger.warn("Error enumerating interfaces for MAC match", e);
+            }
+            _logger.warn("Could not resolve MAC spec '" + spec + "'; using literal spec");
+        }
+        return spec;
+    }
 }
