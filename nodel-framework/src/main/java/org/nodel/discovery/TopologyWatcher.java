@@ -16,6 +16,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import org.nodel.Formatting;
+import org.nodel.Strings;
 import org.nodel.core.Nodel;
 import org.nodel.threading.ThreadPool;
 import org.nodel.threading.TimerTask;
@@ -197,10 +198,9 @@ public class TopologyWatcher {
     private void monitorInterfaces() {
         Set<InetAddress> activeSet = new HashSet<>(4);
 
-        if (!usingOptInMode(activeSet)) {
-            // automatic binding mode (all-in):
-            listValidInterfaces(activeSet);
-        }
+        // either bind to all interfaces or opt-in via config options
+        String[] optInList = Nodel.getInterfacesToUse();
+        listValidInterfaces(activeSet, optInList);
 
         // add the IPv4 Loopback interface if no interfaces present
         // (whether automatic- or opt-in- mode)
@@ -312,16 +312,24 @@ public class TopologyWatcher {
             _logger.warn("An exception should not occur within method.", exc);
         }
     }
-    
+
     /**
      * Scans for 'up', non-loopback, multicast-supporting, network interfaces with at least one IPv4 address. Also updates
      * hostname and MAC addressess snapshot.
+     * <p>
+     * NOTE: TCP and UDP server sockets don't bind to NetworkInterface objects, they bind to IP addresses. So it's
+     * the IPAddress-related classes that are important.
      */
-    private void listValidInterfaces(Set<InetAddress> refNicSet) {
+    private void listValidInterfaces(Set<InetAddress> refNicSet, String[] optInList) {
         List<String> ipAddresses = new ArrayList<>();
         List<String> macAddresses = new ArrayList<>();
-        
+        if (optInList == null)
+            optInList = Strings.EmptyArray;
+
         String hostname = "UNKNOWN";
+
+        // for opt-in mode
+        boolean matched = false;
         
         try {
             Enumeration<NetworkInterface> interfaces = NetworkInterface.getNetworkInterfaces();
@@ -333,13 +341,30 @@ public class TopologyWatcher {
 
                     byte[] macAddress = null;
                     
-                    // check for at least one IPv4 address and check loopback status again for good measure
+                    // check for at least one IPv4 address
                     for (InetAddress address : Collections.list(intf.getInetAddresses())) {
                         if (address instanceof Inet4Address) {
-                            refNicSet.add(address);
-                            ipAddresses.add(address.getHostAddress());
+                            String ipv4Address = address.getHostAddress();
+                            ipAddresses.add(ipv4Address);
                             if (macAddress == null)
-                                macAddress = intf.getHardwareAddress(); 
+                                macAddress = intf.getHardwareAddress();
+
+                            if (optInList.length == 0) {
+                                // bind to everything allowed
+                                refNicSet.add(address);
+
+                            } else {
+                                // only bind if interface details match
+                                for (String value : optInList) {
+                                    if (looseStartsWith(ipv4Address, value) ||
+                                            looseStartsWith(intf.getName(), value) ||
+                                            looseStartsWith(intf.getDisplayName(), value) ||
+                                            looseStartsWith(Formatting.formatFewBytes(intf.getHardwareAddress()), value)) {
+                                        refNicSet.add(address);
+                                        break;
+                                    }
+                                }
+                            }
                         }
                     }
                     
@@ -356,6 +381,13 @@ public class TopologyWatcher {
         } catch (Exception exc) {
             warn("intf_enumeration", "Was not able to enumerate network interfaces or get hostname", exc);
         }
+
+        if (optInList.length > 0 && !matched) {
+            if (!_suppressInterfaceWarning) {
+                _logger.warn("No network interfaces were matched given: {}", String.join(", ", optInList));
+                _suppressInterfaceWarning = true;
+            }
+        }
         
         _hostnameSnapshot = hostname;
         
@@ -365,48 +397,12 @@ public class TopologyWatcher {
         if (!ipAddresses.equals(_macAddressesSnapshot))
             _ipAddressesSnapshot = ipAddresses;
     }
-    
+
     /**
      * (logging)
      */
     private boolean _suppressInterfaceWarning = false;
 
-    /**
-     * This applied if network interfaces are specified (opt-in mode)
-     */
-    private boolean usingOptInMode(Set<InetAddress> refNicSet) {
-        String[] interfaces = Nodel.getInterfacesToUse();
-
-        if (interfaces == null || interfaces.length == 0)
-            return false;
-
-        // add all the IP addresses related to the interfaces whether they're available or not
-        for (String name : interfaces) {
-            try {
-                NetworkInterface networkInterface = NetworkInterface.getByName(name);
-                if (networkInterface == null) {
-                    if (!_suppressInterfaceWarning) {
-                        _logger.warn("\"{}\": network interface not available (yet?); will use loopback if no interfaces are resolved; this warning will be suppressed from now on.", name);
-                        _suppressInterfaceWarning = true;
-                    }
-
-                    continue;
-                }
-
-                for (InetAddress addr : Collections.list(networkInterface.getInetAddresses())) {
-                    if (addr instanceof Inet4Address)
-                        refNicSet.add(addr);
-                }
-
-            } catch (Exception exc) {
-                // ignore
-                warn("intf_enumeration", "(opt-in mode) Could not query interface '" + name + "'", exc);
-            }
-        }
-
-        return true;
-    }
-    
     /**
      * Returns the last snapshot of the interfaces.
      */
@@ -433,6 +429,57 @@ public class TopologyWatcher {
      */
     private void warn(String category, String msg, Exception exc) {
         _logger.warn(msg, exc);
+    }
+
+    /**
+     * Returns true if string s starts with the given prefix regardless of case, all non-alphanumeric characters ignored
+     * (memory efficient convenience function)
+     */
+    private static boolean looseStartsWith(String s, String prefix) {
+        if (prefix == null || s == null)
+            return false;
+
+        int sLen = s.length();
+        int pLen = prefix.length();
+        if (sLen == 0 || pLen == 0)
+            return false;
+
+        int si = 0;
+        int matched = 0;
+
+        // go through each valid character in the prefix
+        for (int pi = 0; pi < pLen; pi++) {
+            char c = prefix.charAt(pi);
+            if (!Character.isLetterOrDigit(c))
+                continue;
+
+            char pChar = Character.toLowerCase(c); // will only be a number or lower case letter
+
+            // get the next valid character in the main string
+            char sChar = 0;
+            while(si < sLen) {
+                c = s.charAt(si);
+                si++;
+                if (!Character.isLetterOrDigit(c))
+                    // keep going through the main string
+                    continue;
+
+                sChar = Character.toLowerCase(c); // will only be a number or lower case letter
+                break;
+            } // while
+
+            // if no valid characters in main string, s will be 0
+
+            if (pChar != sChar)
+                return false;
+
+            // indicate that at least one valid match has been made
+            matched++;
+        } // for
+
+        // if we're here we've gone through the entire prefix and every valid character has been matched
+
+        return matched > 0;
     }
     
 }
