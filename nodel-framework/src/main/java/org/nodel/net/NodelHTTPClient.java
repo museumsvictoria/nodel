@@ -13,6 +13,7 @@ import java.net.URLEncoder;
 
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -164,6 +165,43 @@ public abstract class NodelHTTPClient implements Closeable {
                     response.statusCode + " " + response.reasonPhrase, 
                     Strings.isEmpty(response.content) ? "<empty>" : JSONObject.quote(response.content)));
         }        
+    }
+    
+    /**
+     * Asynchronous version of makeRequest. Default implementation delegates to the synchronous version.
+     * Implementations that support asynchronous requests should override this method.
+     */
+    public CompletableFuture<HTTPSimpleResponse> makeRequestAsync(String urlStr, String method, Map<String, String> query, 
+                         String username, String password, 
+                         Map<String, String> headers, String contentType, 
+                         String post, 
+                         Integer connectTimeout, Integer readTimeout) {
+        CompletableFuture<HTTPSimpleResponse> future = new CompletableFuture<>();
+        try {
+            HTTPSimpleResponse response = makeRequest(urlStr, method, query, username, password, headers, contentType, post, connectTimeout, readTimeout);
+            future.complete(response);
+        } catch (Exception e) {
+            future.completeExceptionally(e);
+        }
+        return future;
+    }
+    
+    /**
+     * Asynchronous version of makeSimpleRequest. Default implementation delegates to the synchronous version.
+     * Implementations that support asynchronous requests should override this method.
+     */
+    public CompletableFuture<String> makeSimpleRequestAsync(String urlStr, String method, Map<String, String> query,
+                              String username, String password,
+                              Map<String, String> headers, String contentType, String post,
+                              Integer connectTimeout, Integer readTimeout) {
+        CompletableFuture<String> future = new CompletableFuture<>();
+        try {
+            String result = makeSimpleRequest(urlStr, method, query, username, password, headers, contentType, post, connectTimeout, readTimeout);
+            future.complete(result);
+        } catch (Exception e) {
+            future.completeExceptionally(e);
+        }
+        return future;
     }
     
     /**
