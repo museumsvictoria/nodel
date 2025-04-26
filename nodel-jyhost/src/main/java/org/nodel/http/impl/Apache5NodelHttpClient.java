@@ -2,10 +2,8 @@ package org.nodel.http.impl;
 
 import java.io.IOException;
 import java.net.InetAddress;
-import java.net.URI;
 import java.net.UnknownHostException;
 import java.security.SecureRandom;
-import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -14,7 +12,6 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
-import java.lang.reflect.Method;
 
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.X509TrustManager;
@@ -26,15 +23,6 @@ import org.apache.hc.client5.http.auth.AuthScope;
 import org.apache.hc.client5.http.auth.Credentials;
 import org.apache.hc.client5.http.auth.NTCredentials;
 import org.apache.hc.client5.http.auth.UsernamePasswordCredentials;
-import org.apache.hc.client5.http.classic.methods.HttpDelete;
-import org.apache.hc.client5.http.classic.methods.HttpGet;
-import org.apache.hc.client5.http.classic.methods.HttpHead;
-import org.apache.hc.client5.http.classic.methods.HttpOptions;
-import org.apache.hc.client5.http.classic.methods.HttpPatch;
-import org.apache.hc.client5.http.classic.methods.HttpPost;
-import org.apache.hc.client5.http.classic.methods.HttpPut;
-import org.apache.hc.client5.http.classic.methods.HttpTrace;
-import org.apache.hc.client5.http.classic.methods.HttpUriRequestBase;
 import org.apache.hc.client5.http.config.RequestConfig;
 import org.apache.hc.client5.http.impl.DefaultRedirectStrategy;
 import org.apache.hc.client5.http.impl.async.CloseableHttpAsyncClient;
@@ -44,9 +32,6 @@ import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
 import org.apache.hc.client5.http.impl.classic.HttpClientBuilder;
 import org.apache.hc.client5.http.impl.classic.HttpClients;
 import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManagerBuilder;
-import org.apache.hc.client5.http.impl.nio.PoolingAsyncClientConnectionManagerBuilder;
-import org.apache.hc.client5.http.io.HttpClientConnectionManager;
-import org.apache.hc.client5.http.nio.AsyncClientConnectionManager;
 import org.apache.hc.client5.http.ssl.NoopHostnameVerifier;
 import org.apache.hc.client5.http.ssl.SSLConnectionSocketFactory;
 import org.apache.hc.core5.concurrent.FutureCallback;
@@ -61,8 +46,6 @@ import org.apache.hc.core5.reactor.IOReactorConfig;
 import org.apache.hc.core5.util.Timeout;
 import org.nodel.Strings;
 import org.nodel.Version;
-import org.nodel.io.Stream;
-import org.nodel.io.UnexpectedIOException;
 import org.nodel.net.HTTPSimpleResponse;
 import org.nodel.net.NodelHTTPClient;
 
@@ -109,6 +92,7 @@ public class Apache5NodelHttpClient extends NodelHTTPClient {
     /**
      * Ensure the synchronous client is initialized
      */
+    @SuppressWarnings("unused")
     private synchronized void initSyncClient() {
         if (_httpClient != null) return;
         
@@ -126,36 +110,19 @@ public class Apache5NodelHttpClient extends NodelHTTPClient {
                 .setDefaultCredentialsProvider(_credentialsProvider)
                 .setDefaultRequestConfig(_requestConfig);
         
-        // Set connection limits safely using reflection
-        try {
-            Method setMaxConnTotal = builder.getClass().getMethod("setMaxConnTotal", int.class);
-            Method setMaxConnPerRoute = builder.getClass().getMethod("setMaxConnPerRoute", int.class);
-            setMaxConnTotal.invoke(builder, 1000);
-            setMaxConnPerRoute.invoke(builder, 1000);
-        } catch (Exception ignored) {}
+        // Configure pooling (with max connections and optional SSL override)
+        PoolingHttpClientConnectionManagerBuilder poolBuilder = PoolingHttpClientConnectionManagerBuilder.create()
+                .setMaxConnTotal(1000)
+                .setMaxConnPerRoute(1000);
+        if (_ignoreSSL) {
+            SSLContext ctx = createIgnoringSslContext();
+            poolBuilder.setSSLSocketFactory(new SSLConnectionSocketFactory(ctx, NoopHostnameVerifier.INSTANCE));
+        }
+        builder.setConnectionManager(poolBuilder.build());
         
         // Configure proxy if needed
         if (!Strings.isBlank(_proxyAddress)) {
             builder.setProxy(createProxyHost(_proxyAddress, _proxyUsername, _proxyPassword));
-        }
-        
-        // Configure SSL if needed
-        if (_ignoreSSL) {
-            try {
-                SSLContext sslContext = SSLContext.getInstance("TLS");
-                sslContext.init(null, new X509TrustManager[] { IGNORE_SSL_TRUSTMANAGER }, new SecureRandom());
-                
-                SSLConnectionSocketFactory sslSocketFactory = new SSLConnectionSocketFactory(
-                        sslContext, NoopHostnameVerifier.INSTANCE);
-                
-                HttpClientConnectionManager connectionManager = PoolingHttpClientConnectionManagerBuilder.create()
-                        .setSSLSocketFactory(sslSocketFactory)
-                        .build();
-                
-                builder.setConnectionManager(connectionManager);
-            } catch (Exception e) {
-                throw new RuntimeException("Error configuring SSL", e);
-            }
         }
         
         // Configure redirects if needed
@@ -200,29 +167,6 @@ public class Apache5NodelHttpClient extends NodelHTTPClient {
         // Configure proxy if needed
         if (!Strings.isBlank(_proxyAddress)) {
             builder.setProxy(createProxyHost(_proxyAddress, _proxyUsername, _proxyPassword));
-        }
-        
-        // Configure SSL if needed
-        if (_ignoreSSL) {
-            try {
-                SSLContext sslContext = SSLContext.getInstance("TLS");
-                sslContext.init(null, new X509TrustManager[] { IGNORE_SSL_TRUSTMANAGER }, new SecureRandom());
-                
-                // Try to set SSL context via reflection to handle API differences
-                try {
-                    Method method = builder.getClass().getMethod("setSSLContext", SSLContext.class);
-                    method.invoke(builder, sslContext);
-                } catch (Exception e) {
-                    // Fall back to default configuration
-                }
-                
-                AsyncClientConnectionManager connectionManager = PoolingAsyncClientConnectionManagerBuilder.create()
-                        .build();
-                
-                builder.setConnectionManager(connectionManager);
-            } catch (Exception e) {
-                throw new RuntimeException("Error configuring SSL", e);
-            }
         }
         
         _httpAsyncClient = builder.build();
@@ -352,10 +296,8 @@ public class Apache5NodelHttpClient extends NodelHTTPClient {
                 }
             }
             
-            // Set timeouts if different from defaults
-            if (connectTimeout != null || readTimeout != null) {
-                applyTimeouts(request, connectTimeout, readTimeout);
-            }
+            // Apply per-request timeouts
+            applyTimeouts(request, connectTimeout, readTimeout);
             
             // Track active connections
             s_activeConnections.incrementAndGet();
@@ -541,6 +483,19 @@ public class Apache5NodelHttpClient extends NodelHTTPClient {
             
             _credentialsProvider = null;
             _requestConfig = null;
+        }
+    }
+    
+    /**
+     * Create an SSLContext that trusts all certificates.
+     */
+    private SSLContext createIgnoringSslContext() {
+        try {
+            SSLContext sslContext = SSLContext.getInstance("TLS");
+            sslContext.init(null, new X509TrustManager[] { IGNORE_SSL_TRUSTMANAGER }, new SecureRandom());
+            return sslContext;
+        } catch (Exception e) {
+            throw new RuntimeException("Error initializing SSL context", e);
         }
     }
 }
