@@ -129,7 +129,7 @@ tasks.register('filterContentTemplates', Copy) {
 tasks.register('zipContentInterface', Zip) {
     dependsOn copyContent, filterContentTemplates
     from file("${project.buildDir}/www-content_stage")
-    archiveName 'content.zip'
+    archiveFileName = 'content.zip'
     destinationDirectory = file("${project.buildDir}/www-content/org/nodel/host")
 }
 

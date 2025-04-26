@@ -30,7 +30,7 @@ tasks.register('fatJar', Jar) {
     manifest {
         attributes 'Implementation-Title': 'Nodel JyHost',
                 'Implementation-Version': archiveVersion,
-                'Main-Class': application.mainClassName
+                'Main-Class': application.mainClass.get()
     }
     archiveAppendix = rootProject.ext.branch
     archiveBaseName = 'nodelhost'
