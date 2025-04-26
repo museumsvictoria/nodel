@@ -17,7 +17,12 @@ plugins {
     id 'com.github.node-gradle.node' version '7.0.2'
 }
 
-compileJava {
+java {
+    sourceCompatibility = JavaVersion.VERSION_1_8
+    targetCompatibility = JavaVersion.VERSION_1_8
+}
+
+tasks.withType(JavaCompile).configureEach {
     options.release = 8
 }
 

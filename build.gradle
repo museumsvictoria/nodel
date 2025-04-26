@@ -11,11 +11,52 @@ buildscript {
 
 ext {
     getGitInfo = {
+        def branch = ""
+        def id = ""
+        def rev = ""
+        def origin = ""
+        
+        try {
+            branch = new ByteArrayOutputStream().withStream { os ->
+                exec {
+                    commandLine 'git', 'rev-parse', '--abbrev-ref', 'HEAD'
+                    standardOutput = os
+                }
+                return os.toString().trim()
+            }
+            
+            id = new ByteArrayOutputStream().withStream { os ->
+                exec {
+                    commandLine 'git', 'rev-parse', 'HEAD'
+                    standardOutput = os
+                }
+                return os.toString().trim()
+            }
+            
+            rev = new ByteArrayOutputStream().withStream { os ->
+                exec {
+                    commandLine 'git', 'rev-list', '--count', 'HEAD'
+                    standardOutput = os
+                }
+                return os.toString().trim()
+            }
+            
+            origin = new ByteArrayOutputStream().withStream { os ->
+                exec {
+                    commandLine 'git', 'config', '--get', 'remote.origin.url'
+                    standardOutput = os
+                }
+                return os.toString().trim()
+            }
+        } catch (Exception e) {
+            logger.warn("Error executing git command: ${e.message}")
+        }
+        
         return [
-                branch : 'git rev-parse --abbrev-ref HEAD'.execute().text.trim(),
-                id     : 'git rev-parse HEAD'.execute().text.trim(),
-                rev    : 'git rev-list --count HEAD'.execute().text.trim(),
-                origin : 'git config --get remote.origin.url'.execute().text.trim()
+                branch : branch,
+                id     : id,
+                rev    : rev,
+                origin : origin
         ]
     }
 
@@ -41,6 +82,15 @@ subprojects {
     apply plugin: 'java'
     group = 'org.nodel'
     version = rootProject.ext.baseVersion
+    
+    java {
+        sourceCompatibility = JavaVersion.VERSION_1_8
+        targetCompatibility = JavaVersion.VERSION_1_8
+    }
+    
+    tasks.withType(JavaCompile).configureEach {
+        options.release = 8
+    }
     repositories {
         mavenCentral()
     }

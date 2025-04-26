@@ -13,7 +13,12 @@ application {
     mainClass = 'org.nodel.jyhost.Launch'
 }
 
-compileJava {
+java {
+    sourceCompatibility = JavaVersion.VERSION_1_8
+    targetCompatibility = JavaVersion.VERSION_1_8
+}
+
+tasks.withType(JavaCompile).configureEach {
     options.release = 8
 }
 
@@ -74,7 +79,7 @@ dependencies {
     implementation group: 'org.apache.httpcomponents', name: 'httpclient', version: '4.5.5'
 
     // convenience dependency: required *only* for 'recipe sync' node
-    implementation 'org.eclipse.jgit:org.eclipse.jgit:3.7.1.+'
+    implementation 'org.eclipse.jgit:org.eclipse.jgit:3.7.1.201504261725-r'
 
     // convenience dependency: required for new SNMP-based nodes
     implementation('org.snmp4j:snmp4j:2.5.8') {
