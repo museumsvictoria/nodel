@@ -85,7 +85,7 @@ The platform-independent nature of Nodel also allows it to easily scale to suit 
 System requirements
 ============
 
-* Any operating system capable of hosting the Java Runtime Environment (Java 8+) – including OS X, Windows or Linux 
+* Any operating system capable of hosting the Java Runtime Environment (Java 11+) – including OS X, Windows or Linux 
 * A current web browser
 * Made for mobile
 
@@ -105,7 +105,7 @@ Building and releases
 
 Notes
 =====
-* thoroughly road tested with Java 8 (available from [AdoptOpenJDK](https://adoptopenjdk.net/))
+* minimum required Java version is Java 11 (available from [AdoptOpenJDK](https://adoptopenjdk.net/))
 * also runs fine on Java 21 LTS despite console warnings
 * for service / daemon use, see [wiki pages](https://github.com/museumsvictoria/nodel/wiki)
 * check `bootstrap` files for startup config
