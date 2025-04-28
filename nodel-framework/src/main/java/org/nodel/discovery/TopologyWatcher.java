@@ -44,22 +44,22 @@ public class TopologyWatcher {
     /**
      * (logging)
      */
-    private Logger _logger = LoggerFactory.getLogger(TopologyWatcher.class);
+    private final Logger _logger = LoggerFactory.getLogger(TopologyWatcher.class);
     
     /**
      * (convenience reference)
      */
-    private ThreadPool _threadPool = Discovery.threadPool();
+    private final ThreadPool _threadPool = Discovery.threadPool();
     
     /**
      * (convenience reference)
      */
-    private Timers _timerThread = Discovery.timerThread();
+    private final Timers _timerThread = Discovery.timerThread();
     
     /**
      * The last active ones.
      */
-    private Set<InetAddress> _lastActiveSet = new HashSet<InetAddress>();
+    private final Set<InetAddress> _lastActiveSet = new HashSet<InetAddress>();
     
     /**
      * (see addChangeHandler())
@@ -104,7 +104,7 @@ public class TopologyWatcher {
     private List<String> _ipAddressesSnapshot = Collections.emptyList();    
     
     /**
-     * Snapshot of hostname if known else "UNKNOWN")
+     * Snapshot of hostname if known else "UNKNOWN"
      */
     private String _hostnameSnapshot = "UNKNOWN";
     
@@ -163,7 +163,7 @@ public class TopologyWatcher {
     /**
      * For adjustable polling intervals.
      */
-    private int[] POLLING_INTERVALS = new int[] {2000, 5000, 15000, 15000, 60000, 120000};
+    private final int[] POLLING_INTERVALS = new int[]{2000, 5000, 15000, 15000, 60000, 120000};
     
     /**
      * (relates to POLLING_INTERVALS)
@@ -244,7 +244,7 @@ public class TopologyWatcher {
         // do internal test first before notifying anyone
         if (hasChanged) {
             // update the snapshot
-            _interfacesSnapshot = activeSet.toArray(new InetAddress[activeSet.size()]);
+            _interfacesSnapshot = activeSet.toArray(new InetAddress[0]);
             
             // and temporarily poll quicker again (might be general NIC activity)
             _pollingSlot = 0;
@@ -294,10 +294,8 @@ public class TopologyWatcher {
         }
 
         // move 'new' to existing
-        if (newHandlers != null) {
-            for (ChangeHandler handler : newHandlers)
-                _onChangeHandlers.add(handler);
-        }
+        if (newHandlers != null)
+            _onChangeHandlers.addAll(newHandlers);
     }
 
     /**
@@ -329,7 +327,7 @@ public class TopologyWatcher {
         String hostname = "UNKNOWN";
 
         // for opt-in mode
-        boolean matched = false;
+        boolean foundAnyMatch = false;
         
         try {
             Enumeration<NetworkInterface> interfaces = NetworkInterface.getNetworkInterfaces();
@@ -356,12 +354,12 @@ public class TopologyWatcher {
                             } else {
                                 // only bind if interface details match
                                 for (String value : optInList) {
-                                    if (looseStartsWith(ipv4Address, value) ||
-                                            looseStartsWith(intf.getName(), value) ||
-                                            looseStartsWith(intf.getDisplayName(), value) ||
-                                            looseStartsWith(Formatting.formatFewBytes(intf.getHardwareAddress()), value)) {
+                                    if (looseMatch(ipv4Address, value, true) || // allow prefix matching of IP address which could be convenient, e.g. "192.168"
+                                            looseMatch(intf.getName(), value, false) || // do full match for name...
+                                            looseMatch(intf.getDisplayName(), value, false) || // ... display name
+                                            looseMatch(Formatting.formatFewBytes(intf.getHardwareAddress()), value, false)) { // ... and MAC to avoid unintentional matching
                                         refNicSet.add(address);
-                                        break;
+                                        foundAnyMatch = true;
                                     }
                                 }
                             }
@@ -379,12 +377,12 @@ public class TopologyWatcher {
             hostname = InetAddress.getLocalHost().getHostName();
             
         } catch (Exception exc) {
-            warn("intf_enumeration", "Was not able to enumerate network interfaces or get hostname", exc);
+            _logger.warn("TopologyWatcher: Was not able to enumerate network interfaces or get hostname", exc);
         }
 
-        if (optInList.length > 0 && !matched) {
+        if (optInList.length > 0 && !foundAnyMatch) {
             if (!_suppressInterfaceWarning) {
-                _logger.warn("No network interfaces were matched given: {}", String.join(", ", optInList));
+                _logger.warn("TopologyWatcher: Network interface filtering is in place but right now nothing matches the filters {}", String.join(" or ", optInList));
                 _suppressInterfaceWarning = true;
             }
         }
@@ -425,59 +423,67 @@ public class TopologyWatcher {
     }
 
     /**
-     * Warning with suppression.
-     */
-    private void warn(String category, String msg, Exception exc) {
-        _logger.warn(msg, exc);
-    }
-
-    /**
-     * Returns true if string s starts with the given prefix regardless of case, all non-alphanumeric characters ignored
+     * Returns true if two strings match ignoring case and non-alphanumeric characters. The second string
+     * can optionally be treated as a prefix.
      * (memory efficient convenience function)
      */
-    private static boolean looseStartsWith(String s, String prefix) {
-        if (prefix == null || s == null)
+    private static boolean looseMatch(String s1, String s2, boolean matchAsPrefix) {
+        if (s1 == null || s2 == null)
             return false;
 
-        int sLen = s.length();
-        int pLen = prefix.length();
-        if (sLen == 0 || pLen == 0)
+        int s1Len = s1.length();
+        int s2Len = s2.length();
+        if (s1Len == 0 || s2Len == 0)
             return false;
 
-        int si = 0;
+        int i1 = 0;
         int matched = 0;
 
-        // go through each valid character in the prefix
-        for (int pi = 0; pi < pLen; pi++) {
-            char c = prefix.charAt(pi);
+        // go through each valid character in s2 (which could be treated as a prefix)
+        for (int i2 = 0; i2 < s2Len; i2++) {
+            char c = s2.charAt(i2);
             if (!Character.isLetterOrDigit(c))
                 continue;
 
-            char pChar = Character.toLowerCase(c); // will only be a number or lower case letter
+            char c2 = Character.toLowerCase(c); // will only be a number or lower case letter
 
             // get the next valid character in the main string
-            char sChar = 0;
-            while(si < sLen) {
-                c = s.charAt(si);
-                si++;
+            char c1 = 0;
+            while (i1 < s1Len) {
+                c = s1.charAt(i1);
+                i1++;
                 if (!Character.isLetterOrDigit(c))
                     // keep going through the main string
                     continue;
 
-                sChar = Character.toLowerCase(c); // will only be a number or lower case letter
+                c1 = Character.toLowerCase(c); // will only be a number or lower case letter
                 break;
             } // while
 
-            // if no valid characters in main string, s will be 0
+            // if no valid characters in s1 or it's too short, s will be 0
 
-            if (pChar != sChar)
+            if (c2 != c1)
                 return false;
 
             // indicate that at least one valid match has been made
             matched++;
         } // for
 
-        // if we're here we've gone through the entire prefix and every valid character has been matched
+        // we've now gone through all of s2 which is fine if we're only checking for prefix matching
+
+        if (matchAsPrefix)
+            // need to be certain at least one valid character was matched
+            return matched > 0;
+
+        // otherwise, we're doing a full match of the *both* strings so we need to scan the rest of the s1 for any extra valid character
+        // that would then break a match
+        while(i1 < s1Len) {
+            char c = s1.charAt(i1);
+            if (Character.isLetterOrDigit(c))
+                return false;
+
+            i1++;
+        }
 
         return matched > 0;
     }
