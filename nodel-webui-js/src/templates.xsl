@@ -1546,45 +1546,48 @@
         <div class="base">
           <div class="addgrp">
             <div class="dropdown">
+              <xsl:variable name="addgrp" select="generate-id(.)"/>
               <button class="btn btn-default dropdown-toggle" type="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
                 <xsl:attribute name="id">
                   <xsl:text>addgrp_</xsl:text>
-                  <xsl:value-of select="generate-id(.)"/>
+                  <xsl:value-of select="$addgrp"/>
                 </xsl:attribute>
                 <xsl:text>Add node here</xsl:text>
               </button>
               <ul class="dropdown-menu">
                 <xsl:attribute name="aria-labelledby">
                   <xsl:text>addgrp_</xsl:text>
-                  <xsl:value-of select="generate-id(.)"/>
+                  <xsl:value-of select="$addgrp"/>
                 </xsl:attribute>
                 <li>
                   <form>
                     <fieldset>
+                      <xsl:variable name="nodenamval" select="generate-id(.)"/>
                       <label>
                         <xsl:attribute name="for">
                           <xsl:text>nodenamval_</xsl:text>
-                          <xsl:value-of select="generate-id(.)"/>
+                          <xsl:value-of select="$nodenamval"/>
                         </xsl:attribute>
                         <xsl:text>Node name</xsl:text>
                       </label>
                       <input class="form-control nodenamval" type="text">
                         <xsl:attribute name="id">
                           <xsl:text>nodenamval_</xsl:text>
-                          <xsl:value-of select="generate-id(.)"/>
+                          <xsl:value-of select="$nodenamval"/>
                         </xsl:attribute>
                       </input>
+                      <xsl:variable name="recipeval" select="generate-id(.)"/>
                       <label>
                         <xsl:attribute name="for">
                           <xsl:text>recipeval_</xsl:text>
-                          <xsl:value-of select="generate-id(.)"/>
+                          <xsl:value-of select="$recipeval"/>
                         </xsl:attribute>
                         <xsl:text>Recipe</xsl:text>
                       </label>
                       <select class="form-control recipepicker goto" type="text">
                         <xsl:attribute name="id">
                           <xsl:text>recipeval_</xsl:text>
-                          <xsl:value-of select="generate-id(.)"/>
+                          <xsl:value-of select="$recipeval"/>
                         </xsl:attribute>
                       </select>
                     </fieldset>
@@ -1603,17 +1606,18 @@
       <div data-nodel="{@type}" class="nodel-{@type}">
         <div class="base">
           <div class="panel panel-default">
+            <xsl:variable name="editgrp" select="generate-id(.)"/>
             <div class="panel-heading accordion-toggle collapsed" data-toggle="collapse" aria-expanded="false">
               <xsl:attribute name="data-target">
                 <xsl:text>#editgrp_</xsl:text>
-                <xsl:value-of select="generate-id(.)"/>
+                <xsl:value-of select="$editgrp"/>
               </xsl:attribute>
               <div class="panel-title"><h5 class="panel-title">Editor</h5></div>
             </div>
             <div class="panel-collapse collapse" aria-expanded="false">
               <xsl:attribute name="id">
                 <xsl:text>editgrp_</xsl:text>
-                <xsl:value-of select="generate-id(.)"/>
+                <xsl:value-of select="$editgrp"/>
               </xsl:attribute>
               <div class="panel-body">           
                 <div class="row">
@@ -1637,17 +1641,18 @@
                               <li>
                                 <form>
                                   <fieldset>
+                                    <xsl:variable name="scriptnameval" select="generate-id(.)"/>
                                     <label>
                                       <xsl:attribute name="for">
                                         <xsl:text>scriptnameval_</xsl:text>
-                                        <xsl:value-of select="generate-id(.)"/>
+                                        <xsl:value-of select="$scriptnameval"/>
                                       </xsl:attribute>
                                       <xsl:text>File name</xsl:text>
                                     </label>
                                     <input class="form-control scriptnamval" type="text">
                                       <xsl:attribute name="id">
                                         <xsl:text>scriptnameval_</xsl:text>
-                                        <xsl:value-of select="generate-id(.)"/>
+                                        <xsl:value-of select="$scriptnameval"/>
                                       </xsl:attribute>
                                     </input>
                                   </fieldset>
