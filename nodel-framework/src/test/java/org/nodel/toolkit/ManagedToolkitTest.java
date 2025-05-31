@@ -11,6 +11,11 @@ import org.nodel.core.NodelServers;
 import org.nodel.host.BaseDynamicNode;
 import org.nodel.host.Binding;
 
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.atomic.AtomicBoolean;
+
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
@@ -87,5 +92,52 @@ class ManagedToolkitTest {
             NodelServers.instance().registerEvent(event);
             assertEquals(expectedName, event.getEvent().getReducedName());
         }
+    }
+
+    @Test
+    @DisplayName("Test getURLAsync method exists and returns CompletableFuture")
+    void testGetURLAsync_MethodSignature() {
+        // Test that the method exists and has correct signature
+        try {
+            java.lang.reflect.Method method = ManagedToolkit.class.getMethod("getURLAsync", 
+                String.class, String.class, java.util.Map.class, String.class, String.class, 
+                java.util.Map.class, String.class, String.class, Integer.class, Integer.class);
+            
+            assertEquals(CompletableFuture.class, method.getReturnType());
+            assertNotNull(method);
+        } catch (NoSuchMethodException e) {
+            fail("getURLAsync method should exist with proper signature");
+        }
+    }
+    
+    @Test
+    @DisplayName("Test CompletableFuture callback pattern")
+    void testCompletableFutureCallbackPattern() throws Exception {
+        // Test that CompletableFuture callback pattern works as expected for our Python integration
+        CompletableFuture<String> future = new CompletableFuture<>();
+        
+        AtomicReference<String> resultHolder = new AtomicReference<>();
+        AtomicReference<Exception> errorHolder = new AtomicReference<>();
+        AtomicBoolean completed = new AtomicBoolean(false);
+        
+        // Mimic the Python callback pattern from nodetoolkit.py
+        future.whenComplete((result, exception) -> {
+            if (exception == null) {
+                resultHolder.set(result);
+            } else {
+                errorHolder.set((Exception) exception);
+            }
+            completed.set(true);
+        });
+        
+        // Complete the future
+        future.complete("test result");
+        
+        // Wait briefly for callback
+        Thread.sleep(100);
+        
+        assertTrue(completed.get(), "Callback should have been called");
+        assertEquals("test result", resultHolder.get(), "Should have received result");
+        assertNull(errorHolder.get(), "Should not have error");
     }
 }
