@@ -69,7 +69,7 @@ def system_clock():
 #   now == now2 (is True)
 #
 # (for instant.toString(pattern), see http://www.joda.org/joda-time/apidocs/org/joda/time/format/DateTimeFormat.html)
- 
+
 # 'now' timestamp (based on excellent JODATIME library)
 def date_now():
     return nodetoolkit.dateNow()
@@ -77,7 +77,7 @@ def date_now():
 # a timestamp at another time (based on excellent JODATIME library)
 def date_at(year, month, day, hour, minute, second=0, millisecond=0):
     return nodetoolkit.dateAt(year, month, day, hour, minute, second, millisecond)
-   
+
 # a timestamp based on a millisecond offset (JODATIME library)
 def date_instant(millis):
     return nodetoolkit.dateAtInstant(millis)
@@ -93,12 +93,45 @@ def get_url(url, method=None, query=None, username=None, password=None, headers=
     return nodetoolkit.getHttpClient().makeRequest(url, method, query, username, password, headers, contentType, post, long(connectTimeout*1000), long(readTimeout*1000))
   else:
     return nodetoolkit.getHttpClient().makeSimpleRequest(url, method, query, username, password, headers, contentType, post, long(connectTimeout*1000), long(readTimeout*1000))
-  
+
 # For HTTP proxy use, call this before any other HTTP client operations: 
 #     _toolkit.getHttpClient().setProxy("PROXY_HOST:PORT_PORT", USERNAME or None, PASSWORD or None)
 
 # To ignore HTTPS certificate verification:
 #     _toolkit.getHttpClient().setIgnoreSSL(True)
+
+# Asynchronous version of get_url. Uses callbacks for handling the response.
+# 'complete' callback will be called with the response content when the request completes successfully
+# 'error' callback will be called with the exception when the request fails
+#
+# Example usage:
+#   def on_complete(result):
+#     console.info('Got response: %s' % result)
+#
+#   def on_error(exc):
+#     console.error('Request failed: %s' % exc)
+#
+#   get_url_async('http://example.com', complete=on_complete, error=on_error)
+def get_url_async(url, method=None, query=None, username=None, password=None, headers=None, contentType=None, post=None, connectTimeout=10, readTimeout=15, complete=None, error=None, fullResponse=False):
+  future = None
+  if fullResponse:
+    future = nodetoolkit.getHttpClient().makeRequestAsync(url, method, query, username, password, headers, contentType, post, long(connectTimeout*1000), long(readTimeout*1000))
+  else:
+    future = nodetoolkit.getHttpClient().makeSimpleRequestAsync(url, method, query, username, password, headers, contentType, post, long(connectTimeout*1000), long(readTimeout*1000))
+
+  # Handle the future completion using the toolkit's thread pool
+  def handle_complete(result):
+    if complete is not None:
+      complete(result)
+
+  def handle_error(exc):
+    if error is not None:
+      error(exc)
+
+  # Add callbacks to the CompletableFuture
+  future.whenComplete(lambda result, exc: handle_complete(result) if exc is None else handle_error(exc))
+
+  return future
 
 # DEPRECATED (same as above)
 def getURL(url, method=None, query=None, username=None, password=None, headers=None, contentType=None, post=None, connectTimeout=10, readTimeout=15):
@@ -117,7 +150,7 @@ def UDP(source='0.0.0.0:0', dest=None, ready=None, received=None, sent=None, int
 def SSH(dest=None, connected=None, received=None, sent=None, disconnected=None, timeout=None, sendDelimiters='\n', receiveDelimiters='\r\n',
         username=None, password=None, echoDisabled=False):
   return nodetoolkit.createSSH(dest, connected, received, sent, disconnected, timeout, sendDelimiters, receiveDelimiters, username, password, echoDisabled)
-  
+
 # A managed processes that attempts to stay executed (includes instrumentation)
 def Process(command, # the command line and arguments
            # callbacks
@@ -167,34 +200,34 @@ def request_queue(received=None, sent=None, timeout=None):
 class Timer:
   def __init__(self, func, intervalInSeconds, firstDelayInSeconds=0, stopped=False):
       self.wrapper = nodetoolkit.createTimer(func, long(firstDelayInSeconds * 1000), long(intervalInSeconds * 1000), stopped)
-      
+
   def setDelayAndInterval(self, delayInSeconds, intervalInSeconds):
       self.wrapper.setDelayAndInterval(long(delayInSeconds * 1000), long(intervalInSeconds * 1000))
-      
+
   def setInterval(self, seconds):
       self.wrapper.setInterval(long(seconds * 1000))
-      
+
   def setDelay(self, seconds):
       self.wrapper.setDelay(long(seconds * 1000))
-      
+
   def reset(self):
       self.wrapper.reset()
-      
+
   def start(self):
       self.wrapper.start()
-      
+
   def stop(self):
       self.wrapper.stop()      
-      
+
   def getDelay(self):
       return self.wrapper.getDelay() / 1000.0
-  
+
   def getInterval(self):
       return self.wrapper.getInterval() / 1000.0
-  
+
   def isStarted(self):
       return self.wrapper.isStarted()
-  
+
   def isStopped(self):
       return self.wrapper.isStopped()
 
@@ -205,7 +238,7 @@ def Node(nodeName):
 # Creates a node based on the name of an existing node (on-the-fly)
 def Subnode(baseName):
     return nodetoolkit.createSubnode(baseName)
-  
+
 # Releases a node created with Node() or Subnode() and related resources.
 def release_node(node):
   return nodetoolkit.releaseNode(node)
@@ -227,7 +260,7 @@ def Event(name, metadata=None):
 # create a local event
 def create_local_event(name, metadata=None):
   return nodetoolkit.createEvent(name, metadata)
-  
+
 # Creates a local action (on-the-fly)    
 # DEPRECATED - use 'create_local_action' or '@local_action'
 def Action(name, handler, metadata=None):
@@ -236,11 +269,11 @@ def Action(name, handler, metadata=None):
 # creates a local action
 def create_local_action(name, handler, metadata=None):
   return nodetoolkit.createAction(name, handler, metadata)
-  
+
 # Creates remote action
 def create_remote_action(name, metadata=None, suggestedNode=None, suggestedAction=None):
     return nodetoolkit.createRemoteAction(name, metadata, suggestedNode, suggestedAction)
-    
+
 # Creates a remote event
 def create_remote_event(name, handler, metadata=None, suggestedNode=None, suggestedEvent=None):
     return nodetoolkit.createRemoteEvent(name, handler, metadata, suggestedNode, suggestedEvent)
@@ -275,7 +308,7 @@ def lookup_local_action(name):
 # Looks up a local event by simple name
 def lookup_local_event(name):
     return nodetoolkit.getLocalEvent(name)
-    
+
 # Looks up a remote action by simple name
 def lookup_remote_action(name):
     return nodetoolkit.getRemoteAction(name)
@@ -288,7 +321,7 @@ def lookup_remote_event(name):
 def lookup_parameter(name):
     return nodetoolkit.lookupParameter(name)
 
-    
+
 # NODE LIFE-CYCLE FUNCTIONS:
 
 # for functions to be called before main has executed
@@ -297,7 +330,7 @@ _nodel_beforeMainFunctions = []
 def processBeforeMainFunctions():
     for f in _nodel_beforeMainFunctions:
         f()
-        
+
     return len(_nodel_beforeMainFunctions)
 
 # decorates functions that should be called after 'main' completes
@@ -306,14 +339,14 @@ def before_main(f):
 
     return f
 
-  
+
 # for functions to be called after main has executed
 _nodel_afterMainFunctions = []
 
 def processAfterMainFunctions():
     for f in _nodel_afterMainFunctions:
         f()
-        
+
     return len(_nodel_afterMainFunctions)
 
 # decorates functions that should be called after 'main' completes
@@ -332,7 +365,7 @@ def processCleanupFunctions():
       except:
         # ignore
         pass
-        
+
     return len(_nodel_atCleanupFunctions)
 
 # decorates functions that should be called at cleanup (shutdown, restart, etc.)
