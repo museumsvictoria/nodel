@@ -128,8 +128,17 @@ def get_url_async(url, method=None, query=None, username=None, password=None, he
     if error is not None:
       error(exc)
 
-  # Add callbacks to the CompletableFuture
-  future.whenComplete(lambda result, exc: handle_complete(result) if exc is None else handle_error(exc))
+  # Use the toolkit's call mechanism to handle callbacks in a thread-safe manner
+  # This avoids the Java BiConsumer interface conversion issue
+  def setup_callbacks():
+    try:
+      result = future.get()
+      call_safe(lambda: handle_complete(result), 0)
+    except Exception, exc:
+      call_safe(lambda: handle_error(exc), 0)
+  
+  # Execute callback setup in background thread
+  call(setup_callbacks, 0)
 
   return future
 
