@@ -88,59 +88,57 @@ def date_parse(s):
 
 # Simple URL retriever (supports POST) where 'query' and 'headers' are dictionaries. 
 # If 'fullResponse', result is an object which includes 'statusCode', 'reason', 'content' and attributes made up of the response HTTP headers
-def get_url(url, method=None, query=None, username=None, password=None, headers=None, contentType=None, post=None, connectTimeout=10, readTimeout=15, fullResponse=False):
-  if fullResponse:
-    return nodetoolkit.getHttpClient().makeRequest(url, method, query, username, password, headers, contentType, post, long(connectTimeout*1000), long(readTimeout*1000))
-  else:
-    return nodetoolkit.getHttpClient().makeSimpleRequest(url, method, query, username, password, headers, contentType, post, long(connectTimeout*1000), long(readTimeout*1000))
-
-# For HTTP proxy use, call this before any other HTTP client operations: 
-#     _toolkit.getHttpClient().setProxy("PROXY_HOST:PORT_PORT", USERNAME or None, PASSWORD or None)
-
-# To ignore HTTPS certificate verification:
-#     _toolkit.getHttpClient().setIgnoreSSL(True)
-
-# Asynchronous version of get_url. Uses callbacks for handling the response.
-# 'complete' callback will be called with the response content when the request completes successfully
-# 'error' callback will be called with the exception when the request fails
+# If 'async' is True, returns immediately with a CompletableFuture and uses callbacks for handling the response.
 #
-# Example usage:
+# Synchronous usage (default):
+#   result = get_url('http://example.com')
+#   print(result)
+#
+# Asynchronous usage:
 #   def on_complete(result):
 #     console.info('Got response: %s' % result)
 #
 #   def on_error(exc):
 #     console.error('Request failed: %s' % exc)
 #
-#   get_url_async('http://example.com', complete=on_complete, error=on_error)
-def get_url_async(url, method=None, query=None, username=None, password=None, headers=None, contentType=None, post=None, connectTimeout=10, readTimeout=15, complete=None, error=None, fullResponse=False):
-  future = None
-  if fullResponse:
-    future = nodetoolkit.getHttpClient().makeRequestAsync(url, method, query, username, password, headers, contentType, post, long(connectTimeout*1000), long(readTimeout*1000))
+#   get_url('http://example.com', async=True, complete=on_complete, error=on_error)
+def get_url(url, method=None, query=None, username=None, password=None, headers=None, contentType=None, post=None, connectTimeout=10, readTimeout=15, fullResponse=False, async=False, complete=None, error=None):
+  if async:
+    # Async mode - return CompletableFuture and use callbacks
+    future = None
+    if fullResponse:
+      future = nodetoolkit.getHttpClient().makeRequestAsync(url, method, query, username, password, headers, contentType, post, long(connectTimeout*1000), long(readTimeout*1000))
+    else:
+      future = nodetoolkit.getHttpClient().makeSimpleRequestAsync(url, method, query, username, password, headers, contentType, post, long(connectTimeout*1000), long(readTimeout*1000))
+
+    # Handle the future completion using callbacks if provided
+    if complete is not None or error is not None:
+      from java.util.function import BiConsumer
+      
+      class CallbackHandler(BiConsumer):
+        def accept(self, result, exception):
+          if exception is None:
+            if complete is not None:
+              call_safe(lambda: complete(result), 0)
+          else:
+            if error is not None:
+              call_safe(lambda: error(exception), 0)
+      
+      future.whenComplete(CallbackHandler())
+
+    return future
   else:
-    future = nodetoolkit.getHttpClient().makeSimpleRequestAsync(url, method, query, username, password, headers, contentType, post, long(connectTimeout*1000), long(readTimeout*1000))
+    # Sync mode - block and return result directly
+    if fullResponse:
+      return nodetoolkit.getHttpClient().makeRequest(url, method, query, username, password, headers, contentType, post, long(connectTimeout*1000), long(readTimeout*1000))
+    else:
+      return nodetoolkit.getHttpClient().makeSimpleRequest(url, method, query, username, password, headers, contentType, post, long(connectTimeout*1000), long(readTimeout*1000))
 
-  # Handle the future completion using the toolkit's thread pool
-  def handle_complete(result):
-    if complete is not None:
-      complete(result)
+# For HTTP proxy use, call this before any other HTTP client operations: 
+#     _toolkit.getHttpClient().setProxy("PROXY_HOST:PORT_PORT", USERNAME or None, PASSWORD or None)
 
-  def handle_error(exc):
-    if error is not None:
-      error(exc)
-
-  # Use the toolkit's call mechanism to handle callbacks in a thread-safe manner
-  # This avoids the Java BiConsumer interface conversion issue
-  def setup_callbacks():
-    try:
-      result = future.get()
-      call_safe(lambda: handle_complete(result), 0)
-    except Exception, exc:
-      call_safe(lambda: handle_error(exc), 0)
-  
-  # Execute callback setup in background thread
-  call(setup_callbacks, 0)
-
-  return future
+# To ignore HTTPS certificate verification:
+#     _toolkit.getHttpClient().setIgnoreSSL(True)
 
 # DEPRECATED (same as above)
 def getURL(url, method=None, query=None, username=None, password=None, headers=None, contentType=None, post=None, connectTimeout=10, readTimeout=15):
