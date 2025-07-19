@@ -86,7 +86,7 @@ def date_instant(millis):
 def date_parse(s):
     return nodetoolkit.parseDate(s)
 
-# Simple URL retriever (supports POST) where 'query' and 'headers' are dictionaries. 
+# Simple URL retriever (supports POST) where 'query' and 'headers' are dictionaries.
 # If 'fullResponse', result is an object which includes 'statusCode', 'reason', 'content' and attributes made up of the response HTTP headers
 # If 'async' is True, returns immediately with a CompletableFuture and uses callbacks for handling the response.
 #
@@ -114,7 +114,7 @@ def get_url(url, method=None, query=None, username=None, password=None, headers=
     # Handle the future completion using callbacks if provided
     if complete is not None or error is not None:
       from java.util.function import BiConsumer
-      
+
       class CallbackHandler(BiConsumer):
         def accept(self, result, exception):
           if exception is None:
@@ -123,7 +123,7 @@ def get_url(url, method=None, query=None, username=None, password=None, headers=
           else:
             if error is not None:
               call_safe(lambda: error(exception), 0)
-      
+
       future.whenComplete(CallbackHandler())
 
     return future
@@ -134,7 +134,7 @@ def get_url(url, method=None, query=None, username=None, password=None, headers=
     else:
       return nodetoolkit.getHttpClient().makeSimpleRequest(url, method, query, username, password, headers, contentType, post, long(connectTimeout*1000), long(readTimeout*1000))
 
-# For HTTP proxy use, call this before any other HTTP client operations: 
+# For HTTP proxy use, call this before any other HTTP client operations:
 #     _toolkit.getHttpClient().setProxy("PROXY_HOST:PORT_PORT", USERNAME or None, PASSWORD or None)
 
 # To ignore HTTPS certificate verification:
@@ -163,7 +163,7 @@ def Process(command, # the command line and arguments
            # callbacks
            started=None,   # everytime the process is started
            stdout=None,    # stdout handler
-           stdin=None,     # feedback when .send is called (for convenience) 
+           stdin=None,     # feedback when .send is called (for convenience)
            stderr=None,    # stderr handler
            stopped=None,   # when the process is stops / stopped
            timeout=None,   # timeout when a request is issued but not response
@@ -172,7 +172,7 @@ def Process(command, # the command line and arguments
            working=None,   # working directory
            mergeErr=False, # merge  stderr into the stdout for convenience
            env=None):      # add/set environment variables (dict)
-  return nodetoolkit.createProcess(command, 
+  return nodetoolkit.createProcess(command,
                                 started, stdout, stdin, stderr, stopped, timeout, sendDelimiters, receiveDelimiters,
                                 working, mergeErr, env)
 
@@ -188,18 +188,18 @@ def quick_process(command,
                   working=None,   # the working directory
                   mergeErr=False, # merge  stderr into the stdout for convenience
                   env=None):      # add/set environment variables (dict)
-    return nodetoolkit.createQuickProcess(command, stdinPush, 
-                                       started, finished, 
+    return nodetoolkit.createQuickProcess(command, stdinPush,
+                                       started, finished,
                                        long(timeoutInSeconds * 1000), working, mergeErr, env)
 
 # create a safe request queue for mixing asynchronous and synchronous programming.
-# e.g. 
+# e.g.
 # queue = request_queue()
 #
 # def udp_received(source, data):
 #     queue.handle((source, data))
 #
-# queue.request(lambda: udp.send('?'), lambda arg: console.info('RECV UDP %s' % arg)) 
+# queue.request(lambda: udp.send('?'), lambda arg: console.info('RECV UDP %s' % arg))
 def request_queue(received=None, sent=None, timeout=None):
     return nodetoolkit.createRequestQueue(received, sent, timeout)
 
@@ -224,7 +224,7 @@ class Timer:
       self.wrapper.start()
 
   def stop(self):
-      self.wrapper.stop()      
+      self.wrapper.stop()
 
   def getDelay(self):
       return self.wrapper.getDelay() / 1000.0
@@ -250,7 +250,7 @@ def Subnode(baseName):
 def release_node(node):
   return nodetoolkit.releaseNode(node)
 
-# DEPRECATED (see above)  
+# DEPRECATED (see above)
 def releaseNode(node):
   return nodetoolkit.releaseNode(node)
 
@@ -268,7 +268,7 @@ def Event(name, metadata=None):
 def create_local_event(name, metadata=None):
   return nodetoolkit.createEvent(name, metadata)
 
-# Creates a local action (on-the-fly)    
+# Creates a local action (on-the-fly)
 # DEPRECATED - use 'create_local_action' or '@local_action'
 def Action(name, handler, metadata=None):
   return nodetoolkit.createAction(name, handler, metadata)
@@ -397,5 +397,5 @@ def is_empty(obj):
 
 # CONVENIENCE DEPENDENCIES
 
-# JWTs (JSON Web Tokens) 
+# JWTs (JSON Web Tokens)
 # see https://github.com/museumsvictoria/nodel/discussions/297
