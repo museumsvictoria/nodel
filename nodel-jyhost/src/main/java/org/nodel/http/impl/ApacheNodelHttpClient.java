@@ -28,7 +28,6 @@ import org.apache.hc.client5.http.impl.DefaultRedirectStrategy;
 import org.apache.hc.client5.http.impl.async.CloseableHttpAsyncClient;
 import org.apache.hc.client5.http.impl.async.HttpAsyncClients;
 import org.apache.hc.client5.http.impl.auth.BasicCredentialsProvider;
-import org.apache.hc.client5.http.impl.nio.PoolingAsyncClientConnectionManager;
 import org.apache.hc.client5.http.impl.nio.PoolingAsyncClientConnectionManagerBuilder;
 import org.apache.hc.client5.http.ssl.ClientTlsStrategyBuilder;
 import org.apache.hc.client5.http.ssl.NoopHostnameVerifier;
@@ -48,9 +47,6 @@ import org.nodel.Version;
 import org.nodel.net.HTTPSimpleResponse;
 import org.nodel.net.NodelHTTPClient;
 
-/**
- * Apache HTTP Client 5 implementation of NodelHTTPClient that supports asynchronous HTTP requests.
- */
 public class ApacheNodelHttpClient extends NodelHTTPClient {
     
     private final Object _lock = new Object();
@@ -60,23 +56,14 @@ public class ApacheNodelHttpClient extends NodelHTTPClient {
     private BasicCredentialsProvider _credentialsProvider;
     private RequestConfig _requestConfig;
     
-    /**
-     * Maximum content allowed to avoid uncontrolled memory allocation
-     */
     private final static int MAX_ALLOWED = 150 * 1024 * 1024;
     
-    /**
-     * Ignores all SSL verification
-     */
     private static final X509TrustManager IGNORE_SSL_TRUSTMANAGER = new X509TrustManager() {
         public void checkClientTrusted(X509Certificate[] chain, String authType) {}
         public void checkServerTrusted(X509Certificate[] chain, String authType) {}
         public X509Certificate[] getAcceptedIssuers() { return new X509Certificate[0]; }
     };
     
-    /**
-     * Ignores all redirect directives (will be manually handled)
-     */
     private static final DefaultRedirectStrategy IGNORE_ALL_REDIRECTS = new DefaultRedirectStrategy() {
         @Override
         public boolean isRedirected(HttpRequest request, HttpResponse response, HttpContext context) {
@@ -84,13 +71,9 @@ public class ApacheNodelHttpClient extends NodelHTTPClient {
         }
     };
     
-    /**
-     * Ensure the asynchronous client is initialized
-     */
     private synchronized void initAsyncClient() {
         if (_httpAsyncClient != null) return;
         
-        // Base configuration
         if (_credentialsProvider == null) {
             _credentialsProvider = new BasicCredentialsProvider();
             _requestConfig = RequestConfig.custom()
@@ -99,12 +82,10 @@ public class ApacheNodelHttpClient extends NodelHTTPClient {
                     .build();
         }
         
-        // Set up executor
         if (_executor == null) {
             _executor = Executors.newCachedThreadPool();
         }
         
-        // Configure IO reactor
         IOReactorConfig ioReactorConfig = IOReactorConfig.custom()
                 .setSoTimeout(Timeout.ofMilliseconds(DEFAULT_READTIMEOUT))
                 .build();
@@ -115,7 +96,6 @@ public class ApacheNodelHttpClient extends NodelHTTPClient {
                 .setDefaultRequestConfig(_requestConfig)
                 .setIOReactorConfig(ioReactorConfig);
         
-        // Configure pooling and SSL
         PoolingAsyncClientConnectionManagerBuilder poolBuilder = PoolingAsyncClientConnectionManagerBuilder.create()
                 .setMaxConnTotal(1000)
                 .setMaxConnPerRoute(1000);
@@ -134,12 +114,10 @@ public class ApacheNodelHttpClient extends NodelHTTPClient {
         
         builder.setConnectionManager(poolBuilder.build());
 
-        // Configure proxy if needed
         if (!Strings.isBlank(_proxyAddress)) {
             builder.setProxy(createProxyHost(_proxyAddress, _proxyUsername, _proxyPassword));
         }
         
-        // Configure redirects if needed
         if (_ignoreRedirects) {
             builder.setRedirectStrategy(IGNORE_ALL_REDIRECTS);
         }
@@ -148,9 +126,6 @@ public class ApacheNodelHttpClient extends NodelHTTPClient {
         _httpAsyncClient.start();
     }
     
-    /**
-     * Create and configure a proxy host
-     */
     private HttpHost createProxyHost(String proxyAddress, String proxyUsername, String proxyPassword) {
         int lastIndexOfColon = proxyAddress.lastIndexOf(':');
         if (lastIndexOfColon <= 0) {
@@ -172,7 +147,6 @@ public class ApacheNodelHttpClient extends NodelHTTPClient {
         
         HttpHost proxy = new HttpHost(proxyHost, proxyPort);
         
-        // Configure proxy credentials if provided
         if (!Strings.isBlank(proxyUsername) && proxyPassword != null) {
             String userPart = proxyUsername;
             String domainPart = null;
@@ -197,9 +171,6 @@ public class ApacheNodelHttpClient extends NodelHTTPClient {
         return proxy;
     }
     
-    /**
-     * Returns the local host name (without exceptions)
-     */
     private static String getLocalHostName() {
         try {
             return InetAddress.getLocalHost().getHostName();
@@ -215,7 +186,6 @@ public class ApacheNodelHttpClient extends NodelHTTPClient {
                          String body, 
                          Integer connectTimeout, Integer readTimeout) {
         try {
-            // Delegate to async implementation for consistency
             return makeRequestAsync(urlStr, method, query, username, password, 
                     headers, contentType, body, connectTimeout, readTimeout).get();
         } catch (InterruptedException e) {
@@ -237,52 +207,41 @@ public class ApacheNodelHttpClient extends NodelHTTPClient {
                          String body, 
                          Integer connectTimeout, Integer readTimeout) {
         
-        // Initialize the async client
         synchronized (_lock) {
             initAsyncClient();
         }
         
-        // Record metrics
         s_attemptRate.incrementAndGet();
         
-        // Build full URL with query parameters
         String fullURL = urlStr;
         String queryPart = urlEncodeQuery(query);
         if (!Strings.isEmpty(queryPart)) {
             fullURL = String.format("%s?%s", urlStr, queryPart);
         }
 
-        // Create the CompletableFuture to return
         CompletableFuture<HTTPSimpleResponse> future = new CompletableFuture<>();
         
         try {
-            // Build the request
             SimpleHttpRequest request = createRequest(method, fullURL, body, contentType);
             
-            // Apply authentication if provided
             if (!Strings.isBlank(username)) {
                 applyAuth(request, username, !Strings.isEmpty(password) ? password : "");
             }
             
-            // Add headers
             if (headers != null) {
                 for (Entry<String, String> entry : headers.entrySet()) {
                     request.setHeader(entry.getKey(), entry.getValue());
                 }
             }
             
-            // Apply per-request timeouts
             applyTimeouts(request, connectTimeout, readTimeout);
             
-            // Track active connections
             s_activeConnections.incrementAndGet();
 
-            // Execute the request
             _httpAsyncClient.execute(request, new FutureCallback<SimpleHttpResponse>() {
                 @Override
                 public void completed(SimpleHttpResponse response) {
                     try {
-                        // Count metrics
                         if (!Strings.isEmpty(body)) {
                             s_sendRate.addAndGet(body.length());
                         }
@@ -297,7 +256,7 @@ public class ApacheNodelHttpClient extends NodelHTTPClient {
                         
                         String content = null;
                         if (contentBytes != null) {
-                            String encoding = "ISO-8859-1"; // Default
+                            String encoding = "ISO-8859-1";
                             ContentType contentType = response.getContentType();
                             if (contentType != null) {
                                 if (contentType.getCharset() != null) {
@@ -312,13 +271,11 @@ public class ApacheNodelHttpClient extends NodelHTTPClient {
                             content = new String(contentBytes, encoding);
                         }
 
-                        // Create response object
                         HTTPSimpleResponse result = new HTTPSimpleResponse();
                         result.content = content;
                         result.statusCode = response.getCode();
                         result.reasonPhrase = response.getReasonPhrase();
                         
-                        // Add response headers
                         for (Header header : response.getHeaders()) {
                             result.addHeader(header.getName(), header.getValue());
                         }
@@ -356,9 +313,6 @@ public class ApacheNodelHttpClient extends NodelHTTPClient {
         return future;
     }
     
-    /**
-     * Apply custom timeouts to a request
-     */
     private void applyTimeouts(SimpleHttpRequest request, Integer connectTimeout, Integer readTimeout) {
         int actualConnTimeout = connectTimeout != null ? connectTimeout : DEFAULT_CONNECTTIMEOUT;
         int actualReadTimeout = readTimeout != null ? readTimeout : DEFAULT_READTIMEOUT;
@@ -371,15 +325,10 @@ public class ApacheNodelHttpClient extends NodelHTTPClient {
         request.setConfig(customConfig);
     }
     
-    /**
-     * Apply authentication to a request
-     */
     private void applyAuth(SimpleHttpRequest request, String username, String password) {
-        // Add Basic Auth header directly to the request
         request.setHeader("Authorization", "Basic " +
                 java.util.Base64.getEncoder().encodeToString((username + ":" + password).getBytes()));
         
-        // Set up NTLM auth if domain is specified with backslash
         try {
             String userPart = username;
             String domainPart = null;
@@ -400,15 +349,10 @@ public class ApacheNodelHttpClient extends NodelHTTPClient {
                         creds);
             }
         } catch (Exception e) {
-            // If credential setting fails, continue anyway as the header is already set
         }
     }
     
-    /**
-     * Create an HTTP request with the appropriate method and body
-     */
     private SimpleHttpRequest createRequest(String method, String url, String body, String contentType) {
-        // Determine the effective method
         String effectiveMethod;
         if (Strings.isBlank(method)) {
             effectiveMethod = Strings.isEmpty(body) ? "GET" : "POST";
@@ -416,10 +360,8 @@ public class ApacheNodelHttpClient extends NodelHTTPClient {
             effectiveMethod = method;
         }
         
-        // Build the request
         SimpleRequestBuilder builder = SimpleRequestBuilder.create(effectiveMethod).setUri(url);
         
-        // Set body if provided
         if (!Strings.isEmpty(body)) {
             ContentType cType = ContentType.create(
                     contentType != null ? contentType : "text/plain", "utf-8");
@@ -450,17 +392,14 @@ public class ApacheNodelHttpClient extends NodelHTTPClient {
     @Override
     public void close() throws IOException {
         synchronized (_lock) {
-            // Close asynchronous client if initialized
             if (_httpAsyncClient != null) {
                 _httpAsyncClient.close(CloseMode.GRACEFUL);
                 _httpAsyncClient = null;
             }
             
-            // Shutdown executor service if initialized
             if (_executor != null) {
                 _executor.shutdown();
                 try {
-                    // Wait for pending tasks to complete
                     if (!_executor.awaitTermination(5, TimeUnit.SECONDS)) {
                         _executor.shutdownNow();
                     }
