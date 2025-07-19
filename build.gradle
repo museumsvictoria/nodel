@@ -41,8 +41,6 @@ subprojects {
     apply plugin: 'java'
     group = 'org.nodel'
     version = rootProject.ext.baseVersion
-    sourceCompatibility = '11'
-    targetCompatibility = '11'
     repositories {
         mavenCentral()
     }
