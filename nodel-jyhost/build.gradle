@@ -76,8 +76,8 @@ dependencies {
     implementation 'org.python:jython-standalone:2.5.4-rc1'
 
     // for the Nodel HTTP client:
-    implementation 'org.apache.httpcomponents.client5:httpclient5:5.2.1'
-    implementation 'org.apache.httpcomponents.core5:httpcore5-reactive:5.2.1'
+    implementation 'org.apache.httpcomponents.client5:httpclient5:5.5'
+    implementation 'org.apache.httpcomponents.core5:httpcore5-reactive:5.3.4'
 
     // convenience dependency: required *only* for 'recipe sync' node
     implementation 'org.eclipse.jgit:org.eclipse.jgit:3.7.1.201504261725-r'
