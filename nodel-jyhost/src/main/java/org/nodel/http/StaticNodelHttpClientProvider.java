@@ -5,7 +5,7 @@ import org.nodel.net.NodelHTTPClient;
 import org.nodel.net.NodelHttpClientProvider;
 
 /**
- * Provides HTTP clients based on the Apache HTTP client 5
+ * Provides HTTP clients based on the Apache HTTP client
  */
 public class StaticNodelHttpClientProvider extends NodelHttpClientProvider {
 
