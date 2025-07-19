@@ -11,10 +11,12 @@ import java.net.InetAddress;
 import java.net.NetworkInterface;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.nodel.Formatting;
 import org.nodel.Strings;
 import org.nodel.Version;
 import org.nodel.core.Nodel;
@@ -33,7 +35,12 @@ public class BootstrapConfig {
 
     static {
         Example = new BootstrapConfig();
-        Example.networkInterfaces = networkInterfaceNames();
+
+        List<NetworkInterface> interfaces = networkInterfaces();
+        String[] interfaceNames = new String[interfaces.size()];
+        for(int i=0; i<interfaceNames.length; i++)
+            interfaceNames[i] = interfaces.get(i).getName();
+        Example.networkInterfaces = interfaceNames;
         Example.inclFilters = new String[] { "Main Campus *", "Campus 2*" };
         Example.exclFilters = new String[] { "Campus 3*" };
     }
@@ -219,7 +226,7 @@ public class BootstrapConfig {
             } else if ("-r".equals(arg) || "--nodelRoot".equalsIgnoreCase(arg)) {
                 this.nodelRoot = nextArg;
 
-            } else if ("--interface".equalsIgnoreCase(arg)) {
+            } else if ("-i".equals(arg) || "--interface".equalsIgnoreCase(arg)) {
                 List<String> list = lists.get('i');
                 if (list == null) {
                     list = new ArrayList<String>();
@@ -307,13 +314,32 @@ public class BootstrapConfig {
 
         System.out.println();
         System.out.println("// Available network interfaces:");
-        System.out.println("// (use --interface ... [--interface ...] to enable opt-in interface binding)");
+        System.out.println("// (use --interface ... [--interface ...] to enable opt-in interface binding; avoid dynamic values; case, punctuation and white-space ignored)");
         System.out.println("{ \"networkInterfaces\": [");
 
-        String[] names = networkInterfaceNames();
-        for (int i = 0; i < names.length; i++) {
+        List<NetworkInterface> interfaces = networkInterfaces();
+        for (NetworkInterface ni : interfaces) {
+            // allow an interface to be referenced by name, display name, MAC address or IP address, whatever gets matched first
+            List<String> intfReferences = new ArrayList<>();
+
             try {
-                System.out.format("    \"%s\"%s  // %s%n", names[i], i != names.length - 1 ? "," : "", NetworkInterface.getByName(names[i]).getDisplayName());
+                String name = "\"" + ni.getName() + "\"";
+
+                String displayName = ni.getDisplayName();
+                intfReferences.add("\"" + displayName + "\"");
+
+                byte[] mac = ni.getHardwareAddress();
+                if (mac != null && mac.length > 0)
+                    intfReferences.add("\"" + Formatting.formatFewBytes(mac) + "\"");
+
+                Enumeration<InetAddress> inetAddrs = ni.getInetAddresses();
+                while(inetAddrs.hasMoreElements()) {
+                    InetAddress inetAddr = inetAddrs.nextElement();
+                    if (inetAddr instanceof Inet4Address)
+                        intfReferences.add("\"" + inetAddr.getHostAddress() + "\"");
+                }
+
+                System.out.format("    %s // or %s%n", name, String.join(" or ", intfReferences));
 
             } catch (Exception exc) {
                 // ignore
@@ -337,8 +363,8 @@ public class BootstrapConfig {
      * Dumps the list of interfaces that support multicast.
      * (convenience method)
      */
-    private static String[] networkInterfaceNames() {
-        List<String> names = new ArrayList<>();
+    private static List<NetworkInterface> networkInterfaces() {
+        List<NetworkInterface> interfaces = new ArrayList<>();
 
         try {
             for (NetworkInterface nis : Collections.list(NetworkInterface.getNetworkInterfaces())) {
@@ -346,7 +372,10 @@ public class BootstrapConfig {
                     continue;
                 
                 boolean gotIPv4 = false;
-                for (InetAddress addr : Collections.list(nis.getInetAddresses())) {
+
+                Enumeration<InetAddress> inetAddresses = nis.getInetAddresses();
+                while(inetAddresses.hasMoreElements()) {
+                    InetAddress addr = inetAddresses.nextElement();
                     if (addr instanceof Inet4Address) {
                         gotIPv4 = true;
                         break;
@@ -354,15 +383,15 @@ public class BootstrapConfig {
                 }
                 
                 if (!gotIPv4)
-                    continue;                
+                    continue;
 
-                names.add(nis.getName());
+                interfaces.add(nis);
             }
             
-            return names.toArray(new String[names.size()]);
+            return interfaces;
             
         } catch (Exception exc) {
-            return new String[] {};
+            return Collections.emptyList();
         }
     }
 

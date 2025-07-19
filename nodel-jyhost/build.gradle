@@ -13,8 +13,13 @@ application {
     mainClass = 'org.nodel.jyhost.Launch'
 }
 
-compileJava {
-    options.release = 8
+java {
+    sourceCompatibility = JavaVersion.VERSION_11
+    targetCompatibility = JavaVersion.VERSION_11
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.release = 11
 }
 
 jar {
@@ -30,7 +35,7 @@ tasks.register('fatJar', Jar) {
     manifest {
         attributes 'Implementation-Title': 'Nodel JyHost',
                 'Implementation-Version': archiveVersion,
-                'Main-Class': application.mainClassName
+                'Main-Class': application.mainClass.get()
     }
     archiveAppendix = rootProject.ext.branch
     archiveBaseName = 'nodelhost'
@@ -75,7 +80,7 @@ dependencies {
     implementation 'org.apache.httpcomponents.core5:httpcore5-reactive:5.2.1'
 
     // convenience dependency: required *only* for 'recipe sync' node
-    implementation 'org.eclipse.jgit:org.eclipse.jgit:3.7.1.+'
+    implementation 'org.eclipse.jgit:org.eclipse.jgit:3.7.1.201504261725-r'
 
     // convenience dependency: required for new SNMP-based nodes
     implementation('org.snmp4j:snmp4j:2.5.8') {

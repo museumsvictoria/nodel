@@ -14,14 +14,30 @@ jar {
     }
 }
 
-compileJava {
-    options.release = 8
+java {
+    sourceCompatibility = JavaVersion.VERSION_11
+    targetCompatibility = JavaVersion.VERSION_11
 }
 
-test {
-    useJUnitPlatform()
-    testLogging {
-        events 'passed', 'skipped', 'failed'
+tasks.withType(JavaCompile).configureEach {
+    options.release = 11
+}
+
+testing {
+    suites {
+        test {
+            useJUnitJupiter()
+            
+            targets {
+                all {
+                    testTask.configure {
+                        testLogging {
+                            events 'passed', 'skipped', 'failed'
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -31,12 +47,21 @@ dependencies {
 
     // SSH features
     implementation group: 'com.jcraft', name: 'jsch', version: '0.1.55'
+}
 
-    // Test dependencies
-    testImplementation 'org.junit.jupiter:junit-jupiter-api:5.7.0'
-    testImplementation 'org.junit.jupiter:junit-jupiter-params:5.7.0'
-    testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.7.0'
-    testImplementation 'org.mockito:mockito-core:3.+'
-    testImplementation 'ch.qos.logback:logback-classic:1.4.14'
+testing {
+    suites {
+        // Configure the built-in test suite
+        test {
+            // Use JUnit Jupiter test framework
+            useJUnitJupiter('5.7.0')
+            
+            dependencies {
+                implementation 'org.junit.jupiter:junit-jupiter-params:5.7.0'
+                implementation 'org.mockito:mockito-core:3.12.4'
+                implementation 'ch.qos.logback:logback-classic:1.4.14'
+            }
+        }
+    }
 }
 
