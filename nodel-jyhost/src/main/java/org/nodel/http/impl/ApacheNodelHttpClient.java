@@ -56,8 +56,7 @@ public class ApacheNodelHttpClient extends NodelHTTPClient {
     private CloseableHttpAsyncClient _httpAsyncClient;
 
     /**
-     * An {@link ExecutorService} used for managing asynchronous tasks within the
-     * ApacheNodelHttpClient class.
+     * Used for managing asynchronous tasks
      */
     private ExecutorService _executor;
 
@@ -126,15 +125,7 @@ public class ApacheNodelHttpClient extends NodelHTTPClient {
 
         // ignore all SSL verifications errors?
         if (_ignoreSSL) {
-            try {
-                SSLContext sslContext = SSLContexts.custom().loadTrustMaterial(null, (chain, authType) -> true).build();
-                poolBuilder.setTlsStrategy(ClientTlsStrategyBuilder.create()
-                        .setSslContext(sslContext)
-                        .setHostnameVerifier(NoopHostnameVerifier.INSTANCE)
-                        .build());
-            } catch (Exception e) {
-                throw new RuntimeException("Error initializing SSL context", e);
-            }
+            prepareForNoSSL(poolBuilder);
         }
 
         builder.setConnectionManager(poolBuilder.build());
@@ -196,6 +187,21 @@ public class ApacheNodelHttpClient extends NodelHTTPClient {
         }
 
         return proxy;
+    }
+
+    /**
+     * (convenience method)
+     */
+    private void prepareForNoSSL(PoolingAsyncClientConnectionManagerBuilder poolBuilder) {
+        try {
+            SSLContext sslContext = SSLContexts.custom().loadTrustMaterial(null, (chain, authType) -> true).build();
+            poolBuilder.setTlsStrategy(ClientTlsStrategyBuilder.create()
+                    .setSslContext(sslContext)
+                    .setHostnameVerifier(NoopHostnameVerifier.INSTANCE)
+                    .build());
+        } catch (Exception e) {
+            throw new RuntimeException("Error initializing SSL context", e);
+        }
     }
 
     private static String getLocalHostName() {
