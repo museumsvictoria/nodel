@@ -1,6 +1,6 @@
 package org.nodel.http;
 
-import org.nodel.http.impl.Apache5NodelHttpClient;
+import org.nodel.http.impl.ApacheNodelHttpClient;
 import org.nodel.net.NodelHTTPClient;
 import org.nodel.net.NodelHttpClientProvider;
 
@@ -11,7 +11,7 @@ public class StaticNodelHttpClientProvider extends NodelHttpClientProvider {
 
     @Override
     public NodelHTTPClient create() {
-        return new Apache5NodelHttpClient();
+        return new ApacheNodelHttpClient();
     }
     
 }
