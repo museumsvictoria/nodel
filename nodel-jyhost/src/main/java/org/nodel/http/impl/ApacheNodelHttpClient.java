@@ -10,7 +10,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.nio.channels.FileChannel;
-import java.security.cert.X509Certificate;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -21,10 +20,8 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 import javax.net.ssl.SSLContext;
-import javax.net.ssl.X509TrustManager;
 
 import org.apache.hc.client5.http.async.methods.SimpleHttpRequest;
-import org.apache.hc.client5.http.async.methods.SimpleHttpResponse;
 import org.apache.hc.client5.http.async.methods.SimpleRequestBuilder;
 import org.apache.hc.client5.http.auth.AuthScope;
 import org.apache.hc.client5.http.auth.Credentials;
@@ -49,8 +46,6 @@ import org.apache.hc.core5.http.protocol.HttpContext;
 import org.apache.hc.core5.http.nio.AsyncResponseConsumer;
 import org.apache.hc.core5.http.nio.CapacityChannel;
 import org.apache.hc.core5.http.EntityDetails;
-import org.apache.hc.core5.http.nio.AsyncRequestProducer;
-import org.apache.hc.core5.http.nio.support.AsyncRequestBuilder;
 import org.apache.hc.client5.http.async.methods.SimpleRequestProducer;
 import org.apache.hc.core5.io.CloseMode;
 import org.apache.hc.core5.reactor.IOReactorConfig;
@@ -323,7 +318,7 @@ public class ApacheNodelHttpClient extends NodelHTTPClient {
     }
 
     /**
-     * Creates a request using HttpClient 5's cleaner SimpleRequestBuilder,
+     * Creates a request using HttpClient 5's SimpleRequestBuilder,
      * replacing the old selectHTTPbyMethod() and nonstandardHTTPMethod() helpers.
      */
     private SimpleHttpRequest createRequest(String method, String url, String body, String contentType) {
@@ -463,19 +458,6 @@ public class ApacheNodelHttpClient extends NodelHTTPClient {
 
     // convenience instances
 
-    /**
-     * Ignores all SSL issues
-     */
-    private static final X509TrustManager IGNORE_SSL_TRUSTMANAGER = new X509TrustManager() {
-
-        public void checkClientTrusted(X509Certificate[] chain, String authType) {}
-
-        public void checkServerTrusted(X509Certificate[] chain, String authType) {}
-
-        public X509Certificate[] getAcceptedIssuers() {
-            return new X509Certificate[0];
-        }
-    };
 
     /**
      *  A redirect strategy used to ignore all redirect directives
@@ -530,8 +512,6 @@ public class ApacheNodelHttpClient extends NodelHTTPClient {
                 int initialCapacity = contentLength > 0 ? (int) contentLength : 4096;
                 this.memoryBuffer = new ByteArrayOutputStream(initialCapacity);
             }
-
-            // Don't call callback.completed() here - wait until streamEnd()
         }
 
         @Override
@@ -647,9 +627,6 @@ public class ApacheNodelHttpClient extends NodelHTTPClient {
             }
         }
 
-        public HTTPSimpleResponse getResult() {
-            return this.result;
-        }
 
         @Override
         public void releaseResources() {
