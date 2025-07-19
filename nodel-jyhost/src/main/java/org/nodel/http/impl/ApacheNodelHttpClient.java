@@ -366,6 +366,7 @@ public class ApacheNodelHttpClient extends NodelHTTPClient {
                 java.util.Base64.getEncoder().encodeToString((username + ":" + password).getBytes()));
 
         try {
+            // in case of NTLM, check for '\' in username
             String userPart = username;
             String domainPart = null;
             int indexOfBackSlash = username.indexOf('\\');
@@ -516,7 +517,8 @@ public class ApacheNodelHttpClient extends NodelHTTPClient {
 
         @Override
         public void informationResponse(HttpResponse response, HttpContext context) throws HttpException, IOException {
-            // Not used
+            // Unused - we don't handle informational responses
+            throw new UnsupportedOperationException("Informational responses not supported");
         }
 
         @Override
@@ -526,7 +528,8 @@ public class ApacheNodelHttpClient extends NodelHTTPClient {
 
         @Override
         public void updateCapacity(CapacityChannel capacityChannel) throws IOException {
-            capacityChannel.update(8192);
+            // Required by interface but we use HttpClient's automatic flow control
+            capacityChannel.update(Integer.MAX_VALUE);
         }
 
         @Override
