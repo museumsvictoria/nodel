@@ -52,6 +52,7 @@ public class ApacheNodelHttpClient extends NodelHTTPClient {
 
     /**
      * The Apache Http Client
+     * (created lazily)
      */
     private CloseableHttpAsyncClient _httpAsyncClient;
 
@@ -70,18 +71,11 @@ public class ApacheNodelHttpClient extends NodelHTTPClient {
      */
     private RequestConfig _requestConfig;
 
-
     /**
      * Maximum content allowed to avoid uncontrolled memory allocation
      * (default 150 MB, anything more should be using a streaming technique instead)
      */
     private final static int MAX_ALLOWED = 150 * 1024 * 1024;
-
-    private static final X509TrustManager IGNORE_SSL_TRUSTMANAGER = new X509TrustManager() {
-        public void checkClientTrusted(X509Certificate[] chain, String authType) {}
-        public void checkServerTrusted(X509Certificate[] chain, String authType) {}
-        public X509Certificate[] getAcceptedIssuers() { return new X509Certificate[0]; }
-    };
 
     private static final DefaultRedirectStrategy IGNORE_ALL_REDIRECTS = new DefaultRedirectStrategy() {
         @Override
@@ -204,6 +198,11 @@ public class ApacheNodelHttpClient extends NodelHTTPClient {
         }
     }
 
+    // static convenience methods
+
+    /**
+     * Returns the local host name (does not throw exceptions).
+     */
     private static String getLocalHostName() {
         try {
             return InetAddress.getLocalHost().getHostName();
@@ -211,6 +210,22 @@ public class ApacheNodelHttpClient extends NodelHTTPClient {
             return "localhost";
         }
     }
+
+    // convenience instances
+
+    /**
+     * Ignores all SSL issues
+     */
+    private static final X509TrustManager IGNORE_SSL_TRUSTMANAGER = new X509TrustManager() {
+
+        public void checkClientTrusted(X509Certificate[] chain, String authType) {}
+
+        public void checkServerTrusted(X509Certificate[] chain, String authType) {}
+
+        public X509Certificate[] getAcceptedIssuers() {
+            return new X509Certificate[0];
+        }
+    };
 
     @Override
     public HTTPSimpleResponse makeRequest(String urlStr, String method, Map<String, String> query,
@@ -279,6 +294,8 @@ public class ApacheNodelHttpClient extends NodelHTTPClient {
                             s_sendRate.addAndGet(body.length());
                         }
 
+                        // HttpClient 5's getBodyBytes() simplifies response handling,
+                        // making the old SafeCounter and CountableInputStream unnecessary.
                         byte[] contentBytes = response.getBodyBytes();
                         if (contentBytes != null) {
                             if (contentBytes.length > MAX_ALLOWED) {
@@ -376,6 +393,7 @@ public class ApacheNodelHttpClient extends NodelHTTPClient {
                         new AuthScope(request.getAuthority().getHostName(), request.getAuthority().getPort()),
                         creds);
             } else {
+                // normally used with NTLM
                 Credentials creds = new UsernamePasswordCredentials(username, password.toCharArray());
                 _credentialsProvider.setCredentials(
                         new AuthScope(request.getAuthority().getHostName(), request.getAuthority().getPort()),
