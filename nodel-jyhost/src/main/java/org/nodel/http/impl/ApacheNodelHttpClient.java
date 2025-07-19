@@ -1,9 +1,17 @@
 package org.nodel.http.impl;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.UnsupportedEncodingException;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
+import java.nio.ByteBuffer;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
+import java.nio.channels.FileChannel;
 import java.security.cert.X509Certificate;
+import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.concurrent.CompletableFuture;
@@ -33,10 +41,17 @@ import org.apache.hc.client5.http.ssl.NoopHostnameVerifier;
 import org.apache.hc.core5.concurrent.FutureCallback;
 import org.apache.hc.core5.http.ContentType;
 import org.apache.hc.core5.http.Header;
+import org.apache.hc.core5.http.HttpException;
 import org.apache.hc.core5.http.HttpHost;
 import org.apache.hc.core5.http.HttpRequest;
 import org.apache.hc.core5.http.HttpResponse;
 import org.apache.hc.core5.http.protocol.HttpContext;
+import org.apache.hc.core5.http.nio.AsyncResponseConsumer;
+import org.apache.hc.core5.http.nio.CapacityChannel;
+import org.apache.hc.core5.http.EntityDetails;
+import org.apache.hc.core5.http.nio.AsyncRequestProducer;
+import org.apache.hc.core5.http.nio.support.AsyncRequestBuilder;
+import org.apache.hc.client5.http.async.methods.SimpleRequestProducer;
 import org.apache.hc.core5.io.CloseMode;
 import org.apache.hc.core5.reactor.IOReactorConfig;
 import org.apache.hc.core5.ssl.SSLContexts;
@@ -77,12 +92,10 @@ public class ApacheNodelHttpClient extends NodelHTTPClient {
      */
     private final static int MAX_ALLOWED = 150 * 1024 * 1024;
 
-    private static final DefaultRedirectStrategy IGNORE_ALL_REDIRECTS = new DefaultRedirectStrategy() {
-        @Override
-        public boolean isRedirected(HttpRequest request, HttpResponse response, HttpContext context) {
-            return false;
-        }
-    };
+    /**
+     * Threshold for switching from memory to file-based streaming (10 MB)
+     */
+    private final static int STREAMING_THRESHOLD = 10 * 1024 * 1024;
 
     /**
      * Lazily initialises the async client in a thread-safe manner.
@@ -138,6 +151,9 @@ public class ApacheNodelHttpClient extends NodelHTTPClient {
         _httpAsyncClient.start();
     }
 
+    /**
+     * (convenience method)
+     */
     private HttpHost prepareForProxyUse(String proxyAddress, String proxyUsername, String proxyPassword) {
         int lastIndexOfColon = proxyAddress.lastIndexOf(':');
         if (lastIndexOfColon <= 0) {
@@ -194,38 +210,9 @@ public class ApacheNodelHttpClient extends NodelHTTPClient {
                     .setHostnameVerifier(NoopHostnameVerifier.INSTANCE)
                     .build());
         } catch (Exception e) {
-            throw new RuntimeException("Error initializing SSL context", e);
+            throw new RuntimeException("Error initialising SSL context", e);
         }
     }
-
-    // static convenience methods
-
-    /**
-     * Returns the local host name (does not throw exceptions).
-     */
-    private static String getLocalHostName() {
-        try {
-            return InetAddress.getLocalHost().getHostName();
-        } catch (UnknownHostException e) {
-            return "localhost";
-        }
-    }
-
-    // convenience instances
-
-    /**
-     * Ignores all SSL issues
-     */
-    private static final X509TrustManager IGNORE_SSL_TRUSTMANAGER = new X509TrustManager() {
-
-        public void checkClientTrusted(X509Certificate[] chain, String authType) {}
-
-        public void checkServerTrusted(X509Certificate[] chain, String authType) {}
-
-        public X509Certificate[] getAcceptedIssuers() {
-            return new X509Certificate[0];
-        }
-    };
 
     @Override
     public HTTPSimpleResponse makeRequest(String urlStr, String method, Map<String, String> query,
@@ -243,6 +230,10 @@ public class ApacheNodelHttpClient extends NodelHTTPClient {
             Throwable cause = e.getCause();
             if (cause instanceof RuntimeException) {
                 throw (RuntimeException) cause;
+            }
+            // Propagate IOExceptions (like SSLHandshakeException) to be handled by the caller
+            if (cause instanceof IOException) {
+                throw new RuntimeException(cause);
             }
             throw new RuntimeException("Error executing request", cause);
         }
@@ -267,10 +258,10 @@ public class ApacheNodelHttpClient extends NodelHTTPClient {
             fullURL = String.format("%s?%s", urlStr, queryPart);
         }
 
-        CompletableFuture<HTTPSimpleResponse> future = new CompletableFuture<>();
+        final CompletableFuture<HTTPSimpleResponse> future = new CompletableFuture<>();
 
         try {
-            SimpleHttpRequest request = createRequest(method, fullURL, body, contentType);
+            final SimpleHttpRequest request = createRequest(method, fullURL, body, contentType);
 
             if (!Strings.isBlank(username)) {
                 applySecurity(request, username, !Strings.isEmpty(password) ? password : "");
@@ -286,75 +277,31 @@ public class ApacheNodelHttpClient extends NodelHTTPClient {
 
             s_activeConnections.incrementAndGet();
 
-            _httpAsyncClient.execute(request, new FutureCallback<SimpleHttpResponse>() {
-                @Override
-                public void completed(SimpleHttpResponse response) {
-                    try {
+            _executor.submit(() -> {
+                SmartResponseConsumer consumer = new SmartResponseConsumer();
+                _httpAsyncClient.execute(SimpleRequestProducer.create(request), consumer, new FutureCallback<HTTPSimpleResponse>() {
+                    @Override
+                    public void completed(HTTPSimpleResponse result) {
                         if (!Strings.isEmpty(body)) {
                             s_sendRate.addAndGet(body.length());
                         }
-
-                        // HttpClient 5's getBodyBytes() simplifies response handling,
-                        // making the old SafeCounter and CountableInputStream unnecessary.
-                        byte[] contentBytes = response.getBodyBytes();
-                        if (contentBytes != null) {
-                            if (contentBytes.length > MAX_ALLOWED) {
-                                throw new IOException("Too big - HTTP response over " + MAX_ALLOWED + " bytes is not allowed");
-                            }
-                            s_receiveRate.addAndGet(contentBytes.length);
-                        }
-
-                        String content = null;
-                        if (contentBytes != null) {
-                            String encoding = "ISO-8859-1";
-                            ContentType contentType = response.getContentType();
-                            if (contentType != null) {
-                                if (contentType.getCharset() != null) {
-                                    encoding = contentType.getCharset().name();
-                                } else {
-                                    String mimeType = contentType.getMimeType().toLowerCase();
-                                    if (mimeType.contains("json") || mimeType.contains("xml")) {
-                                        encoding = "utf-8";
-                                    }
-                                }
-                            }
-                            content = new String(contentBytes, encoding);
-                        }
-
-                        HTTPSimpleResponse result = new HTTPSimpleResponse();
-                        result.content = content;
-                        result.statusCode = response.getCode();
-                        result.reasonPhrase = response.getReasonPhrase();
-
-                        for (Header header : response.getHeaders()) {
-                            result.addHeader(header.getName(), header.getValue());
-                        }
-
+                        s_receiveRate.addAndGet(result.getRawContent() != null ? result.getRawContent().length : 0);
                         future.complete(result);
-                    } catch (Exception e) {
-                        failed(e);
-                    } finally {
                         s_activeConnections.decrementAndGet();
                     }
-                }
 
-                @Override
-                public void failed(Exception ex) {
-                    try {
-                        future.completeExceptionally(new IOException(ex));
-                    } finally {
+                    @Override
+                    public void failed(Exception ex) {
+                        future.completeExceptionally(ex);
                         s_activeConnections.decrementAndGet();
                     }
-                }
 
-                @Override
-                public void cancelled() {
-                    try {
-                        future.completeExceptionally(new RuntimeException("Request was cancelled"));
-                    } finally {
+                    @Override
+                    public void cancelled() {
+                        future.cancel(true);
                         s_activeConnections.decrementAndGet();
                     }
-                }
+                });
             });
         } catch (Exception e) {
             future.completeExceptionally(new IOException(e));
@@ -373,34 +320,6 @@ public class ApacheNodelHttpClient extends NodelHTTPClient {
                 .build();
 
         request.setConfig(customConfig);
-    }
-
-    private void applySecurity(SimpleHttpRequest request, String username, String password) {
-        request.setHeader("Authorization", "Basic " +
-                java.util.Base64.getEncoder().encodeToString((username + ":" + password).getBytes()));
-
-        try {
-            String userPart = username;
-            String domainPart = null;
-            int indexOfBackSlash = username.indexOf('\\');
-
-            if (indexOfBackSlash > 0) {
-                domainPart = username.substring(0, indexOfBackSlash);
-                userPart = username.substring(Math.min(username.length() - 1, indexOfBackSlash + 1));
-
-                Credentials creds = new NTCredentials(userPart, password.toCharArray(), getLocalHostName(), domainPart);
-                _credentialsProvider.setCredentials(
-                        new AuthScope(request.getAuthority().getHostName(), request.getAuthority().getPort()),
-                        creds);
-            } else {
-                // normally used with NTLM
-                Credentials creds = new UsernamePasswordCredentials(username, password.toCharArray());
-                _credentialsProvider.setCredentials(
-                        new AuthScope(request.getAuthority().getHostName(), request.getAuthority().getPort()),
-                        creds);
-            }
-        } catch (Exception e) {
-        }
     }
 
     /**
@@ -444,13 +363,72 @@ public class ApacheNodelHttpClient extends NodelHTTPClient {
                 });
     }
 
-    @Override
-    public void close() throws IOException {
-        synchronized (_lock) {
-            if (_httpAsyncClient != null) {
-                _httpAsyncClient.close(CloseMode.GRACEFUL);
-                _httpAsyncClient = null;
+    /**
+     * Applies security for a given HTTP request.
+     */
+    private void applySecurity(SimpleHttpRequest request, String username, String password) {
+        request.setHeader("Authorization", "Basic " +
+                java.util.Base64.getEncoder().encodeToString((username + ":" + password).getBytes()));
+
+        try {
+            String userPart = username;
+            String domainPart = null;
+            int indexOfBackSlash = username.indexOf('\\');
+
+            if (indexOfBackSlash > 0) {
+                domainPart = username.substring(0, indexOfBackSlash);
+                userPart = username.substring(Math.min(username.length() - 1, indexOfBackSlash + 1));
+
+                Credentials creds = new NTCredentials(userPart, password.toCharArray(), getLocalHostName(), domainPart);
+                _credentialsProvider.setCredentials(
+                        new AuthScope(request.getAuthority().getHostName(), request.getAuthority().getPort()),
+                        creds);
+            } else {
+                // normally used with NTLM
+                Credentials creds = new UsernamePasswordCredentials(username, password.toCharArray());
+                _credentialsProvider.setCredentials(
+                        new AuthScope(request.getAuthority().getHostName(), request.getAuthority().getPort()),
+                        creds);
             }
+        } catch (Exception e) {
+        }
+    }
+
+    @Override
+    public void setProxy(String address, String username, String password) {
+        synchronized (_lock) {
+            super.setProxy(address, username, password);
+            closeClient(); // Force re-initialisation on the next request
+        }
+    }
+
+    @Override
+    public void setIgnoreSSL(boolean value) {
+        synchronized (_lock) {
+            super.setIgnoreSSL(value);
+            closeClient(); // Force re-initialisation on the next request
+        }
+    }
+
+    @Override
+    public void setIgnoreRedirects(boolean value) {
+        synchronized (_lock) {
+            super.setIgnoreRedirects(value);
+            closeClient(); // Force re-initialisation on the next request
+        }
+    }
+
+    private void closeClient() {
+        if (_httpAsyncClient != null) {
+            _httpAsyncClient.close(CloseMode.GRACEFUL);
+            _httpAsyncClient = null;
+        }
+    }
+
+    @Override
+    public void close() {
+        synchronized (_lock) {
+            closeClient();
 
             if (_executor != null) {
                 _executor.shutdown();
@@ -467,6 +445,223 @@ public class ApacheNodelHttpClient extends NodelHTTPClient {
 
             _credentialsProvider = null;
             _requestConfig = null;
+        }
+    }
+
+    // static convenience methods
+
+    /**
+     * Returns the local host name (does not throw exceptions).
+     */
+    private static String getLocalHostName() {
+        try {
+            return InetAddress.getLocalHost().getHostName();
+        } catch (UnknownHostException e) {
+            return "localhost";
+        }
+    }
+
+    // convenience instances
+
+    /**
+     * Ignores all SSL issues
+     */
+    private static final X509TrustManager IGNORE_SSL_TRUSTMANAGER = new X509TrustManager() {
+
+        public void checkClientTrusted(X509Certificate[] chain, String authType) {}
+
+        public void checkServerTrusted(X509Certificate[] chain, String authType) {}
+
+        public X509Certificate[] getAcceptedIssuers() {
+            return new X509Certificate[0];
+        }
+    };
+
+    /**
+     *  A redirect strategy used to ignore all redirect directives
+     */
+    private static final DefaultRedirectStrategy IGNORE_ALL_REDIRECTS = new DefaultRedirectStrategy() {
+        @Override
+        public boolean isRedirected(HttpRequest request, HttpResponse response, HttpContext context) {
+            return false;
+        }
+    };
+
+    /**
+     * Smart response consumer that automatically chooses between memory and file streaming
+     * based on response size.
+     */
+    private static class SmartResponseConsumer implements AsyncResponseConsumer<HTTPSimpleResponse> {
+
+        private HTTPSimpleResponse result;
+        private ByteArrayOutputStream memoryBuffer;
+        private FileChannel fileChannel;
+        private Path tempFile;
+        private boolean useFileStreaming;
+        private long totalBytesReceived;
+        private FutureCallback<HTTPSimpleResponse> callback;
+
+        @Override
+        public void consumeResponse(HttpResponse response, EntityDetails entityDetails, HttpContext context,
+                                    FutureCallback<HTTPSimpleResponse> callback) throws HttpException, IOException {
+            this.callback = callback;
+            this.result = new HTTPSimpleResponse();
+            this.result.statusCode = response.getCode();
+            this.result.reasonPhrase = response.getReasonPhrase();
+            for (Header header : response.getHeaders()) {
+                this.result.addHeader(header.getName(), header.getValue());
+            }
+
+            // Determine streaming strategy based on Content-Length
+            long contentLength = entityDetails != null ? entityDetails.getContentLength() : -1;
+
+            if (contentLength > MAX_ALLOWED) {
+                callback.failed(new IOException("Too big - HTTP response over " + MAX_ALLOWED + " bytes is not allowed"));
+                return;
+            }
+
+            // Use file streaming for large or unknown-size responses
+            this.useFileStreaming = (contentLength > STREAMING_THRESHOLD) || (contentLength < 0 && STREAMING_THRESHOLD > 0);
+
+            if (this.useFileStreaming) {
+                this.tempFile = Files.createTempFile("nodel-response-", ".tmp");
+                this.fileChannel = FileChannel.open(tempFile, StandardOpenOption.WRITE, StandardOpenOption.TRUNCATE_EXISTING);
+            } else {
+                int initialCapacity = contentLength > 0 ? (int) contentLength : 4096;
+                this.memoryBuffer = new ByteArrayOutputStream(initialCapacity);
+            }
+
+            // Don't call callback.completed() here - wait until streamEnd()
+        }
+
+        @Override
+        public void informationResponse(HttpResponse response, HttpContext context) throws HttpException, IOException {
+            // Not used
+        }
+
+        @Override
+        public void failed(Exception cause) {
+            releaseResources();
+        }
+
+        @Override
+        public void updateCapacity(CapacityChannel capacityChannel) throws IOException {
+            capacityChannel.update(8192);
+        }
+
+        @Override
+        public void consume(ByteBuffer src) throws IOException {
+            int bytesToRead = src.remaining();
+            this.totalBytesReceived += bytesToRead;
+
+            if (this.totalBytesReceived > MAX_ALLOWED) {
+                throw new IOException("Too big - HTTP response over " + MAX_ALLOWED + " bytes is not allowed");
+            }
+
+            if (this.useFileStreaming) {
+                while (src.hasRemaining()) {
+                    this.fileChannel.write(src);
+                }
+            } else {
+                // Check if we should switch to file streaming mid-response
+                if (this.memoryBuffer.size() + bytesToRead > STREAMING_THRESHOLD) {
+                    switchToFileStreaming(src);
+                } else {
+                    writeToMemoryBuffer(src);
+                }
+            }
+        }
+
+        private void writeToMemoryBuffer(ByteBuffer src) {
+            if (src.hasArray()) {
+                int pos = src.position();
+                int len = src.remaining();
+                this.memoryBuffer.write(src.array(), src.arrayOffset() + pos, len);
+                src.position(pos + len);
+            } else {
+                while (src.hasRemaining()) {
+                    this.memoryBuffer.write(src.get());
+                }
+            }
+        }
+
+        private void switchToFileStreaming(ByteBuffer src) throws IOException {
+            this.tempFile = Files.createTempFile("nodel-response-", ".tmp");
+            this.fileChannel = FileChannel.open(tempFile, StandardOpenOption.WRITE, StandardOpenOption.TRUNCATE_EXISTING);
+            
+            // Write existing buffer to file
+            if (this.memoryBuffer.size() > 0) {
+                this.fileChannel.write(ByteBuffer.wrap(this.memoryBuffer.toByteArray()));
+                this.memoryBuffer = null;
+            }
+            
+            // Write current data to file
+            while (src.hasRemaining()) {
+                this.fileChannel.write(src);
+            }
+            
+            this.useFileStreaming = true;
+        }
+
+        @Override
+        public void streamEnd(List<? extends Header> trailers) throws HttpException, IOException {
+            try {
+                byte[] content;
+                
+                if (this.useFileStreaming) {
+                    this.fileChannel.close();
+                    content = Files.readAllBytes(this.tempFile);
+                    Files.deleteIfExists(this.tempFile);
+                } else {
+                    content = this.memoryBuffer != null ? this.memoryBuffer.toByteArray() : new byte[0];
+                }
+                
+                this.result.setRawContent(content);
+                
+                // Set content string with encoding detection
+                try {
+                    String encoding = "ISO-8859-1"; // default
+                    String contentTypeHeader = this.result.getFirstHeader("Content-Type");
+                    if (contentTypeHeader != null) {
+                        ContentType contentType = ContentType.parse(contentTypeHeader);
+                        if (contentType != null) {
+                            if (contentType.getCharset() != null) {
+                                encoding = contentType.getCharset().name();
+                            } else {
+                                String mimeType = contentType.getMimeType().toLowerCase();
+                                if (mimeType.contains("json") || mimeType.contains("xml")) {
+                                    encoding = "utf-8";
+                                }
+                            }
+                        }
+                    }
+                    this.result.content = new String(content, encoding);
+                } catch (UnsupportedEncodingException e) {
+                    this.result.content = new String(content);
+                }
+                
+                // Now complete the callback with the result
+                this.callback.completed(this.result);
+            } catch (Exception e) {
+                this.callback.failed(e);
+            }
+        }
+
+        public HTTPSimpleResponse getResult() {
+            return this.result;
+        }
+
+        @Override
+        public void releaseResources() {
+            try {
+                if (this.fileChannel != null) {
+                    this.fileChannel.close();
+                }
+                if (this.tempFile != null) {
+                    Files.deleteIfExists(this.tempFile);
+                }
+            } catch (IOException ignored) {}
+            this.memoryBuffer = null;
         }
     }
 }
