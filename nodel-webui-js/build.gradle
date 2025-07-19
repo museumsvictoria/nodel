@@ -17,8 +17,13 @@ plugins {
     id 'com.github.node-gradle.node' version '7.0.2'
 }
 
-compileJava {
-    options.release = 8
+java {
+    sourceCompatibility = JavaVersion.VERSION_11
+    targetCompatibility = JavaVersion.VERSION_11
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.release = 11
 }
 
 repositories {
@@ -129,7 +134,7 @@ tasks.register('filterContentTemplates', Copy) {
 tasks.register('zipContentInterface', Zip) {
     dependsOn copyContent, filterContentTemplates
     from file("${project.buildDir}/www-content_stage")
-    archiveName 'content.zip'
+    archiveFileName = 'content.zip'
     destinationDirectory = file("${project.buildDir}/www-content/org/nodel/host")
 }
 
