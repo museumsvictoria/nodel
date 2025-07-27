@@ -1,12 +1,27 @@
-![nodellogo](http://nodel.io/media/1066/logo-nodel.png)
+<div align="center">
 
-[Nodel](http://nodel.io) is an open source digital media control system for museums and galleries.
+  <img src="http://nodel.io/media/1066/logo-nodel.png" alt="Nodel logo" height="110">
 
-It uses a series of nodes that perform **"actions"** or respond to **"signals"** to control various devices on a network, allowing quick and easy management of digital media devices.
+  <p>Open-source digital-media control system for museums, galleries and beyond.</p>
 
-Nodel is typically used to control digital media in galleries, museums, corporate meeting rooms and digital signage.
+  <p>
+    <a href="http://www.mozilla.org/MPL/2.0">
+      <img src="https://img.shields.io/badge/license-MPL%202.0-brightgreen.svg" alt="License: MPL 2.0">
+    </a>
+    <a href="https://github.com/museumsvictoria/nodel/releases">
+      <img src="https://img.shields.io/github/v/release/museumsvictoria/nodel.svg" alt="Latest release">
+    </a>
+    <a href="https://github.com/museumsvictoria/nodel/releases">
+      <img src="https://img.shields.io/github/downloads/museumsvictoria/nodel/total?logo=github" alt="GitHub downloads">
+    </a>
+    <img src="https://img.shields.io/badge/Java-11%2B-orange.svg" alt="Requires Java 11+">
+  </p>
 
-In short, Nodel can manage any programmable device across a wide range of platforms.
+</div>
+
+---
+
+Nodel is an open-source digital-media control system that coordinates projectors, screens, players and other network-connected devices across exhibition spaces. It builds its flexibility from a Java-based platform and Python “recipes”, letting curators and integrators automate anything from a single screen to an entire museum.
 
 ###### Why Nodel?
 
@@ -109,11 +124,6 @@ Notes
 * also runs fine on Java 21 LTS despite console warnings
 * for service / daemon use, see [wiki pages](https://github.com/museumsvictoria/nodel/wiki)
 * check `bootstrap` files for startup config
-
-Licenses
-========
-* Platform - [Mozilla Public License, version 2.0](http://www.mozilla.org/MPL/2.0)
-* Recipes - [MIT License](http://opensource.org/licenses/MIT)
 
 
 Credits
