@@ -110,11 +110,6 @@ Notes
 * for service / daemon use, see [wiki pages](https://github.com/museumsvictoria/nodel/wiki)
 * check `bootstrap` files for startup config
 
-Licenses
-========
-* Platform - [Mozilla Public License, version 2.0](http://www.mozilla.org/MPL/2.0)
-* Recipes - [MIT License](http://opensource.org/licenses/MIT)
-
 
 Credits
 =======
