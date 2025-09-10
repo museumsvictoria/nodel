@@ -317,7 +317,8 @@ public class TCPChannelClient extends ChannelClient {
             _enabled = false;
             
             // shutdown timer
-            _keepAliveTask.cancel();
+            if (_keepAliveTask != null)
+                _keepAliveTask.cancel();
             
             // clean up and back-off if still enabled
             safeCleanup();
