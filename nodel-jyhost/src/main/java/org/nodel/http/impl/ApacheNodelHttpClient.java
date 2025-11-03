@@ -448,7 +448,18 @@ public class ApacheNodelHttpClient extends NodelHTTPClient {
                     }
                     waitMillis = Math.max(waitMillis, TimeUnit.SECONDS.toMillis(5));
 
-                    if (!_executor.awaitTermination(waitMillis, TimeUnit.MILLISECONDS)) {
+                    long deadlineNanos = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(waitMillis);
+                    while ((s_activeConnections.get() > 0 || !_executor.isTerminated())
+                            && System.nanoTime() < deadlineNanos) {
+                        long remainingMillis = TimeUnit.NANOSECONDS.toMillis(deadlineNanos - System.nanoTime());
+                        if (remainingMillis <= 0) {
+                            break;
+                        }
+                        long waitChunk = Math.max(100, Math.min(1000, remainingMillis));
+                        _executor.awaitTermination(waitChunk, TimeUnit.MILLISECONDS);
+                    }
+
+                    if (s_activeConnections.get() > 0 || !_executor.isTerminated()) {
                         _executor.shutdownNow();
                     }
                 } catch (InterruptedException e) {
