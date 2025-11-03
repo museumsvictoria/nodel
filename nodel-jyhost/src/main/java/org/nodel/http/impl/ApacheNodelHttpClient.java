@@ -299,7 +299,7 @@ public class ApacheNodelHttpClient extends NodelHTTPClient {
                 });
             });
         } catch (Exception e) {
-            future.completeExceptionally(new IOException(e));
+            future.completeExceptionally(e);
         }
 
         return future;
