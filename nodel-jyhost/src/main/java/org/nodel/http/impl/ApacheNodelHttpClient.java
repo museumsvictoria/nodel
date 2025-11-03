@@ -18,6 +18,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.RejectedExecutionException;
 
 import javax.net.ssl.SSLContext;
 
@@ -270,34 +271,45 @@ public class ApacheNodelHttpClient extends NodelHTTPClient {
 
             applyTimeouts(request, connectTimeout, readTimeout);
 
-            s_activeConnections.incrementAndGet();
+            synchronized (_lock) {
+                if (_executor == null || _executor.isShutdown()) {
+                    future.completeExceptionally(new IllegalStateException("HTTP client is shutting down"));
+                    return future;
+                }
 
-            _executor.submit(() -> {
-                SmartResponseConsumer consumer = new SmartResponseConsumer();
-                _httpAsyncClient.execute(SimpleRequestProducer.create(request), consumer, new FutureCallback<HTTPSimpleResponse>() {
-                    @Override
-                    public void completed(HTTPSimpleResponse result) {
-                        if (!Strings.isEmpty(body)) {
-                            s_sendRate.addAndGet(body.length());
-                        }
-                        s_receiveRate.addAndGet(result.getRawContent() != null ? result.getRawContent().length : 0);
-                        future.complete(result);
-                        s_activeConnections.decrementAndGet();
-                    }
+                s_activeConnections.incrementAndGet();
+                try {
+                    _executor.submit(() -> {
+                        SmartResponseConsumer consumer = new SmartResponseConsumer();
+                        _httpAsyncClient.execute(SimpleRequestProducer.create(request), consumer, new FutureCallback<HTTPSimpleResponse>() {
+                            @Override
+                            public void completed(HTTPSimpleResponse result) {
+                                if (!Strings.isEmpty(body)) {
+                                    s_sendRate.addAndGet(body.length());
+                                }
+                                s_receiveRate.addAndGet(result.getRawContent() != null ? result.getRawContent().length : 0);
+                                future.complete(result);
+                                s_activeConnections.decrementAndGet();
+                            }
 
-                    @Override
-                    public void failed(Exception ex) {
-                        future.completeExceptionally(ex);
-                        s_activeConnections.decrementAndGet();
-                    }
+                            @Override
+                            public void failed(Exception ex) {
+                                future.completeExceptionally(ex);
+                                s_activeConnections.decrementAndGet();
+                            }
 
-                    @Override
-                    public void cancelled() {
-                        future.cancel(true);
-                        s_activeConnections.decrementAndGet();
-                    }
-                });
-            });
+                            @Override
+                            public void cancelled() {
+                                future.cancel(true);
+                                s_activeConnections.decrementAndGet();
+                            }
+                        });
+                    });
+                } catch (RejectedExecutionException ex) {
+                    s_activeConnections.decrementAndGet();
+                    future.completeExceptionally(new IllegalStateException("HTTP client is shutting down", ex));
+                }
+            }
         } catch (Exception e) {
             future.completeExceptionally(e);
         }
