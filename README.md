@@ -1,6 +1,24 @@
-![nodellogo](http://nodel.io/media/1066/logo-nodel.png)
+<div align="center">
 
-[Nodel](http://nodel.io) is an open source digital media control system for museums and galleries.
+  <img src="http://nodel.io/media/1066/logo-nodel.png" alt="Nodel logo" height="110">
+
+  <p>
+    <a href="http://www.mozilla.org/MPL/2.0">
+      <img src="https://img.shields.io/badge/license-MPL%202.0-brightgreen.svg" alt="License: MPL 2.0">
+    </a>
+    <a href="https://github.com/museumsvictoria/nodel/releases">
+      <img src="https://img.shields.io/github/v/release/museumsvictoria/nodel.svg" alt="Latest release">
+    </a>
+    <a href="https://github.com/museumsvictoria/nodel/releases">
+      <img src="https://img.shields.io/github/downloads/museumsvictoria/nodel/total?logo=github" alt="Total downloads">
+    </a>
+    <img src="https://img.shields.io/badge/Java-11%2B-orange.svg" alt="Requires Java 11+">
+  </p>
+
+</div>
+
+
+Nodel is an open source digital media control system for museums and galleries.
 
 It uses a series of nodes that perform **"actions"** or respond to **"signals"** to control various devices on a network, allowing quick and easy management of digital media devices.
 
@@ -109,11 +127,6 @@ Notes
 * also runs fine on Java 21 LTS despite console warnings
 * for service / daemon use, see [wiki pages](https://github.com/museumsvictoria/nodel/wiki)
 * check `bootstrap` files for startup config
-
-Licenses
-========
-* Platform - [Mozilla Public License, version 2.0](http://www.mozilla.org/MPL/2.0)
-* Recipes - [MIT License](http://opensource.org/licenses/MIT)
 
 
 Credits
