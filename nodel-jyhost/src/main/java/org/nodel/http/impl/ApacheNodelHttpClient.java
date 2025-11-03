@@ -435,7 +435,20 @@ public class ApacheNodelHttpClient extends NodelHTTPClient {
             if (_executor != null) {
                 _executor.shutdown();
                 try {
-                    if (!_executor.awaitTermination(5, TimeUnit.SECONDS)) {
+                    long waitMillis = DEFAULT_CONNECTTIMEOUT + DEFAULT_READTIMEOUT;
+                    if (_requestConfig != null) {
+                        Timeout connect = _requestConfig.getConnectTimeout();
+                        if (connect != null) {
+                            waitMillis = Math.max(waitMillis, connect.toMilliseconds());
+                        }
+                        Timeout response = _requestConfig.getResponseTimeout();
+                        if (response != null) {
+                            waitMillis = Math.max(waitMillis, response.toMilliseconds());
+                        }
+                    }
+                    waitMillis = Math.max(waitMillis, TimeUnit.SECONDS.toMillis(5));
+
+                    if (!_executor.awaitTermination(waitMillis, TimeUnit.MILLISECONDS)) {
                         _executor.shutdownNow();
                     }
                 } catch (InterruptedException e) {
