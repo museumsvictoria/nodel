@@ -15,10 +15,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.RejectedExecutionException;
 
 import javax.net.ssl.SSLContext;
 
@@ -56,6 +53,7 @@ import org.nodel.Strings;
 import org.nodel.Version;
 import org.nodel.net.HTTPSimpleResponse;
 import org.nodel.net.NodelHTTPClient;
+import org.nodel.threading.ThreadPool;
 
 public class ApacheNodelHttpClient extends NodelHTTPClient {
 
@@ -66,11 +64,6 @@ public class ApacheNodelHttpClient extends NodelHTTPClient {
      * (created lazily)
      */
     private CloseableHttpAsyncClient _httpAsyncClient;
-
-    /**
-     * Used for managing asynchronous tasks
-     */
-    private ExecutorService _executor;
 
     /**
      * Required with 'applySecurity'
@@ -94,6 +87,21 @@ public class ApacheNodelHttpClient extends NodelHTTPClient {
     private final static int STREAMING_THRESHOLD = 10 * 1024 * 1024;
 
     /**
+     * Dedicated pool for async HTTP operations.
+     */
+    private static final ThreadPool s_httpThreadPool = new ThreadPool("HTTP async", 16);
+
+    /**
+     * Limits reactor threads so async usage stays bounded.
+     */
+    private static final int IO_THREAD_COUNT = 2;
+
+    /**
+     * Tracks whether this client has been closed.
+     */
+    private volatile boolean _closed;
+
+    /**
      * Lazily initialises the async client in a thread-safe manner.
      * This ensures the client (and its proxy configuration) is only set up once.
      */
@@ -108,12 +116,9 @@ public class ApacheNodelHttpClient extends NodelHTTPClient {
                     .build();
         }
 
-        if (_executor == null) {
-            _executor = Executors.newCachedThreadPool();
-        }
-
         IOReactorConfig ioReactorConfig = IOReactorConfig.custom()
                 .setSoTimeout(Timeout.ofMilliseconds(DEFAULT_READTIMEOUT))
+                .setIoThreadCount(IO_THREAD_COUNT)
                 .build();
 
         org.apache.hc.client5.http.impl.async.HttpAsyncClientBuilder builder = HttpAsyncClients.custom()
@@ -243,6 +248,11 @@ public class ApacheNodelHttpClient extends NodelHTTPClient {
                          Integer connectTimeout, Integer readTimeout) {
 
         synchronized (_lock) {
+            if (_closed) {
+                CompletableFuture<HTTPSimpleResponse> failed = new CompletableFuture<>();
+                failed.completeExceptionally(new IllegalStateException("HTTP client is closed"));
+                return failed;
+            }
             lazyInit();
         }
 
@@ -272,54 +282,44 @@ public class ApacheNodelHttpClient extends NodelHTTPClient {
             applyTimeouts(request, connectTimeout, readTimeout);
 
             synchronized (_lock) {
-                if (_executor == null || _executor.isShutdown()) {
-                    future.completeExceptionally(new IllegalStateException("HTTP client is shutting down"));
-                    return future;
-                }
-
                 final CloseableHttpAsyncClient client = _httpAsyncClient;
-                if (client == null) {
+                if (client == null || _closed) {
                     future.completeExceptionally(new IllegalStateException("HTTP client is shutting down"));
                     return future;
                 }
 
                 s_activeConnections.incrementAndGet();
-                try {
-                    _executor.submit(() -> {
-                        try {
-                            SmartResponseConsumer consumer = new SmartResponseConsumer();
-                            client.execute(SimpleRequestProducer.create(request), consumer, new FutureCallback<HTTPSimpleResponse>() {
-                                @Override
-                                public void completed(HTTPSimpleResponse result) {
-                                    if (!Strings.isEmpty(body)) {
-                                        s_sendRate.addAndGet(body.length());
-                                    }
-                                    s_receiveRate.addAndGet(result.getRawContent() != null ? result.getRawContent().length : 0);
-                                    future.complete(result);
-                                    s_activeConnections.decrementAndGet();
+                s_httpThreadPool.execute(() -> {
+                    try {
+                        SmartResponseConsumer consumer = new SmartResponseConsumer();
+                        client.execute(SimpleRequestProducer.create(request), consumer, new FutureCallback<HTTPSimpleResponse>() {
+                            @Override
+                            public void completed(HTTPSimpleResponse result) {
+                                if (!Strings.isEmpty(body)) {
+                                    s_sendRate.addAndGet(body.length());
                                 }
+                                s_receiveRate.addAndGet(result.getRawContent() != null ? result.getRawContent().length : 0);
+                                future.complete(result);
+                                s_activeConnections.decrementAndGet();
+                            }
 
-                                @Override
-                                public void failed(Exception ex) {
-                                    future.completeExceptionally(ex);
-                                    s_activeConnections.decrementAndGet();
-                                }
+                            @Override
+                            public void failed(Exception ex) {
+                                future.completeExceptionally(ex);
+                                s_activeConnections.decrementAndGet();
+                            }
 
-                                @Override
-                                public void cancelled() {
-                                    future.cancel(true);
-                                    s_activeConnections.decrementAndGet();
-                                }
-                            });
-                        } catch (Exception ex) {
-                            future.completeExceptionally(ex);
-                            s_activeConnections.decrementAndGet();
-                        }
-                    });
-                } catch (RejectedExecutionException ex) {
-                    s_activeConnections.decrementAndGet();
-                    future.completeExceptionally(new IllegalStateException("HTTP client is shutting down", ex));
-                }
+                            @Override
+                            public void cancelled() {
+                                future.cancel(true);
+                                s_activeConnections.decrementAndGet();
+                            }
+                        });
+                    } catch (Exception ex) {
+                        future.completeExceptionally(ex);
+                        s_activeConnections.decrementAndGet();
+                    }
+                });
             }
         } catch (Exception e) {
             future.completeExceptionally(e);
@@ -453,43 +453,38 @@ public class ApacheNodelHttpClient extends NodelHTTPClient {
     @Override
     public void close() {
         synchronized (_lock) {
+            if (_closed) {
+                return;
+            }
+            _closed = true;
             closeClient();
 
-            if (_executor != null) {
-                _executor.shutdown();
-                try {
-                    long waitMillis = DEFAULT_CONNECTTIMEOUT + DEFAULT_READTIMEOUT;
-                    if (_requestConfig != null) {
-                        Timeout connect = _requestConfig.getConnectTimeout();
-                        if (connect != null) {
-                            waitMillis = Math.max(waitMillis, connect.toMilliseconds());
-                        }
-                        Timeout response = _requestConfig.getResponseTimeout();
-                        if (response != null) {
-                            waitMillis = Math.max(waitMillis, response.toMilliseconds());
-                        }
-                    }
-                    waitMillis = Math.max(waitMillis, TimeUnit.SECONDS.toMillis(5));
-
-                    long deadlineNanos = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(waitMillis);
-                    while ((s_activeConnections.get() > 0 || !_executor.isTerminated())
-                            && System.nanoTime() < deadlineNanos) {
-                        long remainingMillis = TimeUnit.NANOSECONDS.toMillis(deadlineNanos - System.nanoTime());
-                        if (remainingMillis <= 0) {
-                            break;
-                        }
-                        long waitChunk = Math.max(100, Math.min(1000, remainingMillis));
-                        _executor.awaitTermination(waitChunk, TimeUnit.MILLISECONDS);
-                    }
-
-                    if (s_activeConnections.get() > 0 || !_executor.isTerminated()) {
-                        _executor.shutdownNow();
-                    }
-                } catch (InterruptedException e) {
-                    _executor.shutdownNow();
-                    Thread.currentThread().interrupt();
+            long waitMillis = DEFAULT_CONNECTTIMEOUT + DEFAULT_READTIMEOUT;
+            if (_requestConfig != null) {
+                Timeout connect = _requestConfig.getConnectTimeout();
+                if (connect != null) {
+                    waitMillis = Math.max(waitMillis, connect.toMilliseconds());
                 }
-                _executor = null;
+                Timeout response = _requestConfig.getResponseTimeout();
+                if (response != null) {
+                    waitMillis = Math.max(waitMillis, response.toMilliseconds());
+                }
+            }
+            waitMillis = Math.max(waitMillis, TimeUnit.SECONDS.toMillis(5));
+
+            long deadlineNanos = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(waitMillis);
+            while (s_activeConnections.get() > 0 && System.nanoTime() < deadlineNanos) {
+                long remainingMillis = TimeUnit.NANOSECONDS.toMillis(deadlineNanos - System.nanoTime());
+                if (remainingMillis <= 0) {
+                    break;
+                }
+                long waitChunk = Math.max(100, Math.min(1000, remainingMillis));
+                try {
+                    Thread.sleep(waitChunk);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    break;
+                }
             }
 
             _credentialsProvider = null;
