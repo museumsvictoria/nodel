@@ -87,9 +87,9 @@ public class ApacheNodelHttpClient extends NodelHTTPClient {
     private final static int STREAMING_THRESHOLD = 10 * 1024 * 1024;
 
     /**
-     * Dedicated pool for async HTTP operations.
+     * Dedicated pool for HTTP operations.
      */
-    private static final ThreadPool s_httpThreadPool = new ThreadPool("HTTP async", 16);
+    private static ThreadPool s_httpThreadPool = new ThreadPool("HTTP client", 16);
 
     /**
      * Limits reactor threads so async usage stays bounded.
