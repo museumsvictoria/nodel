@@ -337,7 +337,13 @@ public class ApacheNodelHttpClient extends NodelHTTPClient {
             builder.setBody(body, cType);
         }
 
-        return builder.build();
+        SimpleHttpRequest request = builder.build();
+
+        if (!Strings.isBlank(contentType)) {
+            request.setHeader("Content-Type", contentType);
+        }
+
+        return request;
     }
 
     @Override
