@@ -517,8 +517,7 @@ public class ApacheNodelHttpClient extends NodelHTTPClient {
 
         @Override
         public void informationResponse(HttpResponse response, HttpContext context) throws HttpException, IOException {
-            // Unused - we don't handle informational responses
-            throw new UnsupportedOperationException("Informational responses not supported");
+            // Ignore informational responses so 1xx flows (e.g. 100-Continue) proceed normally.
         }
 
         @Override
