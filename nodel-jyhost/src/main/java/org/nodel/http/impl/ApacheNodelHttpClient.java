@@ -277,33 +277,44 @@ public class ApacheNodelHttpClient extends NodelHTTPClient {
                     return future;
                 }
 
+                final CloseableHttpAsyncClient client = _httpAsyncClient;
+                if (client == null) {
+                    future.completeExceptionally(new IllegalStateException("HTTP client is shutting down"));
+                    return future;
+                }
+
                 s_activeConnections.incrementAndGet();
                 try {
                     _executor.submit(() -> {
-                        SmartResponseConsumer consumer = new SmartResponseConsumer();
-                        _httpAsyncClient.execute(SimpleRequestProducer.create(request), consumer, new FutureCallback<HTTPSimpleResponse>() {
-                            @Override
-                            public void completed(HTTPSimpleResponse result) {
-                                if (!Strings.isEmpty(body)) {
-                                    s_sendRate.addAndGet(body.length());
+                        try {
+                            SmartResponseConsumer consumer = new SmartResponseConsumer();
+                            client.execute(SimpleRequestProducer.create(request), consumer, new FutureCallback<HTTPSimpleResponse>() {
+                                @Override
+                                public void completed(HTTPSimpleResponse result) {
+                                    if (!Strings.isEmpty(body)) {
+                                        s_sendRate.addAndGet(body.length());
+                                    }
+                                    s_receiveRate.addAndGet(result.getRawContent() != null ? result.getRawContent().length : 0);
+                                    future.complete(result);
+                                    s_activeConnections.decrementAndGet();
                                 }
-                                s_receiveRate.addAndGet(result.getRawContent() != null ? result.getRawContent().length : 0);
-                                future.complete(result);
-                                s_activeConnections.decrementAndGet();
-                            }
 
-                            @Override
-                            public void failed(Exception ex) {
-                                future.completeExceptionally(ex);
-                                s_activeConnections.decrementAndGet();
-                            }
+                                @Override
+                                public void failed(Exception ex) {
+                                    future.completeExceptionally(ex);
+                                    s_activeConnections.decrementAndGet();
+                                }
 
-                            @Override
-                            public void cancelled() {
-                                future.cancel(true);
-                                s_activeConnections.decrementAndGet();
-                            }
-                        });
+                                @Override
+                                public void cancelled() {
+                                    future.cancel(true);
+                                    s_activeConnections.decrementAndGet();
+                                }
+                            });
+                        } catch (Exception ex) {
+                            future.completeExceptionally(ex);
+                            s_activeConnections.decrementAndGet();
+                        }
                     });
                 } catch (RejectedExecutionException ex) {
                     s_activeConnections.decrementAndGet();
