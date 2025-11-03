@@ -35,3 +35,12 @@ nodel-webui-js/src/dark/theme.less
 nodel-webui-js/src/light/theme.less
 nodel-webui-js/.ftppass
 nodel-webui-js/sftpCache.json
+
+# IntelliJ IDEA
+.idea/
+*.iml
+out/
+
+# Visual Studio Code
+.vscode/
+*.code-workspace
