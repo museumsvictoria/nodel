@@ -355,8 +355,25 @@ public class ApacheNodelHttpClient extends NodelHTTPClient {
         SimpleRequestBuilder builder = SimpleRequestBuilder.create(effectiveMethod).setUri(url);
 
         if (!Strings.isEmpty(body)) {
-            ContentType cType = ContentType.create(
-                    contentType != null ? contentType : "text/plain", "utf-8");
+            String effectiveContentType = contentType != null ? contentType : "text/plain";
+
+            ContentType cType = null;
+            // Accept callers passing full header values with parameters (charset, boundary, etc.).
+            // Prefer parse to keep parameters, and fall back to stripping parameters if needed.
+            try {
+                cType = ContentType.parse(effectiveContentType);
+                if (cType.getCharset() == null) {
+                    cType = cType.withCharset("utf-8");
+                }
+            } catch (Exception parseExc) {
+                try {
+                    String mimeOnly = effectiveContentType.split(";", 2)[0].trim();
+                    cType = ContentType.create(mimeOnly, "utf-8");
+                } catch (Exception createExc) {
+                    cType = ContentType.TEXT_PLAIN.withCharset("utf-8");
+                }
+            }
+
             builder.setBody(body, cType);
         }
 
