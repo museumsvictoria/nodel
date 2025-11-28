@@ -384,6 +384,160 @@ var checkRedirect = function(url) {
   });
 };
 
+// Node duplication functions (frontend-only implementation)
+var waitForNode = function(nodeUrl, maxAttempts, interval) {
+  maxAttempts = maxAttempts || 30;
+  interval = interval || 1000;
+  var d = $.Deferred();
+  var attempts = 0;
+
+  var poll = function() {
+    attempts++;
+    $.ajax({
+      url: nodeUrl + 'REST/',
+      timeout: 3000
+    }).done(function() {
+      d.resolve();
+    }).fail(function() {
+      if (attempts >= maxAttempts) {
+        d.reject({message: 'Node did not become available after ' + maxAttempts + ' seconds'});
+      } else {
+        setTimeout(poll, interval);
+      }
+    });
+  };
+
+  poll();
+  return d.promise();
+};
+
+var copyFile = function(sourceUrl, destUrl, filePath, binaryExtensions) {
+  var d = $.Deferred();
+  var ext = filePath.split('.').pop().toLowerCase();
+  var isBinary = binaryExtensions.indexOf(ext) > -1;
+
+  // Fetch file from source
+  $.ajax({
+    url: sourceUrl + 'REST/files/contents?path=' + encodeURIComponent(filePath),
+    method: 'GET',
+    dataType: isBinary ? 'binary' : 'text',
+    processData: false,
+    xhrFields: isBinary ? {responseType: 'arraybuffer'} : {}
+  }).done(function(data) {
+    // Save to destination
+    $.ajax({
+      url: destUrl + 'REST/files/save?path=' + encodeURIComponent(filePath),
+      method: 'POST',
+      data: data,
+      processData: false,
+      contentType: 'application/octet-stream'
+    }).done(function() {
+      d.resolve();
+    }).fail(function(e) {
+      d.reject({type: 'save', path: filePath, error: e});
+    });
+  }).fail(function(e) {
+    d.reject({type: 'fetch', path: filePath, error: e});
+  });
+
+  return d.promise();
+};
+
+var copyFilesSequentially = function(sourceUrl, destUrl, files, progressCallback, binaryExtensions) {
+  var d = $.Deferred();
+  var results = {success: [], failed: []};
+  var currentIndex = 0;
+  var total = files.length;
+
+  var copyNext = function() {
+    if (currentIndex >= files.length) {
+      d.resolve(results);
+      return;
+    }
+
+    var file = files[currentIndex];
+    progressCallback({
+      current: currentIndex + 1,
+      total: total,
+      fileName: file.path,
+      status: 'Copying ' + (currentIndex + 1) + '/' + total + '...'
+    });
+
+    copyFile(sourceUrl, destUrl, file.path, binaryExtensions)
+      .then(function() {
+        results.success.push(file.path);
+        currentIndex++;
+        copyNext();
+      })
+      .fail(function(error) {
+        results.failed.push(file.path);
+        currentIndex++;
+        copyNext(); // Continue despite failure
+      });
+  };
+
+  copyNext();
+  return d.promise();
+};
+
+var duplicateNode = function(sourceNodeUrl, newNodeName, progressCallback) {
+  var d = $.Deferred();
+  var binaryExtensions = ['png','jpg','ico','svg','zip','7z','exe'];
+
+  progressCallback({current: 0, total: 0, fileName: '', status: 'Creating node...'});
+
+  // Step 1: Create empty node on local host
+  $.postJSON(proto + '//' + host + '/REST/newNode', JSON.stringify({value: newNodeName}), function() {
+    var newNodeUrl = proto + '//' + host + '/nodes/' + encodeURIComponent(getVerySimpleName(newNodeName)) + '/';
+
+    progressCallback({current: 0, total: 0, fileName: '', status: 'Waiting for node...'});
+
+    // Step 2: Wait for node to be ready
+    waitForNode(newNodeUrl).then(function() {
+      progressCallback({current: 0, total: 0, fileName: '', status: 'Getting file list...'});
+
+      // Step 3: Get file list from source
+      $.getJSON(sourceNodeUrl + 'REST/files', function(files) {
+        if (!files || files.length === 0) {
+          d.resolve(newNodeUrl);
+          return;
+        }
+
+        progressCallback({current: 0, total: files.length, fileName: '', status: 'Copying files...'});
+
+        // Step 4: Copy files sequentially
+        copyFilesSequentially(sourceNodeUrl, newNodeUrl, files, progressCallback, binaryExtensions)
+          .then(function(results) {
+            if (results.failed.length > 0) {
+              d.resolve(newNodeUrl);
+              alert('Node created with ' + results.failed.length + ' file(s) failed to copy: ' + results.failed.join(', '), 'warning', 10000);
+            } else {
+              d.resolve(newNodeUrl);
+            }
+          })
+          .fail(function(error) {
+            d.reject(error);
+          });
+      }).fail(function(e) {
+        d.reject({message: 'Failed to get file list from source node'});
+      });
+    }).fail(function(error) {
+      d.reject(error);
+    });
+  }).fail(function(req) {
+    var error = 'Failed to create node';
+    if (req.responseText) {
+      try {
+        var message = JSON.parse(req.responseText);
+        error = error + ': ' + message['message'];
+      } catch(e) {}
+    }
+    d.reject({message: error});
+  });
+
+  return d.promise();
+};
+
 var node = host = nodename = nodedesc = ''; //= opts = '';
 var converter = new Markdown.Converter();
 var unicodematch = new XRegExp("[^\\p{L}\\p{N}]", "gi");
@@ -1888,6 +2042,41 @@ var setEvents = function(){
       });
     }
     //return false;
+  });
+  // Duplicate Node from Existing (frontend-only implementation)
+  $('body').on('click', '#confirmDuplicateExisting', function(e) {
+    e.preventDefault();
+    var ele = $(this).closest('.base');
+    var newNodeName = $('#duplinodenamval_').val();
+    var sourceNodeUrl = $('#existnodenamval_').prop('nodeURL');
+
+    if (!newNodeName) {
+      alert('Please enter a node name', 'warning');
+      return;
+    }
+    if (!sourceNodeUrl) {
+      alert('Please select an existing node', 'warning');
+      return;
+    }
+
+    $(this).prop('disabled', true);
+    var $btn = $(this);
+    var originalText = $btn.text();
+
+    duplicateNode(sourceNodeUrl, newNodeName, function(progress) {
+      $btn.text(progress.status);
+    }).then(function(newNodeUrl) {
+      $(ele).find('.open > button').dropdown('toggle');
+      checkRedirect(newNodeUrl);
+    }).fail(function(error) {
+      alert(error.message || 'Node duplication failed', 'danger');
+      $btn.prop('disabled', false);
+      $btn.text(originalText);
+    });
+  });
+  $('body').on('keyup', '.duplinodenamval', function(e) {
+    var charCode = e.charCode || e.keyCode;
+    if (charCode == 13) $('#confirmDuplicateExisting').click();
   });
   // fancy panel highlighter
   $('body').on('show.bs.collapse', '[class*="nodel-"] .panel-collapse', function(e){

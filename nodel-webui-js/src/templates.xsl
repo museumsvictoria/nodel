@@ -1598,6 +1598,54 @@
                 </li>
               </ul>
             </div>
+            <div class="dropdown">
+              <button class="btn btn-info dropdown-toggle" type="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                <xsl:attribute name="id">
+                  <xsl:text>dupligrp_</xsl:text>
+                  <xsl:value-of select="generate-id(.)"/>
+                </xsl:attribute>
+                <xsl:text>Add node based on existing</xsl:text>
+              </button>
+              <ul class="dropdown-menu add-node-dupli">
+                <xsl:attribute name="aria-labelledby">
+                  <xsl:text>dupligrp_</xsl:text>
+                  <xsl:value-of select="generate-id(.)"/>
+                </xsl:attribute>
+                <li>
+                  <form>
+                    <fieldset>
+                      <label>
+                        <xsl:attribute name="for">
+                          <xsl:text>duplinodenamval_</xsl:text>
+                        </xsl:attribute>
+                        <xsl:text>Node name</xsl:text>
+                      </label>
+                      <input class="form-control duplinodenamval" type="text">
+                        <xsl:attribute name="id">
+                          <xsl:text>duplinodenamval_</xsl:text>
+                        </xsl:attribute>
+                      </input>
+                      <label>
+                        <xsl:attribute name="for">
+                          <xsl:text>existnodenamval_</xsl:text>
+                        </xsl:attribute>
+                        <xsl:text>Existing node</xsl:text>
+                      </label>
+                      <div>
+                        <input class="form-control node existnodenamval" type="text" placeholder="search nodes" data-link="node">
+                          <xsl:attribute name="id">
+                            <xsl:text>existnodenamval_</xsl:text>
+                          </xsl:attribute>
+                        </input>
+                      </div>
+                    </fieldset>
+                    <div class="btn-toolbar">
+                      <button type="submit" id="confirmDuplicateExisting" class="btn btn-success duplicateexistingsubmit">Add</button>
+                    </div>
+                  </form>
+                </li>
+              </ul>
+            </div>
           </div>
         </div>
       </div>
