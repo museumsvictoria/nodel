@@ -417,18 +417,30 @@ var copyFile = function(sourceUrl, destUrl, filePath, binaryExtensions) {
   var isBinary = binaryExtensions.indexOf(ext) > -1;
 
   // Fetch file from source
-  $.ajax({
+  var fetchOptions = {
     url: sourceUrl + 'REST/files/contents?path=' + encodeURIComponent(filePath),
     method: 'GET',
-    dataType: isBinary ? 'binary' : 'text',
-    processData: false,
-    xhrFields: isBinary ? {responseType: 'arraybuffer'} : {}
-  }).done(function(data) {
+    processData: false
+  };
+
+  if (isBinary) {
+    fetchOptions.xhrFields = {responseType: 'blob'};
+  } else {
+    fetchOptions.dataType = 'text';
+  }
+
+  $.ajax(fetchOptions).done(function(data) {
+    var payload = data;
+
+    if (isBinary && !(data instanceof Blob)) {
+      payload = new Blob([data]);
+    }
+
     // Save to destination
     $.ajax({
       url: destUrl + 'REST/files/save?path=' + encodeURIComponent(filePath),
       method: 'POST',
-      data: data,
+      data: payload,
       processData: false,
       contentType: 'application/octet-stream'
     }).done(function() {
