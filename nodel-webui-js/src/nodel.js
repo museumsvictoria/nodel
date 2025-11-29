@@ -2012,7 +2012,9 @@ var setEvents = function(){
     templateInput.prop('selectedType', null);
     templateInput.prop('recipePath', null);
     templateInput.prop('nodeURL', null);
+    templateInput.removeData('templateSelection');
     templateInput.siblings('.template-autocomplete').remove();
+    templateInput.siblings('.template-selected').remove();
   });
   // Unified template search for add node modal
   var templateSearchTimeout;
@@ -2028,6 +2030,8 @@ var setEvents = function(){
     $(ele).prop('selectedType', null);
     $(ele).prop('recipePath', null);
     $(ele).prop('nodeURL', null);
+    $(ele).removeData('templateSelection');
+    $(ele).siblings('.template-selected').remove();
 
     clearTimeout(templateSearchTimeout);
     templateSearchTimeout = setTimeout(function() {
@@ -2099,7 +2103,8 @@ var setEvents = function(){
             $('<li>' + html + '</li>')
               .data('type', 'node')
               .data('address', node.address)
-              .data('name', node.node)
+              .data('name', node.name)
+              .data('host', nodeHost)
               .appendTo(list);
           });
         }
@@ -2145,21 +2150,50 @@ var setEvents = function(){
     }
   });
   // Handle selection in unified template search
+  function renderTemplateSelectionPill(input, selection) {
+    input.siblings('.template-selected').remove();
+    var tooltip = selection.type === 'recipe' ? 'Recipe: ' + selection.path : 'Node: ' + selection.name;
+    var indicator = $('<span class="template-selected" title="' + tooltip + '"><i class="fa fa-check-circle"></i></span>');
+    input.after(indicator);
+  }
+
+  function clearTemplateSelection(input) {
+    input.prop('selectedType', null);
+    input.prop('recipePath', null);
+    input.prop('nodeURL', null);
+    input.removeData('templateSelection');
+    input.siblings('.template-selected').remove();
+  }
+
+  $('body').on('click', '.clear-template-selection', function(e) {
+    e.preventDefault();
+    var input = $(this).closest('.template-selected').siblings('.unified-template-search');
+    clearTemplateSelection(input);
+  });
+
   function handleTemplateSelection(e) {
     e.preventDefault();
     e.stopPropagation();
     var $li = $(this);
     var input = $li.closest('.template-autocomplete').siblings('.unified-template-search');
     var type = $li.data('type');
+    var selection;
 
     if (type === 'recipe') {
       input.val($li.data('path'));
       input.prop('selectedType', 'recipe');
       input.prop('recipePath', $li.data('path'));
+      selection = {type: 'recipe', path: $li.data('path')};
     } else if (type === 'node') {
       input.val($li.data('name'));
       input.prop('selectedType', 'node');
       input.prop('nodeURL', $li.data('address'));
+      selection = {type: 'node', address: $li.data('address'), name: $li.data('name'), host: $li.data('host')};
+    }
+
+    if (selection) {
+      input.data('templateSelection', selection);
+      renderTemplateSelectionPill(input, selection);
     }
 
     $li.closest('.template-autocomplete').remove();
@@ -2184,10 +2218,11 @@ var setEvents = function(){
     // Check unified template search selection type
     var templateInput = $(ele).find('.unified-template-search');
     var selectedType = templateInput.prop('selectedType');
+    var selection = templateInput.data('templateSelection');
 
     if (selectedType === 'node') {
       // Duplicate from existing node
-      var sourceNodeUrl = templateInput.prop('nodeURL');
+      var sourceNodeUrl = selection && selection.address ? selection.address : templateInput.prop('nodeURL');
 
       var originalText = $btn.text();
       duplicateNode(sourceNodeUrl, nodenameraw, function(progress) {
