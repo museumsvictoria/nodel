@@ -2004,6 +2004,7 @@ var setEvents = function(){
   });
   // Unified template search for add node modal
   var templateSearchTimeout;
+  var templateSearchRequest = null;
   $('body').on('keyup', '.unified-template-search', function(e) {
     var charCode = e.charCode || e.keyCode;
     // Skip navigation keys
@@ -2027,11 +2028,20 @@ var setEvents = function(){
         return;
       }
 
-      // Query both APIs in parallel
-      var recipePromise = $.getJSON(proto+'//' + host + '/REST/recipes/list');
-      var nodePromise = $.getJSON(proto+'//' + host + '/REST');
+      // Abort any in-flight requests
+      if (templateSearchRequest) {
+        templateSearchRequest.recipeXhr.abort();
+        templateSearchRequest.nodeXhr.abort();
+        templateSearchRequest = null;
+      }
 
-      $.when(recipePromise, nodePromise).done(function(recipeResult, nodeResult) {
+      // Query both APIs in parallel
+      var recipeXhr = $.getJSON(proto+'//' + host + '/REST/recipes/list');
+      var nodeXhr = $.getJSON(proto+'//' + host + '/REST');
+      templateSearchRequest = {recipeXhr: recipeXhr, nodeXhr: nodeXhr};
+
+      $.when(recipeXhr, nodeXhr).done(function(recipeResult, nodeResult) {
+        templateSearchRequest = null;
         // Discard stale results if input has changed since request was made
         if ($(ele).val() !== searchVal) return;
 
