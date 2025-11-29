@@ -1715,15 +1715,6 @@ var setEvents = function(){
     $(this).parent().find('.active:not(:hover)').removeClass('active');
     $(this).addClass('active');
   });
-  // Handle autocomplete selection for existing node input (captures nodeURL)
-  $('body').on('mousedown touchstart', '.existnodenamval + div.autocomplete ul li', function(e) {
-    e.preventDefault();
-    e.stopPropagation();
-    var input = $(this).closest('div.autocomplete').siblings('input.existnodenamval');
-    input.val($(this).text());
-    input.prop('nodeURL', $(this).data('address'));
-    $(this).closest('div.autocomplete').remove();
-  });
   $('body').on('mousedown touchstart', 'div.autocomplete ul li', function() {
     if($(this).closest('div.autocomplete').siblings('input').hasClass('goto')) {
       window.open($(this).data()['address']);
