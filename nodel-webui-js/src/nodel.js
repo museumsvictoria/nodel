@@ -2046,6 +2046,9 @@ var setEvents = function(){
       var nodePromise = $.getJSON(proto+'//' + host + '/REST');
 
       $.when(recipePromise, nodePromise).done(function(recipeResult, nodeResult) {
+        // Discard stale results if input has changed since request was made
+        if ($(ele).val() !== searchVal) return;
+
         var recipes = recipeResult[0] || [];
         var nodesResponse = nodeResult[0] || {};
         var localNodesMap = nodesResponse.nodes || {};
