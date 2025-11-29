@@ -1587,7 +1587,7 @@
                         <small class="text-muted">(optional)</small>
                       </label>
                       <div style="position:relative">
-                        <input class="form-control unified-template-search" type="text" placeholder="Search recipes or nodes...">
+                        <input class="form-control unified-template-search" type="text" placeholder="Search recipes or nodes..." autocomplete="off">
                           <xsl:attribute name="id">
                             <xsl:text>templateval_</xsl:text>
                             <xsl:value-of select="$templateval"/>
