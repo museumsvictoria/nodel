@@ -729,7 +729,7 @@ div.nodel-charts {
     }
   }
 }
-.autocomplete {
+.autocomplete, .template-autocomplete {
   background: @panel-bg;
   border-radius: @panel-border-radius;
   border: 1px solid @panel-default-border;
@@ -752,6 +752,17 @@ div.nodel-charts {
       & > span {
         color: @gray-light;
         font-size: @font-size-small;
+      }
+      &.section-header {
+        font-weight: bold;
+        font-size: @font-size-small;
+        color: @gray;
+        padding: @padding-xs-vertical @table-cell-padding;
+        border-bottom: 1px solid @panel-default-border;
+        cursor: default;
+        &:hover {
+          background: transparent;
+        }
       }
     }
   }

@@ -1715,6 +1715,15 @@ var setEvents = function(){
     $(this).parent().find('.active:not(:hover)').removeClass('active');
     $(this).addClass('active');
   });
+  // Handle autocomplete selection for existing node input (captures nodeURL)
+  $('body').on('mousedown touchstart', '.existnodenamval + div.autocomplete ul li', function(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    var input = $(this).closest('div.autocomplete').siblings('input.existnodenamval');
+    input.val($(this).text());
+    input.prop('nodeURL', $(this).data('address'));
+    $(this).closest('div.autocomplete').remove();
+  });
   $('body').on('mousedown touchstart', 'div.autocomplete ul li', function() {
     if($(this).closest('div.autocomplete').siblings('input').hasClass('goto')) {
       window.open($(this).data()['address']);
@@ -1992,40 +2001,197 @@ var setEvents = function(){
   });
   $('body').on('shown.bs.dropdown', '.nodel-add .addgrp', function () {
     var ele = this;
-    $(ele).find('.nodeaddsubmit').prop('disabled', true);
-    $(ele).find('.recipepicker').empty();
-    $(ele).find('.nodenamval').focus();
+    // Clear and focus node name input
     $(ele).find('.nodenamval').val(null).get(0).focus();
-    $.getJSON(proto+'//' + host + '/REST/recipes/list', function(data) {
-      if (data.length > 0) {
-        var picker = $(ele).find('.recipepicker');
-        $(picker).append('<option value="" selected disabled hidden></option>');
-        $.each(data, function(i, value) {
-          var readme = (typeof value.readme == 'undefined') ? "" : $('<div/>').text(value.readme).html();
-          $(picker).append('<option value="' + value.path + '" title="' + readme + '">' + value.path + '</option>');
-        });
-      } else {
-        $(ele).find('.recipepicker').append('<option value="error">-- no recipes available --</option>');
-      }
-    }).fail(function(){
-      $(ele).find('.recipepicker').append('<option value="error">-- no recipes available --</option>');
-    }).always(function(){
-      $(ele).find('.nodeaddsubmit').prop('disabled', false);
-    });
-    //return false;
+    // Clear template search and reset selection state
+    var templateInput = $(ele).find('.unified-template-search');
+    templateInput.val('');
+    templateInput.prop('selectedType', null);
+    templateInput.prop('recipePath', null);
+    templateInput.prop('nodeURL', null);
+    templateInput.siblings('.template-autocomplete').remove();
   });
+  // Unified template search for add node modal
+  var templateSearchTimeout;
+  $('body').on('keyup', '.unified-template-search', function(e) {
+    var charCode = e.charCode || e.keyCode;
+    // Skip navigation keys
+    if ([9, 27, 17, 18, 38, 40, 13].indexOf(charCode) !== -1) return;
+
+    var ele = this;
+    var searchVal = $(ele).val();
+
+    // Clear selection state when typing
+    $(ele).prop('selectedType', null);
+    $(ele).prop('recipePath', null);
+    $(ele).prop('nodeURL', null);
+
+    clearTimeout(templateSearchTimeout);
+    templateSearchTimeout = setTimeout(function() {
+      // If search is empty, just remove dropdown
+      if (searchVal.length < 1) {
+        $(ele).siblings('.template-autocomplete').remove();
+        return;
+      }
+
+      // Query both APIs in parallel
+      var recipePromise = $.getJSON(proto+'//' + host + '/REST/recipes/list');
+      var nodePromise = $.postJSON(proto+'//' + host + '/REST/nodeURLs', JSON.stringify({'filter': searchVal}));
+
+      $.when(recipePromise, nodePromise).done(function(recipeResult, nodeResult) {
+        var recipes = recipeResult[0] || [];
+        var nodes = nodeResult[0] || [];
+
+        // Filter recipes client-side
+        var searchLower = searchVal.toLowerCase();
+        var filteredRecipes = recipes.filter(function(r) {
+          return r.path.toLowerCase().indexOf(searchLower) !== -1;
+        }).slice(0, 10);
+
+        var filteredNodes = nodes.slice(0, 10);
+
+        // Remove old dropdown only when we have new results ready
+        $(ele).siblings('.template-autocomplete').remove();
+
+        if (filteredRecipes.length === 0 && filteredNodes.length === 0) return;
+
+        // Build dropdown (use unique class to avoid generic autocomplete handler)
+        $(ele).after('<div class="template-autocomplete"><ul></ul></div>');
+        var list = $(ele).siblings('.template-autocomplete').children('ul');
+
+        // Add recipes section
+        if (filteredRecipes.length > 0) {
+          $('<li class="section-header">Recipes</li>').appendTo(list);
+          $.each(filteredRecipes, function(i, recipe) {
+            var parts = recipe.path.split('/');
+            var name = parts.pop();
+            var category = parts.join('/');
+            var html = name + (category ? '<br><span>' + category + '</span>' : '');
+            $('<li>' + html + '</li>')
+              .data('type', 'recipe')
+              .data('path', recipe.path)
+              .appendTo(list);
+          });
+        }
+
+        // Add nodes section
+        if (filteredNodes.length > 0) {
+          $('<li class="section-header">Existing Nodes</li>').appendTo(list);
+          $.each(filteredNodes, function(i, node) {
+            // Extract just host:port from URL (e.g., "192.168.1.69:8085")
+            var nodeHost = node.address.replace(/https?:\/\/([^\/]+).*/, '$1');
+            var html = node.node + '<br><span>' + nodeHost + '</span>';
+            $('<li>' + html + '</li>')
+              .data('type', 'node')
+              .data('address', node.address)
+              .data('name', node.node)
+              .appendTo(list);
+          });
+        }
+      });
+    }, 200); // 200ms debounce
+  });
+  // Keyboard navigation for unified template search
+  $('body').on('keydown', '.unified-template-search', function(e) {
+    var charCode = e.charCode || e.keyCode;
+    var autocomplete = $(this).siblings('.template-autocomplete');
+    if (autocomplete.length === 0) return;
+
+    var items = autocomplete.find('li:not(.section-header)');
+    var active = autocomplete.find('li.active');
+    var index = items.index(active);
+
+    switch(charCode) {
+      case 40: // Arrow down
+        e.preventDefault();
+        if (index < items.length - 1) {
+          items.removeClass('active');
+          items.eq(index + 1).addClass('active');
+        } else if (index === -1 && items.length > 0) {
+          items.eq(0).addClass('active');
+        }
+        break;
+      case 38: // Arrow up
+        e.preventDefault();
+        if (index > 0) {
+          items.removeClass('active');
+          items.eq(index - 1).addClass('active');
+        }
+        break;
+      case 13: // Enter
+        if (active.length > 0) {
+          e.preventDefault();
+          active.trigger('mousedown');
+        }
+        break;
+      case 27: // Escape
+        autocomplete.remove();
+        break;
+    }
+  });
+  // Handle selection in unified template search
+  function handleTemplateSelection(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    var $li = $(this);
+    var input = $li.closest('.template-autocomplete').siblings('.unified-template-search');
+    var type = $li.data('type');
+
+    if (type === 'recipe') {
+      input.val($li.data('path'));
+      input.prop('selectedType', 'recipe');
+      input.prop('recipePath', $li.data('path'));
+    } else if (type === 'node') {
+      input.val($li.data('name'));
+      input.prop('selectedType', 'node');
+      input.prop('nodeURL', $li.data('address'));
+    }
+
+    $li.closest('.template-autocomplete').remove();
+  }
+  $('body').on('mousedown touchstart', '.unified-template-search + .template-autocomplete ul li:not(.section-header)', handleTemplateSelection);
   $('body').on('keyup', '.nodenamval', function(e) {
     var charCode = e.charCode || e.keyCode;
     if(charCode == 13) $(this).closest('form').find('.nodeaddsubmit').click();
   });
   $('body').on('click', '.nodeaddsubmit', function(e) {
     var ele = $(this).closest('.base');
-    $(ele).find('.nodeaddsubmit').prop('disabled', true);
+    var $btn = $(ele).find('.nodeaddsubmit');
+    $btn.prop('disabled', true);
     var nodenameraw = $(ele).find('.nodenamval').val();
-    var recipeval = $(ele).find('.recipepicker').val();
-    if(nodenameraw) {
+
+    if (!nodenameraw) {
+      alert('Please enter a node name', 'warning');
+      $btn.prop('disabled', false);
+      return;
+    }
+
+    // Check unified template search selection type
+    var templateInput = $(ele).find('.unified-template-search');
+    var selectedType = templateInput.prop('selectedType');
+
+    if (selectedType === 'node') {
+      // Duplicate from existing node
+      var sourceNodeUrl = templateInput.prop('nodeURL');
+
+      var originalText = $btn.text();
+      duplicateNode(sourceNodeUrl, nodenameraw, function(progress) {
+        $btn.text(progress.status);
+      }).then(function(newNodeUrl) {
+        $(ele).find('.open > button').dropdown('toggle');
+        checkRedirect(newNodeUrl);
+      }).fail(function(error) {
+        alert(error.message || 'Node duplication failed', 'danger');
+        $btn.prop('disabled', false);
+        $btn.text(originalText);
+      });
+    } else {
+      // Create from recipe (or blank if no selection)
       var nodename = {"value": nodenameraw};
-      if(recipeval && (recipeval !== 'error')) nodename["base"] = recipeval;
+      if (selectedType === 'recipe') {
+        var recipePath = templateInput.prop('recipePath');
+        nodename["base"] = recipePath;
+      }
       $.postJSON(proto+'//' + host + '/REST/newNode', JSON.stringify(nodename), function() {
         $(ele).find('.open > button').dropdown('toggle');
         checkRedirect(proto+'//' + host + '/nodes/' + encodeURIComponent(getVerySimpleName(nodenameraw)));
@@ -2037,46 +2203,11 @@ var setEvents = function(){
             error = error + '<br/>' + message['message'];
           }
           alert(error, 'danger');
-          $(ele).find('.nodeaddsubmit').prop('disabled', false);
+          $btn.prop('disabled', false);
         }
       });
     }
     //return false;
-  });
-  // Duplicate Node from Existing (frontend-only implementation)
-  $('body').on('click', '#confirmDuplicateExisting', function(e) {
-    e.preventDefault();
-    var ele = $(this).closest('.base');
-    var newNodeName = $('#duplinodenamval_').val();
-    var sourceNodeUrl = $('#existnodenamval_').prop('nodeURL');
-
-    if (!newNodeName) {
-      alert('Please enter a node name', 'warning');
-      return;
-    }
-    if (!sourceNodeUrl) {
-      alert('Please select an existing node', 'warning');
-      return;
-    }
-
-    $(this).prop('disabled', true);
-    var $btn = $(this);
-    var originalText = $btn.text();
-
-    duplicateNode(sourceNodeUrl, newNodeName, function(progress) {
-      $btn.text(progress.status);
-    }).then(function(newNodeUrl) {
-      $(ele).find('.open > button').dropdown('toggle');
-      checkRedirect(newNodeUrl);
-    }).fail(function(error) {
-      alert(error.message || 'Node duplication failed', 'danger');
-      $btn.prop('disabled', false);
-      $btn.text(originalText);
-    });
-  });
-  $('body').on('keyup', '.duplinodenamval', function(e) {
-    var charCode = e.charCode || e.keyCode;
-    if (charCode == 13) $('#confirmDuplicateExisting').click();
   });
   // fancy panel highlighter
   $('body').on('show.bs.collapse', '[class*="nodel-"] .panel-collapse', function(e){
