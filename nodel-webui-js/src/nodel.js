@@ -2035,30 +2035,24 @@ var setEvents = function(){
         templateSearchRequest = null;
       }
 
-      // Query both APIs in parallel
+      // Query both APIs in parallel, handle failures independently
       var recipeXhr = $.getJSON(proto+'//' + host + '/REST/recipes/list');
       var nodeXhr = $.getJSON(proto+'//' + host + '/REST');
       templateSearchRequest = {recipeXhr: recipeXhr, nodeXhr: nodeXhr};
 
-      $.when(recipeXhr, nodeXhr).done(function(recipeResult, nodeResult) {
+      // Track state: null = pending, array = completed (success or fail)
+      var recipes = null;
+      var nodes = null;
+
+      function renderResults() {
+        // Wait until both requests have completed (success or failure)
+        if (recipes === null || nodes === null) return;
         templateSearchRequest = null;
+
         // Discard stale results if input has changed since request was made
         if ($(ele).val() !== searchVal) return;
 
-        var recipes = recipeResult[0] || [];
-        var nodesResponse = nodeResult[0] || {};
-        var localNodesMap = nodesResponse.nodes || {};
-        var nodes = Object.keys(localNodesMap).map(function(key) {
-          var entry = localNodesMap[key];
-          var simpleName = getSimpleName(entry.name);
-          return {
-            name: entry.name,
-            node: simpleName,
-            address: proto + '//' + host + '/nodes/' + encodeURIComponent(getVerySimpleName(entry.name)) + '/'
-          };
-        });
-
-        // Filter recipes client-side
+        // Filter client-side
         var searchLower = searchVal.toLowerCase();
         var filteredRecipes = recipes.filter(function(r) {
           return r.path.toLowerCase().indexOf(searchLower) !== -1;
@@ -2107,6 +2101,31 @@ var setEvents = function(){
               .appendTo(list);
           });
         }
+      }
+
+      recipeXhr.done(function(data) {
+        recipes = data || [];
+        renderResults();
+      }).fail(function() {
+        recipes = [];  // Treat failure as empty list
+        renderResults();
+      });
+
+      nodeXhr.done(function(data) {
+        var localNodesMap = (data || {}).nodes || {};
+        nodes = Object.keys(localNodesMap).map(function(key) {
+          var entry = localNodesMap[key];
+          var simpleName = getSimpleName(entry.name);
+          return {
+            name: entry.name,
+            node: simpleName,
+            address: proto + '//' + host + '/nodes/' + encodeURIComponent(getVerySimpleName(entry.name)) + '/'
+          };
+        });
+        renderResults();
+      }).fail(function() {
+        nodes = [];  // Treat failure as empty list
+        renderResults();
       });
     }, 200); // 200ms debounce
   });
