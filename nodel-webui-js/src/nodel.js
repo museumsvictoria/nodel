@@ -2039,11 +2039,21 @@ var setEvents = function(){
 
       // Query both APIs in parallel
       var recipePromise = $.getJSON(proto+'//' + host + '/REST/recipes/list');
-      var nodePromise = $.postJSON(proto+'//' + host + '/REST/nodeURLs', JSON.stringify({'filter': searchVal}));
+      var nodePromise = $.getJSON(proto+'//' + host + '/REST');
 
       $.when(recipePromise, nodePromise).done(function(recipeResult, nodeResult) {
         var recipes = recipeResult[0] || [];
-        var nodes = nodeResult[0] || [];
+        var nodesResponse = nodeResult[0] || {};
+        var localNodesMap = nodesResponse.nodes || {};
+        var nodes = Object.keys(localNodesMap).map(function(key) {
+          var entry = localNodesMap[key];
+          var simpleName = getSimpleName(entry.name);
+          return {
+            name: entry.name,
+            node: simpleName,
+            address: proto + '//' + host + '/nodes/' + encodeURIComponent(getVerySimpleName(entry.name)) + '/'
+          };
+        });
 
         // Filter recipes client-side
         var searchLower = searchVal.toLowerCase();
@@ -2051,7 +2061,9 @@ var setEvents = function(){
           return r.path.toLowerCase().indexOf(searchLower) !== -1;
         }).slice(0, 10);
 
-        var filteredNodes = nodes.slice(0, 10);
+        var filteredNodes = nodes.filter(function(n) {
+          return n.name.toLowerCase().indexOf(searchLower) !== -1;
+        }).slice(0, 10);
 
         // Remove old dropdown only when we have new results ready
         $(ele).siblings('.template-autocomplete').remove();
