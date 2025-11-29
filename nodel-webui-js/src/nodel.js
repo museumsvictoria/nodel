@@ -2223,16 +2223,14 @@ var setEvents = function(){
       // Duplicate from existing node
       var sourceNodeUrl = selection && selection.address ? selection.address : templateInput.prop('nodeURL');
 
-      var originalText = $btn.text();
       duplicateNode(sourceNodeUrl, nodenameraw, function(progress) {
-        $btn.text(progress.status);
+        alert(progress.status, 'info', 0);
       }).then(function(newNodeUrl) {
         $(ele).find('.open > button').dropdown('toggle');
         checkRedirect(newNodeUrl);
       }).fail(function(error) {
         alert(error.message || 'Node duplication failed', 'danger');
         $btn.prop('disabled', false);
-        $btn.text(originalText);
       });
     } else {
       // Create from recipe (or blank if no selection)
