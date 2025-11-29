@@ -13,6 +13,10 @@ application {
     mainClass = 'org.nodel.jyhost.Launch'
 }
 
+run {
+    standardInput = System.in
+}
+
 java {
     sourceCompatibility = JavaVersion.VERSION_11
     targetCompatibility = JavaVersion.VERSION_11
