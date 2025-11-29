@@ -411,30 +411,17 @@ var waitForNode = function(nodeUrl, maxAttempts, interval) {
   return d.promise();
 };
 
-var copyFile = function(sourceUrl, destUrl, filePath, binaryExtensions) {
+var copyFile = function(sourceUrl, destUrl, filePath) {
   var d = $.Deferred();
-  var ext = filePath.split('.').pop().toLowerCase();
-  var isBinary = binaryExtensions.indexOf(ext) > -1;
 
-  // Fetch file from source
-  var fetchOptions = {
+  // Fetch file from source as binary (works for all file types)
+  $.ajax({
     url: sourceUrl + 'REST/files/contents?path=' + encodeURIComponent(filePath),
     method: 'GET',
-    processData: false
-  };
-
-  if (isBinary) {
-    fetchOptions.xhrFields = {responseType: 'blob'};
-  } else {
-    fetchOptions.dataType = 'text';
-  }
-
-  $.ajax(fetchOptions).done(function(data) {
-    var payload = data;
-
-    if (isBinary && !(data instanceof Blob)) {
-      payload = new Blob([data]);
-    }
+    processData: false,
+    xhrFields: {responseType: 'blob'}
+  }).done(function(data) {
+    var payload = data instanceof Blob ? data : new Blob([data]);
 
     // Save to destination
     $.ajax({
@@ -455,7 +442,7 @@ var copyFile = function(sourceUrl, destUrl, filePath, binaryExtensions) {
   return d.promise();
 };
 
-var copyFilesSequentially = function(sourceUrl, destUrl, files, progressCallback, binaryExtensions) {
+var copyFilesSequentially = function(sourceUrl, destUrl, files, progressCallback) {
   var d = $.Deferred();
   var results = {success: [], failed: []};
   var currentIndex = 0;
@@ -475,7 +462,7 @@ var copyFilesSequentially = function(sourceUrl, destUrl, files, progressCallback
       status: 'Copying ' + (currentIndex + 1) + '/' + total + '...'
     });
 
-    copyFile(sourceUrl, destUrl, file.path, binaryExtensions)
+    copyFile(sourceUrl, destUrl, file.path)
       .then(function() {
         results.success.push(file.path);
         currentIndex++;
@@ -494,7 +481,6 @@ var copyFilesSequentially = function(sourceUrl, destUrl, files, progressCallback
 
 var duplicateNode = function(sourceNodeUrl, newNodeName, progressCallback) {
   var d = $.Deferred();
-  var binaryExtensions = ['png','jpg','ico','svg','zip','7z','exe'];
 
   progressCallback({current: 0, total: 0, fileName: '', status: 'Creating node...'});
 
@@ -518,7 +504,7 @@ var duplicateNode = function(sourceNodeUrl, newNodeName, progressCallback) {
         progressCallback({current: 0, total: files.length, fileName: '', status: 'Copying files...'});
 
         // Step 4: Copy files sequentially
-        copyFilesSequentially(sourceNodeUrl, newNodeUrl, files, progressCallback, binaryExtensions)
+        copyFilesSequentially(sourceNodeUrl, newNodeUrl, files, progressCallback)
           .then(function(results) {
             if (results.failed.length > 0) {
               d.resolve(newNodeUrl);
