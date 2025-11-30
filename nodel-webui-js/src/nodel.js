@@ -529,10 +529,6 @@ var duplicateNode = function(sourceNodeUrl, newNodeName, progressCallback) {
               alert('Node created with ' + results.failed.length + ' file(s) failed to copy: ' + failedDetails, 'warning', 10000);
             }
             d.resolve(newNodeUrl);
-          })
-          .fail(function(error) {
-            console.error('File copy operation failed:', error);
-            d.reject(error);
           });
       }).fail(function(jqXHR, textStatus, errorThrown) {
         console.error('Failed to get file list from source node:', sourceNodeUrl, jqXHR.status, errorThrown);
