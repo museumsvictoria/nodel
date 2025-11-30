@@ -385,7 +385,7 @@ var checkRedirect = function(url) {
 };
 
 // Node duplication functions (frontend-only implementation)
-var waitForNode = function(nodeUrl, maxAttempts, interval) {
+var waitForNode = function(nodeUrl, maxAttempts, interval, onProgress) {
   maxAttempts = maxAttempts || 30;
   interval = interval || 1000;
   var d = $.Deferred();
@@ -393,6 +393,7 @@ var waitForNode = function(nodeUrl, maxAttempts, interval) {
 
   var poll = function() {
     attempts++;
+    if (onProgress) onProgress(attempts);
     $.ajax({
       url: nodeUrl + 'REST/',
       timeout: 3000
@@ -488,10 +489,10 @@ var duplicateNode = function(sourceNodeUrl, newNodeName, progressCallback) {
   $.postJSON(proto + '//' + host + '/REST/newNode', JSON.stringify({value: newNodeName}), function() {
     var newNodeUrl = proto + '//' + host + '/nodes/' + encodeURIComponent(getVerySimpleName(newNodeName)) + '/';
 
-    progressCallback({current: 0, total: 0, fileName: '', status: 'Waiting for node...'});
-
     // Step 2: Wait for node to be ready
-    waitForNode(newNodeUrl).then(function() {
+    waitForNode(newNodeUrl, 30, 1000, function(attempt) {
+      progressCallback({current: 0, total: 0, fileName: '', status: 'Waiting for node... (' + attempt + ')'});
+    }).then(function() {
       progressCallback({current: 0, total: 0, fileName: '', status: 'Getting file list...'});
 
       // Step 3: Get file list from source
