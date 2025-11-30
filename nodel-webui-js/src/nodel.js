@@ -384,6 +384,11 @@ var checkRedirect = function(url) {
   });
 };
 
+// Helper function to escape HTML for safe insertion
+var escapeHtml = function(text) {
+  return $('<div/>').text(text).html();
+};
+
 // Node duplication functions (frontend-only implementation)
 var waitForNode = function(nodeUrl, maxAttempts, interval, onProgress) {
   maxAttempts = maxAttempts || 30;
@@ -505,7 +510,7 @@ var duplicateNode = function(sourceNodeUrl, newNodeName, progressCallback) {
 
     // Step 2: Wait for node to be ready
     waitForNode(newNodeUrl, 30, 1000, function(attempt) {
-      progressCallback({current: 0, total: 0, fileName: '', status: 'Waiting for node... (' + attempt + ')'});
+      progressCallback({current: 0, total: 0, fileName: '', status: 'Initializing node... (' + attempt + ')'});
     }).then(function() {
       // Step 3: Get file list from source
       $.getJSON(sourceNodeUrl + 'REST/files', function(files) {
@@ -519,7 +524,7 @@ var duplicateNode = function(sourceNodeUrl, newNodeName, progressCallback) {
           .then(function(results) {
             if (results.failed.length > 0) {
               var failedDetails = results.failed.map(function(f) {
-                return f.path + ' (' + f.message + ')';
+                return escapeHtml(f.path) + ' (' + escapeHtml(f.message) + ')';
               }).join(', ');
               alert('Node created with ' + results.failed.length + ' file(s) failed to copy: ' + failedDetails, 'warning', 10000);
             }
@@ -2019,10 +2024,6 @@ var setEvents = function(){
       });
     }
   });
-  // Helper function to escape HTML for safe insertion
-  function escapeHtml(text) {
-    return $('<div/>').text(text).html();
-  }
 
   // Helper function to clear template selection state
   function clearTemplateSelection(input, clearValue) {
@@ -2321,10 +2322,18 @@ var setEvents = function(){
         $btn.prop('disabled', false);
       });
     } else {
-      // Create from recipe (or blank if no selection)
+      // Create from recipe (fallback to typed value if no selection was made)
       var nodename = {"value": nodenameraw};
+      var typedTemplateValue = (templateInput.val() || '').trim();
+      var recipePath = null;
+
       if (selectedType === 'recipe') {
-        var recipePath = templateInput.prop('recipePath');
+        recipePath = templateInput.prop('recipePath') || typedTemplateValue;
+      } else if (!selectedType && typedTemplateValue) {
+        recipePath = typedTemplateValue;
+      }
+
+      if (recipePath) {
         nodename["base"] = recipePath;
       }
       $.postJSON(proto+'//' + host + '/REST/newNode', JSON.stringify(nodename), function() {
