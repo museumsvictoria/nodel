@@ -443,11 +443,10 @@ var copyFile = function(sourceUrl, destUrl, filePath) {
   return d.promise();
 };
 
-var copyFilesSequentially = function(sourceUrl, destUrl, files, progressCallback) {
+var copyFilesSequentially = function(sourceUrl, destUrl, files) {
   var d = $.Deferred();
   var results = {success: [], failed: []};
   var currentIndex = 0;
-  var total = files.length;
 
   var copyNext = function() {
     if (currentIndex >= files.length) {
@@ -456,13 +455,6 @@ var copyFilesSequentially = function(sourceUrl, destUrl, files, progressCallback
     }
 
     var file = files[currentIndex];
-    progressCallback({
-      current: currentIndex + 1,
-      total: total,
-      fileName: file.path,
-      status: 'Copying ' + (currentIndex + 1) + '/' + total + '...'
-    });
-
     copyFile(sourceUrl, destUrl, file.path)
       .then(function() {
         results.success.push(file.path);
@@ -483,8 +475,6 @@ var copyFilesSequentially = function(sourceUrl, destUrl, files, progressCallback
 var duplicateNode = function(sourceNodeUrl, newNodeName, progressCallback) {
   var d = $.Deferred();
 
-  progressCallback({current: 0, total: 0, fileName: '', status: 'Creating node...'});
-
   // Step 1: Create empty node on local host
   $.postJSON(proto + '//' + host + '/REST/newNode', JSON.stringify({value: newNodeName}), function() {
     var newNodeUrl = proto + '//' + host + '/nodes/' + encodeURIComponent(getVerySimpleName(newNodeName)) + '/';
@@ -493,8 +483,6 @@ var duplicateNode = function(sourceNodeUrl, newNodeName, progressCallback) {
     waitForNode(newNodeUrl, 30, 1000, function(attempt) {
       progressCallback({current: 0, total: 0, fileName: '', status: 'Waiting for node... (' + attempt + ')'});
     }).then(function() {
-      progressCallback({current: 0, total: 0, fileName: '', status: 'Getting file list...'});
-
       // Step 3: Get file list from source
       $.getJSON(sourceNodeUrl + 'REST/files', function(files) {
         if (!files || files.length === 0) {
@@ -502,10 +490,8 @@ var duplicateNode = function(sourceNodeUrl, newNodeName, progressCallback) {
           return;
         }
 
-        progressCallback({current: 0, total: files.length, fileName: '', status: 'Copying files...'});
-
         // Step 4: Copy files sequentially
-        copyFilesSequentially(sourceNodeUrl, newNodeUrl, files, progressCallback)
+        copyFilesSequentially(sourceNodeUrl, newNodeUrl, files)
           .then(function(results) {
             if (results.failed.length > 0) {
               d.resolve(newNodeUrl);
