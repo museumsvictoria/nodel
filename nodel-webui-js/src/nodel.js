@@ -389,7 +389,7 @@ var escapeHtml = function(text) {
   return $('<div/>').text(text).html();
 };
 
-// Node duplication functions (frontend-only implementation)
+// Node duplication functions
 var waitForNode = function(nodeUrl, maxAttempts, interval, onProgress) {
   maxAttempts = maxAttempts || 30;
   interval = interval || 1000;
@@ -2312,8 +2312,8 @@ var setEvents = function(){
         return;
       }
 
-      duplicateNode(sourceNodeUrl, nodenameraw, function(progress) {
-        alert(progress.status, 'info', 0);
+      duplicateNode(sourceNodeUrl, nodenameraw, function() {
+        alert('Duplicating node...', 'info', 0);
       }).then(function(newNodeUrl) {
         $(ele).find('.open > button').dropdown('toggle');
         checkRedirect(newNodeUrl);
