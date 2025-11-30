@@ -390,6 +390,7 @@ var waitForNode = function(nodeUrl, maxAttempts, interval, onProgress) {
   interval = interval || 1000;
   var d = $.Deferred();
   var attempts = 0;
+  var lastError = null;
 
   var poll = function() {
     attempts++;
@@ -399,9 +400,12 @@ var waitForNode = function(nodeUrl, maxAttempts, interval, onProgress) {
       timeout: 3000
     }).done(function() {
       d.resolve();
-    }).fail(function() {
+    }).fail(function(xhr, status, error) {
+      lastError = {status: xhr.status, statusText: xhr.statusText, error: error};
       if (attempts >= maxAttempts) {
-        d.reject({message: 'Node did not become available after ' + maxAttempts + ' seconds'});
+        var errorDetail = xhr.status ? 'HTTP ' + xhr.status + ' ' + (error || xhr.statusText) : status;
+        console.error('Node failed to become available:', nodeUrl, 'after', maxAttempts, 'attempts. Last error:', lastError);
+        d.reject({message: 'Node did not become available after ' + maxAttempts + ' seconds. Last error: ' + errorDetail});
       } else {
         setTimeout(poll, interval);
       }
@@ -433,11 +437,25 @@ var copyFile = function(sourceUrl, destUrl, filePath) {
       contentType: 'application/octet-stream'
     }).done(function() {
       d.resolve();
-    }).fail(function(e) {
-      d.reject({type: 'save', path: filePath, error: e});
+    }).fail(function(jqXHR, textStatus, errorThrown) {
+      d.reject({
+        type: 'save',
+        path: filePath,
+        status: jqXHR.status,
+        statusText: jqXHR.statusText,
+        errorThrown: errorThrown,
+        response: jqXHR.responseText && jqXHR.responseText.substring(0, 500)
+      });
     });
-  }).fail(function(e) {
-    d.reject({type: 'fetch', path: filePath, error: e});
+  }).fail(function(jqXHR, textStatus, errorThrown) {
+    d.reject({
+      type: 'fetch',
+      path: filePath,
+      status: jqXHR.status,
+      statusText: jqXHR.statusText,
+      errorThrown: errorThrown,
+      response: jqXHR.responseText && jqXHR.responseText.substring(0, 500)
+    });
   });
 
   return d.promise();
@@ -462,7 +480,13 @@ var copyFilesSequentially = function(sourceUrl, destUrl, files) {
         copyNext();
       })
       .fail(function(error) {
-        results.failed.push(file.path);
+        console.error('File copy failed:', file.path, error);
+        results.failed.push({
+          path: file.path,
+          type: error.type,
+          status: error.status,
+          message: error.errorThrown || error.statusText || 'unknown error'
+        });
         currentIndex++;
         copyNext(); // Continue despite failure
       });
@@ -494,16 +518,19 @@ var duplicateNode = function(sourceNodeUrl, newNodeName, progressCallback) {
         copyFilesSequentially(sourceNodeUrl, newNodeUrl, files)
           .then(function(results) {
             if (results.failed.length > 0) {
-              d.resolve(newNodeUrl);
-              alert('Node created with ' + results.failed.length + ' file(s) failed to copy: ' + results.failed.join(', '), 'warning', 10000);
-            } else {
-              d.resolve(newNodeUrl);
+              var failedDetails = results.failed.map(function(f) {
+                return f.path + ' (' + f.message + ')';
+              }).join(', ');
+              alert('Node created with ' + results.failed.length + ' file(s) failed to copy: ' + failedDetails, 'warning', 10000);
             }
+            d.resolve(newNodeUrl);
           })
           .fail(function(error) {
+            console.error('File copy operation failed:', error);
             d.reject(error);
           });
-      }).fail(function(e) {
+      }).fail(function(jqXHR, textStatus, errorThrown) {
+        console.error('Failed to get file list from source node:', sourceNodeUrl, jqXHR.status, errorThrown);
         d.reject({message: 'Failed to get file list from source node'});
       });
     }).fail(function(error) {
@@ -514,9 +541,15 @@ var duplicateNode = function(sourceNodeUrl, newNodeName, progressCallback) {
     if (req.responseText) {
       try {
         var message = JSON.parse(req.responseText);
-        error = error + ': ' + message['message'];
-      } catch(e) {}
+        error = error + ': ' + (message['message'] || message['error'] || JSON.stringify(message));
+      } catch(e) {
+        // Server returned non-JSON response - show it directly (truncated)
+        var rawText = req.responseText.substring(0, 200);
+        console.error('Server returned non-JSON error response:', rawText);
+        error = error + ': ' + rawText;
+      }
     }
+    console.error('Node creation failed:', error);
     d.reject({message: error});
   });
 
@@ -531,6 +564,17 @@ var colours = {'primary':'','success':'','danger':'','warning':'','info':'','def
 var throttle = {'logs': {}};
 var allowedtxt = ['py','xml','xsl','js','json','html','htm','css','java','groovy','sql','sh','cs','bat','ini','txt','md','cmd'];
 var allowedbinary = ['png','jpg','ico','svg','zip','7z','exe'];
+
+// Key code constants for keyboard navigation
+var KEY = {
+  TAB: 9,
+  ENTER: 13,
+  CTRL: 17,
+  ALT: 18,
+  ESCAPE: 27,
+  ARROW_UP: 38,
+  ARROW_DOWN: 40
+};
 var nodeList = {'lst':[], 'flt':'', 'end':20, 'hosts':{}};
 var nodeListreq = null;
 var localsList = {'lst':[], 'flt':'', 'end':20, 'hosts':{}};
@@ -1975,19 +2019,38 @@ var setEvents = function(){
       });
     }
   });
+  // Helper function to escape HTML for safe insertion
+  function escapeHtml(text) {
+    return $('<div/>').text(text).html();
+  }
+
+  // Helper function to clear template selection state
+  function clearTemplateSelection(input, clearValue) {
+    input.prop('selectedType', null);
+    input.prop('recipePath', null);
+    input.prop('nodeURL', null);
+    input.removeData('templateSelection');
+    input.siblings('.template-selected').remove();
+    input.siblings('.template-autocomplete').remove();
+    if (clearValue) input.val('');
+  }
+
+  // Helper function to render selection indicator
+  function renderTemplateSelectionPill(input, selection) {
+    input.siblings('.template-selected').remove();
+    var tooltip = selection.type === 'recipe' ? 'Recipe: ' + selection.path : 'Node: ' + selection.name;
+    var indicator = $('<span class="template-selected"><i class="fa fa-check-circle"></i></span>');
+    indicator.attr('title', tooltip);
+    input.after(indicator);
+  }
+
   $('body').on('shown.bs.dropdown', '.nodel-add .addgrp', function () {
     var ele = this;
     // Clear and focus node name input
     $(ele).find('.nodenamval').val(null).get(0).focus();
     // Clear template search and reset selection state
     var templateInput = $(ele).find('.unified-template-search');
-    templateInput.val('');
-    templateInput.prop('selectedType', null);
-    templateInput.prop('recipePath', null);
-    templateInput.prop('nodeURL', null);
-    templateInput.removeData('templateSelection');
-    templateInput.siblings('.template-autocomplete').remove();
-    templateInput.siblings('.template-selected').remove();
+    clearTemplateSelection(templateInput, true);
   });
   // Unified template search for add node modal
   var templateSearchTimeout;
@@ -1995,23 +2058,23 @@ var setEvents = function(){
   $('body').on('keyup', '.unified-template-search', function(e) {
     var charCode = e.charCode || e.keyCode;
     // Skip navigation keys
-    if ([9, 27, 17, 18, 38, 40, 13].indexOf(charCode) !== -1) return;
+    if ([KEY.TAB, KEY.ESCAPE, KEY.CTRL, KEY.ALT, KEY.ARROW_UP, KEY.ARROW_DOWN, KEY.ENTER].indexOf(charCode) !== -1) return;
 
-    var ele = this;
-    var searchVal = $(ele).val();
+    var $ele = $(this);
+    var searchVal = $ele.val();
 
-    // Clear selection state when typing
-    $(ele).prop('selectedType', null);
-    $(ele).prop('recipePath', null);
-    $(ele).prop('nodeURL', null);
-    $(ele).removeData('templateSelection');
-    $(ele).siblings('.template-selected').remove();
+    // Clear selection state when typing (but not the autocomplete dropdown or value)
+    $ele.prop('selectedType', null);
+    $ele.prop('recipePath', null);
+    $ele.prop('nodeURL', null);
+    $ele.removeData('templateSelection');
+    $ele.siblings('.template-selected').remove();
 
     clearTimeout(templateSearchTimeout);
     templateSearchTimeout = setTimeout(function() {
       // If search is empty, just remove dropdown
       if (searchVal.length < 1) {
-        $(ele).siblings('.template-autocomplete').remove();
+        $ele.siblings('.template-autocomplete').remove();
         return;
       }
 
@@ -2030,6 +2093,8 @@ var setEvents = function(){
       // Track state: null = pending, array = completed (success or fail)
       var recipes = null;
       var nodes = null;
+      var recipesFailed = false;
+      var nodesFailed = false;
 
       function renderResults() {
         // Wait until both requests have completed (success or failure)
@@ -2037,7 +2102,7 @@ var setEvents = function(){
         templateSearchRequest = null;
 
         // Discard stale results if input has changed since request was made
-        if ($(ele).val() !== searchVal) return;
+        if ($ele.val() !== searchVal) return;
 
         // Filter client-side
         var searchLower = searchVal.toLowerCase();
@@ -2050,13 +2115,30 @@ var setEvents = function(){
         }).slice(0, 10);
 
         // Remove old dropdown only when we have new results ready
-        $(ele).siblings('.template-autocomplete').remove();
+        $ele.siblings('.template-autocomplete').remove();
 
-        if (filteredRecipes.length === 0 && filteredNodes.length === 0) return;
+        // Show warning if APIs failed but we have no results to show
+        if (filteredRecipes.length === 0 && filteredNodes.length === 0) {
+          if (recipesFailed || nodesFailed) {
+            var warnings = [];
+            if (recipesFailed) warnings.push('recipes');
+            if (nodesFailed) warnings.push('nodes');
+            $ele.after('<div class="template-autocomplete"><ul><li class="section-header text-warning">Could not load ' + warnings.join(' or ') + '</li></ul></div>');
+          }
+          return;
+        }
 
         // Build dropdown (use unique class to avoid generic autocomplete handler)
-        $(ele).after('<div class="template-autocomplete"><ul></ul></div>');
-        var list = $(ele).siblings('.template-autocomplete').children('ul');
+        $ele.after('<div class="template-autocomplete"><ul></ul></div>');
+        var list = $ele.siblings('.template-autocomplete').children('ul');
+
+        // Show warning header if any API failed
+        if (recipesFailed || nodesFailed) {
+          var warnings = [];
+          if (recipesFailed) warnings.push('recipes');
+          if (nodesFailed) warnings.push('nodes');
+          $('<li class="section-header text-warning">Could not load ' + warnings.join(' or ') + '</li>').appendTo(list);
+        }
 
         // Add recipes section
         if (filteredRecipes.length > 0) {
@@ -2065,7 +2147,9 @@ var setEvents = function(){
             var parts = recipe.path.split('/');
             var name = parts.pop();
             var category = parts.join('/');
-            var html = name + (category ? '<br><span>' + category + '</span>' : '');
+            var nameEscaped = escapeHtml(name);
+            var categoryEscaped = escapeHtml(category);
+            var html = nameEscaped + (category ? '<br><span>' + categoryEscaped + '</span>' : '');
             $('<li>' + html + '</li>')
               .data('type', 'recipe')
               .data('path', recipe.path)
@@ -2079,7 +2163,9 @@ var setEvents = function(){
           $.each(filteredNodes, function(i, node) {
             // Extract just host:port from URL (e.g., "192.168.1.69:8085")
             var nodeHost = node.address.replace(/https?:\/\/([^\/]+).*/, '$1');
-            var html = node.node + '<br><span>' + nodeHost + '</span>';
+            var nodeNameEscaped = escapeHtml(node.node);
+            var nodeHostEscaped = escapeHtml(nodeHost);
+            var html = nodeNameEscaped + '<br><span>' + nodeHostEscaped + '</span>';
             $('<li>' + html + '</li>')
               .data('type', 'node')
               .data('address', node.address)
@@ -2093,8 +2179,10 @@ var setEvents = function(){
       recipeXhr.done(function(data) {
         recipes = data || [];
         renderResults();
-      }).fail(function() {
-        recipes = [];  // Treat failure as empty list
+      }).fail(function(xhr, status, error) {
+        console.warn('Recipe search failed:', status, error);
+        recipes = [];
+        recipesFailed = true;
         renderResults();
       });
 
@@ -2110,8 +2198,10 @@ var setEvents = function(){
           };
         });
         renderResults();
-      }).fail(function() {
-        nodes = [];  // Treat failure as empty list
+      }).fail(function(xhr, status, error) {
+        console.warn('Node search failed:', status, error);
+        nodes = [];
+        nodesFailed = true;
         renderResults();
       });
     }, 200); // 200ms debounce
@@ -2127,7 +2217,7 @@ var setEvents = function(){
     var index = items.index(active);
 
     switch(charCode) {
-      case 40: // Arrow down
+      case KEY.ARROW_DOWN:
         e.preventDefault();
         if (index < items.length - 1) {
           items.removeClass('active');
@@ -2136,44 +2226,29 @@ var setEvents = function(){
           items.eq(0).addClass('active');
         }
         break;
-      case 38: // Arrow up
+      case KEY.ARROW_UP:
         e.preventDefault();
         if (index > 0) {
           items.removeClass('active');
           items.eq(index - 1).addClass('active');
         }
         break;
-      case 13: // Enter
+      case KEY.ENTER:
         if (active.length > 0) {
           e.preventDefault();
           active.trigger('mousedown');
         }
         break;
-      case 27: // Escape
+      case KEY.ESCAPE:
         autocomplete.remove();
         break;
     }
   });
   // Handle selection in unified template search
-  function renderTemplateSelectionPill(input, selection) {
-    input.siblings('.template-selected').remove();
-    var tooltip = selection.type === 'recipe' ? 'Recipe: ' + selection.path : 'Node: ' + selection.name;
-    var indicator = $('<span class="template-selected" title="' + tooltip + '"><i class="fa fa-check-circle"></i></span>');
-    input.after(indicator);
-  }
-
-  function clearTemplateSelection(input) {
-    input.prop('selectedType', null);
-    input.prop('recipePath', null);
-    input.prop('nodeURL', null);
-    input.removeData('templateSelection');
-    input.siblings('.template-selected').remove();
-  }
-
   $('body').on('click', '.clear-template-selection', function(e) {
     e.preventDefault();
     var input = $(this).closest('.template-selected').siblings('.unified-template-search');
-    clearTemplateSelection(input);
+    clearTemplateSelection(input, false);
   });
 
   function handleTemplateSelection(e) {
@@ -2206,7 +2281,7 @@ var setEvents = function(){
   $('body').on('mousedown touchstart', '.unified-template-search + .template-autocomplete ul li:not(.section-header)', handleTemplateSelection);
   $('body').on('keyup', '.nodenamval', function(e) {
     var charCode = e.charCode || e.keyCode;
-    if(charCode == 13) $(this).closest('form').find('.nodeaddsubmit').click();
+    if(charCode == KEY.ENTER) $(this).closest('form').find('.nodeaddsubmit').click();
   });
   $('body').on('click', '.nodeaddsubmit', function(e) {
     var ele = $(this).closest('.base');
@@ -2228,6 +2303,13 @@ var setEvents = function(){
     if (selectedType === 'node') {
       // Duplicate from existing node
       var sourceNodeUrl = selection && selection.address ? selection.address : templateInput.prop('nodeURL');
+
+      // Validate source URL exists
+      if (!sourceNodeUrl) {
+        alert('No source node selected. Please select a node to duplicate.', 'warning');
+        $btn.prop('disabled', false);
+        return;
+      }
 
       duplicateNode(sourceNodeUrl, nodenameraw, function(progress) {
         alert(progress.status, 'info', 0);
