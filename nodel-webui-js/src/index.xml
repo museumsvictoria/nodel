@@ -174,7 +174,7 @@
         <title>Dynamic Button Group with confirm text</title>
         <!-- where "data" signal might look like:
                  [ "key": "203", "value": "Input 1 - HDMI",
-                  "key": "204", "value": "Input 2 - DP" ]
+                   "key": "204", "value": "Input 2 - DP" ]
         -->
         <dynamicbuttongroup join="Display Source" data="Display Sources" confirmtext="Are you sure?" confirmtitle="Confirm"></dynamicbuttongroup>
       </column>
