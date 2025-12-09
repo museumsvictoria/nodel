@@ -2,8 +2,22 @@
 <?xml-stylesheet type="text/xsl" href="v1/index.xsl"?>
 <pages title='Status Page' css='css/custom.css' js='js/custom.js' xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="v1/index.xsd">
   <page title='My Control'>
+    <!-- 
+  
+    For latest snippets and documentation, see:
+    
+    * https://github.com/museumsvictoria/nodel/wiki/Dashboard-Snippets     
+    * https://github.com/museumsvictoria/nodel/blob/dev/nodel-webui-js/src/index.xml
+    
+    -->
     <row>
       <column sm="3">
+        <group>
+          <subtitle>For latest snippets and documentation</subtitle>
+          <link url="https://github.com/museumsvictoria/nodel/wiki/Dashboard-Snippets"/>
+          <link url="https://github.com/museumsvictoria/nodel/blob/dev/nodel-webui-js/src/index.xml"/>
+        </group>
+        
         <title>Source</title>
         <pills event="Preset" action="Preset" confirm="true">
           <pill value="PresetChromecast">Chromecast</pill>
@@ -157,8 +171,12 @@
         <qrcode text='https://google.com' help='Google' event='DynamicQRCode' height='128' />
       </column>
       <column sm="4">
-        <title>Dynamic Button Group</title>
-        <dynamicbuttongroup join="Screen1" data="screen1Data" confirmtext="Are you sure?" confirmtitle="Confirm"></dynamicbuttongroup>
+        <title>Dynamic Button Group with confirm text</title>
+        <!-- where "data" signal might look like:
+                 [ "key": "203", "value": "Input 1 - HDMI",
+                  "key": "204", "value": "Input 2 - DP" ]
+        -->
+        <dynamicbuttongroup join="Display Source" data="Display Sources" confirmtext="Are you sure?" confirmtitle="Confirm"></dynamicbuttongroup>
       </column>
     </row>
   </page>
