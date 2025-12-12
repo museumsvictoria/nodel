@@ -503,16 +503,18 @@ var copyFilesSequentially = function(sourceUrl, destUrl, files) {
 var duplicateNode = function(sourceNodeUrl, newNodeName, progressCallback) {
   var d = $.Deferred();
 
-  // Step 1: Create empty node on local host
-  $.postJSON(proto + '//' + host + '/REST/newNode', JSON.stringify({value: newNodeName}), function() {
-    var newNodeUrl = proto + '//' + host + '/nodes/' + encodeURIComponent(getVerySimpleName(newNodeName)) + '/';
+  // Step 1: Verify source is reachable by getting file list
+  // This prevents creating an empty node when source is offline
+  $.getJSON(sourceNodeUrl + 'REST/files', function(files) {
 
-    // Step 2: Wait for node to be ready
-    waitForNode(newNodeUrl, 30, 1000, function(attempt) {
-      progressCallback({current: 0, total: 0, fileName: '', status: 'Initializing node... (' + attempt + ')'});
-    }).then(function() {
-      // Step 3: Get file list from source
-      $.getJSON(sourceNodeUrl + 'REST/files', function(files) {
+    // Step 2: Create empty node on local host
+    $.postJSON(proto + '//' + host + '/REST/newNode', JSON.stringify({value: newNodeName}), function() {
+      var newNodeUrl = proto + '//' + host + '/nodes/' + encodeURIComponent(getVerySimpleName(newNodeName)) + '/';
+
+      // Step 3: Wait for node to be ready
+      waitForNode(newNodeUrl, 30, 1000, function(attempt) {
+        progressCallback({current: 0, total: 0, fileName: '', status: 'Initializing node... (' + attempt + ')'});
+      }).then(function() {
         if (!files || files.length === 0) {
           d.resolve(newNodeUrl);
           return;
@@ -532,28 +534,29 @@ var duplicateNode = function(sourceNodeUrl, newNodeName, progressCallback) {
           .fail(function(error) {
             d.reject({message: error.message || 'Failed to copy files'});
           });
-      }).fail(function(jqXHR, textStatus, errorThrown) {
-        console.error('Failed to get file list from source node:', sourceNodeUrl, jqXHR.status, errorThrown);
-        d.reject({message: 'Failed to get file list from source node'});
+      }).fail(function(error) {
+        d.reject(error);
       });
-    }).fail(function(error) {
-      d.reject(error);
-    });
-  }).fail(function(req) {
-    var error = 'Failed to create node';
-    if (req.responseText) {
-      try {
-        var message = JSON.parse(req.responseText);
-        error = error + ': ' + escapeHtml(message['message'] || message['error'] || JSON.stringify(message));
-      } catch(e) {
-        // Server returned non-JSON response - show it directly (truncated)
-        var rawText = req.responseText.substring(0, 200);
-        console.error('Server returned non-JSON error response:', rawText);
-        error = error + ': ' + escapeHtml(rawText);
+    }).fail(function(req) {
+      var error = 'Failed to create node';
+      if (req.responseText) {
+        try {
+          var message = JSON.parse(req.responseText);
+          error = error + ': ' + escapeHtml(message['message'] || message['error'] || JSON.stringify(message));
+        } catch(e) {
+          // Server returned non-JSON response
+          var rawText = req.responseText.substring(0, 200);
+          console.error('Server returned non-JSON error response:', rawText);
+          error = error + ': ' + escapeHtml(rawText);
+        }
       }
-    }
-    console.error('Node creation failed:', error);
-    d.reject({message: error});
+      console.error('Node creation failed:', error);
+      d.reject({message: error});
+    });
+
+  }).fail(function(jqXHR, textStatus, errorThrown) {
+    console.error('Failed to get file list from source node:', sourceNodeUrl, jqXHR.status, errorThrown);
+    d.reject({message: 'Source node is not reachable'});
   });
 
   return d.promise();
