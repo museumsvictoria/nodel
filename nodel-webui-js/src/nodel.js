@@ -492,8 +492,12 @@ var copyFilesSequentially = function(sourceUrl, destUrl, files) {
           status: error.status,
           message: error.errorThrown || error.statusText || 'unknown error'
         });
+        if (file.path === 'script.py') {
+          d.reject({message: 'Failed to copy script.py'});
+          return;
+        }
         currentIndex++;
-        copyNext(); // Continue despite failure
+        copyNext();
       });
   };
 
@@ -529,6 +533,9 @@ var duplicateNode = function(sourceNodeUrl, newNodeName, progressCallback) {
               alert('Node created with ' + results.failed.length + ' file(s) failed to copy: ' + failedDetails, 'warning', 10000);
             }
             d.resolve(newNodeUrl);
+          })
+          .fail(function(error) {
+            d.reject({message: error.message || 'Failed to copy files'});
           });
       }).fail(function(jqXHR, textStatus, errorThrown) {
         console.error('Failed to get file list from source node:', sourceNodeUrl, jqXHR.status, errorThrown);
@@ -542,12 +549,12 @@ var duplicateNode = function(sourceNodeUrl, newNodeName, progressCallback) {
     if (req.responseText) {
       try {
         var message = JSON.parse(req.responseText);
-        error = error + ': ' + (message['message'] || message['error'] || JSON.stringify(message));
+        error = error + ': ' + escapeHtml(message['message'] || message['error'] || JSON.stringify(message));
       } catch(e) {
         // Server returned non-JSON response - show it directly (truncated)
         var rawText = req.responseText.substring(0, 200);
         console.error('Server returned non-JSON error response:', rawText);
-        error = error + ': ' + rawText;
+        error = error + ': ' + escapeHtml(rawText);
       }
     }
     console.error('Node creation failed:', error);
@@ -2395,8 +2402,12 @@ var setEvents = function(){
         if(req.statusText!="abort"){
           var error = 'Node add failed';
           if(req.responseText) {
-            var message = JSON.parse(req.responseText);
-            error = error + '<br/>' + message['message'];
+            try {
+              var message = JSON.parse(req.responseText);
+              error = error + '<br/>' + escapeHtml(message['message'] || message['error'] || 'Unknown error');
+            } catch(e) {
+              error = error + '<br/>' + escapeHtml(req.responseText.substring(0, 200));
+            }
           }
           alert(error, 'danger');
           $btn.prop('disabled', false);
