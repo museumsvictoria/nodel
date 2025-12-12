@@ -2084,7 +2084,8 @@ var setEvents = function(){
 
       // Query both APIs in parallel, handle failures independently
       var recipeXhr = $.getJSON(proto+'//' + host + '/REST/recipes/list');
-      var nodeXhr = $.getJSON(proto+'//' + host + '/REST');
+      // Use network-wide discovery via nodeURLs
+      var nodeXhr = $.postJSON(proto+'//' + host + '/REST/nodeURLs', JSON.stringify({'filter': searchVal}));
       templateSearchRequest = {recipeXhr: recipeXhr, nodeXhr: nodeXhr};
 
       // Track state: null = pending, array = completed (success or fail)
@@ -2108,7 +2109,8 @@ var setEvents = function(){
         }).slice(0, 10);
 
         var filteredNodes = nodes.filter(function(n) {
-          return n.name.toLowerCase().indexOf(searchLower) !== -1;
+          var hay = (n.name || n.node || '').toLowerCase();
+          return hay.indexOf(searchLower) !== -1;
         }).slice(0, 10);
 
         // Remove old dropdown only when we have new results ready
@@ -2184,14 +2186,14 @@ var setEvents = function(){
       });
 
       nodeXhr.done(function(data) {
-        var localNodesMap = (data || {}).nodes || {};
-        nodes = Object.keys(localNodesMap).map(function(key) {
-          var entry = localNodesMap[key];
-          var simpleName = getSimpleName(entry.name);
+        // /REST/nodeURLs returns an array of node URL objects
+        nodes = (data || []).map(function(entry) {
+          // Normalise to the shape used by the template search UI
+          var rawName = entry.name || entry.node || '';
           return {
-            name: entry.name,
-            node: simpleName,
-            address: proto + '//' + host + '/nodes/' + encodeURIComponent(getVerySimpleName(entry.name)) + '/'
+            name: rawName,
+            node: entry.node || getSimpleName(rawName),
+            address: entry.address
           };
         });
         renderResults();
