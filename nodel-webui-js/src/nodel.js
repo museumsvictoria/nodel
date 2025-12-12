@@ -2344,7 +2344,10 @@ var setEvents = function(){
 
     if (selection && selection.type === 'node') {
       // Duplicate from existing node
+      var duplicateAlertShown = false;
       duplicateNode(selection.address, nodenameraw, function() {
+        if (duplicateAlertShown) return;
+        duplicateAlertShown = true;
         alert('Duplicating node...', 'info', 0);
       }).then(function(newNodeUrl) {
         $(ele).find('.open > button').dropdown('toggle');
