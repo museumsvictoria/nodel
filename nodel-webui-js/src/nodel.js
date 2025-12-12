@@ -2048,16 +2048,70 @@ var setEvents = function(){
     // Clear template search and reset selection state
     var templateInput = $(ele).find('.unified-template-search');
     clearTemplateSelection(templateInput, true);
+
+    // Cancel any in-flight search work for this input.
+    var state = getTemplateSearchState(templateInput);
+    clearTimeout(state.timeoutId);
+    abortIfInFlight(state.nodeXhr);
+    state.nodeXhr = null;
+
+    // Refresh recipes list when opening the add-node UI.
+    // This keeps the cache reasonably fresh for users who add recipes while the nodehost is running.
+    refreshRecipesList(true);
   });
   // Unified template search for add node modal
-  var templateSearchTimeout;
-  var templateSearchRequest = null;
+  var RECIPES_LIST_TTL_MS = 60 * 1000;
+  var recipesListCache = {data: null, fetchedAtMs: 0, xhr: null};
+
+  function refreshRecipesList(force) {
+    var now = Date.now();
+
+    if (!force && recipesListCache.data && (now - recipesListCache.fetchedAtMs) < RECIPES_LIST_TTL_MS) {
+      return $.Deferred().resolve(recipesListCache.data).promise();
+    }
+
+    // If a refresh is forced, cancel any in-flight request so we fetch the latest.
+    if (force && recipesListCache.xhr) {
+      recipesListCache.xhr.abort();
+      recipesListCache.xhr = null;
+    }
+
+    // Reuse any in-flight request.
+    if (recipesListCache.xhr) return recipesListCache.xhr;
+
+    var xhr = $.getJSON(proto+'//' + host + '/REST/recipes/list');
+    recipesListCache.xhr = xhr;
+
+    xhr.done(function(data) {
+      recipesListCache.data = data || [];
+      recipesListCache.fetchedAtMs = Date.now();
+    }).always(function() {
+      if (recipesListCache.xhr === xhr) recipesListCache.xhr = null;
+    });
+
+    return xhr;
+  }
+
+  function getTemplateSearchState($input) {
+    var state = $input.data('unifiedTemplateSearchState');
+    if (!state) {
+      state = {timeoutId: null, nodeXhr: null};
+      $input.data('unifiedTemplateSearchState', state);
+    }
+    return state;
+  }
+
+  function abortIfInFlight(xhr) {
+    if (xhr && xhr.readyState !== 4) xhr.abort();
+  }
+
   $('body').on('keyup', '.unified-template-search', function(e) {
     var charCode = e.charCode || e.keyCode;
     // Skip navigation keys
     if ([KEY.TAB, KEY.ESCAPE, KEY.CTRL, KEY.ALT, KEY.ARROW_UP, KEY.ARROW_DOWN, KEY.ENTER].indexOf(charCode) !== -1) return;
 
     var $ele = $(this);
+    var state = getTemplateSearchState($ele);
     var searchVal = $ele.val();
 
     // Clear selection state when typing (but not the autocomplete dropdown or value)
@@ -2067,26 +2121,20 @@ var setEvents = function(){
     $ele.removeData('templateSelection');
     $ele.siblings('.template-selected').remove();
 
-    clearTimeout(templateSearchTimeout);
-    templateSearchTimeout = setTimeout(function() {
+    clearTimeout(state.timeoutId);
+    state.timeoutId = setTimeout(function() {
       // If search is empty, just remove dropdown
       if (searchVal.length < 1) {
         $ele.siblings('.template-autocomplete').remove();
         return;
       }
 
-      // Abort any in-flight requests
-      if (templateSearchRequest) {
-        templateSearchRequest.recipeXhr.abort();
-        templateSearchRequest.nodeXhr.abort();
-        templateSearchRequest = null;
-      }
-
       // Query both APIs in parallel, handle failures independently
-      var recipeXhr = $.getJSON(proto+'//' + host + '/REST/recipes/list');
+      var recipeXhr = refreshRecipesList(false);
       // Use network-wide discovery via nodeURLs
+      abortIfInFlight(state.nodeXhr);
       var nodeXhr = $.postJSON(proto+'//' + host + '/REST/nodeURLs', JSON.stringify({'filter': searchVal}));
-      templateSearchRequest = {recipeXhr: recipeXhr, nodeXhr: nodeXhr};
+      state.nodeXhr = nodeXhr;
 
       // Track state: null = pending, array = completed (success or fail)
       var recipes = null;
@@ -2097,7 +2145,9 @@ var setEvents = function(){
       function renderResults() {
         // Wait until both requests have completed (success or failure)
         if (recipes === null || nodes === null) return;
-        templateSearchRequest = null;
+
+        // Clear request pointer if this is the active one
+        if (state.nodeXhr === nodeXhr) state.nodeXhr = null;
 
         // Discard stale results if input has changed since request was made
         if ($ele.val() !== searchVal) return;
@@ -2179,8 +2229,10 @@ var setEvents = function(){
         recipes = data || [];
         renderResults();
       }).fail(function(xhr, status, error) {
+        // Ignore aborts (e.g. forced refresh due to UI open)
+        if (status === 'abort') return;
         console.warn('Recipe search failed:', status, error);
-        recipes = [];
+        recipes = recipesListCache.data || [];
         recipesFailed = true;
         renderResults();
       });
@@ -2198,6 +2250,8 @@ var setEvents = function(){
         });
         renderResults();
       }).fail(function(xhr, status, error) {
+        // Ignore aborts when the user types quickly
+        if (status === 'abort') return;
         console.warn('Node search failed:', status, error);
         nodes = [];
         nodesFailed = true;
