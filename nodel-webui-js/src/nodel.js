@@ -390,12 +390,22 @@ var escapeHtml = function(text) {
 };
 
 // Node duplication functions
+var buildFileError = function(type, filePath, jqXHR, errorThrown) {
+  return {
+    type: type,
+    path: filePath,
+    status: jqXHR.status,
+    statusText: jqXHR.statusText,
+    errorThrown: errorThrown,
+    response: jqXHR.responseText && jqXHR.responseText.substring(0, 500)
+  };
+};
+
 var waitForNode = function(nodeUrl, maxAttempts, interval, onProgress) {
   maxAttempts = maxAttempts || 30;
   interval = interval || 1000;
   var d = $.Deferred();
   var attempts = 0;
-  var lastError = null;
 
   var poll = function() {
     attempts++;
@@ -406,10 +416,9 @@ var waitForNode = function(nodeUrl, maxAttempts, interval, onProgress) {
     }).done(function() {
       d.resolve();
     }).fail(function(xhr, status, error) {
-      lastError = {status: xhr.status, statusText: xhr.statusText, error: error};
       if (attempts >= maxAttempts) {
         var errorDetail = xhr.status ? 'HTTP ' + xhr.status + ' ' + (error || xhr.statusText) : status;
-        console.error('Node failed to become available:', nodeUrl, 'after', maxAttempts, 'attempts. Last error:', lastError);
+        console.error('Node failed to become available:', nodeUrl, 'after', maxAttempts, 'attempts. Last error:', errorDetail);
         d.reject({message: 'Node did not become available after ' + maxAttempts + ' seconds. Last error: ' + errorDetail});
       } else {
         setTimeout(poll, interval);
@@ -443,24 +452,10 @@ var copyFile = function(sourceUrl, destUrl, filePath) {
     }).done(function() {
       d.resolve();
     }).fail(function(jqXHR, textStatus, errorThrown) {
-      d.reject({
-        type: 'save',
-        path: filePath,
-        status: jqXHR.status,
-        statusText: jqXHR.statusText,
-        errorThrown: errorThrown,
-        response: jqXHR.responseText && jqXHR.responseText.substring(0, 500)
-      });
+      d.reject(buildFileError('save', filePath, jqXHR, errorThrown));
     });
   }).fail(function(jqXHR, textStatus, errorThrown) {
-    d.reject({
-      type: 'fetch',
-      path: filePath,
-      status: jqXHR.status,
-      statusText: jqXHR.statusText,
-      errorThrown: errorThrown,
-      response: jqXHR.responseText && jqXHR.responseText.substring(0, 500)
-    });
+    d.reject(buildFileError('fetch', filePath, jqXHR, errorThrown));
   });
 
   return d.promise();
@@ -2030,13 +2025,18 @@ var setEvents = function(){
 
   // Helper function to clear template selection state
   function clearTemplateSelection(input, clearValue) {
-    input.prop('selectedType', null);
-    input.prop('recipePath', null);
-    input.prop('nodeURL', null);
     input.removeData('templateSelection');
     input.siblings('.template-selected').remove();
     input.siblings('.template-autocomplete').remove();
     if (clearValue) input.val('');
+  }
+
+  // Helper function to build warning message for failed API sources
+  function buildSourceWarning(recipesFailed, nodesFailed) {
+    var warnings = [];
+    if (recipesFailed) warnings.push('recipes');
+    if (nodesFailed) warnings.push('nodes');
+    return warnings.length > 0 ? 'Could not load ' + warnings.join(' or ') : null;
   }
 
   // Helper function to render selection indicator
@@ -2122,9 +2122,6 @@ var setEvents = function(){
     var searchVal = $ele.val();
 
     // Clear selection state when typing (but not the autocomplete dropdown or value)
-    $ele.prop('selectedType', null);
-    $ele.prop('recipePath', null);
-    $ele.prop('nodeURL', null);
     $ele.removeData('templateSelection');
     $ele.siblings('.template-selected').remove();
 
@@ -2175,11 +2172,9 @@ var setEvents = function(){
 
         // Show warning if APIs failed but we have no results to show
         if (filteredRecipes.length === 0 && filteredNodes.length === 0) {
-          if (recipesFailed || nodesFailed) {
-            var warnings = [];
-            if (recipesFailed) warnings.push('recipes');
-            if (nodesFailed) warnings.push('nodes');
-            $ele.after('<div class="template-autocomplete"><ul><li class="section-header text-warning">Could not load ' + warnings.join(' or ') + '</li></ul></div>');
+          var warning = buildSourceWarning(recipesFailed, nodesFailed);
+          if (warning) {
+            $ele.after('<div class="template-autocomplete"><ul><li class="section-header text-warning">' + warning + '</li></ul></div>');
           }
           return;
         }
@@ -2189,11 +2184,9 @@ var setEvents = function(){
         var list = $ele.siblings('.template-autocomplete').children('ul');
 
         // Show warning header if any API failed
-        if (recipesFailed || nodesFailed) {
-          var warnings = [];
-          if (recipesFailed) warnings.push('recipes');
-          if (nodesFailed) warnings.push('nodes');
-          $('<li class="section-header text-warning">Could not load ' + warnings.join(' or ') + '</li>').appendTo(list);
+        var warning = buildSourceWarning(recipesFailed, nodesFailed);
+        if (warning) {
+          $('<li class="section-header text-warning">' + warning + '</li>').appendTo(list);
         }
 
         // Add recipes section
@@ -2317,25 +2310,14 @@ var setEvents = function(){
     var $li = $(this);
     var input = $li.closest('.template-autocomplete').siblings('.unified-template-search');
     var type = $li.data('type');
-    var selection;
 
-    if (type === 'recipe') {
-      input.val($li.data('path'));
-      input.prop('selectedType', 'recipe');
-      input.prop('recipePath', $li.data('path'));
-      selection = {type: 'recipe', path: $li.data('path')};
-    } else if (type === 'node') {
-      input.val($li.data('name'));
-      input.prop('selectedType', 'node');
-      input.prop('nodeURL', $li.data('address'));
-      selection = {type: 'node', address: $li.data('address'), name: $li.data('name'), host: $li.data('host')};
-    }
+    var selection = type === 'recipe'
+      ? {type: 'recipe', path: $li.data('path')}
+      : {type: 'node', address: $li.data('address'), name: $li.data('name'), host: $li.data('host')};
 
-    if (selection) {
-      input.data('templateSelection', selection);
-      renderTemplateSelectionPill(input, selection);
-    }
-
+    input.val(type === 'recipe' ? selection.path : selection.name);
+    input.data('templateSelection', selection);
+    renderTemplateSelectionPill(input, selection);
     $li.closest('.template-autocomplete').remove();
   }
   $('body').on('mousedown touchstart', '.unified-template-search + .template-autocomplete ul li:not(.section-header)', handleTemplateSelection);
@@ -2355,23 +2337,14 @@ var setEvents = function(){
       return;
     }
 
-    // Check unified template search selection type
+    // Check unified template search selection
     var templateInput = $(ele).find('.unified-template-search');
-    var selectedType = templateInput.prop('selectedType');
     var selection = templateInput.data('templateSelection');
+    var typedValue = (templateInput.val() || '').trim();
 
-    if (selectedType === 'node') {
+    if (selection && selection.type === 'node') {
       // Duplicate from existing node
-      var sourceNodeUrl = selection && selection.address ? selection.address : templateInput.prop('nodeURL');
-
-      // Validate source URL exists
-      if (!sourceNodeUrl) {
-        alert('No source node selected. Please select a node to duplicate.', 'warning');
-        $btn.prop('disabled', false);
-        return;
-      }
-
-      duplicateNode(sourceNodeUrl, nodenameraw, function() {
+      duplicateNode(selection.address, nodenameraw, function() {
         alert('Duplicating node...', 'info', 0);
       }).then(function(newNodeUrl) {
         $(ele).find('.open > button').dropdown('toggle');
@@ -2381,16 +2354,9 @@ var setEvents = function(){
         $btn.prop('disabled', false);
       });
     } else {
-      // Create from recipe (fallback to typed value if no selection was made)
+      // Create from recipe (use selection path or fall back to typed value)
       var nodename = {"value": nodenameraw};
-      var typedTemplateValue = (templateInput.val() || '').trim();
-      var recipePath = null;
-
-      if (selectedType === 'recipe') {
-        recipePath = templateInput.prop('recipePath') || typedTemplateValue;
-      } else if (!selectedType && typedTemplateValue) {
-        recipePath = typedTemplateValue;
-      }
+      var recipePath = selection && selection.type === 'recipe' ? selection.path : typedValue;
 
       if (recipePath) {
         nodename["base"] = recipePath;
