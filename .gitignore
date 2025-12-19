@@ -23,6 +23,12 @@
 .lastHTTPPort
 _instance.lock
 _lastError.txt
+/nodes/
+/custom/
+/logs/
+/cache/
+/docker-compose.override.yml
+/recipes/nodel-official-recipes/
 /nodel-webui-js/.classpath
 /nodel-webui-js/.project
 /nodel-webui-js/.settings

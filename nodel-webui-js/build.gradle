@@ -48,6 +48,7 @@ npmInstall.args = ['--legacy-peer-deps']
 
 class FileChecker {
     def nodeModulesDir
+    def gruntOutputDir
     def srcDir
     def packageJson
     def packageLockJson
@@ -55,6 +56,7 @@ class FileChecker {
 
     FileChecker(Project project) {
         nodeModulesDir = project.file("${project.projectDir}/node_modules")
+        gruntOutputDir = project.file("${project.buildDir}/grunt")
         srcDir = project.file('src')
         packageJson = project.file('package.json')
         packageLockJson = project.file('package-lock.json')
@@ -62,18 +64,23 @@ class FileChecker {
     }
 
     def checkFilesChanged() {
+        // Always rebuild if grunt output doesn't exist or is empty
+        if (!gruntOutputDir.exists() || gruntOutputDir.list()?.length == 0) {
+            return true
+        }
+
+        // Need npm install + grunt if node_modules is missing
         if (!nodeModulesDir.exists()) {
             return true
-        } else {
-            def srcDirModified = srcDir.exists() && srcDir.lastModified() > nodeModulesDir.lastModified()
-            def packageJsonModified = packageJson.exists() && packageJson.lastModified() > nodeModulesDir.lastModified()
-            def packageLockJsonModified = packageLockJson.exists() && packageLockJson.lastModified() > nodeModulesDir.lastModified()
-            def gruntFileModified = gruntFile.exists() && gruntFile.lastModified() > nodeModulesDir.lastModified()
-
-            def filesChanged = srcDirModified || packageJsonModified || packageLockJsonModified || gruntFileModified
-
-            return filesChanged
         }
+
+        // Check if sources are newer than grunt output
+        def srcDirModified = srcDir.exists() && srcDir.lastModified() > gruntOutputDir.lastModified()
+        def packageJsonModified = packageJson.exists() && packageJson.lastModified() > gruntOutputDir.lastModified()
+        def packageLockJsonModified = packageLockJson.exists() && packageLockJson.lastModified() > gruntOutputDir.lastModified()
+        def gruntFileModified = gruntFile.exists() && gruntFile.lastModified() > gruntOutputDir.lastModified()
+
+        return srcDirModified || packageJsonModified || packageLockJsonModified || gruntFileModified
     }
 }
 

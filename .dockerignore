@@ -1,0 +1,66 @@
+# =============================================================================
+# Docker Build Context Exclusions
+# =============================================================================
+# Exclude files that aren't needed in the build context to speed up builds
+# and reduce the amount of data sent to the Docker daemon.
+# =============================================================================
+
+# Git (keep .git for version detection during build)
+.gitignore
+.gitattributes
+
+# IDE
+.idea/
+*.iml
+.vscode/
+*.swp
+*.swo
+*~
+
+# Build outputs (we rebuild inside Docker)
+build/
+*/build/
+out/
+*.class
+
+# Gradle caches
+.gradle/
+*/.gradle/
+
+# Node modules (rebuilt inside Docker)
+nodel-webui-js/node_modules/
+
+# Local runtime data
+nodes/
+recipes/
+custom/
+cache/
+logs/
+*.lock
+.nodel/
+
+# Generated files
+_*.json
+_*.txt
+.version
+.lastHTTPPort
+
+# Documentation (not needed for build)
+*.md
+!README.md
+LICENSE*
+
+# CI/CD
+.travis.yml
+.github/
+
+# Docker files (avoid recursive context)
+docker-compose*.yml
+
+# Test data
+test-nodes/
+test-data/
+
+# OS files
+.DS_Store
+Thumbs.db

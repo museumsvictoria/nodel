@@ -373,11 +373,26 @@ public class TopologyWatcher {
                     // skip this interface
                 }
             }
-            
-            hostname = InetAddress.getLocalHost().getHostName();
-            
+
         } catch (Exception exc) {
-            _logger.warn("TopologyWatcher: Was not able to enumerate network interfaces or get hostname", exc);
+            _logger.warn("TopologyWatcher: Was not able to enumerate network interfaces", exc);
+        }
+
+        // Separate hostname lookup - can fail independently (e.g., in Docker containers)
+        try {
+            hostname = InetAddress.getLocalHost().getHostName();
+        } catch (Exception exc) {
+            // Fallback: try system property or environment variable
+            hostname = System.getProperty("nodel.hostname");
+            if (hostname == null || hostname.isEmpty()) {
+                hostname = System.getenv("HOSTNAME");
+            }
+            if (hostname == null || hostname.isEmpty()) {
+                hostname = "UNKNOWN";
+                _logger.debug("TopologyWatcher: Could not resolve hostname, using UNKNOWN", exc);
+            } else {
+                _logger.debug("TopologyWatcher: Using hostname from environment: {}", hostname);
+            }
         }
 
         if (optInList.length > 0 && !foundAnyMatch) {

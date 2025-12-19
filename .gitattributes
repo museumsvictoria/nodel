@@ -1,0 +1,11 @@
+# Auto-detect text files and normalise line endings
+* text=auto
+
+# Shell scripts must use LF (Unix) line endings for Docker/Linux compatibility
+*.sh text eol=lf
+gradlew text eol=lf
+entrypoint.sh text eol=lf
+
+# Windows batch files use CRLF
+*.bat text eol=crlf
+*.cmd text eol=crlf

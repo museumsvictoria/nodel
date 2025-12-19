@@ -1,0 +1,14 @@
+# Development compose file - for building and testing locally
+# For production deployments, use install.sh instead
+services:
+  nodel:
+    build: .
+    image: nodel:local
+    ports:
+      - "8085:8085"
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "5"
