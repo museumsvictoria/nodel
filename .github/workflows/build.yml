@@ -12,8 +12,62 @@ permissions:
 
 jobs:
   build:
+    name: Build
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Java 11
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 11
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Compile
+        run: ./gradlew assemble
+
+  unit-tests:
+    name: Unit Tests
+    needs: [build]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Java 11
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 11
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Run Unit Tests
+        run: ./gradlew :nodel-framework:test
+
+      - name: Test Report
+        uses: mikepenz/action-junit-report@v4
+        if: always()
+        with:
+          report_paths: 'nodel-framework/build/test-results/test/TEST-*.xml'
+          check_name: Unit Test Report
+          include_passed: true
+          detailed_summary: true
+
+  e2e-tests:
+    name: E2E Tests
+    needs: [build]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
 
     steps:
       - name: Checkout
@@ -31,23 +85,24 @@ jobs:
       - name: Install Playwright system dependencies
         run: npx playwright install-deps chromium
 
-      - name: Build and Test
-        run: ./gradlew build
+      - name: Run E2E Tests
+        run: ./gradlew :nodel-jyhost:test
 
       - name: Test Report
         uses: mikepenz/action-junit-report@v4
         if: always()
         with:
-          report_paths: '**/build/test-results/test/TEST-*.xml'
+          report_paths: 'nodel-jyhost/build/test-results/test/TEST-*.xml'
+          check_name: E2E Test Report
           include_passed: true
           detailed_summary: true
 
-      - name: Upload test results
+      - name: Upload logs on failure
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: test-results
+          name: e2e-test-logs
           path: |
-            **/build/reports/tests/
-            **/nodelhost-temp/*.log
+            nodel-jyhost/build/reports/tests/
+            nodel-jyhost/nodelhost-temp/*.log
           retention-days: 7
