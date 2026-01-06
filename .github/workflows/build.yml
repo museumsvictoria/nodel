@@ -6,6 +6,10 @@ on:
   pull_request:
     branches: [main, dev, master]
 
+permissions:
+  checks: write
+  contents: read
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -29,6 +33,14 @@ jobs:
 
       - name: Build and Test
         run: ./gradlew build
+
+      - name: Test Report
+        uses: mikepenz/action-junit-report@v4
+        if: always()
+        with:
+          report_paths: '**/build/test-results/test/TEST-*.xml'
+          include_passed: true
+          detailed_summary: true
 
       - name: Upload test results
         if: failure()
