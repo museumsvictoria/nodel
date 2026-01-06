@@ -24,8 +24,8 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
 
-      - name: Install Playwright Chromium
-        run: npx playwright install --with-deps chromium
+      - name: Install Playwright system dependencies
+        run: npx playwright install-deps chromium
 
       - name: Build and Test
         run: ./gradlew build
