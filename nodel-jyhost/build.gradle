@@ -97,4 +97,86 @@ dependencies {
 
     // Add joda-time dependency
     implementation 'joda-time:joda-time:2.10.14'
+
+    // Playwright e2e testing
+    testImplementation 'com.microsoft.playwright:playwright:1.49.0'
+    testImplementation 'org.junit.jupiter:junit-jupiter-api:5.10.0'
+    testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.10.0'
+}
+
+// E2E Test Infrastructure
+def nodelProcess = null
+
+tasks.register('cleanNodelhostTemp', Delete) {
+    delete layout.projectDirectory.dir('nodelhost-temp')
+}
+
+tasks.register('startNodelhost') {
+    dependsOn 'cleanNodelhostTemp', 'classes'
+    doLast {
+        def tempDir = layout.projectDirectory.dir('nodelhost-temp').asFile
+        tempDir.mkdirs()
+
+        // Use tail -f /dev/null to keep stdin open (prevents auto-shutdown)
+        def pb = new ProcessBuilder(
+            'bash', '-c',
+            "tail -f /dev/null | java -cp '${sourceSets.main.runtimeClasspath.asPath}' -ea org.nodel.jyhost.Launch"
+        )
+        pb.directory(tempDir)
+        pb.redirectOutput(new File(tempDir, 'output.log'))
+        pb.redirectError(new File(tempDir, 'error.log'))
+        nodelProcess = pb.start()
+
+        // Wait for server to be ready by checking if HTTP responds
+        def maxAttempts = 60
+        def attempt = 0
+        while (attempt < maxAttempts) {
+            Thread.sleep(1000)
+            try {
+                def url = new URL('http://127.0.0.1:8085/')
+                def conn = url.openConnection()
+                conn.setConnectTimeout(2000)
+                conn.setReadTimeout(2000)
+                conn.connect()
+                def responseCode = conn.responseCode
+                conn.disconnect()
+                if (responseCode == 200) {
+                    logger.lifecycle("Nodel host is ready on port 8085 (HTTP 200)")
+                    break
+                }
+            } catch (Exception e) {
+                // Server not ready yet, continue waiting
+            }
+            attempt++
+            if (attempt >= maxAttempts) {
+                throw new GradleException("Nodel host failed to start within ${maxAttempts} seconds")
+            }
+        }
+    }
+}
+
+tasks.register('stopNodelhost') {
+    doLast {
+        if (nodelProcess?.isAlive()) {
+            nodelProcess.destroyForcibly()
+            nodelProcess.waitFor(10, java.util.concurrent.TimeUnit.SECONDS)
+        }
+        // Also kill any orphaned java processes on port 8085
+        ['bash', '-c', 'lsof -ti :8085 | xargs kill 2>/dev/null || true'].execute().waitFor()
+    }
+}
+
+tasks.register('playwright', JavaExec) {
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.microsoft.playwright.CLI'
+}
+
+test {
+    dependsOn 'startNodelhost'
+    useJUnitPlatform()
+    testLogging {
+        events 'passed', 'skipped', 'failed'
+        showStandardStreams = true
+    }
+    finalizedBy 'stopNodelhost'
 }

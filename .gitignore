@@ -44,3 +44,6 @@ out/
 # Visual Studio Code
 .vscode/
 *.code-workspace
+
+# E2E Testing
+/nodel-jyhost/nodelhost-temp/
