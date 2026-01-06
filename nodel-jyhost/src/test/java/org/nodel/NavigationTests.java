@@ -4,6 +4,7 @@ import com.microsoft.playwright.*;
 import org.junit.jupiter.api.*;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 /**
  * Tests for page navigation and routing.
@@ -90,8 +91,9 @@ public class NavigationTests extends TestBase {
     @Test
     public void testLogoImageInNavbar() {
         ElementHandle logo = page.querySelector(".navbar img, .navbar-brand img");
-        // Logo may be text or image
-        assertTrue(true, "Logo check completed");
+        ElementHandle navbarBrand = page.querySelector(".navbar-brand");
+        // Logo may be text or image - navbar brand should exist
+        assertTrue(logo != null || navbarBrand != null, "Either logo image or navbar brand should exist");
     }
 
     // ===== Active State Tests =====
@@ -113,15 +115,19 @@ public class NavigationTests extends TestBase {
     @Test
     public void testDropdownNavExists() {
         ElementHandle dropdown = page.querySelector(".navbar-nav .dropdown, .nav.navbar-nav .dropdown");
-        // Dropdown may or may not exist depending on configuration
-        assertTrue(true, "Dropdown navigation check completed");
+        // Dropdown may or may not exist - check dropdown plugin is available instead
+        Object dropdownPluginLoaded = page.evaluate("() => typeof jQuery.fn.dropdown !== 'undefined'");
+        assertTrue(dropdown != null || Boolean.TRUE.equals(dropdownPluginLoaded),
+            "Either dropdown elements or dropdown plugin should be available");
     }
 
     @Test
     public void testDropdownMenuItems() {
         ElementHandle dropdown = page.querySelector(".navbar-nav .dropdown-menu, .nav.navbar-nav .dropdown-menu");
-        // Dropdown menu may or may not exist
-        assertTrue(true, "Dropdown menu check completed");
+        ElementHandle navItems = page.querySelector(".navbar-nav li, .nav.navbar-nav li");
+        // Either dropdown menu or regular nav items should exist
+        assertTrue(dropdown != null || navItems != null,
+            "Either dropdown menu or nav items should exist");
     }
 
     // ===== URL Structure Tests =====
@@ -164,8 +170,9 @@ public class NavigationTests extends TestBase {
     public void testNoLoadingSpinnerStuck() {
         // After page load, loading indicators should be hidden
         page.waitForTimeout(2000);
-        // Check there's no perpetual loading state
-        assertTrue(true, "Page should complete loading");
+        // Verify navbar is visible (indicates page finished loading)
+        ElementHandle navbar = page.querySelector(".navbar");
+        assertNotNull(navbar, "Navbar should be visible after loading completes");
     }
 
     // ===== Browser Navigation Tests =====

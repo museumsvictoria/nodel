@@ -4,6 +4,7 @@ import com.microsoft.playwright.*;
 import org.junit.jupiter.api.*;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 /**
  * Tests for console and log functionality.
@@ -70,10 +71,11 @@ public class ConsoleLogTests extends TestBase {
 
     @Test
     public void testNiceTimeHelper() {
-        // Check if nicetime helper exists in JSViews
-        Object result = page.evaluate("() => typeof $.views.helpers.nicetime !== 'undefined'");
-        // Helper may be registered differently
-        assertTrue(true, "Nicetime helper check completed");
+        // Check if nicetime helper or moment.js is available for time formatting
+        Object niceTimeExists = page.evaluate("() => typeof $.views.helpers !== 'undefined' && typeof $.views.helpers.nicetime !== 'undefined'");
+        Object momentExists = page.evaluate("() => typeof moment !== 'undefined'");
+        assertTrue(Boolean.TRUE.equals(niceTimeExists) || Boolean.TRUE.equals(momentExists),
+            "Either nicetime helper or moment.js should be available");
     }
 
     // ===== Log Display Structure Tests =====
@@ -82,8 +84,10 @@ public class ConsoleLogTests extends TestBase {
     public void testLogContainerStructure() {
         // Logs are typically displayed in a scrollable container
         ElementHandle logArea = page.querySelector(".console, .log-container, [data-nodel='console'], pre");
-        // Log container may not be visible on home page
-        assertTrue(true, "Log container structure check completed");
+        // Verify console endpoint is accessible instead (logs may not be visible on home page)
+        APIResponse response = apiGet("/logs");
+        assertTrue(logArea != null || response.status() == 200,
+            "Either log container should exist or logs endpoint should be accessible");
     }
 
     // ===== Log Level Styling Tests =====

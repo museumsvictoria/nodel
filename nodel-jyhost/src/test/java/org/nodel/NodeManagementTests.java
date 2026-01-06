@@ -4,6 +4,7 @@ import com.microsoft.playwright.*;
 import org.junit.jupiter.api.*;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 /**
  * Tests for node management operations.
@@ -137,8 +138,9 @@ public class NodeManagementTests extends TestBase {
     public void testFilterInputExists() {
         // There may be a filter/search input on the page
         ElementHandle filter = page.querySelector("input[type='text'], input.filter, input[placeholder*='filter'], input[placeholder*='search']");
-        // Filter may or may not exist on home page
-        assertTrue(true, "Filter input check completed");
+        ElementHandle anyInput = page.querySelector("input, .nodel-add input");
+        // Either filter input or some input element should exist
+        assertTrue(filter != null || anyInput != null, "Either filter input or input elements should exist");
     }
 
     // ===== Node Item Structure Tests =====
@@ -147,12 +149,10 @@ public class NodeManagementTests extends TestBase {
     @Order(35)
     public void testNodeItemStructure() {
         ElementHandle nodeItem = page.querySelector(".list-group-item");
-        if (nodeItem != null) {
-            // Verify node item has expected structure
-            String html = nodeItem.innerHTML();
-            assertTrue(html.length() > 0, "Node item should have content");
-        }
-        assertTrue(true, "Node item structure check completed");
+        assumeTrue(nodeItem != null, "No list-group-item found on page");
+        // Verify node item has expected structure
+        String html = nodeItem.innerHTML();
+        assertTrue(html.length() > 0, "Node item should have content");
     }
 
     // ===== Host Info Tests =====
@@ -161,8 +161,9 @@ public class NodeManagementTests extends TestBase {
     @Order(40)
     public void testHostIconExists() {
         ElementHandle hostIcon = page.querySelector("[data-nodel='hosticon'], .host-icon, .navbar-brand img");
-        // Host icon may be in navbar
-        assertTrue(true, "Host icon check completed");
+        ElementHandle navbarBrand = page.querySelector(".navbar-brand");
+        // Either host icon or navbar brand should exist
+        assertTrue(hostIcon != null || navbarBrand != null, "Either host icon or navbar brand should exist");
     }
 
     // ===== Discovery Tests =====
@@ -180,9 +181,8 @@ public class NodeManagementTests extends TestBase {
     @Test
     @Order(50)
     public void testVersionInfoAvailable() {
-        // Check if version info is available somewhere on page or via API
-        String pageText = page.textContent("body");
-        // Version may be shown in UI
-        assertTrue(true, "Version info check completed");
+        // Check if version info is available via diagnostics API
+        APIResponse response = apiGet("/diagnostics");
+        assertEquals(200, response.status(), "Diagnostics endpoint should be available for version info");
     }
 }

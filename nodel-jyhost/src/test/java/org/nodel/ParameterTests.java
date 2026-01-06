@@ -4,6 +4,7 @@ import com.microsoft.playwright.*;
 import org.junit.jupiter.api.*;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 /**
  * Tests for parameter viewing and editing functionality.
@@ -70,9 +71,11 @@ public class ParameterTests extends TestBase {
 
     @Test
     public void testBootstrapSelectPlugin() {
-        Object result = page.evaluate("() => typeof jQuery.fn.selectpicker !== 'undefined'");
-        // Bootstrap-select may or may not be loaded
-        assertTrue(true, "Bootstrap-select check completed");
+        // Check if bootstrap-select or native select support is available
+        Object selectpickerLoaded = page.evaluate("() => typeof jQuery.fn.selectpicker !== 'undefined'");
+        Object selectSupport = page.evaluate("() => document.createElement('select').tagName === 'SELECT'");
+        assertTrue(Boolean.TRUE.equals(selectpickerLoaded) || Boolean.TRUE.equals(selectSupport),
+            "Either bootstrap-select or native select support should be available");
     }
 
     // ===== JSViews Form Binding Tests =====

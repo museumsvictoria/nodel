@@ -99,6 +99,12 @@ public abstract class TestBase {
             if (!Files.exists(nodesDir)) {
                 nodesDir = Paths.get("nodel-jyhost/nodelhost-temp/nodes");
             }
+            if (!Files.exists(nodesDir)) {
+                System.err.println("ERROR: Nodes directory not found. Ensure startNodelhost task ran successfully.");
+                System.err.println("Checked paths: nodelhost-temp/nodes, nodel-jyhost/nodelhost-temp/nodes");
+                System.err.println("Current working directory: " + System.getProperty("user.dir"));
+                return false;
+            }
 
             Path nodeDir = nodesDir.resolve(nodeName);
             Files.createDirectories(nodeDir);
@@ -106,13 +112,35 @@ public abstract class TestBase {
             Path scriptFile = nodeDir.resolve("script.py");
             Files.writeString(scriptFile, scriptContent);
 
-            // Wait for node to be discovered
-            Thread.sleep(3000);
-            return true;
+            // Wait for node to be discovered by polling the API
+            return waitForNodeDiscovery(nodeName, 15000);
         } catch (Exception e) {
             System.err.println("Failed to create test node: " + e.getMessage());
             return false;
         }
+    }
+
+    /**
+     * Poll the REST API until the specified node appears in the node list
+     * @param nodeName the name of the node to wait for
+     * @param timeoutMs maximum time to wait in milliseconds
+     * @return true if node was discovered, false if timeout
+     */
+    private static boolean waitForNodeDiscovery(String nodeName, int timeoutMs) {
+        long deadline = System.currentTimeMillis() + timeoutMs;
+        while (System.currentTimeMillis() < deadline) {
+            try {
+                APIResponse response = page.request().get(REST_BASE + "/nodes");
+                if (response.text().contains(nodeName)) {
+                    return true;
+                }
+                Thread.sleep(500); // Poll every 500ms
+            } catch (Exception e) {
+                // Continue polling - server might not be ready yet
+            }
+        }
+        System.err.println("Timeout waiting for node discovery: " + nodeName);
+        return false;
     }
 
     /**

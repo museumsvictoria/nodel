@@ -4,6 +4,7 @@ import com.microsoft.playwright.*;
 import org.junit.jupiter.api.*;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 /**
  * Tests for real-time updates via WebSocket and polling.
@@ -32,8 +33,9 @@ public class RealTimeUpdateTests extends TestBase {
 
     @Test
     public void testWebSocketCanBeCreated() {
-        Object result = page.evaluate("() => { try { const ws = new WebSocket('ws://localhost:1'); ws.close(); return true; } catch(e) { return e.name !== 'TypeError'; } }");
-        assertTrue(true, "WebSocket creation check completed");
+        // WebSocket constructor should exist and be callable
+        Object wsConstructorExists = page.evaluate("() => typeof WebSocket === 'function'");
+        assertEquals(true, wsConstructorExists, "WebSocket constructor should be a function");
     }
 
     // ===== AJAX Polling Infrastructure Tests =====
@@ -80,18 +82,18 @@ public class RealTimeUpdateTests extends TestBase {
 
     @Test
     public void testEventSourceAvailable() {
+        // EventSource (Server-Sent Events) should be available in modern browsers
         Object result = page.evaluate("() => typeof EventSource !== 'undefined'");
-        // EventSource may or may not be used
-        assertTrue(true, "EventSource availability check completed");
+        assertEquals(true, result, "EventSource should be available");
     }
 
     // ===== JSViews Refresh Tests =====
 
     @Test
     public void testJsViewsRefresh() {
-        Object result = page.evaluate("() => typeof $.views.viewsDepth !== 'undefined' || typeof $.view !== 'undefined'");
-        // JSViews refresh capability
-        assertTrue(true, "JSViews refresh capability check completed");
+        // JSViews should provide $.view or $.views for data binding refresh
+        Object result = page.evaluate("() => typeof $.views !== 'undefined' || typeof $.view !== 'undefined'");
+        assertEquals(true, result, "JSViews should be available for data binding refresh");
     }
 
     @Test
@@ -104,14 +106,14 @@ public class RealTimeUpdateTests extends TestBase {
 
     @Test
     public void testOnlineEventSupported() {
-        Object result = page.evaluate("() => typeof window.ononline !== 'undefined' || 'ononline' in window");
-        assertTrue(true, "Online event support check completed");
+        Object result = page.evaluate("() => 'ononline' in window");
+        assertEquals(true, result, "Online event should be supported in window");
     }
 
     @Test
     public void testOfflineEventSupported() {
-        Object result = page.evaluate("() => typeof window.onoffline !== 'undefined' || 'onoffline' in window");
-        assertTrue(true, "Offline event support check completed");
+        Object result = page.evaluate("() => 'onoffline' in window");
+        assertEquals(true, result, "Offline event should be supported in window");
     }
 
     @Test
@@ -130,8 +132,8 @@ public class RealTimeUpdateTests extends TestBase {
 
     @Test
     public void testVisibilityChangeEvent() {
-        Object result = page.evaluate("() => 'onvisibilitychange' in document || typeof document.onvisibilitychange !== 'undefined'");
-        assertTrue(true, "Visibility change event check completed");
+        Object result = page.evaluate("() => 'onvisibilitychange' in document");
+        assertEquals(true, result, "Visibility change event should be supported in document");
     }
 
     // ===== Long Polling Support Tests =====

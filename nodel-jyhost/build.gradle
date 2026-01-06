@@ -106,6 +106,7 @@ dependencies {
 
 // E2E Test Infrastructure
 def nodelProcess = null
+def isWindows = System.getProperty('os.name').toLowerCase().contains('windows')
 
 tasks.register('cleanNodelhostTemp', Delete) {
     delete layout.projectDirectory.dir('nodelhost-temp')
@@ -117,11 +118,21 @@ tasks.register('startNodelhost') {
         def tempDir = layout.projectDirectory.dir('nodelhost-temp').asFile
         tempDir.mkdirs()
 
-        // Use tail -f /dev/null to keep stdin open (prevents auto-shutdown)
-        def pb = new ProcessBuilder(
-            'bash', '-c',
-            "tail -f /dev/null | java -cp '${sourceSets.main.runtimeClasspath.asPath}' -ea org.nodel.jyhost.Launch"
-        )
+        def pb
+        if (isWindows) {
+            // Windows: Start java directly with stdin pipe to keep process alive
+            pb = new ProcessBuilder(
+                'java', '-cp', sourceSets.main.runtimeClasspath.asPath,
+                '-ea', 'org.nodel.jyhost.Launch'
+            )
+            pb.redirectInput(ProcessBuilder.Redirect.PIPE)
+        } else {
+            // Unix: Use tail -f /dev/null to keep stdin open (prevents auto-shutdown)
+            pb = new ProcessBuilder(
+                'bash', '-c',
+                "tail -f /dev/null | java -cp '${sourceSets.main.runtimeClasspath.asPath}' -ea org.nodel.jyhost.Launch"
+            )
+        }
         pb.directory(tempDir)
         pb.redirectOutput(new File(tempDir, 'output.log'))
         pb.redirectError(new File(tempDir, 'error.log'))
@@ -161,8 +172,16 @@ tasks.register('stopNodelhost') {
             nodelProcess.destroyForcibly()
             nodelProcess.waitFor(10, java.util.concurrent.TimeUnit.SECONDS)
         }
-        // Also kill any orphaned java processes on port 8085
-        ['bash', '-c', 'lsof -ti :8085 | xargs kill 2>/dev/null || true'].execute().waitFor()
+        // Platform-specific orphan process cleanup
+        if (isWindows) {
+            // Windows: Use PowerShell to find and kill process on port 8085
+            ['powershell', '-Command',
+             'Get-NetTCPConnection -LocalPort 8085 -ErrorAction SilentlyContinue | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force -ErrorAction SilentlyContinue }'
+            ].execute().waitFor()
+        } else {
+            // Unix: Use lsof to find and kill process on port 8085
+            ['bash', '-c', 'lsof -ti :8085 | xargs kill 2>/dev/null || true'].execute().waitFor()
+        }
     }
 }
 
