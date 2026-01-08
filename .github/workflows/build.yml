@@ -59,7 +59,8 @@ jobs:
         if: always()
         with:
           report_paths: 'nodel-framework/build/test-results/test/TEST-*.xml'
-          check_name: Unit Test Report
+          annotate_only: true
+          job_summary: true
           include_passed: true
           detailed_summary: true
 
@@ -93,7 +94,8 @@ jobs:
         if: always()
         with:
           report_paths: 'nodel-jyhost/build/test-results/test/TEST-*.xml'
-          check_name: E2E Test Report
+          annotate_only: true
+          job_summary: true
           include_passed: true
           detailed_summary: true
 
