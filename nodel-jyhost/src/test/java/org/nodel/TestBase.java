@@ -200,6 +200,13 @@ public abstract class TestBase {
     }
 
     /**
+     * URL-encode a node name for use in REST paths
+     */
+    protected static String encode(String nodeName) {
+        return nodeName.replace(" ", "%20");
+    }
+
+    /**
      * Get computed CSS property value for an element
      */
     protected static String getComputedStyle(String selector, String property) {
