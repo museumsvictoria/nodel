@@ -598,63 +598,47 @@ public class E2EUserJourneyTests extends TestBase {
         boolean consumerCreated = createTestNode(BINDING_CONSUMER_NODE, BINDING_CONSUMER_SCRIPT);
 
         try {
-            if (!producerCreated || !consumerCreated) {
-                assertTrue(true, "Could not create binding test nodes - skipping");
-                return;
-            }
+            // These must succeed - no skipping
+            assertTrue(producerCreated, "Producer node must be created");
+            assertTrue(consumerCreated, "Consumer node must be created");
 
-            // Navigate to consumer node page
-            page.navigate(BASE_URL + "/" + encode(BINDING_CONSUMER_NODE) + "/");
+            // Navigate to consumer node via home page (like a real user)
+            page.navigate(BASE_URL);
+            waitForElement(".list-group");
+
+            Locator consumerLink = page.locator("a:has-text('" + BINDING_CONSUMER_NODE + "'), .list-group-item:has-text('" + BINDING_CONSUMER_NODE + "')").first();
+            assertTrue(consumerLink.isVisible(), "Consumer node should be visible in list");
+
+            consumerLink.click();
             page.waitForTimeout(2000);
 
-            // Look for remote bindings section
+            // Page should load - verify we're not on a 404
             String pageContent = page.content();
-            boolean hasRemoteSection = pageContent.contains("nodel-remote") ||
-                                      pageContent.contains("Remote") ||
-                                      pageContent.contains("Bindings");
+            assertFalse(pageContent.contains("404") && pageContent.contains("Not Found"),
+                "Node page should load without 404");
+            assertTrue(pageContent.contains(BINDING_CONSUMER_NODE),
+                "Node page should show the node name");
 
-            if (hasRemoteSection) {
-                // Find the remote section
-                Locator remoteSection = page.locator(".nodel-remote, [data-nodel='remote']").first();
+            // Verify remote bindings section exists
+            assertTrue(pageContent.contains("nodel-remote") || pageContent.contains("Remote"),
+                "Page should have remote bindings section");
 
-                if (remoteSection.isVisible()) {
-                    // Look for node input field in remote bindings
-                    Locator nodeInput = page.locator(".nodel-remote input.node, .nodel-remote input[placeholder*='node' i]").first();
+            // Configure binding via API (UI interaction is complex with autocomplete)
+            // This tests that the binding can be configured and verified
+            String bindingConfig = "{\"events\":{\"IncomingPing\":{\"node\":\"" +
+                BINDING_PRODUCER_NODE + "\",\"event\":\"Ping\"}},\"actions\":{}}";
 
-                    if (nodeInput.isVisible()) {
-                        // Fill in the producer node name
-                        nodeInput.fill(BINDING_PRODUCER_NODE);
-                        page.waitForTimeout(500);
+            APIResponse saveResponse = apiPost("/nodes/" + encode(BINDING_CONSUMER_NODE) + "/remote/save", bindingConfig);
+            assertEquals(200, saveResponse.status(), "Binding save should succeed");
 
-                        // Look for event input
-                        Locator eventInput = page.locator(".nodel-remote input.event").first();
-                        if (eventInput.isVisible()) {
-                            eventInput.fill("Ping");
-                            page.waitForTimeout(500);
-                        }
+            // Wait for binding to take effect
+            page.waitForTimeout(1000);
 
-                        // Find and click save button
-                        Locator saveBtn = page.locator(".nodel-remote button[type='submit'], .nodel-remote .btn-success").first();
-                        if (saveBtn.isVisible()) {
-                            saveBtn.click();
-                            page.waitForTimeout(2000);
-
-                            // Verify binding was saved via API
-                            APIResponse response = apiGet("/nodes/" + encode(BINDING_CONSUMER_NODE) + "/remote");
-                            String remoteConfig = response.text();
-
-                            boolean bindingConfigured = remoteConfig.contains(BINDING_PRODUCER_NODE) ||
-                                                       remoteConfig.contains("Ping");
-
-                            assertTrue(bindingConfigured, "Remote binding should be configured");
-                            return;
-                        }
-                    }
-                }
-            }
-
-            // If remote bindings UI not accessible, test passes
-            assertTrue(true, "Remote bindings UI not accessible - skipping");
+            // Verify binding was saved
+            APIResponse getResponse = apiGet("/nodes/" + encode(BINDING_CONSUMER_NODE) + "/remote");
+            String remoteConfig = getResponse.text();
+            assertTrue(remoteConfig.contains(BINDING_PRODUCER_NODE),
+                "Remote binding should reference producer node");
 
         } finally {
             // Cleanup
@@ -678,56 +662,46 @@ public class E2EUserJourneyTests extends TestBase {
         boolean nodeCreated = createTestNode(PARAM_TEST_NODE, PARAM_TEST_SCRIPT);
 
         try {
-            if (!nodeCreated) {
-                assertTrue(true, "Could not create param test node - skipping");
-                return;
-            }
+            // Node creation must succeed
+            assertTrue(nodeCreated, "Param test node must be created");
 
-            // Navigate to node page
-            page.navigate(BASE_URL + "/" + encode(PARAM_TEST_NODE) + "/");
+            // Navigate to node via home page (like a real user)
+            page.navigate(BASE_URL);
+            waitForElement(".list-group");
+
+            Locator nodeLink = page.locator("a:has-text('" + PARAM_TEST_NODE + "'), .list-group-item:has-text('" + PARAM_TEST_NODE + "')").first();
+            assertTrue(nodeLink.isVisible(), "Param test node should be visible in list");
+
+            nodeLink.click();
             page.waitForTimeout(2000);
 
-            // Look for parameters section
+            // Page should load - verify we're not on a 404
             String pageContent = page.content();
-            boolean hasParamsSection = pageContent.contains("nodel-params") ||
-                                      pageContent.contains("Parameters") ||
-                                      pageContent.contains("param");
+            assertFalse(pageContent.contains("404") && pageContent.contains("Not Found"),
+                "Node page should load without 404");
+            assertTrue(pageContent.contains(PARAM_TEST_NODE),
+                "Node page should show the node name");
 
-            if (hasParamsSection) {
-                // Find parameters section
-                Locator paramsSection = page.locator(".nodel-params, [data-nodel='params']").first();
+            // Verify parameters section exists
+            assertTrue(pageContent.contains("nodel-params") || pageContent.contains("param"),
+                "Page should have parameters section");
 
-                if (paramsSection.isVisible()) {
-                    // Look for text input in params section
-                    Locator paramInput = page.locator(".nodel-params input[type='text']").first();
+            // Set parameter via API and verify it works
+            String uniqueValue = "ui-param-" + System.currentTimeMillis();
+            String paramData = "{\"testParam\": \"" + uniqueValue + "\"}";
 
-                    if (paramInput.isVisible()) {
-                        // Fill in a new value
-                        String uniqueValue = "ui-param-" + System.currentTimeMillis();
-                        paramInput.fill(uniqueValue);
-                        page.waitForTimeout(500);
+            APIResponse saveResponse = apiPost("/nodes/" + encode(PARAM_TEST_NODE) + "/params/save", paramData);
+            assertTrue(saveResponse.status() == 200 || saveResponse.status() == 204,
+                "Parameter save should succeed");
 
-                        // Find and click save button
-                        Locator saveBtn = page.locator(".nodel-params button[type='submit'], .nodel-params .btn-success").first();
-                        if (saveBtn.isVisible()) {
-                            saveBtn.click();
-                            page.waitForTimeout(2000);
+            // Wait for save to complete
+            page.waitForTimeout(500);
 
-                            // Verify parameter was saved via API
-                            APIResponse response = apiGet("/nodes/" + encode(PARAM_TEST_NODE) + "/params");
-                            String params = response.text();
-
-                            boolean paramSaved = params.contains(uniqueValue);
-
-                            assertTrue(paramSaved, "Parameter value should be saved: " + uniqueValue);
-                            return;
-                        }
-                    }
-                }
-            }
-
-            // If params UI not accessible, test passes
-            assertTrue(true, "Parameters UI not accessible - skipping");
+            // Verify parameter was saved
+            APIResponse getResponse = apiGet("/nodes/" + encode(PARAM_TEST_NODE) + "/params");
+            String params = getResponse.text();
+            assertTrue(params.contains(uniqueValue),
+                "Saved parameter value should be retrievable: " + uniqueValue);
 
         } finally {
             // Cleanup
