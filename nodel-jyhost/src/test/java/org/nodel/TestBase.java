@@ -2,6 +2,8 @@ package org.nodel;
 
 import com.microsoft.playwright.*;
 import org.junit.jupiter.api.*;
+import org.junit.jupiter.api.Assumptions;
+import static org.junit.jupiter.api.Assertions.*;
 
 import java.io.File;
 import java.io.FileWriter;
@@ -227,6 +229,62 @@ public abstract class TestBase {
             java.util.Map.of("selector", selector, "property", property)).toString();
     }
 
+    // ===== Assertion Helpers =====
+
+    /**
+     * Assert that a JavaScript symbol is defined (typeof !== 'undefined')
+     */
+    protected static void assertJsDefined(String symbol) {
+        Object result = page.evaluate("() => typeof " + symbol + " !== 'undefined'");
+        assertEquals(true, result, symbol + " should be defined");
+    }
+
+    /**
+     * Assert that a JavaScript expression evaluates to true
+     */
+    protected static void assertJsExpression(String expression, String description) {
+        Object result = page.evaluate("() => " + expression);
+        assertEquals(true, result, description);
+    }
+
+    /**
+     * Assert that a REST endpoint returns HTTP 200
+     */
+    protected static void assertEndpointOk(String path) {
+        APIResponse response = apiGet(path);
+        assertEquals(200, response.status(), "GET /REST" + path + " should return 200");
+    }
+
+    /**
+     * Assert that a REST endpoint returns HTTP 200 or 204
+     */
+    protected static void assertEndpointOkOrEmpty(String path) {
+        APIResponse response = apiGet(path);
+        assertTrue(response.status() == 200 || response.status() == 204,
+            "GET /REST" + path + " should return 200 or 204");
+    }
+
+    /**
+     * Skip test if element is not visible (proper JUnit skip semantics)
+     */
+    protected static void assumeVisible(Locator element, String description) {
+        Assumptions.assumeTrue(element.isVisible(), description + " not visible - skipping");
+    }
+
+    /**
+     * Check if content contains any of the given terms
+     */
+    protected static boolean contentContainsAny(String content, String... terms) {
+        for (String term : terms) {
+            if (content.contains(term)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    // ===== Test Scripts =====
+
     /**
      * Simple test node script with basic actions and events
      */
@@ -247,4 +305,32 @@ public abstract class TestBase {
         "def main():\n" +
         "    console.info('Test node started')\n" +
         "    local_event_Status.emit('Ready')\n";
+
+    /**
+     * Centralized test scripts for node creation
+     */
+    protected static class Scripts {
+        public static final String PRODUCER =
+            "local_event_Ping = LocalEvent({'title': 'Ping', 'schema': {'type': 'string'}})\n\n" +
+            "@local_action({'title': 'Send Ping', 'schema': {'type': 'string'}})\n" +
+            "def sendPing(arg):\n" +
+            "    local_event_Ping.emit(arg)\n" +
+            "    console.info('Ping sent: %s' % arg)\n\n" +
+            "def main():\n" +
+            "    console.info('Producer started')\n";
+
+        public static final String CONSUMER =
+            "def remote_event_IncomingPing(arg):\n" +
+            "    console.info('Received ping: %s' % arg)\n" +
+            "    local_event_Received.emit(arg)\n\n" +
+            "local_event_Received = LocalEvent({'title': 'Received', 'schema': {'type': 'string'}})\n\n" +
+            "def main():\n" +
+            "    console.info('Consumer started')\n";
+
+        public static final String WITH_PARAMS =
+            "param_testParam = Parameter({'title': 'Test Parameter', 'schema': {'type': 'string'}})\n" +
+            "param_numberParam = Parameter({'title': 'Number Param', 'schema': {'type': 'integer'}})\n\n" +
+            "def main():\n" +
+            "    console.info('Param test node started')\n";
+    }
 }

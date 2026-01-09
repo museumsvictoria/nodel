@@ -2,7 +2,7 @@ package org.nodel;
 
 import com.microsoft.playwright.*;
 import org.junit.jupiter.api.*;
-import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.api.Assumptions;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
@@ -141,13 +141,8 @@ public class E2EUserJourneyTests extends TestBase {
         String pageContent = page.content();
 
         // Verify Bootstrap is being used (common classes)
-        boolean hasBootstrap = pageContent.contains("container") ||
-                              pageContent.contains("row") ||
-                              pageContent.contains("col-") ||
-                              pageContent.contains("btn") ||
-                              pageContent.contains("navbar");
-
-        assertTrue(hasBootstrap, "Page should use Bootstrap components");
+        assertTrue(contentContainsAny(pageContent, "container", "row", "col-", "btn", "navbar"),
+            "Page should use Bootstrap components");
     }
 
     // ===== New E2E Tests: Core User Workflows =====
@@ -203,19 +198,12 @@ public class E2EUserJourneyTests extends TestBase {
         // Navigate to the node page
         clickToNode();
 
-        // Wait for page to fully load
-        page.waitForTimeout(1500);
-
         // Look for console area - may be in various containers
         String pageContent = page.content();
 
-        // Console should show at least the startup message
-        // The node's main() function logs "Test node started"
-        boolean hasConsoleContent = pageContent.contains("Test node started") ||
-                                   pageContent.contains("console") ||
-                                   pageContent.contains("nodel-console");
-
-        assertTrue(hasConsoleContent, "Page should have console or log content");
+        // Console should show at least the startup message or console UI
+        assertTrue(contentContainsAny(pageContent, "Test node started", "console", "nodel-console"),
+            "Page should have console or log content");
     }
 
     @Test
@@ -224,26 +212,16 @@ public class E2EUserJourneyTests extends TestBase {
         // Navigate to the node page
         clickToNode();
 
-        // Wait for page to load
-        page.waitForTimeout(1000);
-
         // Trigger an action that emits an event via REST API
-        // This simulates an external trigger while user is watching
         apiPost("/nodes/" + encode(TEST_NODE) + "/actions/simpleAction/call", "{}");
 
         // Wait for event to propagate to UI
         page.waitForTimeout(2000);
 
-        // Check if page content updated
-        String pageContent = page.content();
-
         // The page should reflect the current state
-        boolean hasUpdate = pageContent.contains("Simple action executed") ||
-                           pageContent.contains("Simple action called") ||
-                           pageContent.contains("Ready") ||
-                           pageContent.contains("Status");
-
-        assertTrue(hasUpdate, "Page should show event status or console output");
+        String pageContent = page.content();
+        assertTrue(contentContainsAny(pageContent, "Simple action executed", "Simple action called", "Ready", "Status"),
+            "Page should show event status or console output");
     }
 
     @Test
@@ -279,19 +257,12 @@ public class E2EUserJourneyTests extends TestBase {
         // Navigate to the node page
         clickToNode();
 
-        // Wait for page to load
-        page.waitForTimeout(1000);
-
         String pageContent = page.content();
 
         // Verify page has expected elements for a node
-        boolean hasNodeName = pageContent.contains(TEST_NODE);
-        boolean hasFormElements = pageContent.contains("form") ||
-                                 pageContent.contains("btn") ||
-                                 pageContent.contains("input");
-
-        assertTrue(hasNodeName, "Node page should show the node name");
-        assertTrue(hasFormElements, "Node page should have interactive form elements");
+        assertTrue(pageContent.contains(TEST_NODE), "Node page should show the node name");
+        assertTrue(contentContainsAny(pageContent, "form", "btn", "input"),
+            "Node page should have interactive form elements");
     }
 
     // ===== New E2E Tests: Extended User Workflows =====
@@ -336,9 +307,6 @@ public class E2EUserJourneyTests extends TestBase {
     void testConsoleShowsActionOutput() {
         // Navigate to the node page
         clickToNode();
-
-        // Wait for page to load completely
-        page.waitForTimeout(1500);
 
         // Trigger an action via API to generate console output
         String uniqueMarker = "console-test-" + System.currentTimeMillis();
@@ -420,9 +388,6 @@ public class E2EUserJourneyTests extends TestBase {
         // Navigate to the node page
         clickToNode();
 
-        // Wait for page to load
-        page.waitForTimeout(1000);
-
         // Find buttons with data-action attribute (Nodel's action binding)
         Locator actionButtons = page.locator("[data-action]");
         int buttonCount = actionButtons.count();
@@ -449,17 +414,11 @@ public class E2EUserJourneyTests extends TestBase {
         // Navigate to the node page
         clickToNode();
 
-        // Wait for page to load
-        page.waitForTimeout(1000);
-
         String pageContent = page.content();
 
         // Look for actions section indicators
-        boolean hasActionsSection = pageContent.contains("nodel-actsig") ||
-                                   pageContent.contains("Actions") ||
-                                   pageContent.contains("action") ||
-                                   page.locator("[data-action]").count() > 0;
-
+        boolean hasActionsSection = contentContainsAny(pageContent, "nodel-actsig", "Actions", "action")
+                                   || page.locator("[data-action]").count() > 0;
         assertTrue(hasActionsSection, "Node page should have actions section or action buttons");
     }
 
@@ -469,18 +428,11 @@ public class E2EUserJourneyTests extends TestBase {
         // Navigate to the node page
         clickToNode();
 
-        // Wait for page to load
-        page.waitForTimeout(1000);
-
         String pageContent = page.content();
 
         // Look for events section indicators
-        boolean hasEventsSection = pageContent.contains("nodel-actsig") ||
-                                  pageContent.contains("Events") ||
-                                  pageContent.contains("event") ||
-                                  pageContent.contains("Status") ||
-                                  page.locator("[data-event]").count() > 0;
-
+        boolean hasEventsSection = contentContainsAny(pageContent, "nodel-actsig", "Events", "event", "Status")
+                                  || page.locator("[data-event]").count() > 0;
         assertTrue(hasEventsSection, "Node page should have events section or event displays");
     }
 
@@ -497,32 +449,21 @@ public class E2EUserJourneyTests extends TestBase {
 
         // Look for .nodel-add container (add node functionality)
         Locator nodelAdd = page.locator(".nodel-add").first();
-
-        if (!nodelAdd.isVisible()) {
-            // Add node UI not available on this page - test passes
-            assertTrue(true, "Add node UI (.nodel-add) not visible - skipping");
-            return;
-        }
+        assumeVisible(nodelAdd, "Add node UI (.nodel-add)");
 
         // Find and click the "Add node here" dropdown within .nodel-add
         Locator addDropdown = page.locator(".nodel-add .addgrp .dropdown-toggle").first();
-
-        if (!addDropdown.isVisible()) {
-            assertTrue(true, "Add node dropdown not visible - skipping");
-            return;
-        }
+        assumeVisible(addDropdown, "Add node dropdown");
 
         addDropdown.click();
         page.waitForTimeout(500);
 
         // Find the node name input in the dropdown form
         Locator nodeNameInput = page.locator(".nodel-add input.nodenamval").first();
-
         if (!nodeNameInput.isVisible()) {
             page.click("body"); // Close dropdown
-            assertTrue(true, "Node name input not visible - skipping");
-            return;
         }
+        assumeVisible(nodeNameInput, "Node name input");
 
         // Use a simple unique name
         String uniqueNodeName = "E2ECreated" + System.currentTimeMillis();
@@ -533,22 +474,18 @@ public class E2EUserJourneyTests extends TestBase {
 
         // Find submit button
         Locator submitBtn = page.locator(".nodel-add .nodeaddsubmit").first();
-
         if (!submitBtn.isVisible()) {
             page.click("body");
-            assertTrue(true, "Submit button not visible - skipping");
-            return;
         }
+        assumeVisible(submitBtn, "Submit button");
 
         // Wait for button to be enabled (recipes load enables it)
         page.waitForTimeout(2000);
 
         // Check if button is enabled
-        boolean isDisabled = submitBtn.isDisabled();
-        if (isDisabled) {
+        if (submitBtn.isDisabled()) {
             page.click("body");
-            assertTrue(true, "Submit button still disabled (recipes may not be available) - skipping");
-            return;
+            Assumptions.assumeTrue(false, "Submit button disabled (recipes may not be available) - skipping");
         }
 
         submitBtn.click();
@@ -569,33 +506,16 @@ public class E2EUserJourneyTests extends TestBase {
         assertTrue(nodeCreated, "Created node should appear in node list API response");
     }
 
-    // Scripts for binding test
+    // Node names for binding test
     private static final String BINDING_PRODUCER_NODE = "E2E Binding Producer UI";
     private static final String BINDING_CONSUMER_NODE = "E2E Binding Consumer UI";
-
-    private static final String BINDING_PRODUCER_SCRIPT =
-        "local_event_Ping = LocalEvent({'title': 'Ping', 'schema': {'type': 'string'}})\n\n" +
-        "@local_action({'title': 'Send Ping', 'schema': {'type': 'string'}})\n" +
-        "def sendPing(arg):\n" +
-        "    local_event_Ping.emit(arg)\n" +
-        "    console.info('Ping sent: %s' % arg)\n\n" +
-        "def main():\n" +
-        "    console.info('Producer started')\n";
-
-    private static final String BINDING_CONSUMER_SCRIPT =
-        "def remote_event_IncomingPing(arg):\n" +
-        "    console.info('Received ping: %s' % arg)\n" +
-        "    local_event_Received.emit(arg)\n\n" +
-        "local_event_Received = LocalEvent({'title': 'Received', 'schema': {'type': 'string'}})\n\n" +
-        "def main():\n" +
-        "    console.info('Consumer started')\n";
 
     @Test
     @Order(20)
     void testUserCanBindNodesViaUI() {
-        // Setup: Create producer and consumer nodes
-        boolean producerCreated = createTestNode(BINDING_PRODUCER_NODE, BINDING_PRODUCER_SCRIPT);
-        boolean consumerCreated = createTestNode(BINDING_CONSUMER_NODE, BINDING_CONSUMER_SCRIPT);
+        // Setup: Create producer and consumer nodes using centralized scripts
+        boolean producerCreated = createTestNode(BINDING_PRODUCER_NODE, Scripts.PRODUCER);
+        boolean consumerCreated = createTestNode(BINDING_CONSUMER_NODE, Scripts.CONSUMER);
 
         try {
             // These must succeed - no skipping
@@ -649,17 +569,11 @@ public class E2EUserJourneyTests extends TestBase {
 
     private static final String PARAM_TEST_NODE = "E2E Param Test Node";
 
-    private static final String PARAM_TEST_SCRIPT =
-        "param_testParam = Parameter({'title': 'Test Parameter', 'schema': {'type': 'string'}})\n" +
-        "param_numberParam = Parameter({'title': 'Number Param', 'schema': {'type': 'integer'}})\n\n" +
-        "def main():\n" +
-        "    console.info('Param test node started')\n";
-
     @Test
     @Order(21)
     void testUserCanEditParameterViaUI() {
-        // Setup: Create node with parameters
-        boolean nodeCreated = createTestNode(PARAM_TEST_NODE, PARAM_TEST_SCRIPT);
+        // Setup: Create node with parameters using centralized script
+        boolean nodeCreated = createTestNode(PARAM_TEST_NODE, Scripts.WITH_PARAMS);
 
         try {
             // Node creation must succeed

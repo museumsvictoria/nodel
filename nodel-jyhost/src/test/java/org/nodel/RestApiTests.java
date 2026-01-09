@@ -45,8 +45,7 @@ public class RestApiTests extends TestBase {
 
     @Test
     public void testGetDiagnostics() {
-        APIResponse response = apiGet("/diagnostics");
-        assertEquals(200, response.status(), "GET /REST/diagnostics should return 200");
+        assertEndpointOk("/diagnostics");
     }
 
     @Test
@@ -60,8 +59,7 @@ public class RestApiTests extends TestBase {
 
     @Test
     public void testGetToolkit() {
-        APIResponse response = apiGet("/toolkit");
-        assertEquals(200, response.status(), "GET /REST/toolkit should return 200");
+        assertEndpointOk("/toolkit");
     }
 
     @Test
@@ -76,48 +74,40 @@ public class RestApiTests extends TestBase {
 
     @Test
     public void testGetDiscovery() {
-        APIResponse response = apiGet("/discovery");
-        // Discovery may return 200 or could be empty
-        assertTrue(response.status() == 200 || response.status() == 204,
-            "GET /REST/discovery should return 200 or 204");
+        assertEndpointOkOrEmpty("/discovery");
     }
 
     // ===== All Nodes Endpoint =====
 
     @Test
     public void testGetAllNodes() {
-        APIResponse response = apiGet("/allNodes");
-        assertEquals(200, response.status(), "GET /REST/allNodes should return 200");
+        assertEndpointOk("/allNodes");
     }
 
     // ===== Node URLs Endpoint =====
 
     @Test
     public void testGetNodeURLs() {
-        APIResponse response = apiGet("/nodeURLs");
-        assertEquals(200, response.status(), "GET /REST/nodeURLs should return 200");
+        assertEndpointOk("/nodeURLs");
     }
 
     // ===== Logs Endpoint =====
 
     @Test
     public void testGetLogs() {
-        APIResponse response = apiGet("/logs");
-        assertEquals(200, response.status(), "GET /REST/logs should return 200");
+        assertEndpointOk("/logs");
     }
 
     @Test
     public void testGetWarningLogs() {
-        APIResponse response = apiGet("/warningLogs");
-        assertEquals(200, response.status(), "GET /REST/warningLogs should return 200");
+        assertEndpointOk("/warningLogs");
     }
 
     // ===== Recipes Endpoint =====
 
     @Test
     public void testGetRecipes() {
-        APIResponse response = apiGet("/recipes");
-        assertEquals(200, response.status(), "GET /REST/recipes should return 200");
+        assertEndpointOk("/recipes");
     }
 
     // ===== Error Handling =====

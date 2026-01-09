@@ -147,26 +147,22 @@ public class StaticContentTests extends TestBase {
 
     @Test
     public void testJQueryLoaded() {
-        Object result = page.evaluate("() => typeof jQuery !== 'undefined'");
-        assertEquals(true, result, "jQuery should be loaded");
+        assertJsDefined("jQuery");
     }
 
     @Test
     public void testBootstrapJsLoaded() {
-        Object result = page.evaluate("() => typeof jQuery.fn.modal !== 'undefined'");
-        assertEquals(true, result, "Bootstrap modal plugin should be loaded");
+        assertJsDefined("jQuery.fn.modal");
     }
 
     @Test
     public void testJsViewsLoaded() {
-        Object result = page.evaluate("() => typeof jQuery.templates !== 'undefined'");
-        assertEquals(true, result, "JSViews templates should be loaded");
+        assertJsDefined("jQuery.templates");
     }
 
     @Test
     public void testMomentJsLoaded() {
-        Object result = page.evaluate("() => typeof moment !== 'undefined'");
-        assertEquals(true, result, "Moment.js should be loaded");
+        assertJsDefined("moment");
     }
 
     // ===== Page Structure Tests =====

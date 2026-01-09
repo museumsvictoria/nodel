@@ -27,73 +27,61 @@ public class RealTimeUpdateTests extends TestBase {
 
     @Test
     public void testWebSocketApiAvailable() {
-        Object result = page.evaluate("() => typeof WebSocket !== 'undefined'");
-        assertEquals(true, result, "WebSocket API should be available");
+        assertJsDefined("WebSocket");
     }
 
     @Test
     public void testWebSocketCanBeCreated() {
-        // WebSocket constructor should exist and be callable
-        Object wsConstructorExists = page.evaluate("() => typeof WebSocket === 'function'");
-        assertEquals(true, wsConstructorExists, "WebSocket constructor should be a function");
+        assertJsExpression("typeof WebSocket === 'function'", "WebSocket constructor should be a function");
     }
 
     // ===== AJAX Polling Infrastructure Tests =====
 
     @Test
     public void testJQueryAjaxAvailable() {
-        Object result = page.evaluate("() => typeof jQuery.ajax !== 'undefined'");
-        assertEquals(true, result, "jQuery AJAX should be available for polling");
+        assertJsDefined("jQuery.ajax");
     }
 
     @Test
     public void testJQueryGetAvailable() {
-        Object result = page.evaluate("() => typeof jQuery.get !== 'undefined'");
-        assertEquals(true, result, "jQuery.get should be available");
+        assertJsDefined("jQuery.get");
     }
 
     @Test
     public void testJQueryGetJsonAvailable() {
-        Object result = page.evaluate("() => typeof jQuery.getJSON !== 'undefined'");
-        assertEquals(true, result, "jQuery.getJSON should be available");
+        assertJsDefined("jQuery.getJSON");
     }
 
     // ===== Timer Tests =====
 
     @Test
     public void testSetTimeoutAvailable() {
-        Object result = page.evaluate("() => typeof setTimeout !== 'undefined'");
-        assertEquals(true, result, "setTimeout should be available for polling intervals");
+        assertJsDefined("setTimeout");
     }
 
     @Test
     public void testSetIntervalAvailable() {
-        Object result = page.evaluate("() => typeof setInterval !== 'undefined'");
-        assertEquals(true, result, "setInterval should be available");
+        assertJsDefined("setInterval");
     }
 
     @Test
     public void testClearTimeoutAvailable() {
-        Object result = page.evaluate("() => typeof clearTimeout !== 'undefined'");
-        assertEquals(true, result, "clearTimeout should be available");
+        assertJsDefined("clearTimeout");
     }
 
     // ===== Event Source Tests =====
 
     @Test
     public void testEventSourceAvailable() {
-        // EventSource (Server-Sent Events) should be available in modern browsers
-        Object result = page.evaluate("() => typeof EventSource !== 'undefined'");
-        assertEquals(true, result, "EventSource should be available");
+        assertJsDefined("EventSource");
     }
 
     // ===== JSViews Refresh Tests =====
 
     @Test
     public void testJsViewsRefresh() {
-        // JSViews should provide $.view or $.views for data binding refresh
-        Object result = page.evaluate("() => typeof $.views !== 'undefined' || typeof $.view !== 'undefined'");
-        assertEquals(true, result, "JSViews should be available for data binding refresh");
+        assertJsExpression("typeof $.views !== 'undefined' || typeof $.view !== 'undefined'",
+            "JSViews should be available");
     }
 
     @Test
@@ -106,93 +94,78 @@ public class RealTimeUpdateTests extends TestBase {
 
     @Test
     public void testOnlineEventSupported() {
-        Object result = page.evaluate("() => 'ononline' in window");
-        assertEquals(true, result, "Online event should be supported in window");
+        assertJsExpression("'ononline' in window", "Online event should be supported");
     }
 
     @Test
     public void testOfflineEventSupported() {
-        Object result = page.evaluate("() => 'onoffline' in window");
-        assertEquals(true, result, "Offline event should be supported in window");
+        assertJsExpression("'onoffline' in window", "Offline event should be supported");
     }
 
     @Test
     public void testNavigatorOnline() {
-        Object result = page.evaluate("() => typeof navigator.onLine !== 'undefined'");
-        assertEquals(true, result, "navigator.onLine should be available");
+        assertJsDefined("navigator.onLine");
     }
 
     // ===== Visibility API Tests =====
 
     @Test
     public void testVisibilityApiAvailable() {
-        Object result = page.evaluate("() => typeof document.hidden !== 'undefined'");
-        assertEquals(true, result, "Page Visibility API should be available");
+        assertJsDefined("document.hidden");
     }
 
     @Test
     public void testVisibilityChangeEvent() {
-        Object result = page.evaluate("() => 'onvisibilitychange' in document");
-        assertEquals(true, result, "Visibility change event should be supported in document");
+        assertJsExpression("'onvisibilitychange' in document", "Visibility change event should be supported");
     }
 
     // ===== Long Polling Support Tests =====
 
     @Test
     public void testLogsEndpointWithTimeout() {
-        // Test that logs endpoint supports timeout parameter
-        APIResponse response = apiGet("/logs?timeout=100");
-        assertTrue(response.status() == 200 || response.status() == 204,
-            "Logs endpoint should support timeout parameter");
+        assertEndpointOkOrEmpty("/logs?timeout=100");
     }
 
     // ===== JSON Parsing Tests =====
 
     @Test
     public void testJsonParseAvailable() {
-        Object result = page.evaluate("() => typeof JSON.parse !== 'undefined'");
-        assertEquals(true, result, "JSON.parse should be available");
+        assertJsDefined("JSON.parse");
     }
 
     @Test
     public void testJsonParseWorks() {
-        Object result = page.evaluate("() => { try { return JSON.parse('{\"a\":1}').a === 1; } catch(e) { return false; } }");
-        assertEquals(true, result, "JSON.parse should work correctly");
+        assertJsExpression("JSON.parse('{\"a\":1}').a === 1", "JSON.parse should work correctly");
     }
 
     // ===== Heartbeat/Keepalive Tests =====
 
     @Test
     public void testDateNowAvailable() {
-        Object result = page.evaluate("() => typeof Date.now !== 'undefined'");
-        assertEquals(true, result, "Date.now should be available for heartbeat timing");
+        assertJsDefined("Date.now");
     }
 
     // ===== Reconnection Logic Tests =====
 
     @Test
     public void testMathRandomAvailable() {
-        Object result = page.evaluate("() => typeof Math.random !== 'undefined'");
-        assertEquals(true, result, "Math.random should be available for backoff jitter");
+        assertJsDefined("Math.random");
     }
 
     @Test
     public void testMathMinAvailable() {
-        Object result = page.evaluate("() => typeof Math.min !== 'undefined'");
-        assertEquals(true, result, "Math.min should be available for backoff cap");
+        assertJsDefined("Math.min");
     }
 
     // ===== Request Coalescing Tests =====
 
     @Test
     public void testPromiseAvailable() {
-        Object result = page.evaluate("() => typeof Promise !== 'undefined'");
-        assertEquals(true, result, "Promise should be available");
+        assertJsDefined("Promise");
     }
 
     @Test
     public void testDeferredAvailable() {
-        Object result = page.evaluate("() => typeof jQuery.Deferred !== 'undefined'");
-        assertEquals(true, result, "jQuery.Deferred should be available");
+        assertJsDefined("jQuery.Deferred");
     }
 }
