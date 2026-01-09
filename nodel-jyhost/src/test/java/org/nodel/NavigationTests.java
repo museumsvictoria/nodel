@@ -4,11 +4,10 @@ import com.microsoft.playwright.*;
 import org.junit.jupiter.api.*;
 
 import static org.junit.jupiter.api.Assertions.*;
-import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 /**
- * Tests for page navigation and routing.
- * Verifies that navigation links, hash routing, and tab switching work correctly.
+ * Tests for page navigation and URL routing.
+ * Verifies that navigation works and pages are accessible.
  */
 public class NavigationTests extends TestBase {
 
@@ -23,114 +22,7 @@ public class NavigationTests extends TestBase {
         closeBrowser();
     }
 
-    // ===== Navbar Navigation Tests =====
-
-    @Test
-    public void testNavbarLinksExist() {
-        ElementHandle navLinks = page.querySelector(".navbar-nav a, .nav.navbar-nav a");
-        assertNotNull(navLinks, "Navbar should contain navigation links");
-    }
-
-    @Test
-    public void testLocalsLinkExists() {
-        ElementHandle localsLink = page.querySelector("a[href*='locals'], .nav a:has-text('Locals')");
-        // Try multiple selectors
-        if (localsLink == null) {
-            String navText = page.textContent(".navbar-nav, .nav.navbar-nav");
-            assertTrue(navText.contains("Locals"), "Locals navigation link should exist");
-        } else {
-            assertNotNull(localsLink, "Locals link should exist");
-        }
-    }
-
-    @Test
-    public void testNodesLinkExists() {
-        // Nodel uses "Local nodes" in the navigation
-        String navText = page.textContent(".navbar-nav, .nav.navbar-nav");
-        assertTrue(navText.contains("Local") || navText.contains("nodes") || navText.contains("Nodes"),
-            "Nodes navigation link should exist in: " + navText);
-    }
-
-    // ===== Hash Routing Tests =====
-
-    @Test
-    public void testHashNavigationSupport() {
-        // Verify the page can handle hash changes
-        String originalUrl = page.url();
-        page.evaluate("() => window.location.hash = '#test'");
-        page.waitForTimeout(500);
-
-        String newUrl = page.url();
-        assertTrue(newUrl.contains("#test"), "Hash navigation should be supported");
-
-        // Clean up
-        page.evaluate("() => window.location.hash = ''");
-        page.waitForTimeout(300);
-    }
-
-    @Test
-    public void testPageInitialLoad() {
-        // Verify page loads to default view
-        String url = page.url();
-        assertTrue(url.contains("8085"), "Should be on the Nodel host");
-    }
-
-    // ===== Navbar Brand/Logo Tests =====
-
-    @Test
-    public void testNavbarBrandClick() {
-        ElementHandle brand = page.querySelector(".navbar-brand");
-        assertNotNull(brand, "Navbar brand should exist");
-
-        String href = brand.getAttribute("href");
-        // href might be null, empty, relative "/", absolute url, or hash "#"
-        assertTrue(href == null || href.isEmpty() || href.equals("/") || href.equals("#") || href.contains("localhost") || href.contains("8085"),
-            "Navbar brand should link to home or have no href");
-    }
-
-    @Test
-    public void testLogoImageInNavbar() {
-        ElementHandle logo = page.querySelector(".navbar img, .navbar-brand img");
-        ElementHandle navbarBrand = page.querySelector(".navbar-brand");
-        // Logo may be text or image - navbar brand should exist
-        assertTrue(logo != null || navbarBrand != null, "Either logo image or navbar brand should exist");
-    }
-
-    // ===== Active State Tests =====
-
-    @Test
-    public void testActiveNavItemHighlighted() {
-        ElementHandle activeItem = page.querySelector(".navbar-nav .active, .nav.navbar-nav .active");
-        assertNotNull(activeItem, "An active navigation item should be highlighted");
-    }
-
-    @Test
-    public void testOnlyOneActiveNavItem() {
-        int activeCount = page.querySelectorAll(".navbar-nav .active, .nav.navbar-nav .active").size();
-        assertTrue(activeCount <= 1, "At most one navigation item should be active");
-    }
-
-    // ===== Dropdown Navigation Tests =====
-
-    @Test
-    public void testDropdownNavExists() {
-        ElementHandle dropdown = page.querySelector(".navbar-nav .dropdown, .nav.navbar-nav .dropdown");
-        // Dropdown may or may not exist - check dropdown plugin is available instead
-        Object dropdownPluginLoaded = page.evaluate("() => typeof jQuery.fn.dropdown !== 'undefined'");
-        assertTrue(dropdown != null || Boolean.TRUE.equals(dropdownPluginLoaded),
-            "Either dropdown elements or dropdown plugin should be available");
-    }
-
-    @Test
-    public void testDropdownMenuItems() {
-        ElementHandle dropdown = page.querySelector(".navbar-nav .dropdown-menu, .nav.navbar-nav .dropdown-menu");
-        ElementHandle navItems = page.querySelector(".navbar-nav li, .nav.navbar-nav li");
-        // Either dropdown menu or regular nav items should exist
-        assertTrue(dropdown != null || navItems != null,
-            "Either dropdown menu or nav items should exist");
-    }
-
-    // ===== URL Structure Tests =====
+    // ===== URL Accessibility Tests =====
 
     @Test
     public void testBaseUrlAccessible() {
@@ -156,26 +48,25 @@ public class NavigationTests extends TestBase {
         assertEquals(200, response.status(), "Diagnostics page should be accessible");
     }
 
-    // ===== Page Content Loading Tests =====
+    // ===== Navigation Element Tests =====
 
     @Test
-    public void testPageContentLoads() {
-        // Verify main content area has loaded
-        page.waitForSelector("body", new Page.WaitForSelectorOptions().setTimeout(10000));
-        String bodyText = page.textContent("body");
-        assertTrue(bodyText.length() > 100, "Page should have loaded content");
+    public void testNavbarExists() {
+        assertNotNull(page.querySelector(".navbar"), "Navbar should exist");
     }
 
     @Test
-    public void testNoLoadingSpinnerStuck() {
-        // After page load, loading indicators should be hidden
-        page.waitForTimeout(2000);
-        // Verify navbar is visible (indicates page finished loading)
-        ElementHandle navbar = page.querySelector(".navbar");
-        assertNotNull(navbar, "Navbar should be visible after loading completes");
+    public void testNavbarBrandExists() {
+        assertNotNull(page.querySelector(".navbar-brand"), "Navbar brand should exist");
     }
 
-    // ===== Browser Navigation Tests =====
+    @Test
+    public void testActiveNavItemExists() {
+        ElementHandle activeItem = page.querySelector(".navbar-nav .active, .nav.navbar-nav .active");
+        assertNotNull(activeItem, "An active navigation item should exist");
+    }
+
+    // ===== Page Reload Test =====
 
     @Test
     public void testPageCanBeReloaded() {

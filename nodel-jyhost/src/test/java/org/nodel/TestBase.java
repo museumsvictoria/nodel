@@ -59,12 +59,20 @@ public abstract class TestBase {
     }
 
     /**
-     * Navigate to a specific node's page
+     * Navigate to a specific node's page using the reduced name (Nodel removes spaces, etc.)
      */
     protected static void navigateToNode(String nodeName) {
-        String encodedName = nodeName.replace(" ", "%20");
-        page.navigate(BASE_URL + "/" + encodedName + "/");
+        String reducedName = getReducedName(nodeName);
+        page.navigate(BASE_URL + "/nodes/" + reducedName + "/");
         page.waitForSelector(".navbar", new Page.WaitForSelectorOptions().setTimeout(60000));
+    }
+
+    /**
+     * Get the reduced name for a node (removes spaces, hyphens, etc.)
+     * Nodel uses reduced names in URLs.
+     */
+    protected static String getReducedName(String nodeName) {
+        return nodeName.replaceAll("[\\s\\-_.]", "");
     }
 
     /**
@@ -269,18 +277,6 @@ public abstract class TestBase {
      */
     protected static void assumeVisible(Locator element, String description) {
         Assumptions.assumeTrue(element.isVisible(), description + " not visible - skipping");
-    }
-
-    /**
-     * Check if content contains any of the given terms
-     */
-    protected static boolean contentContainsAny(String content, String... terms) {
-        for (String term : terms) {
-            if (content.contains(term)) {
-                return true;
-            }
-        }
-        return false;
     }
 
     // ===== Test Scripts =====

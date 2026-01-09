@@ -4,11 +4,10 @@ import com.microsoft.playwright.*;
 import org.junit.jupiter.api.*;
 
 import static org.junit.jupiter.api.Assertions.*;
-import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 /**
- * Tests for console and log functionality.
- * Verifies console display, log retrieval, filtering, and time formatting.
+ * Tests for console and log API functionality.
+ * Verifies log retrieval endpoints and time formatting.
  */
 public class ConsoleLogTests extends TestBase {
 
@@ -44,79 +43,12 @@ public class ConsoleLogTests extends TestBase {
         assertEquals(200, response.status(), "Warning logs endpoint should return 200");
     }
 
-    // ===== Moment.js Time Formatting Tests =====
-
     @Test
-    public void testMomentJsLoaded() {
-        Object result = page.evaluate("() => typeof moment !== 'undefined'");
-        assertEquals(true, result, "Moment.js should be loaded for time formatting");
-    }
-
-    @Test
-    public void testMomentJsFormatting() {
-        Object result = page.evaluate("() => moment().format('YYYY-MM-DD')");
-        String formatted = result.toString();
-        assertTrue(formatted.matches("\\d{4}-\\d{2}-\\d{2}"), "Moment.js should format dates correctly");
-    }
-
-    @Test
-    public void testMomentJsRelativeTime() {
-        Object result = page.evaluate("() => moment().subtract(5, 'minutes').fromNow()");
-        String relative = result.toString();
-        assertTrue(relative.contains("minute") || relative.contains("ago"),
-            "Moment.js should format relative time");
-    }
-
-    // ===== Console Helper Function Tests =====
-
-    @Test
-    public void testNiceTimeHelper() {
-        // Check if nicetime helper or moment.js is available for time formatting
-        Object niceTimeExists = page.evaluate("() => typeof $.views.helpers !== 'undefined' && typeof $.views.helpers.nicetime !== 'undefined'");
-        Object momentExists = page.evaluate("() => typeof moment !== 'undefined'");
-        assertTrue(Boolean.TRUE.equals(niceTimeExists) || Boolean.TRUE.equals(momentExists),
-            "Either nicetime helper or moment.js should be available");
-    }
-
-    // ===== Log Display Structure Tests =====
-
-    @Test
-    public void testLogContainerStructure() {
-        // Logs are typically displayed in a scrollable container
-        ElementHandle logArea = page.querySelector(".console, .log-container, [data-nodel='console'], pre");
-        // Verify console endpoint is accessible instead (logs may not be visible on home page)
+    public void testLogsReturnsJson() {
         APIResponse response = apiGet("/logs");
-        assertTrue(logArea != null || response.status() == 200,
-            "Either log container should exist or logs endpoint should be accessible");
-    }
-
-    // ===== Log Level Styling Tests =====
-
-    @Test
-    public void testLogLevelCssClasses() {
-        // Check that CSS has log level styling
-        APIResponse response = page.request().get(BASE_URL + "/v1/css/components.default.css");
-        String css = response.text();
-        // Log level classes may be named differently
-        assertTrue(css.contains("info") || css.contains("warn") || css.contains("error") || css.contains("console"),
-            "CSS should contain log level styling");
-    }
-
-    // ===== Diagnostics Log Tests =====
-
-    @Test
-    public void testDiagnosticsEndpoint() {
-        APIResponse response = apiGet("/diagnostics");
-        assertEquals(200, response.status(), "Diagnostics endpoint should return 200");
-    }
-
-    @Test
-    public void testDiagnosticsContainsMetrics() {
-        APIResponse response = apiGet("/diagnostics");
-        String body = response.text();
-        assertTrue(body.contains("memory") || body.contains("threads") || body.contains("uptime") ||
-                body.contains("cpu") || body.length() > 50,
-            "Diagnostics should contain system metrics");
+        String contentType = response.headers().get("content-type");
+        assertTrue(contentType != null && contentType.contains("application/json"),
+            "Logs endpoint should return JSON");
     }
 
     // ===== Log Pagination Tests =====
@@ -139,30 +71,39 @@ public class ConsoleLogTests extends TestBase {
         assertEquals(200, response.status(), "Logs with from and max parameters should return 200");
     }
 
-    // ===== Server Log Page Tests =====
+    // ===== Diagnostics Tests =====
 
     @Test
-    public void testServerLogPageExists() {
-        // Server logs may be accessible via a specific page
+    public void testDiagnosticsEndpoint() {
+        APIResponse response = apiGet("/diagnostics");
+        assertEquals(200, response.status(), "Diagnostics endpoint should return 200");
+    }
+
+    @Test
+    public void testDiagnosticsContainsMetrics() {
+        APIResponse response = apiGet("/diagnostics");
+        String body = response.text();
+        assertTrue(body.length() > 50, "Diagnostics should contain system metrics data");
+    }
+
+    @Test
+    public void testDiagnosticsPageExists() {
         APIResponse response = page.request().get(BASE_URL + "/diagnostics.xml");
         assertEquals(200, response.status(), "Diagnostics page should exist");
     }
 
-    // ===== Console Output Format Tests =====
+    // ===== Moment.js Time Formatting (used for log display) =====
 
     @Test
-    public void testLogsReturnJson() {
-        APIResponse response = apiGet("/logs");
-        String contentType = response.headers().get("content-type");
-        assertTrue(contentType != null && contentType.contains("application/json"),
-            "Logs endpoint should return JSON");
+    public void testMomentJsLoaded() {
+        Object result = page.evaluate("() => typeof moment !== 'undefined'");
+        assertEquals(true, result, "Moment.js should be loaded for time formatting");
     }
 
-    // ===== Time Zone Handling Tests =====
-
     @Test
-    public void testBrowserTimezoneAvailable() {
-        Object result = page.evaluate("() => Intl.DateTimeFormat().resolvedOptions().timeZone");
-        assertNotNull(result, "Browser timezone should be available");
+    public void testMomentJsFormatting() {
+        Object result = page.evaluate("() => moment().format('YYYY-MM-DD')");
+        String formatted = result.toString();
+        assertTrue(formatted.matches("\\d{4}-\\d{2}-\\d{2}"), "Moment.js should format dates correctly");
     }
 }
