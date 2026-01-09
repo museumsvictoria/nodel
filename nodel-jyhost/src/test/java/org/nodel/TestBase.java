@@ -25,11 +25,24 @@ public abstract class TestBase {
 
     /**
      * Initialize Playwright browser - call from @BeforeAll in subclasses
+     *
+     * Environment variables:
+     *   HEADED=1     - Run browser in visible mode (default: headless)
+     *   SLOWMO=500   - Add delay in ms between actions for visibility
      */
     protected static void initBrowser() {
         playwright = Playwright.create();
+
+        boolean headless = System.getenv("HEADED") == null;
+        String slowMo = System.getenv("SLOWMO");
+
         BrowserType.LaunchOptions options = new BrowserType.LaunchOptions()
-            .setHeadless(true);
+            .setHeadless(headless);
+
+        if (slowMo != null) {
+            options.setSlowMo(Double.parseDouble(slowMo));
+        }
+
         browser = playwright.chromium().launch(options);
         context = browser.newContext();
         page = context.newPage();

@@ -111,4 +111,31 @@ rm -fr ~/nodel-build
 ```
 
 ---
+
+## RUNNING TESTS
+
+**Unit tests** (framework only):
+```bash
+./gradlew :nodel-framework:test
+```
+
+**E2E browser tests** (requires Playwright):
+```bash
+# Install Playwright browser (first time only)
+./gradlew playwrightInstall
+
+# Run tests (headless)
+./gradlew :nodel-jyhost:test
+
+# Run tests visually (watch the browser)
+HEADED=1 ./gradlew :nodel-jyhost:test
+
+# Run with slow motion (500ms delay between actions)
+HEADED=1 SLOWMO=500 ./gradlew :nodel-jyhost:test
+
+# Debug with Playwright Inspector (step through each action)
+PWDEBUG=1 ./gradlew :nodel-jyhost:test
+```
+
+---
 ¹ For macOS, adjust to suit.
