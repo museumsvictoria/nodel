@@ -216,3 +216,29 @@ test {
     }
     finalizedBy 'stopNodelhost'
 }
+
+// Integration Tests - API, smoke, library loading tests (excludes E2E)
+task integrationTest(type: Test) {
+    dependsOn 'startNodelhost'
+    useJUnitPlatform {
+        excludeTags 'e2e'
+    }
+    testLogging {
+        events 'passed', 'skipped', 'failed'
+        showStandardStreams = true
+    }
+    finalizedBy 'stopNodelhost'
+}
+
+// E2E Tests - Real user interaction tests (click, type, navigate)
+task e2eTest(type: Test) {
+    dependsOn 'startNodelhost'
+    useJUnitPlatform {
+        includeTags 'e2e'
+    }
+    testLogging {
+        events 'passed', 'skipped', 'failed'
+        showStandardStreams = true
+    }
+    finalizedBy 'stopNodelhost'
+}

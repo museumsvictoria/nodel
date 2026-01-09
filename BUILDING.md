@@ -114,27 +114,43 @@ rm -fr ~/nodel-build
 
 ## RUNNING TESTS
 
+The test suite has three categories:
+
+| Category | Command | Description |
+|----------|---------|-------------|
+| Unit | `./gradlew :nodel-framework:test` | Java framework tests, no browser |
+| Integration | `./gradlew :nodel-jyhost:integrationTest` | API, smoke, library tests via Playwright |
+| E2E | `./gradlew :nodel-jyhost:e2eTest` | Real user interactions (clicks, typing) |
+
 **Unit tests** (framework only):
 ```bash
 ./gradlew :nodel-framework:test
 ```
 
-**E2E browser tests** (requires Playwright):
+**Integration tests** (API, smoke tests - Playwright as API client):
 ```bash
 # Install Playwright browser (first time only)
 ./gradlew playwrightInstall
 
-# Run tests (headless)
-./gradlew :nodel-jyhost:test
+# Run integration tests (headless)
+./gradlew :nodel-jyhost:integrationTest
+```
 
-# Run tests visually (watch the browser)
-HEADED=1 ./gradlew :nodel-jyhost:test
+**E2E tests** (real UI interactions - clicks, typing, navigation):
+```bash
+# Run E2E tests (headless)
+./gradlew :nodel-jyhost:e2eTest
+
+# Run E2E tests visually - watch the browser
+HEADED=1 ./gradlew :nodel-jyhost:e2eTest
 
 # Run with slow motion (500ms delay between actions)
-HEADED=1 SLOWMO=500 ./gradlew :nodel-jyhost:test
+HEADED=1 SLOWMO=500 ./gradlew :nodel-jyhost:e2eTest
+```
 
-# Debug with Playwright Inspector (step through each action)
-PWDEBUG=1 ./gradlew :nodel-jyhost:test
+**Run all browser tests** (integration + e2e):
+```bash
+./gradlew :nodel-jyhost:test
 ```
 
 ---
