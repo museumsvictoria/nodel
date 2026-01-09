@@ -190,6 +190,23 @@ tasks.register('playwright', JavaExec) {
     mainClass = 'com.microsoft.playwright.CLI'
 }
 
+// Playwright Browser Setup Tasks (used by CI for version-consistent installation)
+tasks.register('playwrightInstallDeps', JavaExec) {
+    description = 'Install Playwright system dependencies for Chromium'
+    group = 'verification'
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.microsoft.playwright.CLI'
+    args 'install-deps', 'chromium'
+}
+
+tasks.register('playwrightInstall', JavaExec) {
+    description = 'Install Playwright Chromium browser'
+    group = 'verification'
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.microsoft.playwright.CLI'
+    args 'install', 'chromium'
+}
+
 test {
     dependsOn 'startNodelhost'
     useJUnitPlatform()

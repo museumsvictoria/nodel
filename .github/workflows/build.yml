@@ -83,11 +83,17 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
 
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-browsers-${{ hashFiles('nodel-jyhost/build.gradle') }}
+
       - name: Install Playwright system dependencies
-        run: npx playwright install-deps chromium
+        run: ./gradlew playwrightInstallDeps
 
       - name: Install Playwright browsers
-        run: npx playwright install chromium
+        run: ./gradlew playwrightInstall
 
       - name: Run E2E Tests
         run: ./gradlew :nodel-jyhost:test
