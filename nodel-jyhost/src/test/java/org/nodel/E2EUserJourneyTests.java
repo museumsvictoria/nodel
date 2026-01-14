@@ -71,13 +71,8 @@ public class E2EUserJourneyTests extends TestBase {
             "{\"arg\": \"" + uniqueMarker + "\"}");
         assertEquals(200, actionResponse.status(), "Action invocation must succeed");
 
-        // Wait for processing
-        page.waitForTimeout(1500);
-
-        // Verify console contains our unique marker via API
-        APIResponse consoleResponse = apiGet("/nodes/" + encode(TEST_NODE) + "/console?from=0&max=100");
-        assertEquals(200, consoleResponse.status());
-        assertTrue(consoleResponse.text().contains(uniqueMarker),
+        // Wait for console to contain our marker (replaces arbitrary timeout)
+        assertTrue(waitForConsoleContains(TEST_NODE, uniqueMarker, 5000),
             "Console must contain action output with marker: " + uniqueMarker);
     }
 
@@ -90,12 +85,8 @@ public class E2EUserJourneyTests extends TestBase {
         apiPost("/nodes/" + encode(TEST_NODE) + "/actions/testAction/call",
             "{\"arg\": \"" + uniqueMarker + "\"}");
 
-        page.waitForTimeout(1500);
-
-        // Verify event appears in activity feed
-        APIResponse activityResponse = apiGet("/nodes/" + encode(TEST_NODE) + "/activity?from=0");
-        assertEquals(200, activityResponse.status());
-        assertTrue(activityResponse.text().contains("Status"),
+        // Wait for Status event to appear in activity (replaces arbitrary timeout)
+        assertTrue(waitForActivityContains(TEST_NODE, "Status", 5000),
             "Activity must contain Status event after action");
     }
 
@@ -131,11 +122,9 @@ public class E2EUserJourneyTests extends TestBase {
         Assumptions.assumeTrue(!submitBtn.isDisabled(), "Submit button must be enabled - skipping if disabled");
 
         submitBtn.click();
-        page.waitForTimeout(5000);
 
-        // Verify via API that node was created
-        APIResponse response = apiGet("/nodes");
-        boolean nodeCreated = response.text().contains(uniqueNodeName);
+        // Poll until node appears in API (replaces fixed 5s wait)
+        boolean nodeCreated = waitForNodeInList(uniqueNodeName, 15000);
 
         // Cleanup
         if (nodeCreated) {
@@ -169,8 +158,6 @@ public class E2EUserJourneyTests extends TestBase {
             APIResponse saveResponse = apiPost("/nodes/" + encode(BINDING_CONSUMER_NODE) + "/remote/save", bindingConfig);
             assertEquals(200, saveResponse.status(), "Binding save must succeed");
 
-            page.waitForTimeout(1000);
-
             // Verify binding was persisted
             APIResponse getResponse = apiGet("/nodes/" + encode(BINDING_CONSUMER_NODE) + "/remote");
             assertTrue(getResponse.text().contains(BINDING_PRODUCER_NODE),
@@ -181,11 +168,8 @@ public class E2EUserJourneyTests extends TestBase {
             apiPost("/nodes/" + encode(BINDING_PRODUCER_NODE) + "/actions/sendPing/call",
                 "{\"arg\": \"" + uniqueValue + "\"}");
 
-            page.waitForTimeout(2000);
-
-            // Verify consumer received the event
-            APIResponse consumerConsole = apiGet("/nodes/" + encode(BINDING_CONSUMER_NODE) + "/console?from=0&max=50");
-            assertTrue(consumerConsole.text().contains(uniqueValue),
+            // Wait for consumer to receive and log the ping (bindings need time to establish)
+            assertTrue(waitForConsoleContains(BINDING_CONSUMER_NODE, uniqueValue, 10000),
                 "Consumer must have logged received ping value: " + uniqueValue);
 
         } finally {
@@ -213,9 +197,7 @@ public class E2EUserJourneyTests extends TestBase {
             assertTrue(saveResponse.status() == 200 || saveResponse.status() == 204,
                 "Parameter save must succeed");
 
-            page.waitForTimeout(500);
-
-            // Verify parameter was persisted
+            // Verify parameter was persisted (param save is synchronous, no wait needed)
             APIResponse getResponse = apiGet("/nodes/" + encode(PARAM_TEST_NODE) + "/params");
             assertTrue(getResponse.text().contains(uniqueValue),
                 "Saved parameter value '" + uniqueValue + "' must be retrievable");

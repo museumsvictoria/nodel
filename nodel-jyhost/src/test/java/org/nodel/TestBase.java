@@ -17,7 +17,7 @@ import java.nio.file.Paths;
  */
 public abstract class TestBase {
 
-    protected static final String BASE_URL = "http://127.0.0.1:8085";
+    protected static final String BASE_URL = "http://127.0.0.1:18085";
     protected static final String REST_BASE = BASE_URL + "/REST";
 
     protected static Playwright playwright;
@@ -26,7 +26,7 @@ public abstract class TestBase {
     protected static Page page;
 
     /**
-     * Initialize Playwright browser - call from @BeforeAll in subclasses
+     * Initialise Playwright browser - call from @BeforeAll in subclasses
      *
      * Environment variables:
      *   HEADED=1     - Run browser in visible mode (default: headless)
@@ -135,8 +135,8 @@ public abstract class TestBase {
             Path scriptFile = nodeDir.resolve("script.py");
             Files.writeString(scriptFile, scriptContent);
 
-            // Wait for node to be discovered by polling the API
-            return waitForNodeDiscovery(nodeName, 15000);
+            // Wait for node to be discovered and initialised by polling the API
+            return waitForNodeDiscovery(nodeName, 30000);
         } catch (Exception e) {
             System.err.println("Failed to create test node: " + e.getMessage());
             return false;
@@ -145,24 +145,46 @@ public abstract class TestBase {
 
     /**
      * Poll the REST API until the specified node appears in the node list
+     * and its script has finished loading (actions are available).
      * @param nodeName the name of the node to wait for
      * @param timeoutMs maximum time to wait in milliseconds
-     * @return true if node was discovered, false if timeout
+     * @return true if node was discovered and initialised, false if timeout
      */
     private static boolean waitForNodeDiscovery(String nodeName, int timeoutMs) {
         long deadline = System.currentTimeMillis() + timeoutMs;
+        boolean foundInList = false;
+
         while (System.currentTimeMillis() < deadline) {
             try {
-                APIResponse response = page.request().get(REST_BASE + "/nodes");
-                if (response.text().contains(nodeName)) {
-                    return true;
+                // First check if node appears in node list
+                if (!foundInList) {
+                    APIResponse listResponse = page.request().get(REST_BASE + "/nodes");
+                    if (listResponse.text().contains(nodeName)) {
+                        foundInList = true;
+                    }
                 }
+
+                // Then check if node endpoints are ready (script has loaded)
+                if (foundInList) {
+                    // Check if actions endpoint returns 200 (node is initialised)
+                    APIResponse actionsResponse = page.request().get(
+                        REST_BASE + "/nodes/" + encode(nodeName) + "/actions");
+                    if (actionsResponse.status() == 200) {
+                        // Also verify console endpoint works (confirms script executed)
+                        APIResponse consoleResponse = page.request().get(
+                            REST_BASE + "/nodes/" + encode(nodeName) + "/console?from=0&max=10");
+                        if (consoleResponse.status() == 200 && consoleResponse.text().contains("started")) {
+                            return true;
+                        }
+                    }
+                }
+
                 Thread.sleep(500); // Poll every 500ms
             } catch (Exception e) {
                 // Continue polling - server might not be ready yet
             }
         }
-        System.err.println("Timeout waiting for node discovery: " + nodeName);
+        System.err.println("Timeout waiting for node discovery/initialisation: " + nodeName);
         return false;
     }
 
@@ -213,6 +235,86 @@ public abstract class TestBase {
      */
     protected static void waitForElement(String selector) {
         waitForElement(selector, 30000);
+    }
+
+    /**
+     * Poll the console API until it contains the expected text.
+     * Use this instead of arbitrary page.waitForTimeout() after actions.
+     */
+    protected static boolean waitForConsoleContains(String nodeName, String expectedText, int timeoutMs) {
+        long deadline = System.currentTimeMillis() + timeoutMs;
+        while (System.currentTimeMillis() < deadline) {
+            try {
+                APIResponse response = page.request().get(REST_BASE + "/nodes/" + encode(nodeName) + "/console?from=0&max=100");
+                if (response.status() == 200 && response.text().contains(expectedText)) {
+                    return true;
+                }
+                Thread.sleep(200);
+            } catch (Exception e) {
+                // Continue polling
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Poll the activity API until it contains the expected text.
+     * Use this instead of arbitrary page.waitForTimeout() after events.
+     */
+    protected static boolean waitForActivityContains(String nodeName, String expectedText, int timeoutMs) {
+        long deadline = System.currentTimeMillis() + timeoutMs;
+        while (System.currentTimeMillis() < deadline) {
+            try {
+                APIResponse response = page.request().get(REST_BASE + "/nodes/" + encode(nodeName) + "/activity?from=0");
+                if (response.status() == 200 && response.text().contains(expectedText)) {
+                    return true;
+                }
+                Thread.sleep(200);
+            } catch (Exception e) {
+                // Continue polling
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Poll until a node becomes responsive (e.g., after restart).
+     * Use this instead of arbitrary page.waitForTimeout() after node operations.
+     */
+    protected static boolean waitForNodeResponsive(String nodeName, int timeoutMs) {
+        long deadline = System.currentTimeMillis() + timeoutMs;
+        while (System.currentTimeMillis() < deadline) {
+            try {
+                APIResponse response = page.request().get(REST_BASE + "/nodes/" + encode(nodeName) + "/actions");
+                if (response.status() == 200) {
+                    return true;
+                }
+                Thread.sleep(200);
+            } catch (Exception e) {
+                // Continue polling
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Poll the node list API until the specified node appears.
+     * Use this after creating a node via UI to wait for it to be registered.
+     */
+    protected static boolean waitForNodeInList(String nodeName, int timeoutMs) {
+        long deadline = System.currentTimeMillis() + timeoutMs;
+        while (System.currentTimeMillis() < deadline) {
+            try {
+                APIResponse response = page.request().get(REST_BASE + "/nodes");
+                if (response.status() == 200 && response.text().contains(nodeName)) {
+                    return true;
+                }
+                Thread.sleep(500);
+            } catch (Exception e) {
+                // Continue polling
+            }
+        }
+        return false;
     }
 
     /**
@@ -303,7 +405,7 @@ public abstract class TestBase {
         "    local_event_Status.emit('Ready')\n";
 
     /**
-     * Centralized test scripts for node creation
+     * Centralised test scripts for node creation
      */
     protected static class Scripts {
         public static final String PRODUCER =

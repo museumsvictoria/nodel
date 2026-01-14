@@ -26,7 +26,7 @@ public class NodeBindingTests extends TestBase {
     @BeforeAll
     public static void setup() {
         initBrowser();
-        // Create both nodes using centralized scripts from TestBase
+        // Create both nodes using centralised scripts from TestBase
         boolean producerCreated = createTestNode(PRODUCER_NODE, Scripts.PRODUCER);
         boolean consumerCreated = createTestNode(CONSUMER_NODE, Scripts.CONSUMER);
         assumeTrue(producerCreated && consumerCreated,
@@ -123,15 +123,8 @@ public class NodeBindingTests extends TestBase {
         );
         assertEquals(200, trigger.status(), "Producer action should succeed");
 
-        // Wait for event propagation across nodes
-        page.waitForTimeout(2000);
-
-        // Check consumer's console for received message
-        APIResponse consumerConsole = apiGet(
-            "/nodes/" + encode(CONSUMER_NODE) + "/console?from=0&max=50"
-        );
-        assertEquals(200, consumerConsole.status());
-        assertTrue(consumerConsole.text().contains(uniqueValue),
+        // Wait for consumer to receive and log the ping (replaces arbitrary timeout)
+        assertTrue(waitForConsoleContains(CONSUMER_NODE, uniqueValue, 5000),
             "Consumer should have logged received ping value: " + uniqueValue);
     }
 
@@ -144,15 +137,8 @@ public class NodeBindingTests extends TestBase {
         apiPost("/nodes/" + encode(PRODUCER_NODE) + "/actions/sendPing/call",
             "{\"arg\": \"" + uniqueValue + "\"}");
 
-        // Wait for event propagation
-        page.waitForTimeout(2000);
-
-        // Check consumer's activity for emitted Received event
-        APIResponse activity = apiGet(
-            "/nodes/" + encode(CONSUMER_NODE) + "/activity?from=0"
-        );
-        assertEquals(200, activity.status());
-        assertTrue(activity.text().contains("Received"),
+        // Wait for consumer's Received event to appear in activity (replaces arbitrary timeout)
+        assertTrue(waitForActivityContains(CONSUMER_NODE, "Received", 5000),
             "Consumer should have emitted Received event");
     }
 
@@ -165,14 +151,8 @@ public class NodeBindingTests extends TestBase {
         apiPost("/nodes/" + encode(PRODUCER_NODE) + "/actions/sendPing/call",
             "{\"arg\": \"" + uniqueValue + "\"}");
 
-        page.waitForTimeout(500);
-
-        // Verify producer logged the send
-        APIResponse producerConsole = apiGet(
-            "/nodes/" + encode(PRODUCER_NODE) + "/console?from=0&max=50"
-        );
-        assertEquals(200, producerConsole.status());
-        assertTrue(producerConsole.text().contains("Ping sent: " + uniqueValue),
+        // Wait for producer to log the send (replaces arbitrary timeout)
+        assertTrue(waitForConsoleContains(PRODUCER_NODE, "Ping sent: " + uniqueValue, 5000),
             "Producer should have logged 'Ping sent'");
     }
 }

@@ -134,13 +134,8 @@ public class NodeFunctionalTests extends TestBase {
         apiPost("/nodes/" + encode(TEST_NODE) + "/actions/testAction/call",
             "{\"arg\": \"" + uniqueArg + "\"}");
 
-        // Give the node a moment to process
-        page.waitForTimeout(500);
-
-        // Check console for log message
-        APIResponse console = apiGet("/nodes/" + encode(TEST_NODE) + "/console?from=0&max=100");
-        assertEquals(200, console.status(), "Console endpoint should return 200");
-        assertTrue(console.text().contains(uniqueArg),
+        // Wait for console to contain the log (replaces arbitrary timeout)
+        assertTrue(waitForConsoleContains(TEST_NODE, uniqueArg, 5000),
             "Console should contain action log with argument: " + uniqueArg);
     }
 
@@ -161,15 +156,9 @@ public class NodeFunctionalTests extends TestBase {
         apiPost("/nodes/" + encode(TEST_NODE) + "/actions/testAction/call",
             "{\"arg\": \"" + uniqueArg + "\"}");
 
-        // Give the node a moment to process
-        page.waitForTimeout(500);
-
-        // Check activity feed for emitted event
-        APIResponse activity = apiGet("/nodes/" + encode(TEST_NODE) + "/activity?from=0");
-        assertEquals(200, activity.status(), "Activity endpoint should return 200");
-        String body = activity.text();
-        // The Status event should appear with the emitted value
-        assertTrue(body.contains("Status"), "Status event should be in activity");
+        // Wait for Status event to appear in activity (replaces arbitrary timeout)
+        assertTrue(waitForActivityContains(TEST_NODE, "Status", 5000),
+            "Status event should be in activity");
     }
 
     // ===== Gap 5: Parameter Persistence Tests =====
@@ -215,24 +204,12 @@ public class NodeFunctionalTests extends TestBase {
     @Test
     @Order(50)
     public void testActivityUpdatesAfterAction() {
-        // Get initial activity
-        APIResponse before = apiGet("/nodes/" + encode(TEST_NODE) + "/activity?from=0");
-        assertEquals(200, before.status());
-        int beforeLength = before.text().length();
-
-        // Perform action (need empty JSON object for no-arg action)
+        // Perform action that emits Status event (need empty JSON object for no-arg action)
         apiPost("/nodes/" + encode(TEST_NODE) + "/actions/simpleAction/call", "{}");
 
-        // Give the node a moment to process
-        page.waitForTimeout(500);
-
-        // Verify activity has new entries (response should be longer or different)
-        APIResponse after = apiGet("/nodes/" + encode(TEST_NODE) + "/activity?from=0");
-        assertEquals(200, after.status());
-        int afterLength = after.text().length();
-
-        assertTrue(afterLength >= beforeLength,
-            "Activity should have entries after action invocation");
+        // Wait for activity to contain Status event (replaces arbitrary timeout)
+        assertTrue(waitForActivityContains(TEST_NODE, "Status", 5000),
+            "Activity should have Status event after action invocation");
     }
 
     @Test
@@ -252,14 +229,13 @@ public class NodeFunctionalTests extends TestBase {
         APIResponse restart = apiPost("/nodes/" + encode(TEST_NODE) + "/restart", "{}");
         // Accept 200, 204, or even 500 (may fail if restart format is different)
         // The important thing is the node comes back
-        int status = restart.status();
 
-        // Wait for restart to complete
-        page.waitForTimeout(3000);
+        // Wait for node to become responsive again (replaces arbitrary timeout)
+        assertTrue(waitForNodeResponsive(TEST_NODE, 10000),
+            "Node should respond after restart");
 
-        // Verify node is still responsive
+        // Verify actions are available
         APIResponse actions = apiGet("/nodes/" + encode(TEST_NODE) + "/actions");
-        assertEquals(200, actions.status(), "Node should respond after restart");
         assertTrue(actions.text().contains("testAction"),
             "Actions should be available after restart");
     }
