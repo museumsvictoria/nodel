@@ -384,6 +384,184 @@ var checkRedirect = function(url) {
   });
 };
 
+// Helper function to escape HTML for safe insertion
+var escapeHtml = function(text) {
+  return $('<div/>').text(text).html();
+};
+
+// Node duplication functions
+var buildFileError = function(type, filePath, jqXHR, errorThrown) {
+  return {
+    type: type,
+    path: filePath,
+    status: jqXHR.status,
+    statusText: jqXHR.statusText,
+    errorThrown: errorThrown,
+    response: jqXHR.responseText && jqXHR.responseText.substring(0, 500)
+  };
+};
+
+var waitForNode = function(nodeUrl, maxAttempts, interval, onProgress) {
+  maxAttempts = maxAttempts || 30;
+  interval = interval || 1000;
+  var d = $.Deferred();
+  var attempts = 0;
+
+  var poll = function() {
+    attempts++;
+    if (onProgress) onProgress(attempts);
+    $.ajax({
+      url: nodeUrl + 'REST/',
+      timeout: 3000
+    }).done(function() {
+      d.resolve();
+    }).fail(function(xhr, status, error) {
+      if (attempts >= maxAttempts) {
+        var errorDetail = xhr.status ? 'HTTP ' + xhr.status + ' ' + (error || xhr.statusText) : status;
+        console.error('Node failed to become available:', nodeUrl, 'after', maxAttempts, 'attempts. Last error:', errorDetail);
+        d.reject({message: 'Node did not become available after ' + maxAttempts + ' seconds. Last error: ' + errorDetail});
+      } else {
+        setTimeout(poll, interval);
+      }
+    });
+  };
+
+  poll();
+  return d.promise();
+};
+
+var copyFile = function(sourceUrl, destUrl, filePath) {
+  var d = $.Deferred();
+
+  // Fetch file from source as binary (works for all file types)
+  $.ajax({
+    url: sourceUrl + 'REST/files/contents?path=' + encodeURIComponent(filePath),
+    method: 'GET',
+    processData: false,
+    xhrFields: {responseType: 'blob'}
+  }).done(function(data) {
+    var payload = data instanceof Blob ? data : new Blob([data]);
+
+    // Save to destination
+    $.ajax({
+      url: destUrl + 'REST/files/save?path=' + encodeURIComponent(filePath),
+      method: 'POST',
+      data: payload,
+      processData: false,
+      contentType: 'application/octet-stream'
+    }).done(function() {
+      d.resolve();
+    }).fail(function(jqXHR, textStatus, errorThrown) {
+      d.reject(buildFileError('save', filePath, jqXHR, errorThrown));
+    });
+  }).fail(function(jqXHR, textStatus, errorThrown) {
+    d.reject(buildFileError('fetch', filePath, jqXHR, errorThrown));
+  });
+
+  return d.promise();
+};
+
+var copyFilesSequentially = function(sourceUrl, destUrl, files) {
+  var d = $.Deferred();
+  var results = {success: [], failed: []};
+  var currentIndex = 0;
+
+  var copyNext = function() {
+    if (currentIndex >= files.length) {
+      d.resolve(results);
+      return;
+    }
+
+    var file = files[currentIndex];
+    copyFile(sourceUrl, destUrl, file.path)
+      .then(function() {
+        results.success.push(file.path);
+        currentIndex++;
+        copyNext();
+      })
+      .fail(function(error) {
+        console.error('File copy failed:', file.path, error);
+        results.failed.push({
+          path: file.path,
+          type: error.type,
+          status: error.status,
+          message: error.errorThrown || error.statusText || 'unknown error'
+        });
+        if (file.path === 'script.py') {
+          d.reject({message: 'Failed to copy script.py'});
+          return;
+        }
+        currentIndex++;
+        copyNext();
+      });
+  };
+
+  copyNext();
+  return d.promise();
+};
+
+var duplicateNode = function(sourceNodeUrl, newNodeName, progressCallback) {
+  var d = $.Deferred();
+
+  // Step 1: Verify source is reachable by getting file list
+  // This prevents creating an empty node when source is offline
+  $.getJSON(sourceNodeUrl + 'REST/files', function(files) {
+
+    // Step 2: Create empty node on local host
+    $.postJSON(proto + '//' + host + '/REST/newNode', JSON.stringify({value: newNodeName}), function() {
+      var newNodeUrl = proto + '//' + host + '/nodes/' + encodeURIComponent(getVerySimpleName(newNodeName)) + '/';
+
+      // Step 3: Wait for node to be ready
+      waitForNode(newNodeUrl, 30, 1000, function(attempt) {
+        progressCallback({current: 0, total: 0, fileName: '', status: 'Initializing node... (' + attempt + ')'});
+      }).then(function() {
+        if (!files || files.length === 0) {
+          d.resolve(newNodeUrl);
+          return;
+        }
+
+        // Step 4: Copy files sequentially
+        copyFilesSequentially(sourceNodeUrl, newNodeUrl, files)
+          .then(function(results) {
+            if (results.failed.length > 0) {
+              var failedDetails = results.failed.map(function(f) {
+                return escapeHtml(f.path) + ' (' + escapeHtml(f.message) + ')';
+              }).join(', ');
+              alert('Node created with ' + results.failed.length + ' file(s) failed to copy: ' + failedDetails, 'warning', 10000);
+            }
+            d.resolve(newNodeUrl);
+          })
+          .fail(function(error) {
+            d.reject({message: error.message || 'Failed to copy files'});
+          });
+      }).fail(function(error) {
+        d.reject(error);
+      });
+    }).fail(function(req) {
+      var error = 'Failed to create node';
+      if (req.responseText) {
+        try {
+          var message = JSON.parse(req.responseText);
+          error = error + ': ' + escapeHtml(message['message'] || message['error'] || JSON.stringify(message));
+        } catch(e) {
+          // Server returned non-JSON response
+          var rawText = req.responseText.substring(0, 200);
+          console.error('Server returned non-JSON error response:', rawText);
+          error = error + ': ' + escapeHtml(rawText);
+        }
+      }
+      console.error('Node creation failed:', error);
+      d.reject({message: error});
+    });
+
+  }).fail(function(jqXHR, textStatus, errorThrown) {
+    console.error('Failed to get file list from source node:', sourceNodeUrl, jqXHR.status, errorThrown);
+    d.reject({message: 'Source node is not reachable'});
+  });
+
+  return d.promise();
+};
+
 var node = host = nodename = nodedesc = ''; //= opts = '';
 var converter = new Markdown.Converter();
 var unicodematch = new XRegExp("[^\\p{L}\\p{N}]", "gi");
@@ -392,6 +570,17 @@ var colours = {'primary':'','success':'','danger':'','warning':'','info':'','def
 var throttle = {'logs': {}};
 var allowedtxt = ['py','xml','xsl','js','json','html','htm','css','java','groovy','sql','sh','cs','bat','ini','txt','md','cmd'];
 var allowedbinary = ['png','jpg','ico','svg','zip','7z','exe'];
+
+// Key code constants for keyboard navigation
+var KEY = {
+  TAB: 9,
+  ENTER: 13,
+  CTRL: 17,
+  ALT: 18,
+  ESCAPE: 27,
+  ARROW_UP: 38,
+  ARROW_DOWN: 40
+};
 var nodeList = {'lst':[], 'flt':'', 'end':20, 'hosts':{}};
 var nodeListreq = null;
 var localsList = {'lst':[], 'flt':'', 'end':20, 'hosts':{}};
@@ -1836,42 +2025,348 @@ var setEvents = function(){
       });
     }
   });
+
+  // Helper function to clear template selection state
+  function clearTemplateSelection(input, clearValue) {
+    input.removeData('templateSelection');
+    input.siblings('.template-selected').remove();
+    input.siblings('.template-autocomplete').remove();
+    if (clearValue) input.val('');
+  }
+
+  // Helper function to build warning message for failed API sources
+  function buildSourceWarning(recipesFailed, nodesFailed) {
+    var warnings = [];
+    if (recipesFailed) warnings.push('recipes');
+    if (nodesFailed) warnings.push('nodes');
+    return warnings.length > 0 ? 'Could not load ' + warnings.join(' or ') : null;
+  }
+
+  // Helper function to render selection indicator
+  function renderTemplateSelectionPill(input, selection) {
+    input.siblings('.template-selected').remove();
+    var tooltip = selection.type === 'recipe' ? 'Recipe: ' + selection.path : 'Node: ' + selection.name;
+    var indicator = $('<span class="template-selected"><i class="fa fa-check-circle"></i></span>');
+    indicator.attr('title', tooltip);
+    input.after(indicator);
+  }
+
   $('body').on('shown.bs.dropdown', '.nodel-add .addgrp', function () {
     var ele = this;
-    $(ele).find('.nodeaddsubmit').prop('disabled', true);
-    $(ele).find('.recipepicker').empty();
-    $(ele).find('.nodenamval').focus();
+    // Clear and focus node name input
     $(ele).find('.nodenamval').val(null).get(0).focus();
-    $.getJSON(proto+'//' + host + '/REST/recipes/list', function(data) {
-      if (data.length > 0) {
-        var picker = $(ele).find('.recipepicker');
-        $(picker).append('<option value="" selected disabled hidden></option>');
-        $.each(data, function(i, value) {
-          var readme = (typeof value.readme == 'undefined') ? "" : $('<div/>').text(value.readme).html();
-          $(picker).append('<option value="' + value.path + '" title="' + readme + '">' + value.path + '</option>');
-        });
-      } else {
-        $(ele).find('.recipepicker').append('<option value="error">-- no recipes available --</option>');
-      }
-    }).fail(function(){
-      $(ele).find('.recipepicker').append('<option value="error">-- no recipes available --</option>');
-    }).always(function(){
-      $(ele).find('.nodeaddsubmit').prop('disabled', false);
-    });
-    //return false;
+    // Clear template search and reset selection state
+    var templateInput = $(ele).find('.unified-template-search');
+    clearTemplateSelection(templateInput, true);
+
+    // Cancel any in-flight search work for this input.
+    var state = getTemplateSearchState(templateInput);
+    clearTimeout(state.timeoutId);
+    abortIfInFlight(state.nodeXhr);
+    state.nodeXhr = null;
+
+    // Refresh recipes list when opening the add-node UI.
+    // This keeps the cache reasonably fresh for users who add recipes while the nodehost is running.
+    refreshRecipesList(true);
   });
+  // Unified template search for add node modal
+  var RECIPES_LIST_TTL_MS = 60 * 1000;
+  var recipesListCache = {data: null, fetchedAtMs: 0, xhr: null};
+
+  function refreshRecipesList(force) {
+    var now = Date.now();
+
+    if (!force && recipesListCache.data && (now - recipesListCache.fetchedAtMs) < RECIPES_LIST_TTL_MS) {
+      return $.Deferred().resolve(recipesListCache.data).promise();
+    }
+
+    // If a refresh is forced, cancel any in-flight request so we fetch the latest.
+    if (force && recipesListCache.xhr) {
+      recipesListCache.xhr.abort();
+      recipesListCache.xhr = null;
+    }
+
+    // Reuse any in-flight request.
+    if (recipesListCache.xhr) return recipesListCache.xhr;
+
+    var xhr = $.getJSON(proto+'//' + host + '/REST/recipes/list');
+    recipesListCache.xhr = xhr;
+
+    xhr.done(function(data) {
+      recipesListCache.data = data || [];
+      recipesListCache.fetchedAtMs = Date.now();
+    }).always(function() {
+      if (recipesListCache.xhr === xhr) recipesListCache.xhr = null;
+    });
+
+    return xhr;
+  }
+
+  function getTemplateSearchState($input) {
+    var state = $input.data('unifiedTemplateSearchState');
+    if (!state) {
+      state = {timeoutId: null, nodeXhr: null};
+      $input.data('unifiedTemplateSearchState', state);
+    }
+    return state;
+  }
+
+  function abortIfInFlight(xhr) {
+    if (xhr && xhr.readyState !== 4) xhr.abort();
+  }
+
+  $('body').on('keyup', '.unified-template-search', function(e) {
+    var charCode = e.charCode || e.keyCode;
+    // Skip navigation keys
+    if ([KEY.TAB, KEY.ESCAPE, KEY.CTRL, KEY.ALT, KEY.ARROW_UP, KEY.ARROW_DOWN, KEY.ENTER].indexOf(charCode) !== -1) return;
+
+    var $ele = $(this);
+    var state = getTemplateSearchState($ele);
+    var searchVal = $ele.val();
+
+    // Clear selection state when typing (but not the autocomplete dropdown or value)
+    $ele.removeData('templateSelection');
+    $ele.siblings('.template-selected').remove();
+
+    clearTimeout(state.timeoutId);
+    state.timeoutId = setTimeout(function() {
+      // If search is empty, just remove dropdown
+      if (searchVal.length < 1) {
+        $ele.siblings('.template-autocomplete').remove();
+        return;
+      }
+
+      // Query both APIs in parallel, handle failures independently
+      var recipeXhr = refreshRecipesList(false);
+      // Use network-wide discovery via nodeURLs
+      abortIfInFlight(state.nodeXhr);
+      var nodeXhr = $.postJSON(proto+'//' + host + '/REST/nodeURLs', JSON.stringify({'filter': searchVal}));
+      state.nodeXhr = nodeXhr;
+
+      // Track state: null = pending, array = completed (success or fail)
+      var recipes = null;
+      var nodes = null;
+      var recipesFailed = false;
+      var nodesFailed = false;
+
+      function renderResults() {
+        // Wait until both requests have completed (success or failure)
+        if (recipes === null || nodes === null) return;
+
+        // Clear request pointer if this is the active one
+        if (state.nodeXhr === nodeXhr) state.nodeXhr = null;
+
+        // Discard stale results if input has changed since request was made
+        if ($ele.val() !== searchVal) return;
+
+        // Filter client-side
+        var searchLower = searchVal.toLowerCase();
+        var filteredRecipes = recipes.filter(function(r) {
+          return r.path.toLowerCase().indexOf(searchLower) !== -1;
+        }).slice(0, 10);
+
+        var filteredNodes = nodes.filter(function(n) {
+          var hay = (n.name || n.node || '').toLowerCase();
+          return hay.indexOf(searchLower) !== -1;
+        }).slice(0, 10);
+
+        // Remove old dropdown only when we have new results ready
+        $ele.siblings('.template-autocomplete').remove();
+
+        // Show warning if APIs failed but we have no results to show
+        if (filteredRecipes.length === 0 && filteredNodes.length === 0) {
+          var warning = buildSourceWarning(recipesFailed, nodesFailed);
+          if (warning) {
+            $ele.after('<div class="template-autocomplete"><ul><li class="section-header text-warning">' + warning + '</li></ul></div>');
+          }
+          return;
+        }
+
+        // Build dropdown (use unique class to avoid generic autocomplete handler)
+        $ele.after('<div class="template-autocomplete"><ul></ul></div>');
+        var list = $ele.siblings('.template-autocomplete').children('ul');
+
+        // Show warning header if any API failed
+        var warning = buildSourceWarning(recipesFailed, nodesFailed);
+        if (warning) {
+          $('<li class="section-header text-warning">' + warning + '</li>').appendTo(list);
+        }
+
+        // Add recipes section
+        if (filteredRecipes.length > 0) {
+          $('<li class="section-header">Recipes</li>').appendTo(list);
+          $.each(filteredRecipes, function(i, recipe) {
+            var parts = recipe.path.split('/');
+            var name = parts.pop();
+            var category = parts.join('/');
+            var nameEscaped = escapeHtml(name);
+            var categoryEscaped = escapeHtml(category);
+            var html = nameEscaped + (category ? '<br><span>' + categoryEscaped + '</span>' : '');
+            $('<li>' + html + '</li>')
+              .data('type', 'recipe')
+              .data('path', recipe.path)
+              .appendTo(list);
+          });
+        }
+
+        // Add nodes section
+        if (filteredNodes.length > 0) {
+          $('<li class="section-header">Existing Nodes</li>').appendTo(list);
+          $.each(filteredNodes, function(i, node) {
+            // Extract just host:port from URL (e.g., "192.168.1.69:8085")
+            var nodeHost = node.address.replace(/https?:\/\/([^\/]+).*/, '$1');
+            var nodeNameEscaped = escapeHtml(node.node);
+            var nodeHostEscaped = escapeHtml(nodeHost);
+            var html = nodeNameEscaped + '<br><span>' + nodeHostEscaped + '</span>';
+            $('<li>' + html + '</li>')
+              .data('type', 'node')
+              .data('address', node.address)
+              .data('name', node.name)
+              .data('host', nodeHost)
+              .appendTo(list);
+          });
+        }
+      }
+
+      recipeXhr.done(function(data) {
+        recipes = data || [];
+        renderResults();
+      }).fail(function(xhr, status, error) {
+        // Ignore aborts (e.g. forced refresh due to UI open)
+        if (status === 'abort') return;
+        console.warn('Recipe search failed:', status, error);
+        recipes = recipesListCache.data || [];
+        recipesFailed = true;
+        renderResults();
+      });
+
+      nodeXhr.done(function(data) {
+        // /REST/nodeURLs returns an array of node URL objects
+        nodes = (data || []).map(function(entry) {
+          // Normalise to the shape used by the template search UI
+          var rawName = entry.name || entry.node || '';
+          return {
+            name: rawName,
+            node: entry.node || getSimpleName(rawName),
+            address: entry.address
+          };
+        });
+        renderResults();
+      }).fail(function(xhr, status, error) {
+        // Ignore aborts when the user types quickly
+        if (status === 'abort') return;
+        console.warn('Node search failed:', status, error);
+        nodes = [];
+        nodesFailed = true;
+        renderResults();
+      });
+    }, 200); // 200ms debounce
+  });
+  // Keyboard navigation for unified template search
+  $('body').on('keydown', '.unified-template-search', function(e) {
+    var charCode = e.charCode || e.keyCode;
+    var autocomplete = $(this).siblings('.template-autocomplete');
+    if (autocomplete.length === 0) return;
+
+    var items = autocomplete.find('li:not(.section-header)');
+    var active = autocomplete.find('li.active');
+    var index = items.index(active);
+
+    switch(charCode) {
+      case KEY.ARROW_DOWN:
+        e.preventDefault();
+        if (index < items.length - 1) {
+          items.removeClass('active');
+          items.eq(index + 1).addClass('active');
+        } else if (index === -1 && items.length > 0) {
+          items.eq(0).addClass('active');
+        }
+        break;
+      case KEY.ARROW_UP:
+        e.preventDefault();
+        if (index > 0) {
+          items.removeClass('active');
+          items.eq(index - 1).addClass('active');
+        }
+        break;
+      case KEY.ENTER:
+        if (active.length > 0) {
+          e.preventDefault();
+          active.trigger('mousedown');
+        }
+        break;
+      case KEY.ESCAPE:
+        autocomplete.remove();
+        break;
+    }
+  });
+  // Handle selection in unified template search
+  $('body').on('click', '.clear-template-selection', function(e) {
+    e.preventDefault();
+    var input = $(this).closest('.template-selected').siblings('.unified-template-search');
+    clearTemplateSelection(input, false);
+  });
+
+  function handleTemplateSelection(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    var $li = $(this);
+    var input = $li.closest('.template-autocomplete').siblings('.unified-template-search');
+    var type = $li.data('type');
+
+    var selection = type === 'recipe'
+      ? {type: 'recipe', path: $li.data('path')}
+      : {type: 'node', address: $li.data('address'), name: $li.data('name'), host: $li.data('host')};
+
+    input.val(type === 'recipe' ? selection.path : selection.name);
+    input.data('templateSelection', selection);
+    renderTemplateSelectionPill(input, selection);
+    $li.closest('.template-autocomplete').remove();
+  }
+  $('body').on('mousedown touchstart', '.unified-template-search + .template-autocomplete ul li:not(.section-header)', handleTemplateSelection);
   $('body').on('keyup', '.nodenamval', function(e) {
     var charCode = e.charCode || e.keyCode;
-    if(charCode == 13) $(this).closest('form').find('.nodeaddsubmit').click();
+    if(charCode == KEY.ENTER) $(this).closest('form').find('.nodeaddsubmit').click();
   });
   $('body').on('click', '.nodeaddsubmit', function(e) {
     var ele = $(this).closest('.base');
-    $(ele).find('.nodeaddsubmit').prop('disabled', true);
+    var $btn = $(ele).find('.nodeaddsubmit');
+    $btn.prop('disabled', true);
     var nodenameraw = $(ele).find('.nodenamval').val();
-    var recipeval = $(ele).find('.recipepicker').val();
-    if(nodenameraw) {
+
+    if (!nodenameraw) {
+      alert('Please enter a node name', 'warning');
+      $btn.prop('disabled', false);
+      return;
+    }
+
+    // Check unified template search selection
+    var templateInput = $(ele).find('.unified-template-search');
+    var selection = templateInput.data('templateSelection');
+    var typedValue = (templateInput.val() || '').trim();
+
+    if (selection && selection.type === 'node') {
+      // Duplicate from existing node
+      var duplicateAlertShown = false;
+      duplicateNode(selection.address, nodenameraw, function() {
+        if (duplicateAlertShown) return;
+        duplicateAlertShown = true;
+        alert('Duplicating node...', 'info', 0);
+      }).then(function(newNodeUrl) {
+        $(ele).find('.open > button').dropdown('toggle');
+        checkRedirect(newNodeUrl);
+      }).fail(function(error) {
+        alert(error.message || 'Node duplication failed', 'danger');
+        $btn.prop('disabled', false);
+      });
+    } else {
+      // Create from recipe (use selection path or fall back to typed value)
       var nodename = {"value": nodenameraw};
-      if(recipeval && (recipeval !== 'error')) nodename["base"] = recipeval;
+      var recipePath = selection && selection.type === 'recipe' ? selection.path : typedValue;
+
+      if (recipePath) {
+        nodename["base"] = recipePath;
+      }
       $.postJSON(proto+'//' + host + '/REST/newNode', JSON.stringify(nodename), function() {
         $(ele).find('.open > button').dropdown('toggle');
         checkRedirect(proto+'//' + host + '/nodes/' + encodeURIComponent(getVerySimpleName(nodenameraw)));
@@ -1879,11 +2374,15 @@ var setEvents = function(){
         if(req.statusText!="abort"){
           var error = 'Node add failed';
           if(req.responseText) {
-            var message = JSON.parse(req.responseText);
-            error = error + '<br/>' + message['message'];
+            try {
+              var message = JSON.parse(req.responseText);
+              error = error + '<br/>' + escapeHtml(message['message'] || message['error'] || 'Unknown error');
+            } catch(e) {
+              error = error + '<br/>' + escapeHtml(req.responseText.substring(0, 200));
+            }
           }
           alert(error, 'danger');
-          $(ele).find('.nodeaddsubmit').prop('disabled', false);
+          $btn.prop('disabled', false);
         }
       });
     }

@@ -13,6 +13,10 @@ application {
     mainClass = 'org.nodel.jyhost.Launch'
 }
 
+run {
+    standardInput = System.in
+}
+
 java {
     sourceCompatibility = JavaVersion.VERSION_11
     targetCompatibility = JavaVersion.VERSION_11
@@ -93,4 +97,188 @@ dependencies {
 
     // Add joda-time dependency
     implementation 'joda-time:joda-time:2.10.14'
+
+    // Playwright e2e testing
+    testImplementation 'com.microsoft.playwright:playwright:1.49.0'
+    testImplementation 'org.junit.jupiter:junit-jupiter-api:5.10.0'
+    testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.10.0'
+}
+
+/*
+ * =============================================================================
+ * E2E / INTEGRATION TEST INFRASTRUCTURE
+ * =============================================================================
+ *
+ * Tests run a dedicated Nodel instance on port 18085 (not the default 8085)
+ * in a temporary 'nodelhost-temp' directory for isolation.
+ *
+ * RUNNING TESTS:
+ *   ./gradlew :nodel-jyhost:integrationTest    # API and smoke tests
+ *   ./gradlew :nodel-jyhost:e2eTest            # Browser-based UI tests
+ *
+ * VISUAL DEBUGGING (see browser during E2E tests):
+ *   Unix:
+ *     HEADED=1 SLOWMO=500 ./gradlew :nodel-jyhost:e2eTest --rerun
+ *   PowerShell:
+ *     $env:HEADED=1; $env:SLOWMO=500; ./gradlew :nodel-jyhost:e2eTest --rerun
+ *
+ * WHEN TESTS FAIL:
+ *   1. Check nodelhost-temp/output.log and error.log for server issues
+ *   2. Re-run with HEADED=1 and/or PWDEBUG=1 to watch/interact with the browser
+ *   3. Check build/reports/tests/ for JUnit HTML reports
+ *   4. CI uploads failure artifacts (logs + reports) automatically
+ *
+ * SKIPPING TESTS:
+ *   ./gradlew build -x test                    # Skip all tests
+ *   ./gradlew build -x integrationTest -x e2eTest  # Skip only Playwright tests
+ *
+ * =============================================================================
+ */
+def nodelProcess = null
+def isWindows = System.getProperty('os.name').toLowerCase().contains('windows')
+
+tasks.register('cleanNodelhostTemp', Delete) {
+    delete layout.projectDirectory.dir('nodelhost-temp')
+}
+
+tasks.register('startNodelhost') {
+    dependsOn 'cleanNodelhostTemp', 'classes'
+    doLast {
+        // Kill any existing process on the test port before starting
+        if (isWindows) {
+            ['powershell', '-Command',
+             'Get-NetTCPConnection -LocalPort 18085 -ErrorAction SilentlyContinue | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force -ErrorAction SilentlyContinue }'
+            ].execute().waitFor()
+        } else {
+            ['bash', '-c', 'lsof -ti :18085 | xargs kill -9 2>/dev/null || true'].execute().waitFor()
+        }
+        // Brief pause to ensure port is released
+        Thread.sleep(1000)
+
+        def tempDir = layout.projectDirectory.dir('nodelhost-temp').asFile
+        tempDir.mkdirs()
+
+        def pb
+        if (isWindows) {
+            // Windows: Start java directly with stdin pipe to keep process alive
+            pb = new ProcessBuilder(
+                'java', '-cp', sourceSets.main.runtimeClasspath.asPath,
+                '-ea', 'org.nodel.jyhost.Launch', '-p', '18085'
+            )
+            pb.redirectInput(ProcessBuilder.Redirect.PIPE)
+        } else {
+            // Unix: Use tail -f /dev/null to keep stdin open (prevents auto-shutdown)
+            pb = new ProcessBuilder(
+                'bash', '-c',
+                "tail -f /dev/null | java -cp '${sourceSets.main.runtimeClasspath.asPath}' -ea org.nodel.jyhost.Launch -p 18085"
+            )
+        }
+        pb.directory(tempDir)
+        pb.redirectOutput(new File(tempDir, 'output.log'))
+        pb.redirectError(new File(tempDir, 'error.log'))
+        nodelProcess = pb.start()
+
+        // Wait for server to be ready by checking if HTTP responds
+        def maxAttempts = 60
+        def attempt = 0
+        while (attempt < maxAttempts) {
+            Thread.sleep(1000)
+            try {
+                def url = new URL('http://127.0.0.1:18085/')
+                def conn = url.openConnection()
+                conn.setConnectTimeout(2000)
+                conn.setReadTimeout(2000)
+                conn.connect()
+                def responseCode = conn.responseCode
+                conn.disconnect()
+                if (responseCode == 200) {
+                    logger.lifecycle("Nodel host is ready on port 18085 (HTTP 200)")
+                    break
+                }
+            } catch (Exception e) {
+                // Server not ready yet, continue waiting
+            }
+            attempt++
+            if (attempt >= maxAttempts) {
+                throw new GradleException("Nodel host failed to start within ${maxAttempts} seconds")
+            }
+        }
+    }
+}
+
+tasks.register('stopNodelhost') {
+    doLast {
+        if (nodelProcess?.isAlive()) {
+            nodelProcess.destroyForcibly()
+            nodelProcess.waitFor(10, java.util.concurrent.TimeUnit.SECONDS)
+        }
+        // Platform-specific orphan process cleanup
+        if (isWindows) {
+            // Windows: Use PowerShell to find and kill process on port 18085
+            ['powershell', '-Command',
+             'Get-NetTCPConnection -LocalPort 18085 -ErrorAction SilentlyContinue | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force -ErrorAction SilentlyContinue }'
+            ].execute().waitFor()
+        } else {
+            // Unix: Use lsof to find and kill process on port 18085
+            ['bash', '-c', 'lsof -ti :18085 | xargs kill -9 2>/dev/null || true'].execute().waitFor()
+        }
+    }
+}
+
+tasks.register('playwright', JavaExec) {
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.microsoft.playwright.CLI'
+}
+
+// Playwright Browser Setup Tasks (used by CI for version-consistent installation)
+tasks.register('playwrightInstallDeps', JavaExec) {
+    description = 'Install Playwright system dependencies for Chromium'
+    group = 'verification'
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.microsoft.playwright.CLI'
+    args 'install-deps', 'chromium'
+}
+
+tasks.register('playwrightInstall', JavaExec) {
+    description = 'Install Playwright Chromium browser'
+    group = 'verification'
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.microsoft.playwright.CLI'
+    args 'install', 'chromium'
+}
+
+test {
+    dependsOn 'startNodelhost'
+    useJUnitPlatform()
+    testLogging {
+        events 'passed', 'skipped', 'failed'
+        showStandardStreams = true
+    }
+    finalizedBy 'stopNodelhost'
+}
+
+// Integration Tests - API, smoke, library loading tests (excludes E2E)
+task integrationTest(type: Test) {
+    dependsOn 'startNodelhost'
+    useJUnitPlatform {
+        excludeTags 'e2e'
+    }
+    testLogging {
+        events 'passed', 'skipped', 'failed'
+        showStandardStreams = true
+    }
+    finalizedBy 'stopNodelhost'
+}
+
+// E2E Tests - Real user interaction tests (click, type, navigate)
+task e2eTest(type: Test) {
+    dependsOn 'startNodelhost'
+    useJUnitPlatform {
+        includeTags 'e2e'
+    }
+    testLogging {
+        events 'passed', 'skipped', 'failed'
+        showStandardStreams = true
+    }
+    finalizedBy 'stopNodelhost'
 }
