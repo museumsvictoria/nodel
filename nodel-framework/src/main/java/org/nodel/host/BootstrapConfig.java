@@ -50,22 +50,7 @@ public class BootstrapConfig {
     public void setPyNodePort(int value) {
         this.nodelHostPort = value;
     }
-    
 
-    public final static int DEFAULT_NODELHOST_WSPORT = 0;
-
-    @Value(name = "NodelHostWSPort", title = "NodelHost websocket port", order = 200, required = true, desc = "(command-line arg '--wsPort')")
-    private int nodelHostWSPort = DEFAULT_NODELHOST_WSPORT;
-
-    public int getNodelHostWSPort() {
-        return this.nodelHostWSPort;
-    }
-
-    public void setNodelHostWSPort(int value) {
-        this.nodelHostWSPort = value;
-    }
-    
-    
     public final static int DEFAULT_MESSAGING_PORT = 0;
 
     @Value(name = "messagingPort", title = "Messaging Port", order = 210, required = true, 
@@ -245,9 +230,6 @@ public class BootstrapConfig {
                 
             } else if ("-l".equals(arg) || "--enableProgramLogging".equalsIgnoreCase(arg)) {
                 this.enableProgramLogging = true;
-
-            } else if ("--wsPort".equalsIgnoreCase(arg)) {
-                this.nodelHostWSPort = Integer.parseInt(nextArg);
 
             } else if ("--contentDirectory".equalsIgnoreCase(arg)) {
                 this.contentDirectory = nextArg;

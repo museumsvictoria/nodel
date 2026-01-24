@@ -346,3 +346,10 @@ from org.nodel.Strings import isBlank as is_blank
 # Returns false if there is at least one item within 'o', true otherwise
 def is_empty(obj):
   return obj == None or len(obj) == 0
+
+
+
+# CONVENIENCE DEPENDENCIES
+
+# JWTs (JSON Web Tokens) 
+# see https://github.com/museumsvictoria/nodel/discussions/297

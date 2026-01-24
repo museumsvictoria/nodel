@@ -370,36 +370,7 @@ public class Nodel {
     public static String[] getHTTPNodeAddress() {
         return s_httpNodeAddresses;
     }
-    
-    /**
-     * (see public getter / setter)
-     */
-    private static int webSocketPort;
 
-    /**
-     * The WebSocket port for this environment.
-     */
-    public static int getWebSocketPort() {
-        return webSocketPort;
-    }
-    
-    /**
-     * Sets the WebSocket port for this environment.
-     */
-    public static void setWebSocketPort(int value) {
-        webSocketPort = value;
-    }
-    
-    public static String s_webSocketAddress;
-
-    public static void updateWebSocketAddress(String webSocketAddress) {
-        s_webSocketAddress = webSocketAddress;
-    }
-    
-    public static String getWebSocketAddress() {
-        return s_webSocketAddress;
-    }    
-    
     /**
      * The default HTTP suffix (e.g. '/nodes/%NODE%/')
      */

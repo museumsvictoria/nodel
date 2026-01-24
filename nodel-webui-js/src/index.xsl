@@ -337,6 +337,13 @@
           {{/for}}
         ]]>
         </script>
+        <script id="dynamicButtonGroup" type="text/x-jsrender">
+          <![CDATA[
+          {{for arg}}
+            <a href="#" class="btn btn-default btn-of-groups" data-arg="{{if key}}{{>key}}{{else}}{{>value}}{{/if}}">{{>value}}</a>
+          {{/for}}
+        ]]>
+        </script>
         <script id="switchTmpl" type="text/x-jsrender">
         <![CDATA[
           <%if type=="string"%>
@@ -786,7 +793,7 @@
           <div class="base">
             <div>
               {^{for logs}}
-                <div data-link="class{:'consoletype_'+level}"><span class="consoletimestamp">{^{>~nicetime(timestamp,true)}}</span>&nbsp;<span class="consolecomment">{^{>message}}</span></div>
+                <div data-link="class{:'consoletype_'+level}"><span class="consoletimestamp">{^{>~nicetime(timestamp,true)}}</span>&nbsp;<span class="consolecomment">[{^{>tag}}] {^{>message}}</span></div>
                 {^{if error}}
                   <div data-link="class{:'consoletype_'+level+ ' consoledetail'}"><span class="consolecomment">{^{>error}}</span></div>
                 {{/if}}
@@ -876,7 +883,7 @@
                 </tr>
                 <tr>
                   <th scope="row">Uptime</th>
-                  <td>{{>~fromtime(startTime)}}, started {{>~nicetime(startTime, false, 'llll')}}</td>
+                  <td>{{>~fromtime(uptime)}}, start timestamp {{>~nicetime(startTime, false, 'llll')}}</td>
                 </tr>
                 <tr>
                   <th scope="row">Host path</th>

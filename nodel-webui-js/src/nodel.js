@@ -36,20 +36,27 @@ $.views.helpers({
   sanitize: function(value, maxLength) {
     var value = JSON.stringify(value, null, 2);
     if (maxLength && value.length > maxLength) {
-      return value.substring(0, maxLength ) + "...";
+      value = value.substring(0, maxLength ) + "...";
     }
-    value = value.replace("&","&amp;");
-    value = value.replace("<","&lt;");
-    value = value.replace(">","&gt;");
-    return value;
+    return value.replace(/[<>&]/g, function (c) {
+        switch (c) {
+            case '<': return '&lt;';
+            case '>': return '&gt;';
+            case '&': return '&amp;';
+        }
+    });
   },
   nicetime: function (value, precise, format) {
     if (precise) return moment(value).format('MM-DD HH:mm:ss.SS');
     if (format) return moment(value).format(format);
     else return moment(value).format('Do MMM, h:mm a');
   },
-  fromtime: function(value){
-    return moment(value).from(moment(), true);
+  fromtime: function(value) {
+    now = moment();
+    if (typeof(value) == 'string') // treat value as an absolute timestamp
+      return moment(value).from(now, true);
+    else // treat value as a duration in millis
+      return moment(now).subtract(value, 'ms').from(now, true);
   },
   srcflt: function(item, i, items) {
     if(this.view.data.flt) {
@@ -61,7 +68,7 @@ $.views.helpers({
     return encodr(value);
   },
   initHid: function (id) {
-    if(!(id in this.data)) Object.defineProperty(this.data, id, {enumerable:false, writable:true});
+    if((typeof data !== 'undefined') && !(id in this.data)) Object.defineProperty(this.data, id, {enumerable:false, writable:true});
     return true;
   },
   highlight: function(value, sub) {
@@ -259,6 +266,11 @@ var updatemeter = function(el, val) {
   var pxheight = $(el).data('pxheight');
   if(!pxheight) {
     var pxheight = $(el).find('.bar').height() / 100;
+    if (pxheight === 0) {
+      // The parent or this may be invisible.
+      // https://stackoverflow.com/questions/9292529/jquery-height-returns-0-on-a-visible-div-why
+      return;
+    }
     $(el).data('pxheight', pxheight);
   }
   var width = $(el).data('width');
@@ -393,61 +405,64 @@ $(function() {
   $('.nodel-icon a').attr("title", "Browse this host");
   if(navigator.issmart){
     $('head').append('<style>.fixed-table-body{overflow-y: hidden;} body{zoom: 140%}</style>');
-  };
+  }
   getColours();
+
   // get the node name
-  if(window.location.pathname.split( '/' )[1]=="nodes") node = decodeURIComponent(window.location.pathname.split( '/' )[2].replace(/\+/g, '%20'));
-  if(node) {
-    if($('body').hasClass('core')) {
-      $('.navbar-brand a').attr("href", window.document.location.protocol+"//"+host+'/nodes.xml').attr('title', 'Browse Nodel network');;
-      $('.nodel-icon a').attr("href", window.document.location.protocol+"//"+host+'/').attr('title', 'Browse this host');;
-    }
-    getNodeDetails().then(function(){
-      updatepadding();
+  getNodeName().then(function() {
+    if(node) {
+      if($('body').hasClass('core')) {
+        $('.navbar-brand a').attr("href", window.document.location.protocol+"//"+host+'/nodes.xml').attr('title', 'Browse Nodel network');
+        $('.nodel-icon a').attr("href", window.document.location.protocol+"//"+host+'/').attr('title', 'Browse this host');
+      }
+      getNodeDetails().then(function(){
+        updatepadding();
+        $.when(createDynamicElements().then(function(){
+          console.log("createDynamicElements took " + (performance.now() - t0)/ 1000.0 + " seconds.");
+          convertNames();
+          updateConsoleForm();
+          updateLogForm();
+          updateCharts();
+          checkHostList();
+          setEvents();
+          updateLogs();
+          // selecct page
+          if(window.location.hash) $("*[data-nav='"+window.location.hash.substring(1)+"']").trigger('click');
+          else $('*[data-nav]').first().trigger('click');
+          // init scrollable divs
+          $('.scrollbar-inner').scrollbar();
+          // hide sects by default
+          $(".sect").hide();
+          // init editor
+          initEditor();
+          // init toolkit
+          initToolkit();
+          fillUIPicker();
+          populateAuxComponents();
+          checkReload();
+        }));
+      });
+    } else {
       $.when(createDynamicElements().then(function(){
-        console.log("createDynamicElements took " + (performance.now() - t0)/ 1000.0 + " seconds.");
-        convertNames();
-        updateConsoleForm();
-        updateLogForm();
-        updateCharts();
+        updatepadding();
+        if($('div').hasClass("nodel-list"))
+          getNodeList().then(refreshNodeList);
+        if($('div').hasClass("nodel-locals"))
+          getLocalsList().then(refreshLocalsList);
         checkHostList();
         setEvents();
-        updateLogs();
-        // selecct page
-        if(window.location.hash) $("*[data-nav='"+window.location.hash.substring(1)+"']").trigger('click');
-        else $('*[data-nav]').first().trigger('click');
-        // init scrollable divs
-        $('.scrollbar-inner').scrollbar();
-        // hide sects by default
-        $(".sect").hide();
-        // init editor
-        initEditor();
-        // init toolkit
+        updateLogForm();
+        updateCharts();
         initToolkit();
-        fillUIPicker();
-        populateAuxComponents();
-        checkReload();
+        checkHostOnline();
+        $('*[data-nav]').first().trigger('click');
+        $('.nodelistfilter').trigger('focus');
+        var filt = getParameterByName('filter');
+        if(filt) $('.nodelistfilter').val(filt).trigger('keyup');
       }));
-    });
-  } else {
-    $.when(createDynamicElements().then(function(){
-      updatepadding();
-      if($('div').hasClass("nodel-list"))
-        getNodeList().then(refreshNodeList);
-      if($('div').hasClass("nodel-locals"))
-        getLocalsList().then(refreshLocalsList);
-      checkHostList();
-      setEvents();
-      updateLogForm();
-      updateCharts();
-      initToolkit();
-      checkHostOnline();
-      $('*[data-nav]').first().trigger('click');
-      $('.nodelistfilter').trigger('focus');
-      var filt = getParameterByName('filter');
-      if(filt) $('.nodelistfilter').val(filt).trigger('keyup');
-    }));
-  }
+    }
+  });
+
 });
 
 var isFileTransfer = function (e) {
@@ -469,7 +484,8 @@ var clearTimers = function(){
 
 var getNodeDetails = function(){
   var d = $.Deferred();
-  $.getJSON(proto+'//'+host+'/nodes/'+encodeURIComponent(node)+'/REST/', function(data) {
+  // Relative path : $.getJSON(proto+'//'+host+'/nodes/'+encodeURIComponent(node)+'/REST/', function(data) {
+  $.getJSON('REST/', function(data) {
     if(!$('.navbar-brand #title').text()) $('.navbar-brand #title').text(getSimpleName(data.name));
     if(data.desc) $('.nodel-description').html(converter.makeHtml(data.desc));
     $('title').text(getSimpleName(data.name));
@@ -578,10 +594,12 @@ var createDynamicElements = function(){
     var d = $.Deferred();
     if($(ele).data('nodel') == 'actsig'){
       var reqs = [];
-      reqs.push($.getJSON(proto+'//'+host+'/nodes/'+encodeURIComponent(node)+'/REST/actions', function(list) {
+      // Relative path : reqs.push($.getJSON(proto+'//'+host+'/nodes/'+encodeURIComponent(node)+'/REST/actions', function(list) {
+      reqs.push($.getJSON('REST/actions', function(list) {
         actions = list;
       }));
-      reqs.push($.getJSON(proto+'//'+host+'/nodes/'+encodeURIComponent(node)+'/REST/events', function(list) {
+      // Relative path : reqs.push($.getJSON(proto+'//'+host+'/nodes/'+encodeURIComponent(node)+'/REST/events', function(list) {
+      reqs.push($.getJSON('REST/events', function(list) {
         events = list;
       }));
       var forms = {"forms":[],"groups":{}};
@@ -650,7 +668,8 @@ var createDynamicElements = function(){
         }
       });
     } else if($(ele).data('nodel') == 'params'){
-      $.getJSON(proto+'//'+host+'/nodes/'+encodeURIComponent(node)+'/REST/params/schema', function(data) {
+      // Relative path : $.getJSON(proto+'//'+host+'/nodes/'+encodeURIComponent(node)+'/REST/params/schema', function(data) {
+      $.getJSON('REST/params/schema', function(data) {
         if(!_.isEmpty(data)){
           $(ele).data('btntext','Save');
           $(ele).data('btncolour','success');
@@ -667,7 +686,8 @@ var createDynamicElements = function(){
         }
       }).fail(function(){d.resolve();});
     } else if($(ele).data('nodel') == 'remote'){
-      $.getJSON(proto+'//'+host+'/nodes/'+encodeURIComponent(node)+'/REST/remote/schema', function(data) {
+      // Relative path : $.getJSON(proto+'//'+host+'/nodes/'+encodeURIComponent(node)+'/REST/remote/schema', function(data) {
+      $.getJSON('REST/remote/schema', function(data) {
         if(!_.isEmpty(data)){
           $(ele).data('target','remote/save');
           $(ele).data('source','remote');
@@ -929,13 +949,15 @@ var makeTemplate = function(ele, schema, tmpls){
   $.views.settings.delimiters("{{", "}}");
   var tmpl = $.templates(generatedTemplate);
   if(!(_.isUndefined($(ele).data('source'))) && ($(ele).data('source').charAt(0) != '/')){
-    $.getJSON(proto+'//'+host+'/nodes/'+encodeURIComponent(node)+'/REST/'+$(ele).data('source'), function(data) {
+    // Relative path : $.getJSON(proto+'//'+host+'/nodes/'+encodeURIComponent(node)+'/REST/'+$(ele).data('source'), function(data) {
+    $.getJSON('REST/'+$(ele).data('source'), function(data) {
       tmpl.link(ele, data);
       $(ele).find('.base').addClass('bound');
       d.resolve();
     });
   } else if(!(_.isUndefined($(ele).data('source'))) && ($(ele).data('source').charAt(0) == '/')){
-    $.getJSON(proto+'//'+host+'/nodes/'+encodeURIComponent(node)+'/REST'+$(ele).data('source'), function(data) {
+    // Relative path : $.getJSON(proto+'//'+host+'/nodes/'+encodeURIComponent(node)+'/REST'+$(ele).data('source'), function(data) {
+    $.getJSON('REST'+$(ele).data('source'), function(data) {
       tmpl.link(ele, data);
       $(ele).find('.base').addClass('bound');
       d.resolve();
@@ -952,7 +974,8 @@ var checkReload = function(){
   var params = {};
   if(!_.isUndefined($('body').data('timer'))) clearTimeout($('body').data('timer'));
   if(!_.isUndefined($('body').data('timestamp'))) params = {timestamp:$('body').data('timestamp')};
-  $.getJSON(proto+'//'+host+'/nodes/'+encodeURIComponent(node)+'/REST/hasRestarted', params, function(data) {
+  // Relative path : $.getJSON(proto+'//'+host+'/nodes/'+encodeURIComponent(node)+'/REST/hasRestarted', params, function(data) {
+  $.getJSON('REST/hasRestarted', params, function(data) {
     if(_.isUndefined($('body').data('timestamp'))){
       $('body').data('timestamp', data.timestamp);
     } else if ($('body').data('timestamp')!=data.timestamp) {
@@ -1024,7 +1047,107 @@ var setEvents = function(){
     }
     $(ele).data('throttle')(data.action, data.arg);
   });
-  
+
+  /**
+   * Long Press
+   *
+   * 1) mouse event flow
+   *  - mousedown -> mouseup -> click
+   *  - mousedown -> mouseleave
+   *
+   * 2) touch event flow
+   *  - touchstart -> touchend
+   *  - touchmove
+   *
+   * 3) Panel's webview
+   *  - click touchend
+   *  - "mousedown touchstart" : When quickly clicking, can be called 2x, which causes problem.
+   *  - click touchend
+   *
+   * 4) Desktop's chrome
+   *  - mousedown touchstart
+   *  - click touchend
+   *
+   */
+
+  function callNudgeAction(jqObj, weight) {
+    var direction = $(jqObj).hasClass('nudge-up') ? 'up' : 'down';
+    var inputRangeEl = $(jqObj).siblings('input[type=range]input[data-action]');
+    var curVal = parseFloat($(inputRangeEl).val());
+    var step = parseFloat($(inputRangeEl).attr('step'));
+    var nudgeVal = parseFloat($(inputRangeEl).data('nudge'));
+    // Note: nudge should be equal or greater than step and multiple of step
+    nudgeVal = !nudgeVal ? step : (nudgeVal < step ? step : nudgeVal);
+    var newVal = direction === 'down' ? (curVal - nudgeVal * weight) : (curVal + nudgeVal * weight);
+    $(inputRangeEl).val(newVal).trigger('input');
+  }
+
+  function makeNudgeInputActive(jqObj, active) {
+    var inputRangeEl = $(jqObj).siblings('input[type=range]input[data-action]');
+    if (!active) {
+      $(inputRangeEl).removeClass('active');
+    } else {
+      $(inputRangeEl).addClass('active');
+    }
+  }
+
+  $('body').on('mousedown touchstart', '.nudge', function(e) {
+    // check if already existing to prevent issues
+    var timerId_ = $(this).data('timerId');
+    var intervalId_ = $(this).data('intervalId');
+    if (timerId_ || intervalId_) {
+      return;
+    }
+
+    var that = this;
+    var timerId = setTimeout(function() {
+      // creat timer
+      clearTimeout(timerId);
+      $(that).data('timerId', null);
+      // create interval
+      var intervalId = setInterval(function() {
+        callNudgeAction(that, 1);
+      }, 200);
+      $(that).data('intervalId', intervalId);
+      // should make sibling <input> active
+      makeNudgeInputActive(that, true);
+    }, 300);
+    $(that).data('timerId', timerId);
+  });
+
+  $('body').on('mouseleave', '.nudge', function(e) {
+    var timerId = $(this).data('timerId');
+    var intervalId = $(this).data('intervalId');
+    if (timerId) {
+      clearTimeout(timerId);
+      $(this).data('timerId', null);
+    }
+    if (intervalId) {
+      clearInterval(intervalId);
+      $(this).data('intervalId', null);
+      // should make sibling <input> inactive
+      makeNudgeInputActive(this, false);
+    }
+  });
+
+  $('body').on('click touchend','.nudge', function (e) {
+    e.stopPropagation(); e.preventDefault();
+    var timerId = $(this).data('timerId');
+    var intervalId = $(this).data('intervalId');
+
+    if (timerId) { // Long press not activated
+      callNudgeAction(this, 1);
+      clearTimeout(timerId);
+      $(this).data('timerId', null);
+    }
+    if (intervalId) { // Long press activated
+      clearInterval(intervalId);
+      $(this).data('intervalId', null);
+      // should make sibling <input> inactive
+      makeNudgeInputActive(this, false);
+    }
+  });
+
   $('body').on('touchstart mousedown touchend touchcancel mouseup','input[type=range]input[data-action]', function (e) {
     if($.inArray(e.type, ['touchstart','mousedown']) > -1) $(this).addClass('active');
     else $(this).removeClass('active');
@@ -1036,6 +1159,32 @@ var setEvents = function(){
     else $(this).removeClass('active');
     callAction(data.action, data.arg);
   });
+  function handleSelectButtons(element) {
+    if ($(element).attr('disabled') || $(element).hasClass('btn-success')) {
+      return;
+    }
+    var data = getAction(element);
+    if(data.action) {
+      var jqParent = $(element).parent('.btn-group-vertical');
+      // disable all buttons
+      jqParent.find('.btn-of-groups').not($(element)).attr('disabled', 'disabled');
+      $.each($.isArray(data.action) ? data.action : [data.action], function(i, act){
+        $.postJSON('REST/actions/' + encodeURIComponent(act) + '/call', data.arg, function () {
+          console.log(act + " - Success");
+          // enable all buttons
+          jqParent.find('.btn-of-groups').attr('disabled', null);
+          jqParent.find('.btn-of-groups').removeClass('btn-success').addClass('btn-default');
+          $(element).removeClass('btn-default').addClass('btn-success');
+        }).fail(function (e, s) {
+          var errTxt = s;
+          if (e.responseText) errTxt = s + "\n" + e.responseText;
+          console.log("exec - Error:\n" + errTxt, "error");
+          // enable all buttons
+          jqParent.find('.btn-of-groups').attr('disabled', null);
+        });
+      });
+    }
+  }
   $('body').on('click', '*[data-arg], *[data-action]:not(.spectrum-color-picker)', function (e) {
     e.stopPropagation(); e.preventDefault();
     if(!$('body').hasClass('touched')) {
@@ -1055,7 +1204,14 @@ var setEvents = function(){
             $('#confirmaction').removeAttr('disabled');
           }
           $('#confirm').modal('show');
-        } else callAction(data.action, data.arg);
+        } else {
+          // handle dynamic buttons
+          if ($(this).hasClass('btn-of-groups')) {
+            handleSelectButtons(this)
+            return;
+          }
+          callAction(data.action, data.arg);
+        }
         $(this).parents('.btn-select.open').find('.dropdown-toggle').dropdown('toggle');
       }
     }
@@ -1072,7 +1228,8 @@ var setEvents = function(){
     e.stopPropagation(); e.preventDefault();
     var ele = $(this);
     var newWindow = window.open(proto+'//'+host);
-    $.getJSON(proto+'//'+host+'/nodes/'+encodeURIComponent(node)+'/REST/remote', function(data) {
+    // Relative path : $.getJSON(proto+'//'+host+'/nodes/'+encodeURIComponent(node)+'/REST/remote', function(data) {
+    $.getJSON('REST/remote', function(data) {
       if (!_.isUndefined(data['events'][$(ele).data('link-event')])) {
         var lnode = data['events'][$(ele).data('link-event')]['node'];
         if(lnode!==''){
@@ -1165,7 +1322,8 @@ var setEvents = function(){
       //console.log(tosend);
       var nme = $(this).parent().data('btntitle');
       var alt = $(this).parent().data('alert');
-      $.postJSON(proto+'//'+host+'/nodes/'+encodeURIComponent(node)+'/REST/'+$(this).parent().data('target'), JSON.stringify(tosend), function () {
+      // Relative path : $.postJSON(proto+'//'+host+'/nodes/'+encodeURIComponent(node)+'/REST/'+$(this).parent().data('target'), JSON.stringify(tosend), function () {
+      $.postJSON('REST/'+$(this).parent().data('target'), JSON.stringify(tosend), function () {
         console.log(nme+': success');
         if(alt) alert(alt);
       }).fail(function(e){
@@ -1207,7 +1365,8 @@ var setEvents = function(){
       if(text){
         $(this).empty();
         var arg = JSON.stringify({code: text});
-        $.postJSON(proto+'//'+host+'/nodes/'+encodeURIComponent(node)+'/REST/exec', arg, function(data){
+        // Relative path : $.postJSON(proto+'//'+host+'/nodes/'+encodeURIComponent(node)+'/REST/exec', arg, function(data){
+        $.postJSON('REST/exec', arg, function(data){
         }).fail(function(e, s) {
           console.log('Console error: ' + s);
         }).always(function(e){
@@ -1471,7 +1630,8 @@ var setEvents = function(){
       editor.setOption('readOnly', 'nocursor');
       var path = $(ele).find('.picker').val();
       $(ele).find('textarea').data('path', path);
-      $.get(proto+'//' + host + '/nodes/' + encodeURIComponent(node) + '/REST/files/contents?path=' +encodeURIComponent(path), function (data) {
+      // Relative path : $.get(proto+'//' + host + '/nodes/' + encodeURIComponent(node) + '/REST/files/contents?path=' +encodeURIComponent(path), function (data) {
+      $.get('REST/files/contents?path=' +encodeURIComponent(path), function (data) {
         switch(path.split('.').pop()){
           //'sh'
           case 'js':
@@ -1513,7 +1673,7 @@ var setEvents = function(){
           editor.getDoc().setValue('binary file');
           $(ele).find('.script_delete').prop("disabled", false);
         }
-      }).fail(function(e){
+      }, 'text' /* to get plain text instead of object */ ).fail(function(e){
         alert("Error loading file: "+path, "danger", 7000, e.responseText);
       });
     }
@@ -1527,7 +1687,8 @@ var setEvents = function(){
     var path = $(ele).find('textarea').data('path');
     // use different method to save main script
     if(path == 'script.py') {
-      url = proto+'//' + host + '/nodes/' + encodeURIComponent(node) + '/REST/script/save';
+      // Relative path : url = proto+'//' + host + '/nodes/' + encodeURIComponent(node) + '/REST/script/save';
+      url = 'REST/script/save';
       payload = JSON.stringify({'script': $(ele).find('textarea').val() });
       $.postJSON(url, payload, function (data) {
         alert("File saved: "+path);
@@ -1538,7 +1699,8 @@ var setEvents = function(){
         $(ele).find('.script_save, .script_delete').prop("disabled", false);
       });
     } else {
-      url = proto+'//' + host + '/nodes/' + encodeURIComponent(node) + '/REST/files/save?path=' +encodeURIComponent(path);
+      // Relative path : url = proto+'//' + host + '/nodes/' + encodeURIComponent(node) + '/REST/files/save?path=' +encodeURIComponent(path);
+      url = 'REST/files/save?path=' +encodeURIComponent(path);
       payload = $('#field_script').val();
       payload = $(ele).find('textarea').val();
       $.ajax({url:url, type:"POST", data:payload, contentType:"application/octet-stream", success: function (data) {
@@ -1558,7 +1720,8 @@ var setEvents = function(){
     editor.setOption('readOnly', 'nocursor');
     var path = $(ele).find('textarea').data('path');
     if((path != 'script.py') && (confirm("Are you sure?"))) {
-      $.get(proto+'//' + host + '/nodes/' + encodeURIComponent(node) + '/REST/files/delete?path=' +encodeURIComponent(path), function (data) {
+      // Relative path : $.get(proto+'//' + host + '/nodes/' + encodeURIComponent(node) + '/REST/files/delete?path=' +encodeURIComponent(path), function (data) {
+      $.get('REST/files/delete?path=' +encodeURIComponent(path), function (data) {
         editor.getDoc().setValue('');
         $(ele).find('.picker').val('');
         alert("File deleted: "+path);
@@ -1585,7 +1748,8 @@ var setEvents = function(){
     var path = $(ele).find('.scriptnamval').val();
     var grp = $(ele).find('.addgrp');
     if(allowedtxt.concat(allowedbinary).indexOf(path.split('.').pop()) > -1) {
-      var url = proto+'//' + host + '/nodes/' + encodeURIComponent(node) + '/REST/files/save?path=' +encodeURIComponent(path);
+      // Relative path : var url = proto+'//' + host + '/nodes/' + encodeURIComponent(node) + '/REST/files/save?path=' +encodeURIComponent(path);
+      var url = 'REST/files/save?path=' +encodeURIComponent(path);
       var dta = '';
       var prc = true;
       if($(grp).data('filedata') !== null) {
@@ -1638,7 +1802,8 @@ var setEvents = function(){
     if(nodename != nodenameraw) {
       if(confirm('Are you sure?')) {
         var nodenameNew = JSON.stringify({"value": nodenameraw});
-        $.postJSON(proto+'//' + host + '/nodes/' + encodeURIComponent(node) + '/REST/rename', nodenameNew, function (data) {
+        // Relative path : $.postJSON(proto+'//' + host + '/nodes/' + encodeURIComponent(node) + '/REST/rename', nodenameNew, function (data) {
+        $.postJSON('REST/rename', nodenameNew, function (data) {
           alert("Rename successful, redirecting", "success", 0);
           clearTimers();
           checkRedirect(proto+'//' + host + '/nodes/' + encodeURIComponent(getVerySimpleName(nodenameraw)));
@@ -1649,7 +1814,8 @@ var setEvents = function(){
     }
   });
   $('body').on('click', '.restartnodesubmit', function (e) {
-    $.get(proto+'//' + host + '/nodes/' + encodeURIComponent(node) + '/REST/restart', function (data) {
+    // Relative path : $.get(proto+'//' + host + '/nodes/' + encodeURIComponent(node) + '/REST/restart', function (data) {
+    $.get('REST/restart', function (data) {
       alert("Restarting, please wait", "success", 7000);
     }).fail(function(e){
       alert("Error restarting", "danger", 7000, e.responseText);
@@ -1657,7 +1823,8 @@ var setEvents = function(){
   });
   $('body').on('click', '.deletenodesubmit', function (e) {
     if(confirm('Are you sure?')) {
-      $.getJSON(proto+'//' + host + '/nodes/' + encodeURIComponent(node) + '/REST/remove?confirm=true', function (data) {
+      // Relative path : $.getJSON(proto+'//' + host + '/nodes/' + encodeURIComponent(node) + '/REST/remove?confirm=true', function (data) {
+      $.getJSON('REST/remove?confirm=true', function (data) {
         alert("Delete successful, redirecting", "success", 0);
         clearTimers();
         setTimeout(function() { window.location.href = proto+'//' + host; }, 3000);
@@ -1925,7 +2092,8 @@ var getAction = function(ele){
 
 var callAction = function(action, arg) {
   $.each($.isArray(action) ? action : [action], function(i, act){
-    $.postJSON(proto+'//' + host + '/nodes/' + encodeURIComponent(node) + '/REST/actions/' + encodeURIComponent(act) + '/call', arg, function () {
+    // Relative path : $.postJSON(proto+'//' + host + '/nodes/' + encodeURIComponent(node) + '/REST/actions/' + encodeURIComponent(act) + '/call', arg, function () {
+    $.postJSON('REST/actions/' + encodeURIComponent(act) + '/call', arg, function () {
       console.log(act + " - Success");
     }).fail(function (e, s) {
       errtxt = s;
@@ -1941,7 +2109,8 @@ var fillPicker = function() {
   $.each(pickers, function(i,picker) {
     $(picker).empty();
     $(picker).append('<option value="" selected disabled hidden></option>');
-    $.getJSON(proto+'//' + host + '/nodes/' + encodeURIComponent(node) + '/REST/files', function (data) {
+    // Relative path : $.getJSON(proto+'//' + host + '/nodes/' + encodeURIComponent(node) + '/REST/files', function (data) {
+    $.getJSON('REST/files', function (data) {
       data.sort(function(a, b){
         if (a['path'] == b['path']) return 0;
         if (a['path'] > b['path']) return 1;
@@ -1965,7 +2134,8 @@ var fillUIPicker = function() {
   $.each(pickers, function(i,picker) {
     var pickerlist = $(picker).find('.dropdown-menu');
     $(pickerlist).empty();
-    $.getJSON(proto+'//' + host + '/nodes/' + encodeURIComponent(node) + '/REST/files', function (data) {
+    // Relative path : $.getJSON(proto+'//' + host + '/nodes/' + encodeURIComponent(node) + '/REST/files', function (data) {
+    $.getJSON('REST/files', function (data) {
       data.sort(function(a, b){
         if (a['path'] == b['path']) return 0;
         if (a['path'] > b['path']) return 1;
@@ -1994,8 +2164,12 @@ var updateConsoleForm = function(){
     if(!_.isUndefined($('body').data('nodel-console-timer'))) clearTimeout($('body').data('nodel-console-timer'));
     if(!_.isUndefined($('body').data('nodel-console-req'))) $('body').data('nodel-console-req').abort();
     var url;
-    if(typeof $('body').data('nodel-console-seq') === "undefined") url = proto+'//'+host+'/nodes/'+encodeURIComponent(node)+'/REST/console?from=-1&max=200';
-    else url = proto+'//'+host+'/nodes/'+encodeURIComponent(node)+'/REST/console?from='+$('body').data('nodel-console-seq')+'&max=9999';
+
+    //  Relative path :
+    // if(typeof $('body').data('nodel-console-seq') === "undefined") url = proto+'//'+host+'/nodes/'+encodeURIComponent(node)+'/REST/console?from=-1&max=200';
+    // else url = proto+'//'+host+'/nodes/'+encodeURIComponent(node)+'/REST/console?from='+$('body').data('nodel-console-seq')+'&max=9999';
+    if(typeof $('body').data('nodel-console-seq') === "undefined") url = 'REST/console?from=-1&max=200';
+    else url = 'REST/console?from='+$('body').data('nodel-console-seq')+'&max=9999';
     var req = $.getJSON(url, function(data) {
       if(!_.isEmpty(data)){
         data.reverse();
@@ -2283,8 +2457,11 @@ var populateAuxComponents = function () {
 var updateLogs = function(){
   if(!("WebSocket" in window) || ($('body').data('trypoll'))){
     var url;
-    if (typeof $('body').data('seq') === "undefined") url = proto+'//' + host + '/nodes/' + encodeURIComponent(node) + '/REST/activity?from=-1';
-    else url = proto+'//' + host + '/nodes/' + encodeURIComponent(node) + '/REST/activity?from=' + $('body').data('seq');
+    // Relative path :
+    // if (typeof $('body').data('seq') === "undefined") url = proto+'//' + host + '/nodes/' + encodeURIComponent(node) + '/REST/activity?from=-1';
+    // else url = proto+'//' + host + '/nodes/' + encodeURIComponent(node) + '/REST/activity?from=' + $('body').data('seq');
+    if (typeof $('body').data('seq') === "undefined") url = 'REST/activity?from=-1';
+    else url = 'REST/activity?from=' + $('body').data('seq');
     $.getJSON(url, function (data) {
       online();
       if (typeof $('body').data('seq') === "undefined") {
@@ -2318,10 +2495,15 @@ var updateLogs = function(){
       $('body').data('update', setTimeout(function() { updateLogs(); }, 1000));
     });
   } else {
-    $.getJSON(proto+'//'+host+'/nodes/' + encodeURIComponent(node) + '/REST/', function(data){
+    // Relative path : $.getJSON(proto+'//'+host+'/nodes/' + encodeURIComponent(node) + '/REST/', function(data){
+    $.getJSON('REST/', function(data){
       var wsproto = 'ws:';
       if (proto == 'https:') wsproto = 'wss:';
-      var wshost = wsproto+"//"+document.location.hostname+":"+data['webSocketPort']+"/nodes/"+node;
+
+      // Websocket server is unified with http server.
+      // So we don't need to use data['webSocketPort'].
+      var wsPort = window.document.location.port;
+      var wshost = wsproto+"//"+document.location.hostname+":"+wsPort+"/nodes/"+node;
       try{
         var socket = new WebSocket(wshost);
         socket.onopen = function(){
@@ -2467,7 +2649,7 @@ var process_event = function(log){
     }
     switch ($.type(log.arg)) {
       case "number":
-        if ($(ele).not('.meter, .signal').is("div")) {
+        if ($(ele).not('.meter, .signal, .button-group').is("div")) {
           $(ele).children().filter(function () {
             return $(this).attr("data-arg") > log.arg;
           }).removeClass('btn-success').addClass('btn-default');
@@ -2487,6 +2669,11 @@ var process_event = function(log){
           $(ele).filter(function() {
             return $.inArray(log.arg, $.isArray($(this).data('arg')) ? $(this).data('arg') : [$(this).data('arg')]) >= 0;
           }).addClass($(ele).data('class-on'));
+        } else if ($(ele).hasClass('button-group')) {
+          $(ele).find('.btn-of-groups').removeClass('btn-success').addClass('btn-default');
+          $(ele).find('.btn-of-groups').filter(function() {
+            return $.inArray(log.arg, $.isArray($(this).data('arg')) ? $(this).data('arg') : [$(this).data('arg')]) >= 0;
+          }).removeClass('btn-default').addClass('btn-success');
         } else {
           if ($(ele).is("output, span, h4, p")) $(ele).text(log.arg);
           // lists
@@ -2548,6 +2735,11 @@ var process_event = function(log){
           $(ele).filter(function() {
             return $.inArray(log.arg, $.isArray($(this).data('arg')) ? $(this).data('arg') : [$(this).data('arg')]) >= 0;
           }).addClass($(ele).data('class-on'));
+        } else if ($(ele).hasClass('button-group')) {
+          $(ele).find('.btn-of-groups').removeClass('btn-success').addClass('btn-default');
+          $(ele).find('.btn-of-groups').filter(function() {
+            return $.inArray(log.arg, $.isArray($(this).data('arg')) ? $(this).data('arg') : [$(this).data('arg')]) >= 0;
+          }).removeClass('btn-default').addClass('btn-success');
         } else if ($(ele).hasClass('spectrum-color-picker')) {
           $(ele).spectrum('setWithChannels', log.arg); // can not use val(colorString) with spectrum color picker.
         } else if ($(ele).hasClass('qrcode')) {
@@ -2769,4 +2961,27 @@ var parseLog = function(log){
   requestAnimationFrame(function() {
     process_log(log);
   });
+};
+
+var getNodeName = function() {
+  var d = $.Deferred();
+  var pathParts = window.location.pathname.split( '/' );
+  var nodesIndex = pathParts.indexOf('nodes');
+  var nodeName = (nodesIndex >= 0 ? pathParts[nodesIndex + 1] : null);
+  if (nodeName && nodeName.length > 0) {
+    node = decodeURIComponent(nodeName.replace(/\+/g, '%20'));
+    setTimeout(function() {
+      d.resolve();
+      }, 50
+    );
+  }else {
+    $.getJSON('REST', function(data) { // Relative path
+      if (data['name']) {
+        node = getVerySimpleName(data['name']);
+      }
+    }).always(function() {
+      d.resolve();
+    });
+  }
+  return d.promise();
 };

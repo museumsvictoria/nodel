@@ -17,13 +17,15 @@ import java.util.List;
 
 import org.joda.time.DateTime;
 import org.nodel.Strings;
-import org.nodel.host.NanoHTTPD;
 import org.nodel.io.Files;
 import org.nodel.io.Stream;
 import org.nodel.io.UnexpectedIOException;
 import org.nodel.reflection.Param;
 import org.nodel.reflection.Service;
 import org.nodel.reflection.Value;
+
+import org.nanohttpd.protocols.http.response.Response;
+import org.nanohttpd.protocols.http.response.Status;
 
 /**
  * A end-point to allow the management of files.
@@ -62,14 +64,15 @@ public class FilesEndPoint {
      * Returns the contents of a file
      */
     @Service(name = "contents", desc = "Returns the contents of the file.")
-    public NanoHTTPD.Response contents(@Param(name = "path") String path) {
+    public Response contents(@Param(name = "path") String path) {
         try {
             if (Strings.isBlank(path))
                 throw new RuntimeException("No file path provided");
             
-            FileInputStream fis = new FileInputStream(new File(_root, path));
+            File f = new File(_root, path);
+            FileInputStream fis = new FileInputStream(f);
             
-            return new NanoHTTPD.Response(NanoHTTPD.HTTP_OK, null, fis);
+            return new Response(Status.OK, null, fis, f.length());
             
         } catch (IOException exc) {
             throw new UnexpectedIOException(exc);
