@@ -22,7 +22,6 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReentrantLock;
-import java.lang.reflect.Method;
 
 import org.joda.time.DateTime;
 import org.nodel.DateTimes;
@@ -72,7 +71,6 @@ import org.python.core.PyBaseCode;
 import org.python.core.PyDictionary;
 import org.python.core.PyException;
 import org.python.core.PyFunction;
-import org.python.core.PyInteger;
 import org.python.core.PyObject;
 import org.python.core.PyString;
 import org.python.core.PySystemState;
@@ -551,6 +549,16 @@ public class PyNode extends BaseDynamicNode {
         
         _logger.info("Initialising new Python interpreter...");
         
+        PySystemState pySystemState = new PySystemState();
+
+        // set the current working directory
+        pySystemState.setCurrentWorkingDir(_root.getAbsolutePath());
+        
+        // append the Node's root directory to the path
+        pySystemState.path.append(new PyString(_root.getAbsolutePath()));
+        pySystemState.path.append(new PyString(_metaRoot.getAbsolutePath()));
+        Py.setSystemState(pySystemState);
+        
         _globals = new PyDictionary();
         
         ReentrantLock lock = null;
@@ -843,6 +851,10 @@ public class PyNode extends BaseDynamicNode {
         // toolkit and callback queue are cleaned up by 'cleanupInterpreter'
 
         _pySystemState = Py.getSystemState();
+        _pySystemState.setCurrentWorkingDir(_root.getAbsolutePath());
+        ensureSysPath(_pySystemState, _root.getAbsolutePath());
+        ensureSysPath(_pySystemState, _metaRoot.getAbsolutePath());
+
         _callbackQueue = new CallbackQueue();
         _toolkit = new ManagedToolkit(this)
             .setExceptionHandler(_exceptionHandler)
@@ -886,13 +898,13 @@ public class PyNode extends BaseDynamicNode {
         
         // inject into 'sys'
         _pySystemState.__setattr__("nodetoolkit", Py.java2py(_toolkit));
+    }
 
-        // set the current working directory
-        _pySystemState.setCurrentWorkingDir(_root.getAbsolutePath());
-        
-        // append the Node's root directory to the path
-        _pySystemState.path.append(new PyString(_root.getAbsolutePath()));
-        _pySystemState.path.append(new PyString(_metaRoot.getAbsolutePath()));
+    private void ensureSysPath(PySystemState systemState, String path) {
+        PyString pathString = new PyString(path);
+        if (!systemState.path.contains(pathString)) {
+            systemState.path.append(pathString);
+        }
     }
 
     /**
@@ -970,7 +982,19 @@ public class PyNode extends BaseDynamicNode {
 
         // deals with the parameters
         bindParams(bindings.params);
-    } // (method)    
+    } // (method)
+
+    private PyBaseCode resolveFunctionCode(PyFunction pyFunction) {
+        PyObject codeObject = pyFunction.__findattr__("__code__");
+        if (codeObject == null) {
+            codeObject = pyFunction.__findattr__("func_code");
+        }
+
+        if (codeObject instanceof PyBaseCode)
+            return (PyBaseCode) codeObject;
+
+        throw new IllegalStateException("Unable to resolve Python function code object.");
+    }
 
     /**
      * (assumes locked)
@@ -1068,9 +1092,7 @@ public class PyNode extends BaseDynamicNode {
             }
 
             PyFunction pyFunction = (PyFunction) pyObject;
-            PyBaseCode code = null;
-            Class<?> objectClass = pyFunction.getClass();
-            code = (PyBaseCode) objectClass.getField("__code__").get(pyFunction);
+            PyBaseCode code = resolveFunctionCode(pyFunction);
 
             // only support either 0 or 1 args
             PyObject pyResult;
@@ -1338,9 +1360,7 @@ public class PyNode extends BaseDynamicNode {
             }
 
             PyFunction pyFunction = (PyFunction) pyObject;
-            PyBaseCode code = null;
-            Class<?> objectClass = pyFunction.getClass();
-            code = (PyBaseCode) objectClass.getField("__code__").get(pyFunction);
+            PyBaseCode code = resolveFunctionCode(pyFunction);
 
             // only support either 0 or 1 args
             if (code.co_argcount == 0)
