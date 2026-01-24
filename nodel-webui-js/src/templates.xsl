@@ -10,7 +10,20 @@
           <xsl:text> </xsl:text>
           <xsl:value-of select="@class"/>
         </xsl:if>
+        <xsl:if test="@showevent">
+          <xsl:text> sect</xsl:text>
+        </xsl:if>
       </xsl:attribute>
+      <xsl:if test="@showevent">
+        <xsl:attribute name="data-showevent">
+          <xsl:value-of select="@showevent"/>
+        </xsl:attribute>
+        <xsl:if test="@showvalue">
+          <xsl:attribute name="data-showarg">
+            <xsl:value-of select="@showvalue"/>
+          </xsl:attribute>
+        </xsl:if>
+      </xsl:if>
       <xsl:apply-templates select="column"/>
     </div>
   </xsl:template>
@@ -482,6 +495,25 @@
     <table class="btn-grid">
       <xsl:for-each select="row">
         <tr>
+          <xsl:attribute name="class">
+            <xsl:if test="@class">
+              <xsl:text> </xsl:text>
+              <xsl:value-of select="@class"/>
+            </xsl:if>
+            <xsl:if test="@showevent">
+              <xsl:text> sect</xsl:text>
+            </xsl:if>
+          </xsl:attribute>
+          <xsl:if test="@showevent">
+            <xsl:attribute name="data-showevent">
+              <xsl:value-of select="@showevent"/>
+            </xsl:attribute>
+            <xsl:if test="@showvalue">
+              <xsl:attribute name="data-showarg">
+                <xsl:value-of select="@showvalue"/>
+              </xsl:attribute>
+            </xsl:if>
+          </xsl:if>
           <xsl:for-each select="cell">
             <td>
               <xsl:apply-templates />
@@ -913,7 +945,66 @@
       </ul>
     </div>
   </xsl:template>
-  <!-- select -->
+  <!-- dynamicselect -->
+  <!-- dynamicbuttongroup -->
+  <xsl:template match="dynamicbuttongroup">
+    <div role="group" data-render="{@data}" data-render-template="#dynamicButtonGroup">
+      <xsl:if test="@event or @action or @join">
+        <xsl:choose>
+          <xsl:when test="@join">
+            <xsl:attribute name="data-event">
+              <xsl:value-of select="@join"/>
+            </xsl:attribute>
+            <xsl:attribute name="data-arg-action">
+              <xsl:value-of select="@join"/>
+            </xsl:attribute>
+          </xsl:when>
+          <xsl:otherwise>
+            <xsl:if test="@event">
+              <xsl:attribute name="data-event">
+                <xsl:value-of select="@event"/>
+              </xsl:attribute>
+            </xsl:if>
+            <xsl:if test="@action">
+              <xsl:attribute name="data-arg-action">
+                <xsl:value-of select="@action"/>
+              </xsl:attribute>
+            </xsl:if>
+          </xsl:otherwise>
+        </xsl:choose>
+      </xsl:if>
+      <xsl:if test="(@confirm or @confirmtext)">
+        <xsl:attribute name="data-confirm">
+          <xsl:choose>
+            <xsl:when test="@confirm"><xsl:value-of select="@confirm"/></xsl:when>
+            <xsl:otherwise>true</xsl:otherwise>
+          </xsl:choose>
+        </xsl:attribute>
+      </xsl:if>
+      <xsl:if test="@confirmtitle">
+        <xsl:attribute name="data-confirmtitle">
+          <xsl:value-of select="@confirmtitle"/>
+        </xsl:attribute>
+      </xsl:if>
+      <xsl:if test="@confirmtext">
+        <xsl:attribute name="data-confirmtext">
+          <xsl:value-of select="@confirmtext"/>
+        </xsl:attribute>
+      </xsl:if>
+      <xsl:attribute name="class">
+        <xsl:text>btn-group-vertical dynamic btn-block button-group</xsl:text>
+        <xsl:if test="@showevent">
+          <xsl:text> sect</xsl:text>
+        </xsl:if>
+      </xsl:attribute>
+      <xsl:if test="@showevent">
+        <xsl:attribute name="data-showevent">
+          <xsl:value-of select="@showevent"/>
+        </xsl:attribute>
+      </xsl:if>
+    </div>
+  </xsl:template>
+  <!-- dynamicbuttongroup -->
   <!-- status -->
   <xsl:template match="status">
     <div data-status="{@event}">
@@ -944,7 +1035,7 @@
         </xsl:attribute>
       </xsl:if>
       <div class="panel-body">
-        <xsl:apply-templates select="image"/><xsl:apply-templates select="link"/><xsl:apply-templates select="button|swich|partialswitch"/><xsl:apply-templates select="badge|partialbadge|signal"/><strong><xsl:value-of select="text()"/></strong>
+        <xsl:apply-templates select="image"/><xsl:apply-templates select="icon"/><xsl:apply-templates select="link"/><xsl:apply-templates select="button|switch|partialswitch"/><xsl:apply-templates select="badge|partialbadge|signal"/><strong><xsl:value-of select="text()"/></strong>
         <xsl:if test="@event">
           <br/><span class="status">Unknown</span>
         </xsl:if>
@@ -1165,7 +1256,12 @@
             </xsl:choose>px;}</style>
         </xsl:if>
         <form>
-          <input data-arg-source="this" data-arg-type="number" type="range" min="{@min}" max="{@max}" step="1">
+          <xsl:if test="@nudge">
+            <xsl:if test="@action or @join">
+              <a role="button" class="btn btn-default nudge nudge-down"><span class="fa fa-minus"></span></a>
+            </xsl:if>
+          </xsl:if>
+          <input data-arg-source="this" data-arg-type="number" type="range" min="{@min}" max="{@max}">
             <xsl:if test="@event or @action or @join">
               <xsl:choose>
                 <xsl:when test="@join">
@@ -1190,8 +1286,34 @@
                 </xsl:otherwise>
               </xsl:choose>
             </xsl:if>
+            <!-- step -->
+            <xsl:attribute name="step">
+              <xsl:choose>
+                <xsl:when test="@step">
+                  <xsl:value-of select="@step"/>
+                </xsl:when>
+                <xsl:otherwise>1</xsl:otherwise>
+              </xsl:choose>
+            </xsl:attribute>
+            <!-- Note: nudge should be equal or greater than step and multiple of step -->
+            <xsl:if test="@nudge">
+              <xsl:attribute name="data-nudge">
+                <xsl:value-of select="@nudge"/>
+              </xsl:attribute>
+            </xsl:if>
           </input>
-          <output class="toint">
+          <xsl:if test="@nudge">
+            <xsl:if test="@action or @join">
+              <a role="button" class="btn btn-default nudge nudge-up"><span class="fa fa-plus"></span></a>
+            </xsl:if>
+          </xsl:if>
+          <output>
+            <xsl:attribute name="class">
+              <xsl:text>toint</xsl:text>
+              <xsl:if test="@nudge">
+                <xsl:text> nudge</xsl:text>
+              </xsl:if>
+            </xsl:attribute>
             <xsl:if test="@event or @join">
               <xsl:choose>
                 <xsl:when test="@join">
@@ -1424,47 +1546,54 @@
         <div class="base">
           <div class="addgrp">
             <div class="dropdown">
+              <xsl:variable name="addgrp" select="generate-id(.)"/>
               <button class="btn btn-default dropdown-toggle" type="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
                 <xsl:attribute name="id">
                   <xsl:text>addgrp_</xsl:text>
-                  <xsl:value-of select="generate-id(.)"/>
+                  <xsl:value-of select="$addgrp"/>
                 </xsl:attribute>
                 <xsl:text>Add node here</xsl:text>
               </button>
-              <ul class="dropdown-menu">
+              <ul class="dropdown-menu add-node-unified">
                 <xsl:attribute name="aria-labelledby">
                   <xsl:text>addgrp_</xsl:text>
-                  <xsl:value-of select="generate-id(.)"/>
+                  <xsl:value-of select="$addgrp"/>
                 </xsl:attribute>
                 <li>
                   <form>
                     <fieldset>
+                      <xsl:variable name="nodenamval" select="generate-id(.)"/>
                       <label>
                         <xsl:attribute name="for">
                           <xsl:text>nodenamval_</xsl:text>
-                          <xsl:value-of select="generate-id(.)"/>
+                          <xsl:value-of select="$nodenamval"/>
                         </xsl:attribute>
                         <xsl:text>Node name</xsl:text>
                       </label>
                       <input class="form-control nodenamval" type="text">
                         <xsl:attribute name="id">
                           <xsl:text>nodenamval_</xsl:text>
-                          <xsl:value-of select="generate-id(.)"/>
+                          <xsl:value-of select="$nodenamval"/>
                         </xsl:attribute>
                       </input>
+                      <!-- Unified template search -->
+                      <xsl:variable name="templateval" select="generate-id(.)"/>
                       <label>
                         <xsl:attribute name="for">
-                          <xsl:text>recipeval_</xsl:text>
-                          <xsl:value-of select="generate-id(.)"/>
+                          <xsl:text>templateval_</xsl:text>
+                          <xsl:value-of select="$templateval"/>
                         </xsl:attribute>
-                        <xsl:text>Recipe</xsl:text>
+                        <xsl:text>Template </xsl:text>
+                        <small class="text-muted">(optional)</small>
                       </label>
-                      <select class="form-control recipepicker goto" type="text">
-                        <xsl:attribute name="id">
-                          <xsl:text>recipeval_</xsl:text>
-                          <xsl:value-of select="generate-id(.)"/>
-                        </xsl:attribute>
-                      </select>
+                      <div style="position:relative">
+                        <input class="form-control unified-template-search" type="text" placeholder="Search recipes or nodes..." autocomplete="off">
+                          <xsl:attribute name="id">
+                            <xsl:text>templateval_</xsl:text>
+                            <xsl:value-of select="$templateval"/>
+                          </xsl:attribute>
+                        </input>
+                      </div>
                     </fieldset>
                     <div class="btn-toolbar">
                       <button type="submit" class="btn btn-success nodeaddsubmit">Add</button>
@@ -1481,17 +1610,18 @@
       <div data-nodel="{@type}" class="nodel-{@type}">
         <div class="base">
           <div class="panel panel-default">
+            <xsl:variable name="editgrp" select="generate-id(.)"/>
             <div class="panel-heading accordion-toggle collapsed" data-toggle="collapse" aria-expanded="false">
               <xsl:attribute name="data-target">
                 <xsl:text>#editgrp_</xsl:text>
-                <xsl:value-of select="generate-id(.)"/>
+                <xsl:value-of select="$editgrp"/>
               </xsl:attribute>
               <div class="panel-title"><h5 class="panel-title">Editor</h5></div>
             </div>
             <div class="panel-collapse collapse" aria-expanded="false">
               <xsl:attribute name="id">
                 <xsl:text>editgrp_</xsl:text>
-                <xsl:value-of select="generate-id(.)"/>
+                <xsl:value-of select="$editgrp"/>
               </xsl:attribute>
               <div class="panel-body">           
                 <div class="row">
@@ -1515,17 +1645,18 @@
                               <li>
                                 <form>
                                   <fieldset>
+                                    <xsl:variable name="scriptnameval" select="generate-id(.)"/>
                                     <label>
                                       <xsl:attribute name="for">
                                         <xsl:text>scriptnameval_</xsl:text>
-                                        <xsl:value-of select="generate-id(.)"/>
+                                        <xsl:value-of select="$scriptnameval"/>
                                       </xsl:attribute>
                                       <xsl:text>File name</xsl:text>
                                     </label>
                                     <input class="form-control scriptnamval" type="text">
                                       <xsl:attribute name="id">
                                         <xsl:text>scriptnameval_</xsl:text>
-                                        <xsl:value-of select="generate-id(.)"/>
+                                        <xsl:value-of select="$scriptnameval"/>
                                       </xsl:attribute>
                                     </input>
                                   </fieldset>

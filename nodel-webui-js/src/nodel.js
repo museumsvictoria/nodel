@@ -33,23 +33,34 @@ $.views.helpers({
   idxid: function (idx,id) {
     return !_.isUndefined(idx)? String(idx)+'_'+id : id;
   },
-  sanitize: function(value, maxLength) {
+  sanitize: function(value, maxLength, nostrip) {
     var value = JSON.stringify(value, null, 2);
     if (maxLength && value.length > maxLength) {
-      return value.substring(0, maxLength ) + "...";
+      value = value.substring(0, maxLength ) + "...";
     }
-    value = value.replace("&","&amp;");
-    value = value.replace("<","&lt;");
-    value = value.replace(">","&gt;");
-    return value;
+    if(nostrip){
+      return value;
+    } else {
+      return value.replaceAll(/[<>&]/g, function (c) {
+          switch (c) {
+              case '<': return '&lt;';
+              case '>': return '&gt;';
+              case '&': return '&amp;';
+          }
+      });
+    }
   },
   nicetime: function (value, precise, format) {
     if (precise) return moment(value).format('MM-DD HH:mm:ss.SS');
     if (format) return moment(value).format(format);
     else return moment(value).format('Do MMM, h:mm a');
   },
-  fromtime: function(value){
-    return moment(value).from(moment(), true);
+  fromtime: function(value) {
+    now = moment();
+    if (typeof(value) == 'string') // treat value as an absolute timestamp
+      return moment(value).from(now, true);
+    else // treat value as a duration in millis
+      return moment(now).subtract(value, 'ms').from(now, true);
   },
   srcflt: function(item, i, items) {
     if(this.view.data.flt) {
@@ -61,7 +72,7 @@ $.views.helpers({
     return encodr(value);
   },
   initHid: function (id) {
-    if(!(id in this.data)) Object.defineProperty(this.data, id, {enumerable:false, writable:true});
+    if((typeof data !== 'undefined') && !(id in this.data)) Object.defineProperty(this.data, id, {enumerable:false, writable:true});
     return true;
   },
   highlight: function(value, sub) {
@@ -259,6 +270,11 @@ var updatemeter = function(el, val) {
   var pxheight = $(el).data('pxheight');
   if(!pxheight) {
     var pxheight = $(el).find('.bar').height() / 100;
+    if (pxheight === 0) {
+      // The parent or this may be invisible.
+      // https://stackoverflow.com/questions/9292529/jquery-height-returns-0-on-a-visible-div-why
+      return;
+    }
     $(el).data('pxheight', pxheight);
   }
   var width = $(el).data('width');
@@ -368,6 +384,184 @@ var checkRedirect = function(url) {
   });
 };
 
+// Helper function to escape HTML for safe insertion
+var escapeHtml = function(text) {
+  return $('<div/>').text(text).html();
+};
+
+// Node duplication functions
+var buildFileError = function(type, filePath, jqXHR, errorThrown) {
+  return {
+    type: type,
+    path: filePath,
+    status: jqXHR.status,
+    statusText: jqXHR.statusText,
+    errorThrown: errorThrown,
+    response: jqXHR.responseText && jqXHR.responseText.substring(0, 500)
+  };
+};
+
+var waitForNode = function(nodeUrl, maxAttempts, interval, onProgress) {
+  maxAttempts = maxAttempts || 30;
+  interval = interval || 1000;
+  var d = $.Deferred();
+  var attempts = 0;
+
+  var poll = function() {
+    attempts++;
+    if (onProgress) onProgress(attempts);
+    $.ajax({
+      url: nodeUrl + 'REST/',
+      timeout: 3000
+    }).done(function() {
+      d.resolve();
+    }).fail(function(xhr, status, error) {
+      if (attempts >= maxAttempts) {
+        var errorDetail = xhr.status ? 'HTTP ' + xhr.status + ' ' + (error || xhr.statusText) : status;
+        console.error('Node failed to become available:', nodeUrl, 'after', maxAttempts, 'attempts. Last error:', errorDetail);
+        d.reject({message: 'Node did not become available after ' + maxAttempts + ' seconds. Last error: ' + errorDetail});
+      } else {
+        setTimeout(poll, interval);
+      }
+    });
+  };
+
+  poll();
+  return d.promise();
+};
+
+var copyFile = function(sourceUrl, destUrl, filePath) {
+  var d = $.Deferred();
+
+  // Fetch file from source as binary (works for all file types)
+  $.ajax({
+    url: sourceUrl + 'REST/files/contents?path=' + encodeURIComponent(filePath),
+    method: 'GET',
+    processData: false,
+    xhrFields: {responseType: 'blob'}
+  }).done(function(data) {
+    var payload = data instanceof Blob ? data : new Blob([data]);
+
+    // Save to destination
+    $.ajax({
+      url: destUrl + 'REST/files/save?path=' + encodeURIComponent(filePath),
+      method: 'POST',
+      data: payload,
+      processData: false,
+      contentType: 'application/octet-stream'
+    }).done(function() {
+      d.resolve();
+    }).fail(function(jqXHR, textStatus, errorThrown) {
+      d.reject(buildFileError('save', filePath, jqXHR, errorThrown));
+    });
+  }).fail(function(jqXHR, textStatus, errorThrown) {
+    d.reject(buildFileError('fetch', filePath, jqXHR, errorThrown));
+  });
+
+  return d.promise();
+};
+
+var copyFilesSequentially = function(sourceUrl, destUrl, files) {
+  var d = $.Deferred();
+  var results = {success: [], failed: []};
+  var currentIndex = 0;
+
+  var copyNext = function() {
+    if (currentIndex >= files.length) {
+      d.resolve(results);
+      return;
+    }
+
+    var file = files[currentIndex];
+    copyFile(sourceUrl, destUrl, file.path)
+      .then(function() {
+        results.success.push(file.path);
+        currentIndex++;
+        copyNext();
+      })
+      .fail(function(error) {
+        console.error('File copy failed:', file.path, error);
+        results.failed.push({
+          path: file.path,
+          type: error.type,
+          status: error.status,
+          message: error.errorThrown || error.statusText || 'unknown error'
+        });
+        if (file.path === 'script.py') {
+          d.reject({message: 'Failed to copy script.py'});
+          return;
+        }
+        currentIndex++;
+        copyNext();
+      });
+  };
+
+  copyNext();
+  return d.promise();
+};
+
+var duplicateNode = function(sourceNodeUrl, newNodeName, progressCallback) {
+  var d = $.Deferred();
+
+  // Step 1: Verify source is reachable by getting file list
+  // This prevents creating an empty node when source is offline
+  $.getJSON(sourceNodeUrl + 'REST/files', function(files) {
+
+    // Step 2: Create empty node on local host
+    $.postJSON(proto + '//' + host + '/REST/newNode', JSON.stringify({value: newNodeName}), function() {
+      var newNodeUrl = proto + '//' + host + '/nodes/' + encodeURIComponent(getVerySimpleName(newNodeName)) + '/';
+
+      // Step 3: Wait for node to be ready
+      waitForNode(newNodeUrl, 30, 1000, function(attempt) {
+        progressCallback({current: 0, total: 0, fileName: '', status: 'Initializing node... (' + attempt + ')'});
+      }).then(function() {
+        if (!files || files.length === 0) {
+          d.resolve(newNodeUrl);
+          return;
+        }
+
+        // Step 4: Copy files sequentially
+        copyFilesSequentially(sourceNodeUrl, newNodeUrl, files)
+          .then(function(results) {
+            if (results.failed.length > 0) {
+              var failedDetails = results.failed.map(function(f) {
+                return escapeHtml(f.path) + ' (' + escapeHtml(f.message) + ')';
+              }).join(', ');
+              alert('Node created with ' + results.failed.length + ' file(s) failed to copy: ' + failedDetails, 'warning', 10000);
+            }
+            d.resolve(newNodeUrl);
+          })
+          .fail(function(error) {
+            d.reject({message: error.message || 'Failed to copy files'});
+          });
+      }).fail(function(error) {
+        d.reject(error);
+      });
+    }).fail(function(req) {
+      var error = 'Failed to create node';
+      if (req.responseText) {
+        try {
+          var message = JSON.parse(req.responseText);
+          error = error + ': ' + escapeHtml(message['message'] || message['error'] || JSON.stringify(message));
+        } catch(e) {
+          // Server returned non-JSON response
+          var rawText = req.responseText.substring(0, 200);
+          console.error('Server returned non-JSON error response:', rawText);
+          error = error + ': ' + escapeHtml(rawText);
+        }
+      }
+      console.error('Node creation failed:', error);
+      d.reject({message: error});
+    });
+
+  }).fail(function(jqXHR, textStatus, errorThrown) {
+    console.error('Failed to get file list from source node:', sourceNodeUrl, jqXHR.status, errorThrown);
+    d.reject({message: 'Source node is not reachable'});
+  });
+
+  return d.promise();
+};
+
 var node = host = nodename = nodedesc = ''; //= opts = '';
 var converter = new Markdown.Converter();
 var unicodematch = new XRegExp("[^\\p{L}\\p{N}]", "gi");
@@ -376,6 +570,17 @@ var colours = {'primary':'','success':'','danger':'','warning':'','info':'','def
 var throttle = {'logs': {}};
 var allowedtxt = ['py','xml','xsl','js','json','html','htm','css','java','groovy','sql','sh','cs','bat','ini','txt','md','cmd'];
 var allowedbinary = ['png','jpg','ico','svg','zip','7z','exe'];
+
+// Key code constants for keyboard navigation
+var KEY = {
+  TAB: 9,
+  ENTER: 13,
+  CTRL: 17,
+  ALT: 18,
+  ESCAPE: 27,
+  ARROW_UP: 38,
+  ARROW_DOWN: 40
+};
 var nodeList = {'lst':[], 'flt':'', 'end':20, 'hosts':{}};
 var nodeListreq = null;
 var localsList = {'lst':[], 'flt':'', 'end':20, 'hosts':{}};
@@ -393,61 +598,64 @@ $(function() {
   $('.nodel-icon a').attr("title", "Browse this host");
   if(navigator.issmart){
     $('head').append('<style>.fixed-table-body{overflow-y: hidden;} body{zoom: 140%}</style>');
-  };
+  }
   getColours();
+
   // get the node name
-  if(window.location.pathname.split( '/' )[1]=="nodes") node = decodeURIComponent(window.location.pathname.split( '/' )[2].replace(/\+/g, '%20'));
-  if(node) {
-    if($('body').hasClass('core')) {
-      $('.navbar-brand a').attr("href", window.document.location.protocol+"//"+host+'/nodes.xml').attr('title', 'Browse Nodel network');;
-      $('.nodel-icon a').attr("href", window.document.location.protocol+"//"+host+'/').attr('title', 'Browse this host');;
-    }
-    getNodeDetails().then(function(){
-      updatepadding();
+  getNodeName().then(function() {
+    if(node) {
+      if($('body').hasClass('core')) {
+        $('.navbar-brand a').attr("href", window.document.location.protocol+"//"+host+'/nodes.xml').attr('title', 'Browse Nodel network');
+        $('.nodel-icon a').attr("href", window.document.location.protocol+"//"+host+'/').attr('title', 'Browse this host');
+      }
+      getNodeDetails().then(function(){
+        updatepadding();
+        $.when(createDynamicElements().then(function(){
+          console.log("createDynamicElements took " + (performance.now() - t0)/ 1000.0 + " seconds.");
+          convertNames();
+          updateConsoleForm();
+          updateLogForm();
+          updateCharts();
+          checkHostList();
+          setEvents();
+          updateLogs();
+          // selecct page
+          if(window.location.hash) $("*[data-nav='"+window.location.hash.substring(1)+"']").trigger('click');
+          else $('*[data-nav]').first().trigger('click');
+          // init scrollable divs
+          $('.scrollbar-inner').scrollbar();
+          // hide sects by default
+          $(".sect").hide();
+          // init editor
+          initEditor();
+          // init toolkit
+          initToolkit();
+          fillUIPicker();
+          populateAuxComponents();
+          checkReload();
+        }));
+      });
+    } else {
       $.when(createDynamicElements().then(function(){
-        console.log("createDynamicElements took " + (performance.now() - t0)/ 1000.0 + " seconds.");
-        convertNames();
-        updateConsoleForm();
-        updateLogForm();
-        updateCharts();
+        updatepadding();
+        if($('div').hasClass("nodel-list"))
+          getNodeList().then(refreshNodeList);
+        if($('div').hasClass("nodel-locals"))
+          getLocalsList().then(refreshLocalsList);
         checkHostList();
         setEvents();
-        updateLogs();
-        // selecct page
-        if(window.location.hash) $("*[data-nav='"+window.location.hash.substring(1)+"']").trigger('click');
-        else $('*[data-nav]').first().trigger('click');
-        // init scrollable divs
-        $('.scrollbar-inner').scrollbar();
-        // hide sects by default
-        $(".sect").hide();
-        // init editor
-        initEditor();
-        // init toolkit
+        updateLogForm();
+        updateCharts();
         initToolkit();
-        fillUIPicker();
-        populateAuxComponents();
-        checkReload();
+        checkHostOnline();
+        $('*[data-nav]').first().trigger('click');
+        $('.nodelistfilter').trigger('focus');
+        var filt = getParameterByName('filter');
+        if(filt) $('.nodelistfilter').val(filt).trigger('keyup');
       }));
-    });
-  } else {
-    $.when(createDynamicElements().then(function(){
-      updatepadding();
-      if($('div').hasClass("nodel-list"))
-        getNodeList().then(refreshNodeList);
-      if($('div').hasClass("nodel-locals"))
-        getLocalsList().then(refreshLocalsList);
-      checkHostList();
-      setEvents();
-      updateLogForm();
-      updateCharts();
-      initToolkit();
-      checkHostOnline();
-      $('*[data-nav]').first().trigger('click');
-      $('.nodelistfilter').trigger('focus');
-      var filt = getParameterByName('filter');
-      if(filt) $('.nodelistfilter').val(filt).trigger('keyup');
-    }));
-  }
+    }
+  });
+
 });
 
 var isFileTransfer = function (e) {
@@ -469,7 +677,8 @@ var clearTimers = function(){
 
 var getNodeDetails = function(){
   var d = $.Deferred();
-  $.getJSON(proto+'//'+host+'/nodes/'+encodeURIComponent(node)+'/REST/', function(data) {
+  // Relative path : $.getJSON(proto+'//'+host+'/nodes/'+encodeURIComponent(node)+'/REST/', function(data) {
+  $.getJSON('REST/', function(data) {
     if(!$('.navbar-brand #title').text()) $('.navbar-brand #title').text(getSimpleName(data.name));
     if(data.desc) $('.nodel-description').html(converter.makeHtml(data.desc));
     $('title').text(getSimpleName(data.name));
@@ -578,10 +787,12 @@ var createDynamicElements = function(){
     var d = $.Deferred();
     if($(ele).data('nodel') == 'actsig'){
       var reqs = [];
-      reqs.push($.getJSON(proto+'//'+host+'/nodes/'+encodeURIComponent(node)+'/REST/actions', function(list) {
+      // Relative path : reqs.push($.getJSON(proto+'//'+host+'/nodes/'+encodeURIComponent(node)+'/REST/actions', function(list) {
+      reqs.push($.getJSON('REST/actions', function(list) {
         actions = list;
       }));
-      reqs.push($.getJSON(proto+'//'+host+'/nodes/'+encodeURIComponent(node)+'/REST/events', function(list) {
+      // Relative path : reqs.push($.getJSON(proto+'//'+host+'/nodes/'+encodeURIComponent(node)+'/REST/events', function(list) {
+      reqs.push($.getJSON('REST/events', function(list) {
         events = list;
       }));
       var forms = {"forms":[],"groups":{}};
@@ -650,7 +861,8 @@ var createDynamicElements = function(){
         }
       });
     } else if($(ele).data('nodel') == 'params'){
-      $.getJSON(proto+'//'+host+'/nodes/'+encodeURIComponent(node)+'/REST/params/schema', function(data) {
+      // Relative path : $.getJSON(proto+'//'+host+'/nodes/'+encodeURIComponent(node)+'/REST/params/schema', function(data) {
+      $.getJSON('REST/params/schema', function(data) {
         if(!_.isEmpty(data)){
           $(ele).data('btntext','Save');
           $(ele).data('btncolour','success');
@@ -667,7 +879,8 @@ var createDynamicElements = function(){
         }
       }).fail(function(){d.resolve();});
     } else if($(ele).data('nodel') == 'remote'){
-      $.getJSON(proto+'//'+host+'/nodes/'+encodeURIComponent(node)+'/REST/remote/schema', function(data) {
+      // Relative path : $.getJSON(proto+'//'+host+'/nodes/'+encodeURIComponent(node)+'/REST/remote/schema', function(data) {
+      $.getJSON('REST/remote/schema', function(data) {
         if(!_.isEmpty(data)){
           $(ele).data('target','remote/save');
           $(ele).data('source','remote');
@@ -929,13 +1142,15 @@ var makeTemplate = function(ele, schema, tmpls){
   $.views.settings.delimiters("{{", "}}");
   var tmpl = $.templates(generatedTemplate);
   if(!(_.isUndefined($(ele).data('source'))) && ($(ele).data('source').charAt(0) != '/')){
-    $.getJSON(proto+'//'+host+'/nodes/'+encodeURIComponent(node)+'/REST/'+$(ele).data('source'), function(data) {
+    // Relative path : $.getJSON(proto+'//'+host+'/nodes/'+encodeURIComponent(node)+'/REST/'+$(ele).data('source'), function(data) {
+    $.getJSON('REST/'+$(ele).data('source'), function(data) {
       tmpl.link(ele, data);
       $(ele).find('.base').addClass('bound');
       d.resolve();
     });
   } else if(!(_.isUndefined($(ele).data('source'))) && ($(ele).data('source').charAt(0) == '/')){
-    $.getJSON(proto+'//'+host+'/nodes/'+encodeURIComponent(node)+'/REST'+$(ele).data('source'), function(data) {
+    // Relative path : $.getJSON(proto+'//'+host+'/nodes/'+encodeURIComponent(node)+'/REST'+$(ele).data('source'), function(data) {
+    $.getJSON('REST'+$(ele).data('source'), function(data) {
       tmpl.link(ele, data);
       $(ele).find('.base').addClass('bound');
       d.resolve();
@@ -952,7 +1167,8 @@ var checkReload = function(){
   var params = {};
   if(!_.isUndefined($('body').data('timer'))) clearTimeout($('body').data('timer'));
   if(!_.isUndefined($('body').data('timestamp'))) params = {timestamp:$('body').data('timestamp')};
-  $.getJSON(proto+'//'+host+'/nodes/'+encodeURIComponent(node)+'/REST/hasRestarted', params, function(data) {
+  // Relative path : $.getJSON(proto+'//'+host+'/nodes/'+encodeURIComponent(node)+'/REST/hasRestarted', params, function(data) {
+  $.getJSON('REST/hasRestarted', params, function(data) {
     if(_.isUndefined($('body').data('timestamp'))){
       $('body').data('timestamp', data.timestamp);
     } else if ($('body').data('timestamp')!=data.timestamp) {
@@ -1024,7 +1240,107 @@ var setEvents = function(){
     }
     $(ele).data('throttle')(data.action, data.arg);
   });
-  
+
+  /**
+   * Long Press
+   *
+   * 1) mouse event flow
+   *  - mousedown -> mouseup -> click
+   *  - mousedown -> mouseleave
+   *
+   * 2) touch event flow
+   *  - touchstart -> touchend
+   *  - touchmove
+   *
+   * 3) Panel's webview
+   *  - click touchend
+   *  - "mousedown touchstart" : When quickly clicking, can be called 2x, which causes problem.
+   *  - click touchend
+   *
+   * 4) Desktop's chrome
+   *  - mousedown touchstart
+   *  - click touchend
+   *
+   */
+
+  function callNudgeAction(jqObj, weight) {
+    var direction = $(jqObj).hasClass('nudge-up') ? 'up' : 'down';
+    var inputRangeEl = $(jqObj).siblings('input[type=range]input[data-action]');
+    var curVal = parseFloat($(inputRangeEl).val());
+    var step = parseFloat($(inputRangeEl).attr('step'));
+    var nudgeVal = parseFloat($(inputRangeEl).data('nudge'));
+    // Note: nudge should be equal or greater than step and multiple of step
+    nudgeVal = !nudgeVal ? step : (nudgeVal < step ? step : nudgeVal);
+    var newVal = direction === 'down' ? (curVal - nudgeVal * weight) : (curVal + nudgeVal * weight);
+    $(inputRangeEl).val(newVal).trigger('input');
+  }
+
+  function makeNudgeInputActive(jqObj, active) {
+    var inputRangeEl = $(jqObj).siblings('input[type=range]input[data-action]');
+    if (!active) {
+      $(inputRangeEl).removeClass('active');
+    } else {
+      $(inputRangeEl).addClass('active');
+    }
+  }
+
+  $('body').on('mousedown touchstart', '.nudge', function(e) {
+    // check if already existing to prevent issues
+    var timerId_ = $(this).data('timerId');
+    var intervalId_ = $(this).data('intervalId');
+    if (timerId_ || intervalId_) {
+      return;
+    }
+
+    var that = this;
+    var timerId = setTimeout(function() {
+      // creat timer
+      clearTimeout(timerId);
+      $(that).data('timerId', null);
+      // create interval
+      var intervalId = setInterval(function() {
+        callNudgeAction(that, 1);
+      }, 200);
+      $(that).data('intervalId', intervalId);
+      // should make sibling <input> active
+      makeNudgeInputActive(that, true);
+    }, 300);
+    $(that).data('timerId', timerId);
+  });
+
+  $('body').on('mouseleave', '.nudge', function(e) {
+    var timerId = $(this).data('timerId');
+    var intervalId = $(this).data('intervalId');
+    if (timerId) {
+      clearTimeout(timerId);
+      $(this).data('timerId', null);
+    }
+    if (intervalId) {
+      clearInterval(intervalId);
+      $(this).data('intervalId', null);
+      // should make sibling <input> inactive
+      makeNudgeInputActive(this, false);
+    }
+  });
+
+  $('body').on('click touchend','.nudge', function (e) {
+    e.stopPropagation(); e.preventDefault();
+    var timerId = $(this).data('timerId');
+    var intervalId = $(this).data('intervalId');
+
+    if (timerId) { // Long press not activated
+      callNudgeAction(this, 1);
+      clearTimeout(timerId);
+      $(this).data('timerId', null);
+    }
+    if (intervalId) { // Long press activated
+      clearInterval(intervalId);
+      $(this).data('intervalId', null);
+      // should make sibling <input> inactive
+      makeNudgeInputActive(this, false);
+    }
+  });
+
   $('body').on('touchstart mousedown touchend touchcancel mouseup','input[type=range]input[data-action]', function (e) {
     if($.inArray(e.type, ['touchstart','mousedown']) > -1) $(this).addClass('active');
     else $(this).removeClass('active');
@@ -1036,6 +1352,32 @@ var setEvents = function(){
     else $(this).removeClass('active');
     callAction(data.action, data.arg);
   });
+  function handleSelectButtons(element) {
+    if ($(element).attr('disabled') || $(element).hasClass('btn-success')) {
+      return;
+    }
+    var data = getAction(element);
+    if(data.action) {
+      var jqParent = $(element).parent('.btn-group-vertical');
+      // disable all buttons
+      jqParent.find('.btn-of-groups').not($(element)).attr('disabled', 'disabled');
+      $.each($.isArray(data.action) ? data.action : [data.action], function(i, act){
+        $.postJSON('REST/actions/' + encodeURIComponent(act) + '/call', data.arg, function () {
+          console.log(act + " - Success");
+          // enable all buttons
+          jqParent.find('.btn-of-groups').attr('disabled', null);
+          jqParent.find('.btn-of-groups').removeClass('btn-success').addClass('btn-default');
+          $(element).removeClass('btn-default').addClass('btn-success');
+        }).fail(function (e, s) {
+          var errTxt = s;
+          if (e.responseText) errTxt = s + "\n" + e.responseText;
+          console.log("exec - Error:\n" + errTxt, "error");
+          // enable all buttons
+          jqParent.find('.btn-of-groups').attr('disabled', null);
+        });
+      });
+    }
+  }
   $('body').on('click', '*[data-arg], *[data-action]:not(.spectrum-color-picker)', function (e) {
     e.stopPropagation(); e.preventDefault();
     if(!$('body').hasClass('touched')) {
@@ -1055,7 +1397,14 @@ var setEvents = function(){
             $('#confirmaction').removeAttr('disabled');
           }
           $('#confirm').modal('show');
-        } else callAction(data.action, data.arg);
+        } else {
+          // handle dynamic buttons
+          if ($(this).hasClass('btn-of-groups')) {
+            handleSelectButtons(this)
+            return;
+          }
+          callAction(data.action, data.arg);
+        }
         $(this).parents('.btn-select.open').find('.dropdown-toggle').dropdown('toggle');
       }
     }
@@ -1072,7 +1421,8 @@ var setEvents = function(){
     e.stopPropagation(); e.preventDefault();
     var ele = $(this);
     var newWindow = window.open(proto+'//'+host);
-    $.getJSON(proto+'//'+host+'/nodes/'+encodeURIComponent(node)+'/REST/remote', function(data) {
+    // Relative path : $.getJSON(proto+'//'+host+'/nodes/'+encodeURIComponent(node)+'/REST/remote', function(data) {
+    $.getJSON('REST/remote', function(data) {
       if (!_.isUndefined(data['events'][$(ele).data('link-event')])) {
         var lnode = data['events'][$(ele).data('link-event')]['node'];
         if(lnode!==''){
@@ -1113,7 +1463,6 @@ var setEvents = function(){
     $("[data-section="+id+"]").show();
     history.replaceState(undefined, undefined, '#'+id);
     $("[data-section="+id+"]").find('.nodel-console').scrollTop(999999);
-    return false;
   });
   $('body').on('click', '#confirmkeypad *[data-keypad]', function () {
     var number = $(this).data('keypad');
@@ -1165,7 +1514,8 @@ var setEvents = function(){
       //console.log(tosend);
       var nme = $(this).parent().data('btntitle');
       var alt = $(this).parent().data('alert');
-      $.postJSON(proto+'//'+host+'/nodes/'+encodeURIComponent(node)+'/REST/'+$(this).parent().data('target'), JSON.stringify(tosend), function () {
+      // Relative path : $.postJSON(proto+'//'+host+'/nodes/'+encodeURIComponent(node)+'/REST/'+$(this).parent().data('target'), JSON.stringify(tosend), function () {
+      $.postJSON('REST/'+$(this).parent().data('target'), JSON.stringify(tosend), function () {
         console.log(nme+': success');
         if(alt) alert(alt);
       }).fail(function(e){
@@ -1207,7 +1557,8 @@ var setEvents = function(){
       if(text){
         $(this).empty();
         var arg = JSON.stringify({code: text});
-        $.postJSON(proto+'//'+host+'/nodes/'+encodeURIComponent(node)+'/REST/exec', arg, function(data){
+        // Relative path : $.postJSON(proto+'//'+host+'/nodes/'+encodeURIComponent(node)+'/REST/exec', arg, function(data){
+        $.postJSON('REST/exec', arg, function(data){
         }).fail(function(e, s) {
           console.log('Console error: ' + s);
         }).always(function(e){
@@ -1471,7 +1822,8 @@ var setEvents = function(){
       editor.setOption('readOnly', 'nocursor');
       var path = $(ele).find('.picker').val();
       $(ele).find('textarea').data('path', path);
-      $.get(proto+'//' + host + '/nodes/' + encodeURIComponent(node) + '/REST/files/contents?path=' +encodeURIComponent(path), function (data) {
+      // Relative path : $.get(proto+'//' + host + '/nodes/' + encodeURIComponent(node) + '/REST/files/contents?path=' +encodeURIComponent(path), function (data) {
+      $.get('REST/files/contents?path=' +encodeURIComponent(path), function (data) {
         switch(path.split('.').pop()){
           //'sh'
           case 'js':
@@ -1513,7 +1865,7 @@ var setEvents = function(){
           editor.getDoc().setValue('binary file');
           $(ele).find('.script_delete').prop("disabled", false);
         }
-      }).fail(function(e){
+      }, 'text' /* to get plain text instead of object */ ).fail(function(e){
         alert("Error loading file: "+path, "danger", 7000, e.responseText);
       });
     }
@@ -1527,7 +1879,8 @@ var setEvents = function(){
     var path = $(ele).find('textarea').data('path');
     // use different method to save main script
     if(path == 'script.py') {
-      url = proto+'//' + host + '/nodes/' + encodeURIComponent(node) + '/REST/script/save';
+      // Relative path : url = proto+'//' + host + '/nodes/' + encodeURIComponent(node) + '/REST/script/save';
+      url = 'REST/script/save';
       payload = JSON.stringify({'script': $(ele).find('textarea').val() });
       $.postJSON(url, payload, function (data) {
         alert("File saved: "+path);
@@ -1538,7 +1891,8 @@ var setEvents = function(){
         $(ele).find('.script_save, .script_delete').prop("disabled", false);
       });
     } else {
-      url = proto+'//' + host + '/nodes/' + encodeURIComponent(node) + '/REST/files/save?path=' +encodeURIComponent(path);
+      // Relative path : url = proto+'//' + host + '/nodes/' + encodeURIComponent(node) + '/REST/files/save?path=' +encodeURIComponent(path);
+      url = 'REST/files/save?path=' +encodeURIComponent(path);
       payload = $('#field_script').val();
       payload = $(ele).find('textarea').val();
       $.ajax({url:url, type:"POST", data:payload, contentType:"application/octet-stream", success: function (data) {
@@ -1558,7 +1912,8 @@ var setEvents = function(){
     editor.setOption('readOnly', 'nocursor');
     var path = $(ele).find('textarea').data('path');
     if((path != 'script.py') && (confirm("Are you sure?"))) {
-      $.get(proto+'//' + host + '/nodes/' + encodeURIComponent(node) + '/REST/files/delete?path=' +encodeURIComponent(path), function (data) {
+      // Relative path : $.get(proto+'//' + host + '/nodes/' + encodeURIComponent(node) + '/REST/files/delete?path=' +encodeURIComponent(path), function (data) {
+      $.get('REST/files/delete?path=' +encodeURIComponent(path), function (data) {
         editor.getDoc().setValue('');
         $(ele).find('.picker').val('');
         alert("File deleted: "+path);
@@ -1585,7 +1940,8 @@ var setEvents = function(){
     var path = $(ele).find('.scriptnamval').val();
     var grp = $(ele).find('.addgrp');
     if(allowedtxt.concat(allowedbinary).indexOf(path.split('.').pop()) > -1) {
-      var url = proto+'//' + host + '/nodes/' + encodeURIComponent(node) + '/REST/files/save?path=' +encodeURIComponent(path);
+      // Relative path : var url = proto+'//' + host + '/nodes/' + encodeURIComponent(node) + '/REST/files/save?path=' +encodeURIComponent(path);
+      var url = 'REST/files/save?path=' +encodeURIComponent(path);
       var dta = '';
       var prc = true;
       if($(grp).data('filedata') !== null) {
@@ -1638,7 +1994,8 @@ var setEvents = function(){
     if(nodename != nodenameraw) {
       if(confirm('Are you sure?')) {
         var nodenameNew = JSON.stringify({"value": nodenameraw});
-        $.postJSON(proto+'//' + host + '/nodes/' + encodeURIComponent(node) + '/REST/rename', nodenameNew, function (data) {
+        // Relative path : $.postJSON(proto+'//' + host + '/nodes/' + encodeURIComponent(node) + '/REST/rename', nodenameNew, function (data) {
+        $.postJSON('REST/rename', nodenameNew, function (data) {
           alert("Rename successful, redirecting", "success", 0);
           clearTimers();
           checkRedirect(proto+'//' + host + '/nodes/' + encodeURIComponent(getVerySimpleName(nodenameraw)));
@@ -1649,7 +2006,8 @@ var setEvents = function(){
     }
   });
   $('body').on('click', '.restartnodesubmit', function (e) {
-    $.get(proto+'//' + host + '/nodes/' + encodeURIComponent(node) + '/REST/restart', function (data) {
+    // Relative path : $.get(proto+'//' + host + '/nodes/' + encodeURIComponent(node) + '/REST/restart', function (data) {
+    $.get('REST/restart', function (data) {
       alert("Restarting, please wait", "success", 7000);
     }).fail(function(e){
       alert("Error restarting", "danger", 7000, e.responseText);
@@ -1657,7 +2015,8 @@ var setEvents = function(){
   });
   $('body').on('click', '.deletenodesubmit', function (e) {
     if(confirm('Are you sure?')) {
-      $.getJSON(proto+'//' + host + '/nodes/' + encodeURIComponent(node) + '/REST/remove?confirm=true', function (data) {
+      // Relative path : $.getJSON(proto+'//' + host + '/nodes/' + encodeURIComponent(node) + '/REST/remove?confirm=true', function (data) {
+      $.getJSON('REST/remove?confirm=true', function (data) {
         alert("Delete successful, redirecting", "success", 0);
         clearTimers();
         setTimeout(function() { window.location.href = proto+'//' + host; }, 3000);
@@ -1666,42 +2025,348 @@ var setEvents = function(){
       });
     }
   });
+
+  // Helper function to clear template selection state
+  function clearTemplateSelection(input, clearValue) {
+    input.removeData('templateSelection');
+    input.siblings('.template-selected').remove();
+    input.siblings('.template-autocomplete').remove();
+    if (clearValue) input.val('');
+  }
+
+  // Helper function to build warning message for failed API sources
+  function buildSourceWarning(recipesFailed, nodesFailed) {
+    var warnings = [];
+    if (recipesFailed) warnings.push('recipes');
+    if (nodesFailed) warnings.push('nodes');
+    return warnings.length > 0 ? 'Could not load ' + warnings.join(' or ') : null;
+  }
+
+  // Helper function to render selection indicator
+  function renderTemplateSelectionPill(input, selection) {
+    input.siblings('.template-selected').remove();
+    var tooltip = selection.type === 'recipe' ? 'Recipe: ' + selection.path : 'Node: ' + selection.name;
+    var indicator = $('<span class="template-selected"><i class="fa fa-check-circle"></i></span>');
+    indicator.attr('title', tooltip);
+    input.after(indicator);
+  }
+
   $('body').on('shown.bs.dropdown', '.nodel-add .addgrp', function () {
     var ele = this;
-    $(ele).find('.nodeaddsubmit').prop('disabled', true);
-    $(ele).find('.recipepicker').empty();
-    $(ele).find('.nodenamval').focus();
+    // Clear and focus node name input
     $(ele).find('.nodenamval').val(null).get(0).focus();
-    $.getJSON(proto+'//' + host + '/REST/recipes/list', function(data) {
-      if (data.length > 0) {
-        var picker = $(ele).find('.recipepicker');
-        $(picker).append('<option value="" selected disabled hidden></option>');
-        $.each(data, function(i, value) {
-          var readme = (typeof value.readme == 'undefined') ? "" : $('<div/>').text(value.readme).html();
-          $(picker).append('<option value="' + value.path + '" title="' + readme + '">' + value.path + '</option>');
-        });
-      } else {
-        $(ele).find('.recipepicker').append('<option value="error">-- no recipes available --</option>');
-      }
-    }).fail(function(){
-      $(ele).find('.recipepicker').append('<option value="error">-- no recipes available --</option>');
-    }).always(function(){
-      $(ele).find('.nodeaddsubmit').prop('disabled', false);
-    });
-    //return false;
+    // Clear template search and reset selection state
+    var templateInput = $(ele).find('.unified-template-search');
+    clearTemplateSelection(templateInput, true);
+
+    // Cancel any in-flight search work for this input.
+    var state = getTemplateSearchState(templateInput);
+    clearTimeout(state.timeoutId);
+    abortIfInFlight(state.nodeXhr);
+    state.nodeXhr = null;
+
+    // Refresh recipes list when opening the add-node UI.
+    // This keeps the cache reasonably fresh for users who add recipes while the nodehost is running.
+    refreshRecipesList(true);
   });
+  // Unified template search for add node modal
+  var RECIPES_LIST_TTL_MS = 60 * 1000;
+  var recipesListCache = {data: null, fetchedAtMs: 0, xhr: null};
+
+  function refreshRecipesList(force) {
+    var now = Date.now();
+
+    if (!force && recipesListCache.data && (now - recipesListCache.fetchedAtMs) < RECIPES_LIST_TTL_MS) {
+      return $.Deferred().resolve(recipesListCache.data).promise();
+    }
+
+    // If a refresh is forced, cancel any in-flight request so we fetch the latest.
+    if (force && recipesListCache.xhr) {
+      recipesListCache.xhr.abort();
+      recipesListCache.xhr = null;
+    }
+
+    // Reuse any in-flight request.
+    if (recipesListCache.xhr) return recipesListCache.xhr;
+
+    var xhr = $.getJSON(proto+'//' + host + '/REST/recipes/list');
+    recipesListCache.xhr = xhr;
+
+    xhr.done(function(data) {
+      recipesListCache.data = data || [];
+      recipesListCache.fetchedAtMs = Date.now();
+    }).always(function() {
+      if (recipesListCache.xhr === xhr) recipesListCache.xhr = null;
+    });
+
+    return xhr;
+  }
+
+  function getTemplateSearchState($input) {
+    var state = $input.data('unifiedTemplateSearchState');
+    if (!state) {
+      state = {timeoutId: null, nodeXhr: null};
+      $input.data('unifiedTemplateSearchState', state);
+    }
+    return state;
+  }
+
+  function abortIfInFlight(xhr) {
+    if (xhr && xhr.readyState !== 4) xhr.abort();
+  }
+
+  $('body').on('keyup', '.unified-template-search', function(e) {
+    var charCode = e.charCode || e.keyCode;
+    // Skip navigation keys
+    if ([KEY.TAB, KEY.ESCAPE, KEY.CTRL, KEY.ALT, KEY.ARROW_UP, KEY.ARROW_DOWN, KEY.ENTER].indexOf(charCode) !== -1) return;
+
+    var $ele = $(this);
+    var state = getTemplateSearchState($ele);
+    var searchVal = $ele.val();
+
+    // Clear selection state when typing (but not the autocomplete dropdown or value)
+    $ele.removeData('templateSelection');
+    $ele.siblings('.template-selected').remove();
+
+    clearTimeout(state.timeoutId);
+    state.timeoutId = setTimeout(function() {
+      // If search is empty, just remove dropdown
+      if (searchVal.length < 1) {
+        $ele.siblings('.template-autocomplete').remove();
+        return;
+      }
+
+      // Query both APIs in parallel, handle failures independently
+      var recipeXhr = refreshRecipesList(false);
+      // Use network-wide discovery via nodeURLs
+      abortIfInFlight(state.nodeXhr);
+      var nodeXhr = $.postJSON(proto+'//' + host + '/REST/nodeURLs', JSON.stringify({'filter': searchVal}));
+      state.nodeXhr = nodeXhr;
+
+      // Track state: null = pending, array = completed (success or fail)
+      var recipes = null;
+      var nodes = null;
+      var recipesFailed = false;
+      var nodesFailed = false;
+
+      function renderResults() {
+        // Wait until both requests have completed (success or failure)
+        if (recipes === null || nodes === null) return;
+
+        // Clear request pointer if this is the active one
+        if (state.nodeXhr === nodeXhr) state.nodeXhr = null;
+
+        // Discard stale results if input has changed since request was made
+        if ($ele.val() !== searchVal) return;
+
+        // Filter client-side
+        var searchLower = searchVal.toLowerCase();
+        var filteredRecipes = recipes.filter(function(r) {
+          return r.path.toLowerCase().indexOf(searchLower) !== -1;
+        }).slice(0, 10);
+
+        var filteredNodes = nodes.filter(function(n) {
+          var hay = (n.name || n.node || '').toLowerCase();
+          return hay.indexOf(searchLower) !== -1;
+        }).slice(0, 10);
+
+        // Remove old dropdown only when we have new results ready
+        $ele.siblings('.template-autocomplete').remove();
+
+        // Show warning if APIs failed but we have no results to show
+        if (filteredRecipes.length === 0 && filteredNodes.length === 0) {
+          var warning = buildSourceWarning(recipesFailed, nodesFailed);
+          if (warning) {
+            $ele.after('<div class="template-autocomplete"><ul><li class="section-header text-warning">' + warning + '</li></ul></div>');
+          }
+          return;
+        }
+
+        // Build dropdown (use unique class to avoid generic autocomplete handler)
+        $ele.after('<div class="template-autocomplete"><ul></ul></div>');
+        var list = $ele.siblings('.template-autocomplete').children('ul');
+
+        // Show warning header if any API failed
+        var warning = buildSourceWarning(recipesFailed, nodesFailed);
+        if (warning) {
+          $('<li class="section-header text-warning">' + warning + '</li>').appendTo(list);
+        }
+
+        // Add recipes section
+        if (filteredRecipes.length > 0) {
+          $('<li class="section-header">Recipes</li>').appendTo(list);
+          $.each(filteredRecipes, function(i, recipe) {
+            var parts = recipe.path.split('/');
+            var name = parts.pop();
+            var category = parts.join('/');
+            var nameEscaped = escapeHtml(name);
+            var categoryEscaped = escapeHtml(category);
+            var html = nameEscaped + (category ? '<br><span>' + categoryEscaped + '</span>' : '');
+            $('<li>' + html + '</li>')
+              .data('type', 'recipe')
+              .data('path', recipe.path)
+              .appendTo(list);
+          });
+        }
+
+        // Add nodes section
+        if (filteredNodes.length > 0) {
+          $('<li class="section-header">Existing Nodes</li>').appendTo(list);
+          $.each(filteredNodes, function(i, node) {
+            // Extract just host:port from URL (e.g., "192.168.1.69:8085")
+            var nodeHost = node.address.replace(/https?:\/\/([^\/]+).*/, '$1');
+            var nodeNameEscaped = escapeHtml(node.node);
+            var nodeHostEscaped = escapeHtml(nodeHost);
+            var html = nodeNameEscaped + '<br><span>' + nodeHostEscaped + '</span>';
+            $('<li>' + html + '</li>')
+              .data('type', 'node')
+              .data('address', node.address)
+              .data('name', node.name)
+              .data('host', nodeHost)
+              .appendTo(list);
+          });
+        }
+      }
+
+      recipeXhr.done(function(data) {
+        recipes = data || [];
+        renderResults();
+      }).fail(function(xhr, status, error) {
+        // Ignore aborts (e.g. forced refresh due to UI open)
+        if (status === 'abort') return;
+        console.warn('Recipe search failed:', status, error);
+        recipes = recipesListCache.data || [];
+        recipesFailed = true;
+        renderResults();
+      });
+
+      nodeXhr.done(function(data) {
+        // /REST/nodeURLs returns an array of node URL objects
+        nodes = (data || []).map(function(entry) {
+          // Normalise to the shape used by the template search UI
+          var rawName = entry.name || entry.node || '';
+          return {
+            name: rawName,
+            node: entry.node || getSimpleName(rawName),
+            address: entry.address
+          };
+        });
+        renderResults();
+      }).fail(function(xhr, status, error) {
+        // Ignore aborts when the user types quickly
+        if (status === 'abort') return;
+        console.warn('Node search failed:', status, error);
+        nodes = [];
+        nodesFailed = true;
+        renderResults();
+      });
+    }, 200); // 200ms debounce
+  });
+  // Keyboard navigation for unified template search
+  $('body').on('keydown', '.unified-template-search', function(e) {
+    var charCode = e.charCode || e.keyCode;
+    var autocomplete = $(this).siblings('.template-autocomplete');
+    if (autocomplete.length === 0) return;
+
+    var items = autocomplete.find('li:not(.section-header)');
+    var active = autocomplete.find('li.active');
+    var index = items.index(active);
+
+    switch(charCode) {
+      case KEY.ARROW_DOWN:
+        e.preventDefault();
+        if (index < items.length - 1) {
+          items.removeClass('active');
+          items.eq(index + 1).addClass('active');
+        } else if (index === -1 && items.length > 0) {
+          items.eq(0).addClass('active');
+        }
+        break;
+      case KEY.ARROW_UP:
+        e.preventDefault();
+        if (index > 0) {
+          items.removeClass('active');
+          items.eq(index - 1).addClass('active');
+        }
+        break;
+      case KEY.ENTER:
+        if (active.length > 0) {
+          e.preventDefault();
+          active.trigger('mousedown');
+        }
+        break;
+      case KEY.ESCAPE:
+        autocomplete.remove();
+        break;
+    }
+  });
+  // Handle selection in unified template search
+  $('body').on('click', '.clear-template-selection', function(e) {
+    e.preventDefault();
+    var input = $(this).closest('.template-selected').siblings('.unified-template-search');
+    clearTemplateSelection(input, false);
+  });
+
+  function handleTemplateSelection(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    var $li = $(this);
+    var input = $li.closest('.template-autocomplete').siblings('.unified-template-search');
+    var type = $li.data('type');
+
+    var selection = type === 'recipe'
+      ? {type: 'recipe', path: $li.data('path')}
+      : {type: 'node', address: $li.data('address'), name: $li.data('name'), host: $li.data('host')};
+
+    input.val(type === 'recipe' ? selection.path : selection.name);
+    input.data('templateSelection', selection);
+    renderTemplateSelectionPill(input, selection);
+    $li.closest('.template-autocomplete').remove();
+  }
+  $('body').on('mousedown touchstart', '.unified-template-search + .template-autocomplete ul li:not(.section-header)', handleTemplateSelection);
   $('body').on('keyup', '.nodenamval', function(e) {
     var charCode = e.charCode || e.keyCode;
-    if(charCode == 13) $(this).closest('form').find('.nodeaddsubmit').click();
+    if(charCode == KEY.ENTER) $(this).closest('form').find('.nodeaddsubmit').click();
   });
   $('body').on('click', '.nodeaddsubmit', function(e) {
     var ele = $(this).closest('.base');
-    $(ele).find('.nodeaddsubmit').prop('disabled', true);
+    var $btn = $(ele).find('.nodeaddsubmit');
+    $btn.prop('disabled', true);
     var nodenameraw = $(ele).find('.nodenamval').val();
-    var recipeval = $(ele).find('.recipepicker').val();
-    if(nodenameraw) {
+
+    if (!nodenameraw) {
+      alert('Please enter a node name', 'warning');
+      $btn.prop('disabled', false);
+      return;
+    }
+
+    // Check unified template search selection
+    var templateInput = $(ele).find('.unified-template-search');
+    var selection = templateInput.data('templateSelection');
+    var typedValue = (templateInput.val() || '').trim();
+
+    if (selection && selection.type === 'node') {
+      // Duplicate from existing node
+      var duplicateAlertShown = false;
+      duplicateNode(selection.address, nodenameraw, function() {
+        if (duplicateAlertShown) return;
+        duplicateAlertShown = true;
+        alert('Duplicating node...', 'info', 0);
+      }).then(function(newNodeUrl) {
+        $(ele).find('.open > button').dropdown('toggle');
+        checkRedirect(newNodeUrl);
+      }).fail(function(error) {
+        alert(error.message || 'Node duplication failed', 'danger');
+        $btn.prop('disabled', false);
+      });
+    } else {
+      // Create from recipe (use selection path or fall back to typed value)
       var nodename = {"value": nodenameraw};
-      if(recipeval && (recipeval !== 'error')) nodename["base"] = recipeval;
+      var recipePath = selection && selection.type === 'recipe' ? selection.path : typedValue;
+
+      if (recipePath) {
+        nodename["base"] = recipePath;
+      }
       $.postJSON(proto+'//' + host + '/REST/newNode', JSON.stringify(nodename), function() {
         $(ele).find('.open > button').dropdown('toggle');
         checkRedirect(proto+'//' + host + '/nodes/' + encodeURIComponent(getVerySimpleName(nodenameraw)));
@@ -1709,11 +2374,15 @@ var setEvents = function(){
         if(req.statusText!="abort"){
           var error = 'Node add failed';
           if(req.responseText) {
-            var message = JSON.parse(req.responseText);
-            error = error + '<br/>' + message['message'];
+            try {
+              var message = JSON.parse(req.responseText);
+              error = error + '<br/>' + escapeHtml(message['message'] || message['error'] || 'Unknown error');
+            } catch(e) {
+              error = error + '<br/>' + escapeHtml(req.responseText.substring(0, 200));
+            }
           }
           alert(error, 'danger');
-          $(ele).find('.nodeaddsubmit').prop('disabled', false);
+          $btn.prop('disabled', false);
         }
       });
     }
@@ -1925,7 +2594,8 @@ var getAction = function(ele){
 
 var callAction = function(action, arg) {
   $.each($.isArray(action) ? action : [action], function(i, act){
-    $.postJSON(proto+'//' + host + '/nodes/' + encodeURIComponent(node) + '/REST/actions/' + encodeURIComponent(act) + '/call', arg, function () {
+    // Relative path : $.postJSON(proto+'//' + host + '/nodes/' + encodeURIComponent(node) + '/REST/actions/' + encodeURIComponent(act) + '/call', arg, function () {
+    $.postJSON('REST/actions/' + encodeURIComponent(act) + '/call', arg, function () {
       console.log(act + " - Success");
     }).fail(function (e, s) {
       errtxt = s;
@@ -1941,7 +2611,8 @@ var fillPicker = function() {
   $.each(pickers, function(i,picker) {
     $(picker).empty();
     $(picker).append('<option value="" selected disabled hidden></option>');
-    $.getJSON(proto+'//' + host + '/nodes/' + encodeURIComponent(node) + '/REST/files', function (data) {
+    // Relative path : $.getJSON(proto+'//' + host + '/nodes/' + encodeURIComponent(node) + '/REST/files', function (data) {
+    $.getJSON('REST/files', function (data) {
       data.sort(function(a, b){
         if (a['path'] == b['path']) return 0;
         if (a['path'] > b['path']) return 1;
@@ -1965,7 +2636,8 @@ var fillUIPicker = function() {
   $.each(pickers, function(i,picker) {
     var pickerlist = $(picker).find('.dropdown-menu');
     $(pickerlist).empty();
-    $.getJSON(proto+'//' + host + '/nodes/' + encodeURIComponent(node) + '/REST/files', function (data) {
+    // Relative path : $.getJSON(proto+'//' + host + '/nodes/' + encodeURIComponent(node) + '/REST/files', function (data) {
+    $.getJSON('REST/files', function (data) {
       data.sort(function(a, b){
         if (a['path'] == b['path']) return 0;
         if (a['path'] > b['path']) return 1;
@@ -1994,8 +2666,12 @@ var updateConsoleForm = function(){
     if(!_.isUndefined($('body').data('nodel-console-timer'))) clearTimeout($('body').data('nodel-console-timer'));
     if(!_.isUndefined($('body').data('nodel-console-req'))) $('body').data('nodel-console-req').abort();
     var url;
-    if(typeof $('body').data('nodel-console-seq') === "undefined") url = proto+'//'+host+'/nodes/'+encodeURIComponent(node)+'/REST/console?from=-1&max=200';
-    else url = proto+'//'+host+'/nodes/'+encodeURIComponent(node)+'/REST/console?from='+$('body').data('nodel-console-seq')+'&max=9999';
+
+    //  Relative path :
+    // if(typeof $('body').data('nodel-console-seq') === "undefined") url = proto+'//'+host+'/nodes/'+encodeURIComponent(node)+'/REST/console?from=-1&max=200';
+    // else url = proto+'//'+host+'/nodes/'+encodeURIComponent(node)+'/REST/console?from='+$('body').data('nodel-console-seq')+'&max=9999';
+    if(typeof $('body').data('nodel-console-seq') === "undefined") url = 'REST/console?from=-1&max=200';
+    else url = 'REST/console?from='+$('body').data('nodel-console-seq')+'&max=9999';
     var req = $.getJSON(url, function(data) {
       if(!_.isEmpty(data)){
         data.reverse();
@@ -2283,8 +2959,11 @@ var populateAuxComponents = function () {
 var updateLogs = function(){
   if(!("WebSocket" in window) || ($('body').data('trypoll'))){
     var url;
-    if (typeof $('body').data('seq') === "undefined") url = proto+'//' + host + '/nodes/' + encodeURIComponent(node) + '/REST/activity?from=-1';
-    else url = proto+'//' + host + '/nodes/' + encodeURIComponent(node) + '/REST/activity?from=' + $('body').data('seq');
+    // Relative path :
+    // if (typeof $('body').data('seq') === "undefined") url = proto+'//' + host + '/nodes/' + encodeURIComponent(node) + '/REST/activity?from=-1';
+    // else url = proto+'//' + host + '/nodes/' + encodeURIComponent(node) + '/REST/activity?from=' + $('body').data('seq');
+    if (typeof $('body').data('seq') === "undefined") url = 'REST/activity?from=-1';
+    else url = 'REST/activity?from=' + $('body').data('seq');
     $.getJSON(url, function (data) {
       online();
       if (typeof $('body').data('seq') === "undefined") {
@@ -2318,10 +2997,15 @@ var updateLogs = function(){
       $('body').data('update', setTimeout(function() { updateLogs(); }, 1000));
     });
   } else {
-    $.getJSON(proto+'//'+host+'/nodes/' + encodeURIComponent(node) + '/REST/', function(data){
+    // Relative path : $.getJSON(proto+'//'+host+'/nodes/' + encodeURIComponent(node) + '/REST/', function(data){
+    $.getJSON('REST/', function(data){
       var wsproto = 'ws:';
       if (proto == 'https:') wsproto = 'wss:';
-      var wshost = wsproto+"//"+document.location.hostname+":"+data['webSocketPort']+"/nodes/"+node;
+
+      // Websocket server is unified with http server.
+      // So we don't need to use data['webSocketPort'].
+      var wsPort = window.document.location.port;
+      var wshost = wsproto+"//"+document.location.hostname+":"+wsPort+"/nodes/"+node;
       try{
         var socket = new WebSocket(wshost);
         socket.onopen = function(){
@@ -2361,6 +3045,18 @@ var updateLogs = function(){
           offline();
           $('body').data('update', setTimeout(function() { updateLogs(); }, 1000));
         }
+        // proactively disconnect websocket when the page is not being viewed
+        $(document).off("visibilitychange.socket").on("visibilitychange.socket", function() {
+          if(document.hidden) socket.close();
+          else updateLogs();
+        });
+        // proactively disconnect when network is disconnected
+        $(window).off("offline.socket").on("offline.socket", function() {
+          socket.close();
+        });
+        $(window).off("online.socket").on("online.socket", function() {
+          if(!document.hidden) updateLogs();
+        });
       } catch(exception){
         console.log('Error: '+exception);
         offline();
@@ -2467,7 +3163,7 @@ var process_event = function(log){
     }
     switch ($.type(log.arg)) {
       case "number":
-        if ($(ele).not('.meter, .signal').is("div")) {
+        if ($(ele).not('.meter, .signal, .button-group').is("div")) {
           $(ele).children().filter(function () {
             return $(this).attr("data-arg") > log.arg;
           }).removeClass('btn-success').addClass('btn-default');
@@ -2487,6 +3183,11 @@ var process_event = function(log){
           $(ele).filter(function() {
             return $.inArray(log.arg, $.isArray($(this).data('arg')) ? $(this).data('arg') : [$(this).data('arg')]) >= 0;
           }).addClass($(ele).data('class-on'));
+        } else if ($(ele).hasClass('button-group')) {
+          $(ele).find('.btn-of-groups').removeClass('btn-success').addClass('btn-default');
+          $(ele).find('.btn-of-groups').filter(function() {
+            return $.inArray(log.arg, $.isArray($(this).data('arg')) ? $(this).data('arg') : [$(this).data('arg')]) >= 0;
+          }).removeClass('btn-default').addClass('btn-success');
         } else {
           if ($(ele).is("output, span, h4, p")) $(ele).text(log.arg);
           // lists
@@ -2548,6 +3249,11 @@ var process_event = function(log){
           $(ele).filter(function() {
             return $.inArray(log.arg, $.isArray($(this).data('arg')) ? $(this).data('arg') : [$(this).data('arg')]) >= 0;
           }).addClass($(ele).data('class-on'));
+        } else if ($(ele).hasClass('button-group')) {
+          $(ele).find('.btn-of-groups').removeClass('btn-success').addClass('btn-default');
+          $(ele).find('.btn-of-groups').filter(function() {
+            return $.inArray(log.arg, $.isArray($(this).data('arg')) ? $(this).data('arg') : [$(this).data('arg')]) >= 0;
+          }).removeClass('btn-default').addClass('btn-success');
         } else if ($(ele).hasClass('spectrum-color-picker')) {
           $(ele).spectrum('setWithChannels', log.arg); // can not use val(colorString) with spectrum color picker.
         } else if ($(ele).hasClass('qrcode')) {
@@ -2769,4 +3475,27 @@ var parseLog = function(log){
   requestAnimationFrame(function() {
     process_log(log);
   });
+};
+
+var getNodeName = function() {
+  var d = $.Deferred();
+  var pathParts = window.location.pathname.split( '/' );
+  var nodesIndex = pathParts.indexOf('nodes');
+  var nodeName = (nodesIndex >= 0 ? pathParts[nodesIndex + 1] : null);
+  if (nodeName && nodeName.length > 0) {
+    node = decodeURIComponent(nodeName.replace(/\+/g, '%20'));
+    setTimeout(function() {
+      d.resolve();
+      }, 50
+    );
+  }else {
+    $.getJSON('REST', function(data) { // Relative path
+      if (data['name']) {
+        node = getVerySimpleName(data['name']);
+      }
+    }).always(function() {
+      d.resolve();
+    });
+  }
+  return d.promise();
 };

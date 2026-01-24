@@ -167,7 +167,7 @@ label {
     & > .btn.btn-outline {
       color: @label-color;
     }
-    & > .btn, & > .btn-group {
+    & > .btn, & > .btn-group, span[class^="fa"], span[class^="glyph"] {
       float: right;
       margin-left: 15px;
       margin-bottom: 5px;
@@ -328,6 +328,10 @@ label {
 .generate-meter-colour-red();
 .range {
   form {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    align-content: center;
     position: relative;
     overflow: hidden;
     > output {
@@ -335,6 +339,19 @@ label {
       top: 0;
       left: 15px;
       pointer-events: none;
+    }
+    > output.nudge {
+      left: 58px;
+    }
+    .nudge {
+      border-radius: 50%;
+      height: 38.25px;
+    }
+    .nudge-down {
+      margin-right: 5px;
+    }
+    .nudge-up {
+      margin-left: 5px;
     }
   }
   &[data-type="vertical"] {
@@ -346,15 +363,23 @@ label {
         transform: rotate(90deg);
         transform-origin: center;
       }
+      .nudge {
+        transform: rotate(90deg);
+      }
     }
   }
   &[data-type="mute"] {
     input[type="range"] {
       width: calc(100% - 60px);
       float: left;
+      margin-right: 5px;
     }
     .btn {
       float: right;
+    }
+    .nudge-up {
+      margin-left: 0;
+      margin-right: 5px;
     }
   }
 }
@@ -366,6 +391,7 @@ input[type=range] {
   height: @range-height;
   border-radius: @border-radius-base;
   padding: 0;
+  pointer-events: none;
 }
 input[type=range]::-webkit-slider-runnable-track {
   width: 100%;
@@ -389,6 +415,7 @@ input[type=range]::-webkit-slider-thumb {
   width: 40px;
   background: @btn-success-bg;
   border-radius: @border-radius-base;
+  pointer-events: auto;
 }
 input[type=range]::-moz-range-thumb {
   border: 1px solid @btn-success-border;
@@ -396,6 +423,7 @@ input[type=range]::-moz-range-thumb {
   width: 40px;
   background: @btn-success-bg;
   border-radius: @border-radius-base;
+  pointer-events: auto;
 }
 input[type=range]::-ms-thumb {
   border: 1px solid @btn-success-border;
@@ -403,6 +431,7 @@ input[type=range]::-ms-thumb {
   width: 40px;
   background: @btn-success-bg;
   border-radius: @border-radius-base;
+  pointer-events: auto;
 }
 input[type=range]:focus {
   outline: none;
@@ -700,7 +729,7 @@ div.nodel-charts {
     }
   }
 }
-.autocomplete {
+.autocomplete, .template-autocomplete {
   background: @panel-bg;
   border-radius: @panel-border-radius;
   border: 1px solid @panel-default-border;
@@ -724,8 +753,30 @@ div.nodel-charts {
         color: @gray-light;
         font-size: @font-size-small;
       }
+      &.section-header {
+        font-weight: bold;
+        font-size: @font-size-small;
+        color: @gray;
+        padding: @padding-xs-vertical @table-cell-padding;
+        border-bottom: 1px solid @panel-default-border;
+        cursor: default;
+        &:hover {
+          background: transparent;
+        }
+      }
     }
   }
+}
+.template-selected {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: @brand-success;
+  font-size: @font-size-base;
+  pointer-events: none;
+  background: @input-bg;
+  padding-left: 4px;
 }
 .nodel-toolkit {
   margin-bottom: @form-group-margin-bottom;

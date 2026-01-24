@@ -16,6 +16,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import org.nodel.Formatting;
+import org.nodel.Strings;
 import org.nodel.core.Nodel;
 import org.nodel.threading.ThreadPool;
 import org.nodel.threading.TimerTask;
@@ -43,22 +44,22 @@ public class TopologyWatcher {
     /**
      * (logging)
      */
-    private Logger _logger = LoggerFactory.getLogger(TopologyWatcher.class);
+    private final Logger _logger = LoggerFactory.getLogger(TopologyWatcher.class);
     
     /**
      * (convenience reference)
      */
-    private ThreadPool _threadPool = Discovery.threadPool();
+    private final ThreadPool _threadPool = Discovery.threadPool();
     
     /**
      * (convenience reference)
      */
-    private Timers _timerThread = Discovery.timerThread();
+    private final Timers _timerThread = Discovery.timerThread();
     
     /**
      * The last active ones.
      */
-    private Set<InetAddress> _lastActiveSet = new HashSet<InetAddress>();
+    private final Set<InetAddress> _lastActiveSet = new HashSet<InetAddress>();
     
     /**
      * (see addChangeHandler())
@@ -103,7 +104,7 @@ public class TopologyWatcher {
     private List<String> _ipAddressesSnapshot = Collections.emptyList();    
     
     /**
-     * Snapshot of hostname if known else "UNKNOWN")
+     * Snapshot of hostname if known else "UNKNOWN"
      */
     private String _hostnameSnapshot = "UNKNOWN";
     
@@ -129,6 +130,10 @@ public class TopologyWatcher {
     public void removeOnChangeHandler(ChangeHandler handler) {
         synchronized (_removedOnChangeHandlers) {
             _removedOnChangeHandlers.add(handler);
+        }
+        // in case of 'add' then immediate 'remove'
+        synchronized (_newOnChangeHandlers) {
+            _newOnChangeHandlers.remove(handler);
         }
     }
 
@@ -158,7 +163,7 @@ public class TopologyWatcher {
     /**
      * For adjustable polling intervals.
      */
-    private int[] POLLING_INTERVALS = new int[] {2000, 5000, 15000, 15000, 60000, 120000};
+    private final int[] POLLING_INTERVALS = new int[]{2000, 5000, 15000, 15000, 60000, 120000};
     
     /**
      * (relates to POLLING_INTERVALS)
@@ -193,10 +198,9 @@ public class TopologyWatcher {
     private void monitorInterfaces() {
         Set<InetAddress> activeSet = new HashSet<>(4);
 
-        if (!usingOptInMode(activeSet)) {
-            // automatic binding mode (all-in):
-            listValidInterfaces(activeSet);
-        }
+        // either bind to all interfaces or opt-in via config options
+        String[] optInList = Nodel.getInterfacesToUse();
+        listValidInterfaces(activeSet, optInList);
 
         // add the IPv4 Loopback interface if no interfaces present
         // (whether automatic- or opt-in- mode)
@@ -240,7 +244,7 @@ public class TopologyWatcher {
         // do internal test first before notifying anyone
         if (hasChanged) {
             // update the snapshot
-            _interfacesSnapshot = activeSet.toArray(new InetAddress[activeSet.size()]);
+            _interfacesSnapshot = activeSet.toArray(new InetAddress[0]);
             
             // and temporarily poll quicker again (might be general NIC activity)
             _pollingSlot = 0;
@@ -251,8 +255,10 @@ public class TopologyWatcher {
         // remove previous handlers
         synchronized (_removedOnChangeHandlers) {
             if (_removedOnChangeHandlers.size() > 0) {
-                for (ChangeHandler handler : _removedOnChangeHandlers)
+                for (ChangeHandler handler : _removedOnChangeHandlers) {
                     _onChangeHandlers.remove(handler);
+                }
+                _removedOnChangeHandlers.clear();
             }
         }
 
@@ -288,10 +294,8 @@ public class TopologyWatcher {
         }
 
         // move 'new' to existing
-        if (newHandlers != null) {
-            for (ChangeHandler handler : newHandlers)
-                _onChangeHandlers.add(handler);
-        }
+        if (newHandlers != null)
+            _onChangeHandlers.addAll(newHandlers);
     }
 
     /**
@@ -306,16 +310,24 @@ public class TopologyWatcher {
             _logger.warn("An exception should not occur within method.", exc);
         }
     }
-    
+
     /**
      * Scans for 'up', non-loopback, multicast-supporting, network interfaces with at least one IPv4 address. Also updates
      * hostname and MAC addressess snapshot.
+     * <p>
+     * NOTE: TCP and UDP server sockets don't bind to NetworkInterface objects, they bind to IP addresses. So it's
+     * the IPAddress-related classes that are important.
      */
-    private void listValidInterfaces(Set<InetAddress> refNicSet) {
+    private void listValidInterfaces(Set<InetAddress> refNicSet, String[] optInList) {
         List<String> ipAddresses = new ArrayList<>();
         List<String> macAddresses = new ArrayList<>();
-        
+        if (optInList == null)
+            optInList = Strings.EmptyArray;
+
         String hostname = "UNKNOWN";
+
+        // for opt-in mode
+        boolean foundAnyMatch = false;
         
         try {
             Enumeration<NetworkInterface> interfaces = NetworkInterface.getNetworkInterfaces();
@@ -327,13 +339,30 @@ public class TopologyWatcher {
 
                     byte[] macAddress = null;
                     
-                    // check for at least one IPv4 address and check loopback status again for good measure
+                    // check for at least one IPv4 address
                     for (InetAddress address : Collections.list(intf.getInetAddresses())) {
                         if (address instanceof Inet4Address) {
-                            refNicSet.add(address);
-                            ipAddresses.add(address.getHostAddress());
+                            String ipv4Address = address.getHostAddress();
+                            ipAddresses.add(ipv4Address);
                             if (macAddress == null)
-                                macAddress = intf.getHardwareAddress(); 
+                                macAddress = intf.getHardwareAddress();
+
+                            if (optInList.length == 0) {
+                                // bind to everything allowed
+                                refNicSet.add(address);
+
+                            } else {
+                                // only bind if interface details match
+                                for (String value : optInList) {
+                                    if (looseMatch(ipv4Address, value, true) || // allow prefix matching of IP address which could be convenient, e.g. "192.168"
+                                            looseMatch(intf.getName(), value, false) || // do full match for name...
+                                            looseMatch(intf.getDisplayName(), value, false) || // ... display name
+                                            looseMatch(Formatting.formatFewBytes(intf.getHardwareAddress()), value, false)) { // ... and MAC to avoid unintentional matching
+                                        refNicSet.add(address);
+                                        foundAnyMatch = true;
+                                    }
+                                }
+                            }
                         }
                     }
                     
@@ -348,7 +377,14 @@ public class TopologyWatcher {
             hostname = InetAddress.getLocalHost().getHostName();
             
         } catch (Exception exc) {
-            warn("intf_enumeration", "Was not able to enumerate network interfaces or get hostname", exc);
+            _logger.warn("TopologyWatcher: Was not able to enumerate network interfaces or get hostname", exc);
+        }
+
+        if (optInList.length > 0 && !foundAnyMatch) {
+            if (!_suppressInterfaceWarning) {
+                _logger.warn("TopologyWatcher: Network interface filtering is in place but right now nothing matches the filters {}", String.join(" or ", optInList));
+                _suppressInterfaceWarning = true;
+            }
         }
         
         _hostnameSnapshot = hostname;
@@ -359,48 +395,12 @@ public class TopologyWatcher {
         if (!ipAddresses.equals(_macAddressesSnapshot))
             _ipAddressesSnapshot = ipAddresses;
     }
-    
+
     /**
      * (logging)
      */
     private boolean _suppressInterfaceWarning = false;
 
-    /**
-     * This applied if network interfaces are specified (opt-in mode)
-     */
-    private boolean usingOptInMode(Set<InetAddress> refNicSet) {
-        String[] interfaces = Nodel.getInterfacesToUse();
-
-        if (interfaces == null || interfaces.length == 0)
-            return false;
-
-        // add all the IP addresses related to the interfaces whether they're available or not
-        for (String name : interfaces) {
-            try {
-                NetworkInterface networkInterface = NetworkInterface.getByName(name);
-                if (networkInterface == null) {
-                    if (!_suppressInterfaceWarning) {
-                        _logger.warn("\"{}\": network interface not available (yet?); will use loopback if no interfaces are resolved; this warning will be suppressed from now on.", name);
-                        _suppressInterfaceWarning = true;
-                    }
-
-                    continue;
-                }
-
-                for (InetAddress addr : Collections.list(networkInterface.getInetAddresses())) {
-                    if (addr instanceof Inet4Address)
-                        refNicSet.add(addr);
-                }
-
-            } catch (Exception exc) {
-                // ignore
-                warn("intf_enumeration", "(opt-in mode) Could not query interface '" + name + "'", exc);
-            }
-        }
-
-        return true;
-    }
-    
     /**
      * Returns the last snapshot of the interfaces.
      */
@@ -423,10 +423,69 @@ public class TopologyWatcher {
     }
 
     /**
-     * Warning with suppression.
+     * Returns true if two strings match ignoring case and non-alphanumeric characters. The second string
+     * can optionally be treated as a prefix.
+     * (memory efficient convenience function)
      */
-    private void warn(String category, String msg, Exception exc) {
-        _logger.warn(msg, exc);
+    private static boolean looseMatch(String s1, String s2, boolean matchAsPrefix) {
+        if (s1 == null || s2 == null)
+            return false;
+
+        int s1Len = s1.length();
+        int s2Len = s2.length();
+        if (s1Len == 0 || s2Len == 0)
+            return false;
+
+        int i1 = 0;
+        int matched = 0;
+
+        // go through each valid character in s2 (which could be treated as a prefix)
+        for (int i2 = 0; i2 < s2Len; i2++) {
+            char c = s2.charAt(i2);
+            if (!Character.isLetterOrDigit(c))
+                continue;
+
+            char c2 = Character.toLowerCase(c); // will only be a number or lower case letter
+
+            // get the next valid character in the main string
+            char c1 = 0;
+            while (i1 < s1Len) {
+                c = s1.charAt(i1);
+                i1++;
+                if (!Character.isLetterOrDigit(c))
+                    // keep going through the main string
+                    continue;
+
+                c1 = Character.toLowerCase(c); // will only be a number or lower case letter
+                break;
+            } // while
+
+            // if no valid characters in s1 or it's too short, s will be 0
+
+            if (c2 != c1)
+                return false;
+
+            // indicate that at least one valid match has been made
+            matched++;
+        } // for
+
+        // we've now gone through all of s2 which is fine if we're only checking for prefix matching
+
+        if (matchAsPrefix)
+            // need to be certain at least one valid character was matched
+            return matched > 0;
+
+        // otherwise, we're doing a full match of the *both* strings so we need to scan the rest of the s1 for any extra valid character
+        // that would then break a match
+        while(i1 < s1Len) {
+            char c = s1.charAt(i1);
+            if (Character.isLetterOrDigit(c))
+                return false;
+
+            i1++;
+        }
+
+        return matched > 0;
     }
     
 }

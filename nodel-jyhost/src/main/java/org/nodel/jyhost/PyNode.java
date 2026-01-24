@@ -137,13 +137,7 @@ public class PyNode extends BaseDynamicNode {
      * The general purpose toolkit related to this node.
      */
     protected ManagedToolkit _toolkit;
-    
-    /**
-     * Holds the web-socket port
-     */
-    @Value(name = "webSocketPort", title = "WebSocket port", order = 10000)
-    private int webSocketPort = Nodel.getWebSocketPort();
-    
+
     /**
      * (init. in constructor)
      */
@@ -912,7 +906,7 @@ public class PyNode extends BaseDynamicNode {
      */
     private void cleanupInterpreter() {
         String message;
-        
+
         if (_python != null) {
             message = "(closing this interpreter...)";
 
@@ -920,8 +914,20 @@ public class PyNode extends BaseDynamicNode {
             _outReader.inject(message);
 
             try {
-                if (_globals.get(Py.java2py("processCleanupFunctions")) instanceof PyFunction) {
-                    PyFunction processCleanupFunctions = (PyFunction) _globals.get(Py.java2py("processCleanupFunctions"));
+                // Ensure the PySystemState is set before executing cleanup functions
+                PySystemState systemState = _python.getSystemState();
+                if (systemState == null)
+                    throw new IllegalStateException("Python interpreter not ready.");
+
+                Py.setSystemState(systemState);
+
+                // Reassign the output streams
+                _python.setOut(_outReader);
+                _python.setErr(_errReader);
+
+                PyObject cleanupObject = _globals.get(Py.java2py("processCleanupFunctions"));
+                if (cleanupObject instanceof PyFunction) {
+                    PyFunction processCleanupFunctions = (PyFunction) cleanupObject;
                     long cleanupFnCount = processCleanupFunctions.__call__().asLong();
 
                     if (cleanupFnCount > 0) {
@@ -936,12 +942,12 @@ public class PyNode extends BaseDynamicNode {
             }
 
             _python.cleanup();
-            
+
             message = "(clean up complete)";
             _logger.info(message);
             _outReader.inject(message);
         }
-        
+
         if (_toolkit != null) {
             _toolkit.shutdown();
         }
@@ -1680,14 +1686,16 @@ public class PyNode extends BaseDynamicNode {
     }
 
     /**
-     * Waits no longer than 10s to try and get a reentrant lock.
+     * Waits no longer than 60s to try and get a reentrant lock.
      * Starts off sharing one lock, but may need more if nodes lock up or take too long to initialise.
+     * This is done to deliberately constrain parallelism during intialisation so as to not encourage 
+     * race-conditions the Python code that isn't necessarily used to being executed in a free-threaded environment.
      */
     private ReentrantLock getAReentrantLock() throws InterruptedException {
         ReentrantLock lock = null;
 
         for (;;) {
-            if (lock != null && lock.tryLock(10, TimeUnit.SECONDS)) {
+            if (lock != null && lock.tryLock(60, TimeUnit.SECONDS)) {
                 return lock;
 
             } else {
@@ -1701,7 +1709,7 @@ public class PyNode extends BaseDynamicNode {
                         // won't get here the first iteration
                         s_currentGlobalRentrantLock = new ReentrantLock();
 
-                        _logger.warn("The interlocked initialisation sequence of the scripting engines is slow or dead-locked. A new lock has been created to hopefully release any potential dead-lock.");
+                        _logger.warn("A node is taking more than 60s to initialise.");
 
                         lock = s_currentGlobalRentrantLock;
                     }

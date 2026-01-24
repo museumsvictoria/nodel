@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.net.InetAddress;
+import java.net.URI;
 import java.net.UnknownHostException;
 import java.security.SecureRandom;
 import java.security.cert.CertificateException;
@@ -31,9 +32,11 @@ import org.apache.http.client.CredentialsProvider;
 import org.apache.http.client.RedirectStrategy;
 import org.apache.http.client.config.RequestConfig;
 import org.apache.http.client.methods.HttpDelete;
+import org.apache.http.client.methods.HttpEntityEnclosingRequestBase;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpHead;
 import org.apache.http.client.methods.HttpOptions;
+import org.apache.http.client.methods.HttpPatch;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.client.methods.HttpPut;
 import org.apache.http.client.methods.HttpRequestBase;
@@ -144,7 +147,7 @@ public class ApacheNodelHttpClient extends NodelHTTPClient {
         
         try {
             int lastIndexOfColon = proxyAddress.lastIndexOf(':');
-            proxyHost = proxyAddress.substring(0, lastIndexOfColon - 1);
+            proxyHost = proxyAddress.substring(0, lastIndexOfColon);
             proxyPort = Integer.parseInt(proxyAddress.substring(lastIndexOfColon + 1));
         } catch (Exception ignore) {
         }
@@ -361,11 +364,48 @@ public class ApacheNodelHttpClient extends NodelHTTPClient {
         
         else if ("OPTIONS".equals(method))
             return new HttpOptions(url);
-        
+
+        else if ("PATCH".equals(method))
+            return new HttpPatch(url);
+
+        else if (!Strings.isBlank(method))
+            return nonstandardHTTPMethod(method, body, url);
+
         else
             throw new IllegalArgumentException("Unknown HTTP method - " + method);
-    }    
-    
+    }
+
+    /**
+     * (convenience function)
+     */
+    private static HttpRequestBase nonstandardHTTPMethod(String method, String body, String url) {
+        // nonstandard / uncommon method has been specified - related issue #344
+        HttpRequestBase request;
+
+        // select a method class that does or does not support content (enclosed entity)
+        if (Strings.isEmpty(body)) {
+            request = new HttpRequestBase() {
+
+                @Override
+                public String getMethod() {
+                    return method;
+                }
+
+            };
+        } else {
+            request = new HttpEntityEnclosingRequestBase() {
+
+                @Override
+                public String getMethod() {
+                    return method;
+                }
+
+            };
+        }
+        request.setURI(URI.create(url));
+        return request;
+    }
+
     /**
      * Applies security for a given HTTP request.
      * @throws AuthenticationException 
