@@ -102,8 +102,6 @@ dependencies {
     testImplementation 'com.microsoft.playwright:playwright:1.49.0'
     testImplementation 'org.junit.jupiter:junit-jupiter-api:5.10.0'
     testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.10.0'
-    testImplementation 'junit:junit:4.13.2'
-    testRuntimeOnly 'org.junit.vintage:junit-vintage-engine:5.10.0'
 }
 
 /*
