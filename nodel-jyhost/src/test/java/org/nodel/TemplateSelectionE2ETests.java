@@ -17,6 +17,11 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
+/**
+ * End-to-end tests for the template selection UI in the add-node dialog.
+ * Tests recipe selection, node duplication with and without config copying,
+ * and card click behaviors.
+ */
 @Tag("e2e")
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 public class TemplateSelectionE2ETests extends TestBase {

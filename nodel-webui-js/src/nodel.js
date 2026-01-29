@@ -586,7 +586,9 @@ var duplicateNode = function(sourceNodeUrl, newNodeName, options, progressCallba
 var node = host = nodename = nodedesc = ''; //= opts = '';
 var converter = new Markdown.Converter();
 var unicodematch = new XRegExp("[^\\p{L}\\p{N}]", "gi");
-var simplematch = new RegExp(/^(.+?)(?:\(| \(| ?--|\/\/|$)/i);
+// Extracts the base node name by stopping at: parentheses "(", double-dash "--", or double-slash "//"
+// Examples: "Node Name (v2)" -> "Node Name", "Device--Location" -> "Device", "Service//Type" -> "Service"
+var simplematch = /^(.+?)(?:\(| \(| ?--|\/\/|$)/i;
 var colours = {'primary':'','success':'','danger':'','warning':'','info':'','default':''};
 var throttle = {'logs': {}};
 var allowedtxt = ['py','xml','xsl','js','json','html','htm','css','java','groovy','sql','sh','cs','bat','ini','txt','md','cmd'];
@@ -2068,7 +2070,7 @@ var setEvents = function(){
   }
 
   // Helper function to render selection card (replaces search field when selection made)
-  function renderTemplateSelectionPill(input, selection) {
+  function renderTemplateSelectionCard(input, selection) {
     var $parent = input.parent();
 
     // Clear existing selection UI
@@ -2092,7 +2094,7 @@ var setEvents = function(){
       var secondaryInfo = selection.name.substring(baseName.length).trim();
       name = baseName;
       detail = (secondaryInfo ? escapeHtml(secondaryInfo) + '<br>' : '') +
-               '<span class="card-host">' + escapeHtml(selection.host) + '</span>';
+               (selection.host ? '<span class="card-host">' + escapeHtml(selection.host) + '</span>' : '');
       icon = 'fa-copy text-info';
       label = 'Duplicate from';
     }
@@ -2146,6 +2148,10 @@ var setEvents = function(){
   $('body').on('click', '.template-selection-card .card-header', function(e) {
     e.preventDefault();
     var input = $(this).closest('.template-selection-card').siblings().find('.unified-template-search');
+    if (input.length === 0) {
+      console.warn('Template search input not found when clearing selection');
+      return;
+    }
     clearTemplateSelection(input, true);
     input.focus();
   });
@@ -2405,7 +2411,7 @@ var setEvents = function(){
 
     input.val(isRecipe ? selection.path : selection.name);
     input.data('templateSelection', selection);
-    renderTemplateSelectionPill(input, selection);
+    renderTemplateSelectionCard(input, selection);
     $autocomplete.remove();
   }
   $('body').on('mousedown touchstart', '.unified-template-search + .template-autocomplete ul li:not(.section-header)', handleTemplateSelection);

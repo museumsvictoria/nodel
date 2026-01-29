@@ -6,6 +6,10 @@ import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+/**
+ * Integration tests for the duplicateNode JavaScript function.
+ * Verifies that preflight checks prevent node creation when the source is unreachable.
+ */
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 public class TemplateSelectionIntegrationTests extends TestBase {
 
