@@ -104,38 +104,12 @@ dependencies {
     testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.10.0'
 }
 
-/*
- * =============================================================================
- * E2E / INTEGRATION TEST INFRASTRUCTURE
- * =============================================================================
- *
- * Tests run a dedicated Nodel instance on port 18085 (not the default 8085)
- * in a temporary 'nodelhost-temp' directory for isolation.
- *
- * RUNNING TESTS:
- *   ./gradlew :nodel-jyhost:integrationTest    # API and smoke tests
- *   ./gradlew :nodel-jyhost:e2eTest            # Browser-based UI tests
- *
- * VISUAL DEBUGGING (see browser during E2E tests):
- *   Unix:
- *     HEADED=1 SLOWMO=500 ./gradlew :nodel-jyhost:e2eTest --rerun
- *   PowerShell:
- *     $env:HEADED=1; $env:SLOWMO=500; ./gradlew :nodel-jyhost:e2eTest --rerun
- *
- * WHEN TESTS FAIL:
- *   1. Check nodelhost-temp/output.log and error.log for server issues
- *   2. Re-run with HEADED=1 and/or PWDEBUG=1 to watch/interact with the browser
- *   3. Check build/reports/tests/ for JUnit HTML reports
- *   4. CI uploads failure artifacts (logs + reports) automatically
- *
- * SKIPPING TESTS:
- *   ./gradlew build -x test                    # Skip all tests
- *   ./gradlew build -x integrationTest -x e2eTest  # Skip only Playwright tests
- *
- * =============================================================================
- */
+// Test infrastructure documentation moved to BUILDING.md (see "TESTING").
 def nodelProcess = null
 def isWindows = System.getProperty('os.name').toLowerCase().contains('windows')
+def discoveryEnv = System.getenv('NODEL_TEST_DISCOVERY')
+def useLocalDiscovery = (discoveryEnv == null || discoveryEnv.trim().isEmpty()
+        || discoveryEnv.trim().equalsIgnoreCase('false') || discoveryEnv.trim().equals('0'))
 
 tasks.register('cleanNodelhostTemp', Delete) {
     delete layout.projectDirectory.dir('nodelhost-temp')
@@ -158,19 +132,28 @@ tasks.register('startNodelhost') {
         def tempDir = layout.projectDirectory.dir('nodelhost-temp').asFile
         tempDir.mkdirs()
 
+        if (useLocalDiscovery) {
+            logger.lifecycle("Using LocalAutoDNS for tests (set NODEL_TEST_DISCOVERY=1 for multicast discovery)")
+        } else {
+            logger.lifecycle("Using multicast AutoDNS for tests (NODEL_TEST_DISCOVERY enabled)")
+        }
+
         def pb
         if (isWindows) {
             // Windows: Start java directly with stdin pipe to keep process alive
-            pb = new ProcessBuilder(
-                'java', '-cp', sourceSets.main.runtimeClasspath.asPath,
-                '-ea', 'org.nodel.jyhost.Launch', '-p', '18085'
-            )
+            def args = ['java', '-cp', sourceSets.main.runtimeClasspath.asPath, '-ea']
+            if (useLocalDiscovery) {
+                args.add('-Dorg.nodel.discovery.impl=org.nodel.discovery.LocalAutoDNS;instance')
+            }
+            args.addAll(['org.nodel.jyhost.Launch', '-p', '18085'])
+            pb = new ProcessBuilder(args)
             pb.redirectInput(ProcessBuilder.Redirect.PIPE)
         } else {
             // Unix: Use tail -f /dev/null to keep stdin open (prevents auto-shutdown)
+            def discoveryArg = useLocalDiscovery ? "-Dorg.nodel.discovery.impl='org.nodel.discovery.LocalAutoDNS;instance' " : ""
             pb = new ProcessBuilder(
                 'bash', '-c',
-                "tail -f /dev/null | java -cp '${sourceSets.main.runtimeClasspath.asPath}' -ea org.nodel.jyhost.Launch -p 18085"
+                "tail -f /dev/null | java -cp '${sourceSets.main.runtimeClasspath.asPath}' -ea ${discoveryArg}org.nodel.jyhost.Launch -p 18085"
             )
         }
         pb.directory(tempDir)

@@ -112,3 +112,35 @@ rm -fr ~/nodel-build
 
 ---
 ¹ For macOS, adjust to suit.
+
+## TESTING (Integration & E2E)
+
+Nodel includes Playwright-based integration and E2E tests that run a dedicated nodehost on port `18085` in a temporary `nodelhost-temp/` directory.
+
+### Run tests
+```bash
+./gradlew :nodel-jyhost:integrationTest
+./gradlew :nodel-jyhost:e2eTest
+```
+
+### Visual debugging
+```bash
+HEADED=1 SLOWMO=500 ./gradlew :nodel-jyhost:e2eTest
+```
+
+### When tests fail
+1. Check `nodelhost-temp/output.log` and `nodelhost-temp/error.log` for server issues.
+2. Re-run with `HEADED=1` and/or `PWDEBUG=1` to watch or debug the browser.
+3. Check `nodel-jyhost/build/reports/tests/` for JUnit HTML reports.
+
+### Skip tests
+```bash
+./gradlew build -x test
+./gradlew build -x integrationTest -x e2eTest
+```
+
+### Discovery mode (tests)
+By default, tests use LocalAutoDNS for deterministic discovery results. To exercise real multicast discovery, set:
+```bash
+NODEL_TEST_DISCOVERY=1 ./gradlew :nodel-jyhost:integrationTest --tests org.nodel.DiscoverySmokeTests
+```
