@@ -517,6 +517,7 @@ public class Launch {
         Properties props = new Properties();
         props.putAll(System.getProperties());
         props.setProperty("python.import.site", "false");
+        props.setProperty("python.console.encoding", "UTF-8");
 
         PythonInterpreter.initialize(props, null, s_processArgs);
         
