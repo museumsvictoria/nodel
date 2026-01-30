@@ -3125,20 +3125,22 @@ var process_showevent = function(log){
   });
   $.each(eles, function (i, ele) {
     if ($(ele).hasClass('sect')) {
-      if($.type(log.arg)== "object") log.arg = log.arg[$(ele).data('showevent-arg')];
-      switch ($.type(log.arg)) {
+      if($(this).data('showeventarg')){
+        var larg = _.get(log.arg, $(this).data('showeventarg'), null);
+      } else larg = log.arg;
+      switch ($.type(larg)) {
         case "string":
         case "number":
           $(ele).hide();
           $(ele).filter(function() {
-            return $.inArray(log.arg, $.isArray($(this).data('showarg')) ? $(this).data('showarg') : [$(this).data('showarg')]) >= 0;
+            return $.inArray(larg, $.isArray($(this).data('showarg')) ? $(this).data('showarg') : [$(this).data('showarg')]) >= 0;
           }).show();
           break;
         case "boolean":
           $(ele).hide();
           if(_.isUndefined($(ele).data('showeventdata'))) $(ele).data('showeventdata', {});
           var val = $(ele).data('showeventdata');
-          val[log.alias] = log.arg;
+          val[log.alias] = larg;
           $(ele).data('showeventdata', val);
           $.each($(ele).data('showeventdata'), function(i, e){
             if(e == true) $(ele).show();
@@ -3157,7 +3159,6 @@ var process_event = function(log){
     return $.inArray(log.alias, $.isArray($(this).data('event')) ? $(this).data('event') : [$(this).data('event')]) >= 0;
   });
   $.each(eles, function (i, ele) {
-    if($.type(log.arg)== "object") log.arg = log.arg[$(ele).data('event-arg')];
     if($(ele).hasClass('dynamic')) {
       $(ele).data('dynamic',log);
     }
