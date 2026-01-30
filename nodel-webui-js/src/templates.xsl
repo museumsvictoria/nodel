@@ -1664,7 +1664,7 @@
                 </xsl:attribute>
                 <xsl:text>Add node here</xsl:text>
               </button>
-              <ul class="dropdown-menu">
+              <ul class="dropdown-menu add-node-unified">
                 <xsl:attribute name="aria-labelledby">
                   <xsl:text>addgrp_</xsl:text>
                   <xsl:value-of select="$addgrp"/>
@@ -1686,20 +1686,24 @@
                           <xsl:value-of select="$nodenamval"/>
                         </xsl:attribute>
                       </input>
-                      <xsl:variable name="recipeval" select="generate-id(.)"/>
+                      <!-- Unified template search -->
+                      <xsl:variable name="templateval" select="generate-id(.)"/>
                       <label>
                         <xsl:attribute name="for">
-                          <xsl:text>recipeval_</xsl:text>
-                          <xsl:value-of select="$recipeval"/>
+                          <xsl:text>templateval_</xsl:text>
+                          <xsl:value-of select="$templateval"/>
                         </xsl:attribute>
-                        <xsl:text>Recipe</xsl:text>
+                        <xsl:text>Template </xsl:text>
+                        <small class="text-muted">(optional)</small>
                       </label>
-                      <select class="form-control recipepicker goto" type="text">
-                        <xsl:attribute name="id">
-                          <xsl:text>recipeval_</xsl:text>
-                          <xsl:value-of select="$recipeval"/>
-                        </xsl:attribute>
-                      </select>
+                      <div style="position:relative">
+                        <input class="form-control unified-template-search" type="text" placeholder="Search recipes or nodes..." autocomplete="off">
+                          <xsl:attribute name="id">
+                            <xsl:text>templateval_</xsl:text>
+                            <xsl:value-of select="$templateval"/>
+                          </xsl:attribute>
+                        </input>
+                      </div>
                     </fieldset>
                     <div class="btn-toolbar">
                       <button type="submit" class="btn btn-success nodeaddsubmit">Add</button>
