@@ -74,6 +74,7 @@ import org.python.core.PyFunction;
 import org.python.core.PyObject;
 import org.python.core.PyString;
 import org.python.core.PySystemState;
+import org.python.core.PyUnicode;
 import org.python.util.PythonInterpreter;
 
 /**
@@ -549,8 +550,8 @@ public class PyNode extends BaseDynamicNode {
         pySystemState.setCurrentWorkingDir(_root.getAbsolutePath());
         
         // append the Node's root directory to the path
-        pySystemState.path.append(new PyString(_root.getAbsolutePath()));
-        pySystemState.path.append(new PyString(_metaRoot.getAbsolutePath()));
+        pySystemState.path.append(new PyUnicode(_root.getAbsolutePath()));
+        pySystemState.path.append(new PyUnicode(_metaRoot.getAbsolutePath()));
         Py.setSystemState(pySystemState);
         
         _globals = new PyDictionary();
@@ -895,7 +896,7 @@ public class PyNode extends BaseDynamicNode {
     }
 
     private void ensureSysPath(PySystemState systemState, String path) {
-        PyString pathString = new PyString(path);
+        PyUnicode pathString = new PyUnicode(path);
         if (!systemState.path.contains(pathString)) {
             systemState.path.append(pathString);
         }
