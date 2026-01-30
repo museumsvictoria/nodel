@@ -14,6 +14,7 @@ import java.io.RandomAccessFile;
 import java.net.BindException;
 import java.net.ServerSocket;
 import java.nio.channels.FileLock;
+import java.util.Properties;
 
 import org.joda.time.DateTime;
 import org.nodel.StartupException;
@@ -513,7 +514,11 @@ public class Launch {
      * Needs to be called once before using any interpreters.
      */
     private static void initialisePython() {
-        PythonInterpreter.initialize(System.getProperties(), null, s_processArgs);
+        Properties props = new Properties();
+        props.putAll(System.getProperties());
+        props.setProperty("python.import.site", "false");
+
+        PythonInterpreter.initialize(props, null, s_processArgs);
         
         // JSONObject.NULL
         Py.getAdapter().addPostClass(new PyObjectAdapter() {
