@@ -2627,7 +2627,7 @@ var process_showevent = function(log){
   $.each(eles, function (i, ele) {
     if ($(ele).hasClass('sect')) {
       if($(this).data('showeventarg')){
-        larg = _.get(log.arg, $(this).data('showeventarg'), null);
+        var larg = _.get(log.arg, $(this).data('showeventarg'), null);
       } else larg = log.arg;
       switch ($.type(larg)) {
         case "string":
