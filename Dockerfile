@@ -18,7 +18,9 @@ COPY nodel-webui-js/package-lock.json nodel-webui-js/package-lock.json
 COPY nodel-webui-js/Gruntfile.js nodel-webui-js/Gruntfile.js
 
 RUN --mount=type=cache,target=/root/.gradle \
-    chmod +x gradlew \
+    # Normalize line endings for Windows clones so /bin/sh can run gradlew.
+    sed -i 's/\r$//' gradlew \
+    && chmod +x gradlew \
     && ./gradlew :nodel-jyhost:dependencies --no-daemon
 
 COPY . .
