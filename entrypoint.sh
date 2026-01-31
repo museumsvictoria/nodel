@@ -6,5 +6,15 @@ if [ ! -f /app/nodelhost.jar ]; then
   exit 1
 fi
 
-# tail -f /dev/null keeps stdin open (Nodel reads stdin; EOF triggers graceful exit)
-exec tail -f /dev/null | java ${JAVA_OPTS:-} -jar /app/nodelhost.jar "$@"
+# Keep stdin open without masking signals (Nodel reads stdin; EOF triggers graceful exit).
+stdin_fifo="/tmp/nodel-stdin"
+if [ -e "$stdin_fifo" ] && [ ! -p "$stdin_fifo" ]; then
+  rm -f "$stdin_fifo"
+fi
+if [ ! -p "$stdin_fifo" ]; then
+  mkfifo "$stdin_fifo"
+fi
+
+tail -f /dev/null > "$stdin_fifo" &
+
+exec java ${JAVA_OPTS:-} -jar /app/nodelhost.jar "$@" < "$stdin_fifo"
