@@ -124,7 +124,7 @@ jobs:
         with:
           context: .
           platforms: linux/amd64,linux/arm64
-          push: ${{ github.ref_type == 'tag' || inputs.push_image }}
+          push: ${{ github.ref_type == 'tag' || inputs.push_image == 'true' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
