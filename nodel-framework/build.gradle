@@ -42,7 +42,7 @@ testing {
 }
 
 dependencies {
-    implementation 'joda-time:joda-time:2.6'
+    implementation 'joda-time:joda-time:2.10.14'
     implementation 'org.slf4j:slf4j-api:1.7.10'
 
     // SSH features
@@ -54,11 +54,11 @@ testing {
         // Configure the built-in test suite
         test {
             // Use JUnit Jupiter test framework
-            useJUnitJupiter('5.7.0')
-            
+            useJUnitJupiter('5.10.0')
+
             dependencies {
-                implementation 'org.junit.jupiter:junit-jupiter-params:5.7.0'
-                implementation 'org.mockito:mockito-core:3.12.4'
+                implementation 'org.junit.jupiter:junit-jupiter-params:5.10.0'
+                implementation 'org.mockito:mockito-core:5.15.2'
                 implementation 'ch.qos.logback:logback-classic:1.4.14'
             }
         }
