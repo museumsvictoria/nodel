@@ -458,7 +458,8 @@ input[type=range]::-ms-fill-upper {
   background: @btn-default-bg;
   border-radius: @border-radius-base;
 }
-div.row > div > .btn, div.row > div > .btn-group, div.row > div > .btn-group-vertical, div.row > div > .nav-pills, .range {
+// Keep legacy direct-column spacing and apply the same rhythm inside explicit group wrappers.
+div.row > div > .btn, div.row > div > .btn-group, div.row > div > .btn-group-vertical, div.row > div > .nav-pills, .nodel-group > .btn, .nodel-group > .btn-group, .nodel-group > .btn-group-vertical, .nodel-group > .nav-pills, .range {
   margin-bottom: @form-group-margin-bottom;
 }
 table.btn-grid {

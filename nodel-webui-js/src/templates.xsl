@@ -1622,7 +1622,7 @@
   <xsl:template match="group">
     <div>
       <xsl:attribute name="class">
-        <xsl:text>well</xsl:text>
+        <xsl:text>well nodel-group</xsl:text>
         <xsl:if test="@showevent">
           <xsl:text> sect</xsl:text>
         </xsl:if>
