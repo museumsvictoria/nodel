@@ -89,11 +89,11 @@ public class FrontendSpacingRegressionTests extends TestBase {
         assertEquals(200, xslResponse.status(), "v1/index.xsl should be fetchable");
 
         String transformedHtml = transformXmlToHtml(xmlResponse.text(), xslResponse.text(), nodeBaseUrl);
-        assertTrue(transformedHtml.contains("well nodel-group"),
-            "Transformed output should include grouped container classes");
+        assertTrue(transformedHtml.contains("class=\"well"),
+            "Transformed output should include the grouped well container");
 
         page.setContent(absolutizeAssetUrls(transformedHtml, nodeBaseUrl));
-        waitForElement(".well.nodel-group");
+        waitForElement(".well");
 
         Map<String, Object> metrics = (Map<String, Object>) page.evaluate(
             "() => {\n" +
@@ -124,8 +124,7 @@ public class FrontendSpacingRegressionTests extends TestBase {
             "    ungroupedButtonMarginBottom: ungroupedButtonMb,\n" +
             "    groupedButtonToRangeGap: groupedGap,\n" +
             "    ungroupedButtonToRangeGap: ungroupedGap,\n" +
-            "    groupHasWell: groupedWell.classList.contains('well'),\n" +
-            "    groupHasNodelGroup: groupedWell.classList.contains('nodel-group')\n" +
+            "    groupHasWell: groupedWell.classList.contains('well')\n" +
             "  };\n" +
             "}");
 
@@ -139,7 +138,6 @@ public class FrontendSpacingRegressionTests extends TestBase {
         assertTrue(groupedButtonMarginBottom > 0.1,
             "Expected non-zero button margin to confirm stylesheet applied");
         assertTrue((Boolean) metrics.get("groupHasWell"), "Grouped container should preserve the 'well' class");
-        assertTrue((Boolean) metrics.get("groupHasNodelGroup"), "Grouped container should include the 'nodel-group' class");
         assertEquals(ungroupedButtonMarginBottom, groupedButtonMarginBottom, 0.1,
             "Grouped button margin-bottom should match ungrouped button margin-bottom");
         assertEquals(ungroupedGap, groupedGap, 1.0,

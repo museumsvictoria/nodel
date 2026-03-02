@@ -458,8 +458,17 @@ input[type=range]::-ms-fill-upper {
   background: @btn-default-bg;
   border-radius: @border-radius-base;
 }
-// Apply standard control spacing to direct child controls in both columns and group containers.
-div.row > div > .btn, div.row > div > .btn-group, div.row > div > .btn-group-vertical, div.row > div > .nav-pills, .nodel-group > .btn, .nodel-group > .btn-group, .nodel-group > .btn-group-vertical, .nodel-group > .nav-pills, .range {
+div.row > div {
+  > .btn, > .btn-group, > .btn-group-vertical, > .nav-pills {
+    margin-bottom: @form-group-margin-bottom;
+  }
+  > .well {
+    > .btn, > .btn-group, > .btn-group-vertical, > .nav-pills {
+      margin-bottom: @form-group-margin-bottom;
+    }
+  }
+}
+.range {
   margin-bottom: @form-group-margin-bottom;
 }
 table.btn-grid {
