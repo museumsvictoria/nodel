@@ -1466,7 +1466,28 @@
   <!-- qrcode-->
   <!-- meter -->
   <xsl:template match="meter">
-    <div class="meter" data-event="{@event}">
+    <div>
+      <xsl:attribute name="class">
+        <xsl:text>meter</xsl:text>
+        <xsl:if test="@showevent">
+          <xsl:text> sect</xsl:text>
+        </xsl:if>
+      </xsl:attribute>
+      <xsl:if test="@event">
+        <xsl:attribute name="data-event">
+          <xsl:value-of select="@event"/>
+        </xsl:attribute>
+      </xsl:if>
+      <xsl:if test="@showevent">
+        <xsl:attribute name="data-showevent">
+          <xsl:value-of select="@showevent"/>
+        </xsl:attribute>
+        <xsl:if test="@showvalue">
+          <xsl:attribute name="data-showarg">
+            <xsl:value-of select="@showvalue"/>
+          </xsl:attribute>
+        </xsl:if>
+      </xsl:if>
       <xsl:attribute name="data-type">
         <xsl:value-of select="@type"/>
       </xsl:attribute>
