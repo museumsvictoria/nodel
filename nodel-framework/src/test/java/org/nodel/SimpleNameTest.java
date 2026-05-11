@@ -28,7 +28,10 @@ class SimpleNameTest {
             "Node Name, NodeName",
             "node-name, nodename",
             "node.name, nodename",
-            "node name, nodename"
+            "node name, nodename",
+            "'Issue235Paren (Meta)', Issue235Paren",
+            "'Issue235Dash -- Meta', Issue235Dash",
+            "'Issue235Slash // Meta', Issue235Slash"
     })
     public void testGetReducedName(String originalName, String expectedReducedName) {
         SimpleName name = new SimpleName(originalName);
