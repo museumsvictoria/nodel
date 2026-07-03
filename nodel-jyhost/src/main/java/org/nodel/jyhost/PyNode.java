@@ -544,14 +544,9 @@ public class PyNode extends BaseDynamicNode {
         
         _logger.info("Initialising new Python interpreter...");
         
+        // a fresh system state per (re)configuration; the working directory and 'sys.path'
+        // are established in 'injectToolkit' where the interpreter's effective state is available
         PySystemState pySystemState = new PySystemState();
-
-        // set the current working directory
-        pySystemState.setCurrentWorkingDir(_root.getAbsolutePath());
-        
-        // append the Node's root directory to the path
-        pySystemState.path.append(new PyUnicode(_root.getAbsolutePath()));
-        pySystemState.path.append(new PyUnicode(_metaRoot.getAbsolutePath()));
         Py.setSystemState(pySystemState);
         
         _globals = new PyDictionary();
@@ -845,6 +840,9 @@ public class PyNode extends BaseDynamicNode {
     private void injectToolkit() throws IOException {
         // toolkit and callback queue are cleaned up by 'cleanupInterpreter'
 
+        // the thread-local interpreter's effective system state is only reliably available
+        // here (post interpreter creation), so this must remain the single place where the
+        // working directory and 'sys.path' (node root and meta root) are established
         _pySystemState = Py.getSystemState();
         _pySystemState.setCurrentWorkingDir(_root.getAbsolutePath());
         ensureSysPath(_pySystemState, _root.getAbsolutePath());
