@@ -3,7 +3,6 @@ package org.nodel;
 import com.microsoft.playwright.ElementHandle;
 import com.microsoft.playwright.Locator;
 import com.microsoft.playwright.Page;
-import com.microsoft.playwright.PlaywrightException;
 import com.microsoft.playwright.options.WaitForSelectorState;
 import org.junit.jupiter.api.*;
 
@@ -312,14 +311,12 @@ public class TemplateSelectionE2ETests extends TestBase {
     }
 
     private static void openAddNodeDropdown() {
-        // hop via about:blank to discard the previous page together with its pending
-        // timers: nodel.js's checkRedirect/checkReload fire delayed location changes
-        // that otherwise interrupt the navigation we are awaiting ("Navigation ... is
-        // interrupted by another navigation"). Go straight to locals.xml because "/"
-        // serves index.htm, whose inline-script redirect to locals.xml can likewise
-        // commit before index.htm's load event and interrupt the awaited navigation.
-        navigateIgnoringStrayRedirects("about:blank");
-        navigateIgnoringStrayRedirects(BASE_URL + "/locals.xml");
+        // a fresh page carries none of the previous test's pending timers (see
+        // recreatePage), and locals.xml is loaded directly because "/" serves
+        // index.htm, whose inline-script redirect to locals.xml can commit before
+        // index.htm's load event and interrupt the navigation being awaited
+        recreatePage();
+        page.navigate(BASE_URL + "/locals.xml");
         // the dropdown sits inside div.page, which stays display:none until nodel.js's
         // init reveals the active section - well after .navbar (static XSLT output)
         // renders, so wait for the control itself rather than the navbar. A timeout
@@ -329,21 +326,6 @@ public class TemplateSelectionE2ETests extends TestBase {
         dropdown.click();
         Locator nodeNameInput = page.locator(".nodel-add input.nodenamval").first();
         assertTrue(nodeNameInput.isVisible(), "Node name input must exist");
-    }
-
-    /**
-     * Navigate, retrying once if a stray timer on the outgoing page (e.g. a pending
-     * checkRedirect poll) commits its own navigation while ours is in flight.
-     */
-    private static void navigateIgnoringStrayRedirects(String url) {
-        try {
-            page.navigate(url);
-        } catch (PlaywrightException e) {
-            if (e.getMessage() == null || !e.getMessage().contains("interrupted by another navigation")) {
-                throw e;
-            }
-            page.navigate(url);
-        }
     }
 
     private static void typeTemplateSearch(String query) {

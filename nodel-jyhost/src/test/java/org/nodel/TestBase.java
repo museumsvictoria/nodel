@@ -49,6 +49,19 @@ public abstract class TestBase {
     }
 
     /**
+     * Replace the shared page with a fresh one. Pages left behind by earlier tests
+     * carry pending timers (e.g. nodel.js's checkRedirect/checkReload polls) whose
+     * delayed location changes interrupt an in-flight navigation on the same tab
+     * ("Navigation ... is interrupted by another navigation"). A new page has none.
+     */
+    protected static void recreatePage() {
+        if (page != null) {
+            page.close();
+        }
+        page = context.newPage();
+    }
+
+    /**
      * Navigate to base URL and wait for page ready
      */
     protected static void navigateToHome() {
