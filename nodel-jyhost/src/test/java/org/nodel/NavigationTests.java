@@ -62,6 +62,11 @@ public class NavigationTests extends TestBase {
 
     @Test
     public void testActiveNavItemExists() {
+        // Ensure we're on the home page and give the UI time to set the active class
+        page.navigate(BASE_URL);
+        page.waitForSelector(".navbar", new Page.WaitForSelectorOptions().setTimeout(30000));
+        page.waitForSelector(".navbar-nav .active, .nav.navbar-nav .active",
+            new Page.WaitForSelectorOptions().setTimeout(30000));
         ElementHandle activeItem = page.querySelector(".navbar-nav .active, .nav.navbar-nav .active");
         assertNotNull(activeItem, "An active navigation item should exist");
     }

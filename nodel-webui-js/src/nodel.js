@@ -481,14 +481,19 @@ var copyFilesSequentially = function(sourceUrl, destUrl, files) {
       })
       .fail(function(error) {
         console.error('File copy failed:', file.path, error);
-        results.failed.push({
+        var failure = {
           path: file.path,
           type: error.type,
           status: error.status,
           message: error.errorThrown || error.statusText || 'unknown error'
-        });
+        };
+        results.failed.push(failure);
         if (file.path === 'script.py') {
-          d.reject({message: 'Failed to copy script.py'});
+          d.reject({
+            // escaped here because rejection messages end up in alert(), which renders HTML
+            message: 'Failed to copy script.py (' + failure.type + (failure.status ? ', HTTP ' + failure.status : '') + '): ' + escapeHtml(failure.message),
+            failed: results.failed
+          });
           return;
         }
         currentIndex++;
@@ -500,7 +505,35 @@ var copyFilesSequentially = function(sourceUrl, destUrl, files) {
   return d.promise();
 };
 
-var duplicateNode = function(sourceNodeUrl, newNodeName, progressCallback) {
+// Filter function to exclude auto-generated and backup files during node duplication
+// (matches on the file's basename only - directory prefixes are not considered)
+var shouldCopyFile = function(filePath) {
+  var fileName = filePath.split('/').pop();
+  // Exclude auto-generated files (start with underscore)
+  if (fileName.charAt(0) === '_') return false;
+  // Exclude script backup files
+  if (/^script_backup_.*\.py$/.test(fileName)) return false;
+  return true;
+};
+
+// Selects and orders the files to copy when duplicating a node: excludes auto-generated
+// files, optionally excludes the node configuration (matched by basename, consistent with
+// shouldCopyFile), and orders script.py last so the node restart it triggers happens after
+// all other files are in place
+var filterFilesForDuplication = function(files, includeNodeConfig) {
+  return files.filter(function(f) {
+    return shouldCopyFile(f.path) && (includeNodeConfig || f.path.split('/').pop() !== 'nodeConfig.json');
+  }).sort(function(a, b) {
+    // script.py should be copied last
+    if (a.path === 'script.py') return 1;
+    if (b.path === 'script.py') return -1;
+    return 0;
+  });
+};
+
+var duplicateNode = function(sourceNodeUrl, newNodeName, options, progressCallback) {
+  options = options || {};
+
   var d = $.Deferred();
 
   // Step 1: Verify source is reachable by getting file list
@@ -516,26 +549,28 @@ var duplicateNode = function(sourceNodeUrl, newNodeName, progressCallback) {
         progressCallback({current: 0, total: 0, fileName: '', status: 'Initializing node... (' + attempt + ')'});
       }).then(function() {
         if (!files || files.length === 0) {
-          d.resolve(newNodeUrl);
+          d.resolve({url: newNodeUrl, failed: []});
           return;
         }
 
-        // Step 4: Copy files sequentially
-        copyFilesSequentially(sourceNodeUrl, newNodeUrl, files)
+        // Step 4: Filter and copy files
+        var filesToCopy = filterFilesForDuplication(files, options.includeNodeConfig);
+        var skippedPaths = files.filter(function(f) { return !shouldCopyFile(f.path); })
+                                .map(function(f) { return f.path; });
+        if (skippedPaths.length > 0) console.info('Skipping auto-generated/backup file(s) during duplication:', skippedPaths.join(', '));
+
+        copyFilesSequentially(sourceNodeUrl, newNodeUrl, filesToCopy)
           .then(function(results) {
-            if (results.failed.length > 0) {
-              var failedDetails = results.failed.map(function(f) {
-                return escapeHtml(f.path) + ' (' + escapeHtml(f.message) + ')';
-              }).join(', ');
-              alert('Node created with ' + results.failed.length + ' file(s) failed to copy: ' + failedDetails, 'warning', 10000);
-            }
-            d.resolve(newNodeUrl);
+            // the caller decides how to surface partial failures (see resolve payload)
+            d.resolve({url: newNodeUrl, failed: results.failed});
           })
           .fail(function(error) {
-            d.reject({message: error.message || 'Failed to copy files'});
+            d.reject({message: 'Node "' + escapeHtml(newNodeName) + '" was created but is incomplete - ' +
+              (error.message || 'failed to copy files') + '. Delete it or retry the copy.'});
           });
       }).fail(function(error) {
-        d.reject(error);
+        d.reject({message: 'Node "' + escapeHtml(newNodeName) + '" was created but did not initialise: ' +
+          (error.message || 'unknown error')});
       });
     }).fail(function(req) {
       var error = 'Failed to create node';
@@ -565,7 +600,9 @@ var duplicateNode = function(sourceNodeUrl, newNodeName, progressCallback) {
 var node = host = nodename = nodedesc = ''; //= opts = '';
 var converter = new Markdown.Converter();
 var unicodematch = new XRegExp("[^\\p{L}\\p{N}]", "gi");
-var simplematch = new RegExp(/^(.+?)(?:\(| \(|$)/i);
+// Extracts the base node name by stopping at: parentheses "(", double-dash "--", or double-slash "//"
+// Examples: "Node Name (v2)" -> "Node Name", "Device--Location" -> "Device", "Service//Type" -> "Service"
+var simplematch = /^(.+?)(?:\(| \(| ?--|\/\/|$)/i;
 var colours = {'primary':'','success':'','danger':'','warning':'','info':'','default':''};
 var throttle = {'logs': {}};
 var allowedtxt = ['py','xml','xsl','js','json','html','htm','css','java','groovy','sql','sh','cs','bat','ini','txt','md','cmd'];
@@ -2057,8 +2094,12 @@ var setEvents = function(){
   // Helper function to clear template selection state
   function clearTemplateSelection(input, clearValue) {
     input.removeData('templateSelection');
-    input.siblings('.template-selected').remove();
     input.siblings('.template-autocomplete').remove();
+    // Remove selection card and checkbox (siblings of input's parent div)
+    input.parent().siblings('.template-selection-card').remove();
+    input.parent().siblings('.copy-config-option').remove();
+    // Show the input wrapper again
+    input.parent().show();
     if (clearValue) input.val('');
   }
 
@@ -2070,13 +2111,64 @@ var setEvents = function(){
     return warnings.length > 0 ? 'Could not load ' + warnings.join(' or ') : null;
   }
 
-  // Helper function to render selection indicator
-  function renderTemplateSelectionPill(input, selection) {
-    input.siblings('.template-selected').remove();
-    var tooltip = selection.type === 'recipe' ? 'Recipe: ' + selection.path : 'Node: ' + selection.name;
-    var indicator = $('<span class="template-selected"><i class="fa fa-check-circle"></i></span>');
-    indicator.attr('title', tooltip);
-    input.after(indicator);
+  // Helper function to render selection card (replaces search field when selection made)
+  function renderTemplateSelectionCard(input, selection) {
+    var $parent = input.parent();
+
+    // Clear existing selection UI
+    $parent.siblings('.template-selection-card').remove();
+    $parent.siblings('.copy-config-option').remove();
+
+    // Hide the search input
+    $parent.hide();
+
+    var isRecipe = selection.type === 'recipe';
+    var name, icon, label;
+    // build the detail via DOM APIs (never string-concatenated HTML): name, host and
+    // address originate from network discovery and must not be treated as markup
+    var detail = $('<div class="card-detail text-muted"/>');
+
+    if (isRecipe) {
+      var parts = selection.path.split('/');
+      name = parts.pop();
+      icon = 'fa-book text-success';
+      label = 'Recipe';
+      if (parts.length > 0) detail.text(parts.join('/'));
+    } else {
+      var baseName = getSimpleName(selection.name);
+      var secondaryInfo = selection.name.substring(baseName.length).trim();
+      name = baseName;
+      icon = 'fa-copy text-info';
+      label = 'Duplicate from';
+      if (secondaryInfo) detail.append($('<span/>').text(secondaryInfo), '<br>');
+      if (selection.host) detail.append($('<span class="card-host"/>').text(selection.host));
+    }
+
+    var card = $('<div class="template-selection-card"/>').append(
+      $('<div class="card-header"/>').append(
+        $('<span class="card-type"/>').append($('<i/>').addClass('fa ' + icon), ' ' + label),
+        $('<a href="#" class="card-change"><i class="fa fa-times"></i></a>')),
+      $('<div class="card-body"/>').append(
+        $('<div class="card-name"/>').text(name),
+        detail.contents().length > 0 ? detail : null));
+
+    // attribute set via .attr() (quote-safe); omitted entirely when there is no
+    // address so the CSS clickable affordance only appears when clicking works.
+    // only http(s) addresses are wired up: discovery metadata must never supply a
+    // scheme (e.g. javascript:) that the card-body click would hand to window.open
+    if (!isRecipe && selection.address && /^https?:\/\//i.test(selection.address)) {
+      card.attr('data-address', selection.address);
+    }
+
+    $parent.after(card);
+
+    // Add config checkbox for node duplication only
+    if (!isRecipe) {
+      card.after($('<label class="copy-config-option">' +
+        '<input type="checkbox" class="include-node-config"> ' +
+        'Copy configuration&nbsp;<span class="text-muted">(parameters &amp; bindings)</span>' +
+      '</label>'));
+    }
   }
 
   $('body').on('shown.bs.dropdown', '.nodel-add .addgrp', function () {
@@ -2097,6 +2189,29 @@ var setEvents = function(){
     // This keeps the cache reasonably fresh for users who add recipes while the nodehost is running.
     refreshRecipesList(true);
   });
+
+  // Handle header click on selection card - return to search mode
+  $('body').on('click', '.template-selection-card .card-header', function(e) {
+    e.preventDefault();
+    var input = $(this).closest('.template-selection-card').siblings().find('.unified-template-search');
+    if (input.length === 0) {
+      console.warn('Template search input not found when clearing selection');
+      return;
+    }
+    clearTemplateSelection(input, true);
+    input.focus();
+  });
+
+  // Handle body click on node selection card - open source node in new tab
+  $('body').on('click', '.template-selection-card .card-body', function(e) {
+    var address = $(this).closest('.template-selection-card').data('address');
+    if (address) {
+      e.preventDefault();
+      if (!window.open(address, '_blank'))
+        alert('Popup blocked - open the source node manually: ' + escapeHtml(address), 'warning');
+    }
+  });
+
   // Unified template search for add node modal
   var RECIPES_LIST_TTL_MS = 60 * 1000;
   var recipesListCache = {data: null, fetchedAtMs: 0, xhr: null};
@@ -2154,7 +2269,8 @@ var setEvents = function(){
 
     // Clear selection state when typing (but not the autocomplete dropdown or value)
     $ele.removeData('templateSelection');
-    $ele.siblings('.template-selected').remove();
+    $ele.parent().siblings('.template-selection-card').remove();
+    $ele.parent().siblings('.copy-config-option').remove();
 
     clearTimeout(state.timeoutId);
     state.timeoutId = setTimeout(function() {
@@ -2328,28 +2444,22 @@ var setEvents = function(){
         break;
     }
   });
-  // Handle selection in unified template search
-  $('body').on('click', '.clear-template-selection', function(e) {
-    e.preventDefault();
-    var input = $(this).closest('.template-selected').siblings('.unified-template-search');
-    clearTemplateSelection(input, false);
-  });
-
   function handleTemplateSelection(e) {
     e.preventDefault();
     e.stopPropagation();
     var $li = $(this);
-    var input = $li.closest('.template-autocomplete').siblings('.unified-template-search');
-    var type = $li.data('type');
+    var $autocomplete = $li.closest('.template-autocomplete');
+    var input = $autocomplete.siblings('.unified-template-search');
+    var isRecipe = $li.data('type') === 'recipe';
 
-    var selection = type === 'recipe'
+    var selection = isRecipe
       ? {type: 'recipe', path: $li.data('path')}
       : {type: 'node', address: $li.data('address'), name: $li.data('name'), host: $li.data('host')};
 
-    input.val(type === 'recipe' ? selection.path : selection.name);
+    input.val(isRecipe ? selection.path : selection.name);
     input.data('templateSelection', selection);
-    renderTemplateSelectionPill(input, selection);
-    $li.closest('.template-autocomplete').remove();
+    renderTemplateSelectionCard(input, selection);
+    $autocomplete.remove();
   }
   $('body').on('mousedown touchstart', '.unified-template-search + .template-autocomplete ul li:not(.section-header)', handleTemplateSelection);
   $('body').on('keyup', '.nodenamval', function(e) {
@@ -2375,14 +2485,31 @@ var setEvents = function(){
 
     if (selection && selection.type === 'node') {
       // Duplicate from existing node
+      var includeConfig = $(ele).find('.include-node-config').is(':checked');
+      var duplicateOptions = { includeNodeConfig: includeConfig };
       var duplicateAlertShown = false;
-      duplicateNode(selection.address, nodenameraw, function() {
+      duplicateNode(selection.address, nodenameraw, duplicateOptions, function() {
         if (duplicateAlertShown) return;
         duplicateAlertShown = true;
         alert('Duplicating node...', 'info', 0);
-      }).then(function(newNodeUrl) {
+      }).then(function(result) {
         $(ele).find('.open > button').dropdown('toggle');
-        checkRedirect(newNodeUrl);
+        if (result.failed && result.failed.length > 0) {
+          // skip the automatic redirect: it would dismiss this warning before
+          // the user can read it (a redirect overwrites or navigates away the
+          // shared alert element), silently hiding the incomplete copy
+          var failedDetails = result.failed.map(function(f) {
+            return escapeHtml(f.path) + ' (' + escapeHtml(f.message) + ')';
+          }).join(', ');
+          // the link is DOM-built and serialised so the URL is attribute-safe
+          // (escapeHtml does not escape quotes, so it cannot be used in href="...")
+          var openLink = $('<div/>').append($('<a/>').attr('href', result.url).text('Open the new node')).html();
+          alert('Node created with ' + result.failed.length + ' file(s) failed to copy: ' + failedDetails +
+            '. ' + openLink, 'warning', 0);
+          $btn.prop('disabled', false);
+        } else {
+          checkRedirect(result.url);
+        }
       }).fail(function(error) {
         alert(error.message || 'Node duplication failed', 'danger');
         $btn.prop('disabled', false);
