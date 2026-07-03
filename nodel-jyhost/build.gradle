@@ -75,7 +75,7 @@ tasks.named('distZip') {
 dependencies {
     implementation project(':nodel-webui-js')
     implementation project(':nodel-framework')
-    implementation 'commons-daemon:commons-daemon:1.4.0'
+    implementation 'commons-daemon:commons-daemon:1.6.0'
     implementation 'org.slf4j:slf4j-api:1.7.10'
     implementation 'org.python:jython-standalone:2.5.4-rc1'
 
@@ -96,12 +96,12 @@ dependencies {
     runtimeOnly 'io.jsonwebtoken:jjwt-orgjson:0.12.6'
 
     // Add joda-time dependency
-    implementation 'joda-time:joda-time:2.10.14'
+    implementation 'joda-time:joda-time:2.14.0'
 
     // Playwright e2e testing
-    testImplementation 'com.microsoft.playwright:playwright:1.50.0'
-    testImplementation 'org.junit.jupiter:junit-jupiter-api:5.10.0'
-    testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.10.0'
+    testImplementation 'com.microsoft.playwright:playwright:1.52.0'
+    testImplementation 'org.junit.jupiter:junit-jupiter-api:5.12.2'
+    testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.12.2'
 }
 
 /*
