@@ -183,7 +183,7 @@ tasks.register('startNodelhost') {
             }
             attempt++
             if (attempt >= maxAttempts) {
-                throw new GradleException("Nodel host failed to start within ${maxAttempts} seconds")
+                throw new GradleException("Nodel host failed to start within ${maxAttempts} seconds; check nodel-jyhost/nodelhost-temp/output.log and error.log")
             }
         }
     }
@@ -240,7 +240,7 @@ test {
     finalizedBy 'stopNodelhost'
 }
 
-// Integration Tests - API, smoke, library loading tests (excludes E2E)
+// Integration Tests - all non-E2E-tagged tests (API, smoke and browser-assisted integration tests)
 task integrationTest(type: Test) {
     dependsOn 'startNodelhost'
     useJUnitPlatform {

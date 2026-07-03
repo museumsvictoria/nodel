@@ -115,7 +115,7 @@ rm -fr ~/nodel-build
 
 ## TESTING (Integration & E2E)
 
-Nodel includes Playwright-based integration and E2E tests that run a dedicated nodehost on port `18085` in a temporary `nodelhost-temp/` directory.
+Nodel includes Playwright-based integration and E2E tests that run a dedicated nodehost on port `18085` in a temporary `nodel-jyhost/nodelhost-temp/` directory.
 
 ### Run tests
 ```bash
@@ -124,23 +124,29 @@ Nodel includes Playwright-based integration and E2E tests that run a dedicated n
 ```
 
 ### Visual debugging
+`HEADED` and `SLOWMO` are read by the test JVM (not tracked as Gradle task inputs), so add `--rerun` or an up-to-date task will silently skip the tests and no browser will appear:
 ```bash
-HEADED=1 SLOWMO=500 ./gradlew :nodel-jyhost:e2eTest
+HEADED=1 SLOWMO=500 ./gradlew :nodel-jyhost:e2eTest --rerun
+```
+or on Windows (PowerShell):
+```powershell
+$env:HEADED=1; $env:SLOWMO=500; ./gradlew :nodel-jyhost:e2eTest --rerun
 ```
 
 ### When tests fail
-1. Check `nodelhost-temp/output.log` and `nodelhost-temp/error.log` for server issues.
+1. Check `nodel-jyhost/nodelhost-temp/output.log` and `nodel-jyhost/nodelhost-temp/error.log` for server issues.
 2. Re-run with `HEADED=1` and/or `PWDEBUG=1` to watch or debug the browser.
 3. Check `nodel-jyhost/build/reports/tests/` for JUnit HTML reports.
 
 ### Skip tests
+The default `test` task runs the full suite (integration and E2E); skip it entirely with:
 ```bash
 ./gradlew build -x test
-./gradlew build -x integrationTest -x e2eTest
 ```
 
 ### Discovery mode (tests)
-By default, tests use LocalAutoDNS for deterministic discovery results. To exercise real multicast discovery, set:
+By default, tests use LocalAutoDNS for deterministic discovery results (the test suite fails fast if it did not load). To exercise real multicast discovery, set:
 ```bash
-NODEL_TEST_DISCOVERY=1 ./gradlew :nodel-jyhost:integrationTest --tests org.nodel.DiscoverySmokeTests
+NODEL_TEST_DISCOVERY=1 ./gradlew :nodel-jyhost:integrationTest --tests org.nodel.DiscoverySmokeTests --rerun
 ```
+(`--rerun` because the environment variable is not a Gradle task input.)
