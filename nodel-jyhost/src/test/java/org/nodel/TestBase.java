@@ -5,8 +5,6 @@ import org.junit.jupiter.api.*;
 import org.junit.jupiter.api.Assumptions;
 import static org.junit.jupiter.api.Assertions.*;
 
-import java.io.File;
-import java.io.FileWriter;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -95,6 +93,114 @@ public abstract class TestBase {
     }
 
     /**
+     * A poll condition that may throw (e.g. while the server is still starting).
+     */
+    @FunctionalInterface
+    protected interface PollCheck {
+        boolean check() throws Exception;
+    }
+
+    /**
+     * Poll a condition until it holds or the timeout elapses.
+     * Sleeps between attempts even when the check throws (no hot-spinning),
+     * records the last exception and returns it as part of the failure detail.
+     *
+     * @return null on success, otherwise a failure description including the last exception
+     */
+    protected static String pollUntil(PollCheck check, int timeoutMs, int intervalMs, String description) {
+        long deadline = System.currentTimeMillis() + timeoutMs;
+        Exception lastError = null;
+        while (System.currentTimeMillis() < deadline) {
+            try {
+                if (check.check()) {
+                    return null;
+                }
+            } catch (Exception e) {
+                lastError = e;
+            }
+            try {
+                Thread.sleep(intervalMs);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                return "interrupted while waiting for " + description;
+            }
+        }
+        return "timed out after " + timeoutMs + "ms waiting for " + description
+                + (lastError != null ? "; last error: " + lastError : "");
+    }
+
+    /**
+     * Poll a REST endpoint until its body contains the expected text, failing the test
+     * (with the last underlying exception, if any) when the timeout elapses.
+     */
+    protected static void assertApiEventuallyContains(String path, String expected, int timeoutMs, String message) {
+        String failure = pollUntil(() -> apiGet(path).text().contains(expected), timeoutMs, 500,
+                "/REST" + path + " to contain \"" + expected + "\"");
+        if (failure != null) {
+            fail(message + " — " + failure);
+        }
+    }
+
+    /**
+     * Whether the test run explicitly requested real multicast discovery
+     * (mirrors the NODEL_TEST_DISCOVERY handling in nodel-jyhost/build.gradle).
+     */
+    protected static boolean isMulticastDiscoveryRequested() {
+        String value = System.getenv("NODEL_TEST_DISCOVERY");
+        if (value == null) return false;
+        String trimmed = value.trim();
+        return !trimmed.isEmpty() && !trimmed.equalsIgnoreCase("false") && !trimmed.equals("0");
+    }
+
+    /**
+     * Fail fast if the spawned host silently fell back to multicast discovery.
+     * AutoDNS.loadImpl() only WARNs when the org.nodel.discovery.impl system property fails to
+     * load, so without this check a misconfiguration would reintroduce multicast flakiness
+     * while every test keeps passing on machines where multicast happens to work.
+     * No-op when multicast was explicitly requested via NODEL_TEST_DISCOVERY.
+     */
+    protected static void assertLocalDiscoveryActive() {
+        if (isMulticastDiscoveryRequested()) {
+            return;
+        }
+        String failure = pollUntil(TestBase::hostLogsShowLocalDiscovery, 15000, 500,
+                "\"LocalAutoDNS enabled\" in the host logs");
+        if (failure != null) {
+            fail("LocalAutoDNS must be active for deterministic discovery — " + failure
+                    + ". The host may have silently fallen back to multicast discovery; check "
+                    + resolveTempDir().resolve("error.log") + " for a 'Could not load alternative Discovery"
+                    + " implementation' warning.");
+        }
+    }
+
+    private static boolean hostLogsShowLocalDiscovery() throws IOException {
+        // the host's SLF4J binding writes to stderr by default, but check both redirected logs
+        for (String logName : new String[] { "error.log", "output.log" }) {
+            Path log = resolveTempDir().resolve(logName);
+            if (Files.exists(log) && Files.readString(log).contains("LocalAutoDNS enabled")) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Resolve the temporary host directory created by the startNodelhost Gradle task,
+     * tolerating either the module or repo root as working directory.
+     */
+    protected static Path resolveTempDir() {
+        Path candidate = Paths.get("nodelhost-temp");
+        if (!Files.exists(candidate)) {
+            candidate = Paths.get("nodel-jyhost/nodelhost-temp");
+        }
+        if (!Files.exists(candidate)) {
+            throw new IllegalStateException("nodelhost-temp directory not found. Ensure the startNodelhost task ran successfully."
+                    + " Current working directory: " + System.getProperty("user.dir"));
+        }
+        return candidate;
+    }
+
+    /**
      * Make a POST request to a REST endpoint with JSON body
      */
     protected static APIResponse apiPost(String path, String jsonBody) {
@@ -118,14 +224,9 @@ public abstract class TestBase {
     protected static boolean createTestNode(String nodeName, String scriptContent) {
         try {
             // Find the nodes directory relative to where the server runs
-            Path nodesDir = Paths.get("nodelhost-temp/nodes");
+            Path nodesDir = resolveTempDir().resolve("nodes");
             if (!Files.exists(nodesDir)) {
-                nodesDir = Paths.get("nodel-jyhost/nodelhost-temp/nodes");
-            }
-            if (!Files.exists(nodesDir)) {
-                System.err.println("ERROR: Nodes directory not found. Ensure startNodelhost task ran successfully.");
-                System.err.println("Checked paths: nodelhost-temp/nodes, nodel-jyhost/nodelhost-temp/nodes");
-                System.err.println("Current working directory: " + System.getProperty("user.dir"));
+                System.err.println("ERROR: Nodes directory not found at " + nodesDir + ". Ensure startNodelhost task ran successfully.");
                 return false;
             }
 
@@ -151,41 +252,36 @@ public abstract class TestBase {
      * @return true if node was discovered and initialised, false if timeout
      */
     private static boolean waitForNodeDiscovery(String nodeName, int timeoutMs) {
-        long deadline = System.currentTimeMillis() + timeoutMs;
-        boolean foundInList = false;
-
-        while (System.currentTimeMillis() < deadline) {
-            try {
-                // First check if node appears in node list
-                if (!foundInList) {
-                    APIResponse listResponse = page.request().get(REST_BASE + "/nodes");
-                    if (listResponse.text().contains(nodeName)) {
-                        foundInList = true;
-                    }
+        boolean[] foundInList = { false };
+        String failure = pollUntil(() -> {
+            // First check if node appears in node list
+            if (!foundInList[0]) {
+                APIResponse listResponse = page.request().get(REST_BASE + "/nodes");
+                if (listResponse.text().contains(nodeName)) {
+                    foundInList[0] = true;
                 }
-
-                // Then check if node endpoints are ready (script has loaded)
-                if (foundInList) {
-                    // Check if actions endpoint returns 200 (node is initialised)
-                    APIResponse actionsResponse = page.request().get(
-                        REST_BASE + "/nodes/" + encode(nodeName) + "/actions");
-                    if (actionsResponse.status() == 200) {
-                        // Also verify console endpoint works (confirms script executed)
-                        APIResponse consoleResponse = page.request().get(
-                            REST_BASE + "/nodes/" + encode(nodeName) + "/console?from=0&max=10");
-                        if (consoleResponse.status() == 200 && consoleResponse.text().contains("started")) {
-                            return true;
-                        }
-                    }
-                }
-
-                Thread.sleep(500); // Poll every 500ms
-            } catch (Exception e) {
-                // Continue polling - server might not be ready yet
             }
+
+            // Then check if node endpoints are ready (script has loaded)
+            if (foundInList[0]) {
+                // Check if actions endpoint returns 200 (node is initialised)
+                APIResponse actionsResponse = page.request().get(
+                    REST_BASE + "/nodes/" + encode(nodeName) + "/actions");
+                if (actionsResponse.status() == 200) {
+                    // Also verify console endpoint works (confirms script executed)
+                    APIResponse consoleResponse = page.request().get(
+                        REST_BASE + "/nodes/" + encode(nodeName) + "/console?from=0&max=10");
+                    return consoleResponse.status() == 200 && consoleResponse.text().contains("started");
+                }
+            }
+            return false;
+        }, timeoutMs, 500, "discovery/initialisation of node '" + nodeName + "'");
+
+        if (failure != null) {
+            System.err.println(failure);
+            return false;
         }
-        System.err.println("Timeout waiting for node discovery/initialisation: " + nodeName);
-        return false;
+        return true;
     }
 
     /**
@@ -193,15 +289,8 @@ public abstract class TestBase {
      */
     protected static boolean deleteTestNode(String nodeName) {
         try {
-            Path nodesDir = Paths.get("nodelhost-temp/nodes");
-            if (!Files.exists(nodesDir)) {
-                nodesDir = Paths.get("nodel-jyhost/nodelhost-temp/nodes");
-            }
-
-            Path nodeDir = nodesDir.resolve(nodeName);
-            if (Files.exists(nodeDir)) {
-                deleteDirectory(nodeDir.toFile());
-            }
+            Path nodeDir = resolveTempDir().resolve("nodes").resolve(nodeName);
+            deleteDirectoryRecursively(nodeDir);
             return true;
         } catch (Exception e) {
             System.err.println("Failed to delete test node: " + e.getMessage());
@@ -209,18 +298,23 @@ public abstract class TestBase {
         }
     }
 
-    private static void deleteDirectory(File dir) {
-        File[] files = dir.listFiles();
-        if (files != null) {
-            for (File file : files) {
-                if (file.isDirectory()) {
-                    deleteDirectory(file);
-                } else {
-                    file.delete();
-                }
-            }
+    /**
+     * Recursively delete a directory, reporting (rather than hiding) any paths
+     * that could not be removed so leaked test artefacts are visible in the output.
+     */
+    protected static void deleteDirectoryRecursively(Path dir) throws IOException {
+        if (!Files.exists(dir)) {
+            return;
         }
-        dir.delete();
+        Files.walk(dir)
+            .sorted((a, b) -> b.compareTo(a))
+            .forEach(path -> {
+                try {
+                    Files.deleteIfExists(path);
+                } catch (IOException e) {
+                    System.err.println("WARNING: failed to delete test artefact " + path + ": " + e);
+                }
+            });
     }
 
     /**
@@ -242,19 +336,21 @@ public abstract class TestBase {
      * Use this instead of arbitrary page.waitForTimeout() after actions.
      */
     protected static boolean waitForConsoleContains(String nodeName, String expectedText, int timeoutMs) {
-        long deadline = System.currentTimeMillis() + timeoutMs;
-        while (System.currentTimeMillis() < deadline) {
-            try {
-                APIResponse response = page.request().get(REST_BASE + "/nodes/" + encode(nodeName) + "/console?from=0&max=100");
-                if (response.status() == 200 && response.text().contains(expectedText)) {
-                    return true;
-                }
-                Thread.sleep(200);
-            } catch (Exception e) {
-                // Continue polling
-            }
+        return reportOnTimeout(pollUntil(() -> {
+            APIResponse response = page.request().get(REST_BASE + "/nodes/" + encode(nodeName) + "/console?from=0&max=100");
+            return response.status() == 200 && response.text().contains(expectedText);
+        }, timeoutMs, 200, "console of '" + nodeName + "' to contain \"" + expectedText + "\""));
+    }
+
+    /**
+     * Print the pollUntil failure detail (if any) and translate it to a boolean result.
+     */
+    private static boolean reportOnTimeout(String failure) {
+        if (failure != null) {
+            System.err.println(failure);
+            return false;
         }
-        return false;
+        return true;
     }
 
     /**
@@ -262,19 +358,10 @@ public abstract class TestBase {
      * Use this instead of arbitrary page.waitForTimeout() after events.
      */
     protected static boolean waitForActivityContains(String nodeName, String expectedText, int timeoutMs) {
-        long deadline = System.currentTimeMillis() + timeoutMs;
-        while (System.currentTimeMillis() < deadline) {
-            try {
-                APIResponse response = page.request().get(REST_BASE + "/nodes/" + encode(nodeName) + "/activity?from=0");
-                if (response.status() == 200 && response.text().contains(expectedText)) {
-                    return true;
-                }
-                Thread.sleep(200);
-            } catch (Exception e) {
-                // Continue polling
-            }
-        }
-        return false;
+        return reportOnTimeout(pollUntil(() -> {
+            APIResponse response = page.request().get(REST_BASE + "/nodes/" + encode(nodeName) + "/activity?from=0");
+            return response.status() == 200 && response.text().contains(expectedText);
+        }, timeoutMs, 200, "activity of '" + nodeName + "' to contain \"" + expectedText + "\""));
     }
 
     /**
@@ -282,19 +369,10 @@ public abstract class TestBase {
      * Use this instead of arbitrary page.waitForTimeout() after node operations.
      */
     protected static boolean waitForNodeResponsive(String nodeName, int timeoutMs) {
-        long deadline = System.currentTimeMillis() + timeoutMs;
-        while (System.currentTimeMillis() < deadline) {
-            try {
-                APIResponse response = page.request().get(REST_BASE + "/nodes/" + encode(nodeName) + "/actions");
-                if (response.status() == 200) {
-                    return true;
-                }
-                Thread.sleep(200);
-            } catch (Exception e) {
-                // Continue polling
-            }
-        }
-        return false;
+        return reportOnTimeout(pollUntil(() -> {
+            APIResponse response = page.request().get(REST_BASE + "/nodes/" + encode(nodeName) + "/actions");
+            return response.status() == 200;
+        }, timeoutMs, 200, "node '" + nodeName + "' to become responsive"));
     }
 
     /**
@@ -302,19 +380,10 @@ public abstract class TestBase {
      * Use this after creating a node via UI to wait for it to be registered.
      */
     protected static boolean waitForNodeInList(String nodeName, int timeoutMs) {
-        long deadline = System.currentTimeMillis() + timeoutMs;
-        while (System.currentTimeMillis() < deadline) {
-            try {
-                APIResponse response = page.request().get(REST_BASE + "/nodes");
-                if (response.status() == 200 && response.text().contains(nodeName)) {
-                    return true;
-                }
-                Thread.sleep(500);
-            } catch (Exception e) {
-                // Continue polling
-            }
-        }
-        return false;
+        return reportOnTimeout(pollUntil(() -> {
+            APIResponse response = page.request().get(REST_BASE + "/nodes");
+            return response.status() == 200 && response.text().contains(nodeName);
+        }, timeoutMs, 500, "node '" + nodeName + "' to appear in node list"));
     }
 
     /**
