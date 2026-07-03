@@ -458,7 +458,17 @@ input[type=range]::-ms-fill-upper {
   background: @btn-default-bg;
   border-radius: @border-radius-base;
 }
-div.row > div > .btn, div.row > div > .btn-group, div.row > div > .btn-group-vertical, div.row > div > .nav-pills, .range {
+div.row > div {
+  > .btn, > .btn-group, > .btn-group-vertical, > .nav-pills {
+    margin-bottom: @form-group-margin-bottom;
+  }
+  > .well {
+    > .btn, > .btn-group, > .btn-group-vertical, > .nav-pills {
+      margin-bottom: @form-group-margin-bottom;
+    }
+  }
+}
+.range {
   margin-bottom: @form-group-margin-bottom;
 }
 table.btn-grid {
@@ -729,7 +739,7 @@ div.nodel-charts {
     }
   }
 }
-.autocomplete {
+.autocomplete, .template-autocomplete {
   background: @panel-bg;
   border-radius: @panel-border-radius;
   border: 1px solid @panel-default-border;
@@ -753,8 +763,30 @@ div.nodel-charts {
         color: @gray-light;
         font-size: @font-size-small;
       }
+      &.section-header {
+        font-weight: bold;
+        font-size: @font-size-small;
+        color: @gray;
+        padding: @padding-xs-vertical @table-cell-padding;
+        border-bottom: 1px solid @panel-default-border;
+        cursor: default;
+        &:hover {
+          background: transparent;
+        }
+      }
     }
   }
+}
+.template-selected {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: @brand-success;
+  font-size: @font-size-base;
+  pointer-events: none;
+  background: @input-bg;
+  padding-left: 4px;
 }
 .nodel-toolkit {
   margin-bottom: @form-group-margin-bottom;
