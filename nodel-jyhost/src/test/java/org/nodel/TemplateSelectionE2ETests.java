@@ -3,6 +3,7 @@ package org.nodel;
 import com.microsoft.playwright.ElementHandle;
 import com.microsoft.playwright.Locator;
 import com.microsoft.playwright.Page;
+import com.microsoft.playwright.PlaywrightException;
 import com.microsoft.playwright.options.WaitForSelectorState;
 import org.junit.jupiter.api.*;
 
@@ -265,8 +266,36 @@ public class TemplateSelectionE2ETests extends TestBase {
         String hostileName = "Evil Node -- <img src=x onerror=\"window.__xss2=1\">";
         String hostileHost = "evil\"><script>window.__xss3=1</script>";
 
-        // Drive the real selection handler with attacker-influenced metadata,
-        // as a malicious advertisement on the network could supply
+        driveSelectionWithMetadata(hostileName, hostileHost, hostileAddress);
+
+        waitForElement(".template-selection-card");
+        assertEquals(1, page.locator(".template-selection-card").count(), "Exactly one card should render");
+
+        Locator card = page.locator(".template-selection-card").first();
+        assertEquals(hostileAddress, card.getAttribute("data-address"),
+            "data-address must carry the value verbatim without breaking out of the attribute");
+        assertNull(card.getAttribute("onmouseover"), "No event-handler attribute may be injected");
+        assertEquals(0, card.locator("img, script").count(), "No elements may be injected via name/host");
+        Object executed = page.evaluate("() => window.__xss || window.__xss2 || window.__xss3 || null");
+        assertNull(executed, "No injected script may execute");
+
+        // a non-web scheme must not be wired up as a clickable address at all,
+        // otherwise the card-body click would hand it to window.open
+        driveSelectionWithMetadata("Scheme Probe", "host", "javascript:window.__xss4=1");
+        waitForElement(".template-selection-card");
+        Locator schemeCard = page.locator(".template-selection-card").first();
+        assertNull(schemeCard.getAttribute("data-address"),
+            "non-http(s) address must not be set as data-address");
+        schemeCard.locator(".card-body").click();
+        assertNull(page.evaluate("() => window.__xss4 || null"),
+            "javascript: address must never execute via the card-body click");
+    }
+
+    /**
+     * Drive the real selection handler with attacker-influenced metadata,
+     * as a malicious advertisement on the network could supply.
+     */
+    private static void driveSelectionWithMetadata(String name, String host, String address) {
         page.evaluate("(args) => {\n" +
             "  var $input = $('.nodel-add .unified-template-search').first();\n" +
             "  $input.siblings('.template-autocomplete').remove();\n" +
@@ -279,22 +308,18 @@ public class TemplateSelectionE2ETests extends TestBase {
             "  $autocomplete.find('ul').append($item);\n" +
             "  $input.after($autocomplete);\n" +
             "  $item.trigger('mousedown');\n" +
-            "}", Map.of("name", hostileName, "host", hostileHost, "address", hostileAddress));
-
-        waitForElement(".template-selection-card");
-        assertEquals(1, page.locator(".template-selection-card").count(), "Exactly one card should render");
-
-        Locator card = page.locator(".template-selection-card").first();
-        assertEquals(hostileAddress, card.getAttribute("data-address"),
-            "data-address must carry the value verbatim without breaking out of the attribute");
-        assertNull(card.getAttribute("onmouseover"), "No event-handler attribute may be injected");
-        assertEquals(0, card.locator("img, script").count(), "No elements may be injected via name/host");
-        Object executed = page.evaluate("() => window.__xss || window.__xss2 || window.__xss3 || null");
-        assertNull(executed, "No injected script may execute");
+            "}", Map.of("name", name, "host", host, "address", address));
     }
 
     private static void openAddNodeDropdown() {
-        page.navigate(BASE_URL);
+        // hop via about:blank to discard the previous page together with its pending
+        // timers: nodel.js's checkRedirect/checkReload fire delayed location changes
+        // that otherwise interrupt the navigation we are awaiting ("Navigation ... is
+        // interrupted by another navigation"). Go straight to locals.xml because "/"
+        // serves index.htm, whose inline-script redirect to locals.xml can likewise
+        // commit before index.htm's load event and interrupt the awaited navigation.
+        navigateIgnoringStrayRedirects("about:blank");
+        navigateIgnoringStrayRedirects(BASE_URL + "/locals.xml");
         // the dropdown sits inside div.page, which stays display:none until nodel.js's
         // init reveals the active section - well after .navbar (static XSLT output)
         // renders, so wait for the control itself rather than the navbar. A timeout
@@ -304,6 +329,21 @@ public class TemplateSelectionE2ETests extends TestBase {
         dropdown.click();
         Locator nodeNameInput = page.locator(".nodel-add input.nodenamval").first();
         assertTrue(nodeNameInput.isVisible(), "Node name input must exist");
+    }
+
+    /**
+     * Navigate, retrying once if a stray timer on the outgoing page (e.g. a pending
+     * checkRedirect poll) commits its own navigation while ours is in flight.
+     */
+    private static void navigateIgnoringStrayRedirects(String url) {
+        try {
+            page.navigate(url);
+        } catch (PlaywrightException e) {
+            if (e.getMessage() == null || !e.getMessage().contains("interrupted by another navigation")) {
+                throw e;
+            }
+            page.navigate(url);
+        }
     }
 
     private static void typeTemplateSearch(String query) {
