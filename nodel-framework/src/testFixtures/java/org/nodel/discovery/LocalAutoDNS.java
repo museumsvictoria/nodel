@@ -1,9 +1,9 @@
 package org.nodel.discovery;
 
-/* 
+/*
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
- * file, You can obtain one at http://mozilla.org/MPL/2.0/. 
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
 import java.io.IOException;
@@ -26,8 +26,8 @@ import org.slf4j.LoggerFactory;
  *
  * <p>Activated via the {@code org.nodel.discovery.impl} system property read by
  * {@link AutoDNS}, e.g. {@code -Dorg.nodel.discovery.impl=org.nodel.discovery.LocalAutoDNS;instance}
- * (see nodel-jyhost/build.gradle). It lives in main sources (not test sources) so the
- * reflective loader can find it on the host's runtime classpath.
+ * (see nodel-jyhost/build.gradle). It lives in test fixtures (not main sources) so it is
+ * loadable on the test host's classpath without shipping in the production jars.
  */
 public class LocalAutoDNS extends AutoDNS {
 

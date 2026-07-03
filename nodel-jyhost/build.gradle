@@ -72,9 +72,16 @@ tasks.named('distZip') {
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
 }
 
+configurations {
+    // carries LocalAutoDNS (nodel-framework's test fixtures) so startNodelhost can put it
+    // on the launched host's classpath without it shipping in any production jar
+    discoveryFixture
+}
+
 dependencies {
     implementation project(':nodel-webui-js')
     implementation project(':nodel-framework')
+    discoveryFixture testFixtures(project(':nodel-framework'))
     implementation 'commons-daemon:commons-daemon:1.6.0'
     implementation 'org.slf4j:slf4j-api:1.7.10'
     implementation 'org.python:jython-standalone:2.5.4-rc1'
@@ -119,8 +126,9 @@ tasks.register('cleanNodelhostTemp', Delete) {
 }
 
 tasks.register('startNodelhost') {
-    dependsOn 'cleanNodelhostTemp', 'classes'
+    dependsOn 'cleanNodelhostTemp', 'classes', configurations.discoveryFixture
     doLast {
+        def hostClasspath = files(sourceSets.main.runtimeClasspath, configurations.discoveryFixture).asPath
         // Kill any existing process on the test port before starting
         if (isWindows) {
             ['powershell', '-Command',
@@ -144,7 +152,7 @@ tasks.register('startNodelhost') {
         def pb
         if (isWindows) {
             // Windows: Start java directly with stdin pipe to keep process alive
-            def args = ['java', '-cp', sourceSets.main.runtimeClasspath.asPath, '-ea']
+            def args = ['java', '-cp', hostClasspath, '-ea']
             if (useLocalDiscovery) {
                 args.add('-Dorg.nodel.discovery.impl=org.nodel.discovery.LocalAutoDNS;instance')
             }
@@ -156,7 +164,7 @@ tasks.register('startNodelhost') {
             def discoveryArg = useLocalDiscovery ? "-Dorg.nodel.discovery.impl='org.nodel.discovery.LocalAutoDNS;instance' " : ""
             pb = new ProcessBuilder(
                 'bash', '-c',
-                "tail -f /dev/null | java -cp '${sourceSets.main.runtimeClasspath.asPath}' -ea ${discoveryArg}org.nodel.jyhost.Launch -p 18085"
+                "tail -f /dev/null | java -cp '${hostClasspath}' -ea ${discoveryArg}org.nodel.jyhost.Launch -p 18085"
             )
         }
         pb.directory(tempDir)
