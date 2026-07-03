@@ -14,6 +14,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.attribute.FileTime;
 import java.util.Comparator;
 import java.util.concurrent.TimeUnit;
 
@@ -28,19 +29,11 @@ public class JyHostIntegrationTest {
         Files.createDirectories(emitterRoot);
         Files.createDirectories(receiverRoot);
 
-        writeFile(emitterRoot.resolve("script.py"),
-                "from nodetoolkit import *\n" +
-                "\n" +
-                "local_event_Message = LocalEvent(\"Message\")\n" +
-                "local_event_Tick = LocalEvent(\"Tick\")\n" +
-                "\n" +
-                "def local_action_NoArg():\n" +
-                "    console.info(\"Emitter NoArg called\")\n" +
-                "    local_event_Tick.emit()\n" +
-                "\n" +
-                "def local_action_Emit(arg):\n" +
-                "    console.info(\"Emitter Emit called with %s\" % arg)\n" +
-                "    local_event_Message.emit(arg)\n");
+        writeFile(emitterRoot.resolve("helper.py"),
+                "def greeting():\n" +
+                "    return \"hello-from-helper\"\n");
+
+        writeFile(emitterRoot.resolve("script.py"), emitterScript(""));
 
         writeFile(receiverRoot.resolve("script.py"),
                 "from nodetoolkit import *\n" +
@@ -81,6 +74,19 @@ public class JyHostIntegrationTest {
 
             waitForContains(baseUrl + "/REST/nodes/Receiver/console?from=0&max=200", "Receiver Tick", process, output, 30000);
             waitForContains(baseUrl + "/REST/nodes/Receiver/console?from=0&max=200", "Receiver Message hello", process, output, 30000);
+
+            // lifecycle: @before_main, 'main' (proving the local 'helper' module import) and @after_main
+            String emitterConsole = baseUrl + "/REST/nodes/Emitter/console?from=0&max=200";
+            waitForContains(emitterConsole, "Emitter before_main ran", process, output, 30000);
+            waitForContains(emitterConsole, "Emitter main ran hello-from-helper", process, output, 30000);
+            waitForContains(emitterConsole, "Emitter after_main ran", process, output, 30000);
+
+            // lifecycle: @at_cleanup (fires when the script change is detected and the interpreter is recycled)
+            Path emitterScriptFile = emitterRoot.resolve("script.py");
+            writeFile(emitterScriptFile, emitterScript("# touched to trigger a reload\n"));
+            Files.setLastModifiedTime(emitterScriptFile,
+                    FileTime.fromMillis(Files.getLastModifiedTime(emitterScriptFile).toMillis() + 10000));
+            waitForContains(emitterConsole, "Emitter at_cleanup ran", process, output, 60000);
         } finally {
             process.destroy();
             if (!process.waitFor(10, TimeUnit.SECONDS)) {
@@ -89,6 +95,38 @@ public class JyHostIntegrationTest {
             gobbler.join(5000);
             deleteTree(root);
         }
+    }
+
+    private static String emitterScript(String suffix) {
+        return "from nodetoolkit import *\n" +
+                "import helper\n" +
+                "\n" +
+                "local_event_Message = LocalEvent(\"Message\")\n" +
+                "local_event_Tick = LocalEvent(\"Tick\")\n" +
+                "\n" +
+                "@before_main\n" +
+                "def prepare():\n" +
+                "    console.info(\"Emitter before_main ran\")\n" +
+                "\n" +
+                "def main():\n" +
+                "    console.info(\"Emitter main ran %s\" % helper.greeting())\n" +
+                "\n" +
+                "@after_main\n" +
+                "def follow_up():\n" +
+                "    console.info(\"Emitter after_main ran\")\n" +
+                "\n" +
+                "@at_cleanup\n" +
+                "def farewell():\n" +
+                "    console.info(\"Emitter at_cleanup ran\")\n" +
+                "\n" +
+                "def local_action_NoArg():\n" +
+                "    console.info(\"Emitter NoArg called\")\n" +
+                "    local_event_Tick.emit()\n" +
+                "\n" +
+                "def local_action_Emit(arg):\n" +
+                "    console.info(\"Emitter Emit called with %s\" % arg)\n" +
+                "    local_event_Message.emit(arg)\n" +
+                suffix;
     }
 
     private static Process startHost(Path root, Path nodesRoot) throws IOException {
