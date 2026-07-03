@@ -102,6 +102,9 @@ dependencies {
     testImplementation 'com.microsoft.playwright:playwright:1.52.0'
     testImplementation 'org.junit.jupiter:junit-jupiter-api:5.12.2'
     testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.12.2'
+    // JUnit 5.11+ requires an aligned platform-launcher; this module wires JUnit manually
+    // (no JVM Test Suite plugin) so declare it explicitly to avoid Gradle's older bundled launcher.
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher:1.12.2'
 }
 
 /*
