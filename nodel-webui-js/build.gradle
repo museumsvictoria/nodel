@@ -64,7 +64,11 @@ tasks.register('gruntRun', NpxTask) {
     environment = ['NODE_OPTIONS': '--no-network-family-autoselection']
     // rely on Gradle's incremental build: a failed run is never treated as
     // up-to-date, so a partial build/grunt can't be packaged on the next build
-    inputs.dir('src')
+    inputs.files(fileTree('src') {
+        // grunt regenerates these from src/theme.less each run; tracking them
+        // as inputs would retrigger the task once after every theme change
+        exclude 'dark/theme.less', 'light/theme.less'
+    })
     inputs.files('package.json', 'package-lock.json', 'Gruntfile.js')
     outputs.dir('build/grunt')
 }
