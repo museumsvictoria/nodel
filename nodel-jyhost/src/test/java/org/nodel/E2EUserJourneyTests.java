@@ -96,31 +96,23 @@ public class E2EUserJourneyTests extends TestBase {
     @Order(10)
     void testCreateNodeViaUI() {
         page.navigate(BASE_URL);
-        waitForElement(".navbar");
-
-        // Find the add node UI
-        Locator nodelAdd = page.locator(".nodel-add").first();
-        Assumptions.assumeTrue(nodelAdd.isVisible(), "Add node UI (.nodel-add) must exist - skipping if not");
+        // the add-node UI sits inside div.page, which stays display:none until nodel.js's
+        // init reveals the active section - well after .navbar (static XSLT output)
+        // renders, so wait for the control itself rather than the navbar. A timeout
+        // here fails (not skips) the test if these elements regress.
+        waitForElement(".nodel-add .addgrp .dropdown-toggle");
 
         Locator addDropdown = page.locator(".nodel-add .addgrp .dropdown-toggle").first();
-        Assumptions.assumeTrue(addDropdown.isVisible(), "Add node dropdown must exist - skipping if not");
-
         addDropdown.click();
-        page.waitForTimeout(500);
 
         Locator nodeNameInput = page.locator(".nodel-add input.nodenamval").first();
-        Assumptions.assumeTrue(nodeNameInput.isVisible(), "Node name input must exist - skipping if not");
+        assertTrue(nodeNameInput.isVisible(), "Node name input must exist");
 
         String uniqueNodeName = "E2ECreated" + System.currentTimeMillis();
         nodeNameInput.fill(uniqueNodeName);
-        page.waitForTimeout(1000);
 
         Locator submitBtn = page.locator(".nodel-add .nodeaddsubmit").first();
-        Assumptions.assumeTrue(submitBtn.isVisible(), "Submit button must exist - skipping if not");
-
-        page.waitForTimeout(2000);
-        Assumptions.assumeTrue(!submitBtn.isDisabled(), "Submit button must be enabled - skipping if disabled");
-
+        assertTrue(submitBtn.isVisible(), "Submit button must exist");
         submitBtn.click();
 
         // Poll until node appears in API (replaces fixed 5s wait)
@@ -131,9 +123,7 @@ public class E2EUserJourneyTests extends TestBase {
             deleteTestNode(uniqueNodeName);
         }
 
-        // Use Assumption: UI node creation may not work in all environments
-        Assumptions.assumeTrue(nodeCreated,
-            "Node creation via UI did not succeed - UI may have changed or require different interaction");
+        assertTrue(nodeCreated, "Node created via UI must appear in the node list");
     }
 
     // ===== Inter-Node Binding =====
