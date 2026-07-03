@@ -51,6 +51,14 @@ There are example available on the [recipes](https://github.com/museumsvictoria/
 
 The simple high-level nature of the Nodel protocol means aternative languages and environments can easily participate in the Nodel network as long as they come with a minimal set of networking functions.
 
+###### Jython 2.7 migration notes
+
+The embedded Python runtime is Jython 2.7 (previously 2.5). Most recipes work unchanged, but watch for:
+
+* Missing keys on Java `Map` objects (e.g. `java.util.LinkedHashMap`) now raise `KeyError` like a regular Python `dict`; Jython 2.5 returned `None`. Use `.get(key)` where a missing key is expected.
+* The `str()` representation of Java maps changed from `{key=value}` to `{'key': 'value'}` — don't parse it.
+* `python.import.site` is disabled by default for faster startup, so `site-packages` inside the Jython runtime isn't scanned. Bundle third-party pure-Python libraries beside `script.py` (the node folder is on `sys.path`), or extend `sys.path` in the recipe. Pass `-Dpython.import.site=true` to restore the old behaviour.
+
 ### Nodes
 
 A node is a self-managed, self-announcing, self-describing member of the subscription-based event-network. It's generated when a recipe sits inside the `/nodes/node_name` folder of a nodehost.
