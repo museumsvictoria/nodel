@@ -69,7 +69,7 @@ def system_clock():
 #   now == now2 (is True)
 #
 # (for instant.toString(pattern), see http://www.joda.org/joda-time/apidocs/org/joda/time/format/DateTimeFormat.html)
-
+ 
 # 'now' timestamp (based on excellent JODATIME library)
 def date_now():
     return nodetoolkit.dateNow()
@@ -77,7 +77,7 @@ def date_now():
 # a timestamp at another time (based on excellent JODATIME library)
 def date_at(year, month, day, hour, minute, second=0, millisecond=0):
     return nodetoolkit.dateAt(year, month, day, hour, minute, second, millisecond)
-
+   
 # a timestamp based on a millisecond offset (JODATIME library)
 def date_instant(millis):
     return nodetoolkit.dateAtInstant(millis)
@@ -86,15 +86,12 @@ def date_instant(millis):
 def date_parse(s):
     return nodetoolkit.parseDate(s)
 
-# Simple URL retriever (supports POST) where 'query' and 'headers' are dictionaries.
+# Simple URL retriever (supports POST) where 'query' and 'headers' are dictionaries. 
 # If 'fullResponse', result is an object which includes 'statusCode', 'reason', 'content' and attributes made up of the response HTTP headers
-# If 'async' is True, returns immediately with a CompletableFuture and uses callbacks for handling the response.
 #
-# Synchronous usage (default):
-#   result = get_url('http://example.com')
-#   print(result)
+# If 'async' is True, the request goes out in the background and a CompletableFuture is returned immediately.
+# Optional 'complete' and 'error' callbacks handle the outcome e.g.
 #
-# Asynchronous usage:
 #   def on_complete(result):
 #     console.info('Got response: %s' % result)
 #
@@ -102,39 +99,55 @@ def date_parse(s):
 #     console.error('Request failed: %s' % exc)
 #
 #   get_url('http://example.com', async=True, complete=on_complete, error=on_error)
+#
+# (if no 'error' callback is supplied, failures are raised into the node's console)
 def get_url(url, method=None, query=None, username=None, password=None, headers=None, contentType=None, post=None, connectTimeout=10, readTimeout=15, fullResponse=False, async=False, complete=None, error=None):
-  if async:
-    # Async mode - return CompletableFuture and use callbacks
-    future = None
-    if fullResponse:
-      future = nodetoolkit.getHttpClient().makeRequestAsync(url, method, query, username, password, headers, contentType, post, long(connectTimeout*1000), long(readTimeout*1000))
-    else:
-      future = nodetoolkit.getHttpClient().makeSimpleRequestAsync(url, method, query, username, password, headers, contentType, post, long(connectTimeout*1000), long(readTimeout*1000))
+  client = nodetoolkit.getHttpClient()
+  args = (url, method, query, username, password, headers, contentType, post, long(connectTimeout*1000), long(readTimeout*1000))
 
-    # Handle the future completion using callbacks if provided
-    if complete is not None or error is not None:
-      from java.util.function import BiConsumer
+  if not async:
+    return client.makeRequest(*args) if fullResponse else client.makeSimpleRequest(*args)
 
-      class CallbackHandler(BiConsumer):
-        def accept(self, result, exception):
-          if exception is None:
-            if complete is not None:
-              call_safe(lambda: complete(result), 0)
-          else:
-            if error is not None:
-              call_safe(lambda: error(exception), 0)
+  from java.util.function import BiConsumer
+  from java.util.concurrent import CompletionException, ExecutionException
 
-      future.whenComplete(CallbackHandler())
+  future = client.makeRequestAsync(*args) if fullResponse else client.makeSimpleRequestAsync(*args)
 
-    return future
-  else:
-    # Sync mode - block and return result directly
-    if fullResponse:
-      return nodetoolkit.getHttpClient().makeRequest(url, method, query, username, password, headers, contentType, post, long(connectTimeout*1000), long(readTimeout*1000))
-    else:
-      return nodetoolkit.getHttpClient().makeSimpleRequest(url, method, query, username, password, headers, contentType, post, long(connectTimeout*1000), long(readTimeout*1000))
+  class CallbackHandler(BiConsumer):
+    def accept(self, result, exception):
+      try:
+        if exception is None:
+          if complete is not None:
+            call_safe(lambda: complete(result))
+          return
 
-# For HTTP proxy use, call this before any other HTTP client operations:
+        # unwrap the future's wrapper so callbacks deal with the real cause
+        cause = exception
+        while isinstance(cause, (CompletionException, ExecutionException)) and cause.getCause() is not None:
+          cause = cause.getCause()
+
+        if error is not None:
+          call_safe(lambda: error(cause))
+        else:
+          # no 'error' callback supplied: raise into the node's console instead of failing silently
+          def raiseIntoConsole():
+            raise cause
+          call_safe(raiseIntoConsole)
+      except:
+        # never let a callback vanish silently e.g. if this node closed while the request was in-flight
+        # (stderr is captured into the node's console while it is alive)
+        import sys, traceback
+        try:
+          print >> sys.stderr, 'get_url (async): a callback could not be delivered'
+          traceback.print_exc()
+        except:
+          pass
+
+  future.whenComplete(CallbackHandler())
+
+  return future
+  
+# For HTTP proxy use, call this before any other HTTP client operations: 
 #     _toolkit.getHttpClient().setProxy("PROXY_HOST:PORT_PORT", USERNAME or None, PASSWORD or None)
 
 # To ignore HTTPS certificate verification:
@@ -157,13 +170,13 @@ def UDP(source='0.0.0.0:0', dest=None, ready=None, received=None, sent=None, int
 def SSH(dest=None, connected=None, received=None, sent=None, disconnected=None, timeout=None, sendDelimiters='\n', receiveDelimiters='\r\n',
         username=None, password=None, echoDisabled=False):
   return nodetoolkit.createSSH(dest, connected, received, sent, disconnected, timeout, sendDelimiters, receiveDelimiters, username, password, echoDisabled)
-
+  
 # A managed processes that attempts to stay executed (includes instrumentation)
 def Process(command, # the command line and arguments
            # callbacks
            started=None,   # everytime the process is started
            stdout=None,    # stdout handler
-           stdin=None,     # feedback when .send is called (for convenience)
+           stdin=None,     # feedback when .send is called (for convenience) 
            stderr=None,    # stderr handler
            stopped=None,   # when the process is stops / stopped
            timeout=None,   # timeout when a request is issued but not response
@@ -172,7 +185,7 @@ def Process(command, # the command line and arguments
            working=None,   # working directory
            mergeErr=False, # merge  stderr into the stdout for convenience
            env=None):      # add/set environment variables (dict)
-  return nodetoolkit.createProcess(command,
+  return nodetoolkit.createProcess(command, 
                                 started, stdout, stdin, stderr, stopped, timeout, sendDelimiters, receiveDelimiters,
                                 working, mergeErr, env)
 
@@ -188,18 +201,18 @@ def quick_process(command,
                   working=None,   # the working directory
                   mergeErr=False, # merge  stderr into the stdout for convenience
                   env=None):      # add/set environment variables (dict)
-    return nodetoolkit.createQuickProcess(command, stdinPush,
-                                       started, finished,
+    return nodetoolkit.createQuickProcess(command, stdinPush, 
+                                       started, finished, 
                                        long(timeoutInSeconds * 1000), working, mergeErr, env)
 
 # create a safe request queue for mixing asynchronous and synchronous programming.
-# e.g.
+# e.g. 
 # queue = request_queue()
 #
 # def udp_received(source, data):
 #     queue.handle((source, data))
 #
-# queue.request(lambda: udp.send('?'), lambda arg: console.info('RECV UDP %s' % arg))
+# queue.request(lambda: udp.send('?'), lambda arg: console.info('RECV UDP %s' % arg)) 
 def request_queue(received=None, sent=None, timeout=None):
     return nodetoolkit.createRequestQueue(received, sent, timeout)
 
@@ -207,34 +220,34 @@ def request_queue(received=None, sent=None, timeout=None):
 class Timer:
   def __init__(self, func, intervalInSeconds, firstDelayInSeconds=0, stopped=False):
       self.wrapper = nodetoolkit.createTimer(func, long(firstDelayInSeconds * 1000), long(intervalInSeconds * 1000), stopped)
-
+      
   def setDelayAndInterval(self, delayInSeconds, intervalInSeconds):
       self.wrapper.setDelayAndInterval(long(delayInSeconds * 1000), long(intervalInSeconds * 1000))
-
+      
   def setInterval(self, seconds):
       self.wrapper.setInterval(long(seconds * 1000))
-
+      
   def setDelay(self, seconds):
       self.wrapper.setDelay(long(seconds * 1000))
-
+      
   def reset(self):
       self.wrapper.reset()
-
+      
   def start(self):
       self.wrapper.start()
-
+      
   def stop(self):
-      self.wrapper.stop()
-
+      self.wrapper.stop()      
+      
   def getDelay(self):
       return self.wrapper.getDelay() / 1000.0
-
+  
   def getInterval(self):
       return self.wrapper.getInterval() / 1000.0
-
+  
   def isStarted(self):
       return self.wrapper.isStarted()
-
+  
   def isStopped(self):
       return self.wrapper.isStopped()
 
@@ -245,12 +258,12 @@ def Node(nodeName):
 # Creates a node based on the name of an existing node (on-the-fly)
 def Subnode(baseName):
     return nodetoolkit.createSubnode(baseName)
-
+  
 # Releases a node created with Node() or Subnode() and related resources.
 def release_node(node):
   return nodetoolkit.releaseNode(node)
 
-# DEPRECATED (see above)
+# DEPRECATED (see above)  
 def releaseNode(node):
   return nodetoolkit.releaseNode(node)
 
@@ -267,8 +280,8 @@ def Event(name, metadata=None):
 # create a local event
 def create_local_event(name, metadata=None):
   return nodetoolkit.createEvent(name, metadata)
-
-# Creates a local action (on-the-fly)
+  
+# Creates a local action (on-the-fly)    
 # DEPRECATED - use 'create_local_action' or '@local_action'
 def Action(name, handler, metadata=None):
   return nodetoolkit.createAction(name, handler, metadata)
@@ -276,11 +289,11 @@ def Action(name, handler, metadata=None):
 # creates a local action
 def create_local_action(name, handler, metadata=None):
   return nodetoolkit.createAction(name, handler, metadata)
-
+  
 # Creates remote action
 def create_remote_action(name, metadata=None, suggestedNode=None, suggestedAction=None):
     return nodetoolkit.createRemoteAction(name, metadata, suggestedNode, suggestedAction)
-
+    
 # Creates a remote event
 def create_remote_event(name, handler, metadata=None, suggestedNode=None, suggestedEvent=None):
     return nodetoolkit.createRemoteEvent(name, handler, metadata, suggestedNode, suggestedEvent)
@@ -315,7 +328,7 @@ def lookup_local_action(name):
 # Looks up a local event by simple name
 def lookup_local_event(name):
     return nodetoolkit.getLocalEvent(name)
-
+    
 # Looks up a remote action by simple name
 def lookup_remote_action(name):
     return nodetoolkit.getRemoteAction(name)
@@ -328,7 +341,7 @@ def lookup_remote_event(name):
 def lookup_parameter(name):
     return nodetoolkit.lookupParameter(name)
 
-
+    
 # NODE LIFE-CYCLE FUNCTIONS:
 
 # for functions to be called before main has executed
@@ -337,7 +350,7 @@ _nodel_beforeMainFunctions = []
 def processBeforeMainFunctions():
     for f in _nodel_beforeMainFunctions:
         f()
-
+        
     return len(_nodel_beforeMainFunctions)
 
 # decorates functions that should be called after 'main' completes
@@ -346,14 +359,14 @@ def before_main(f):
 
     return f
 
-
+  
 # for functions to be called after main has executed
 _nodel_afterMainFunctions = []
 
 def processAfterMainFunctions():
     for f in _nodel_afterMainFunctions:
         f()
-
+        
     return len(_nodel_afterMainFunctions)
 
 # decorates functions that should be called after 'main' completes
@@ -372,7 +385,7 @@ def processCleanupFunctions():
       except:
         # ignore
         pass
-
+        
     return len(_nodel_atCleanupFunctions)
 
 # decorates functions that should be called at cleanup (shutdown, restart, etc.)
@@ -397,5 +410,5 @@ def is_empty(obj):
 
 # CONVENIENCE DEPENDENCIES
 
-# JWTs (JSON Web Tokens)
+# JWTs (JSON Web Tokens) 
 # see https://github.com/museumsvictoria/nodel/discussions/297

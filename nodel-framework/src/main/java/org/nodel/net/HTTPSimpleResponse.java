@@ -27,19 +27,6 @@ public class HTTPSimpleResponse extends HashMap<SimpleName, List<String>> {
      * The content.
      */
     public String content;
-
-    /**
-     * The raw byte content.
-     */
-    private byte[] rawContent;
-
-    public void setRawContent(byte[] rawContent) {
-        this.rawContent = rawContent;
-    }
-
-    public byte[] getRawContent() {
-        return rawContent;
-    }
     
     /**
      * Adds a header, allowing for multiple values for the same name

@@ -1,6 +1,7 @@
 package org.nodel.net;
 
 import java.io.Closeable;
+import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.net.HttpURLConnection;
 import java.net.URLEncoder;
@@ -14,6 +15,7 @@ import java.net.URLEncoder;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -136,72 +138,83 @@ public abstract class NodelHTTPClient implements Closeable {
     }    
     
     /**
-     * A very simple URL getter. queryArgs, contentType, postData are all optional.
-     * 
+     * The asynchronous core of this client: implementations perform the exchange without blocking
+     * the calling thread and complete the future with the full response (any status code).
+     *
      * Safe timeouts are used to avoid non-responsive servers being able to hold up connections indefinitely.
      */
-    public abstract HTTPSimpleResponse makeRequest(String urlStr, String method, Map<String, String> query, 
-                         String username, String password, 
-                         Map<String, String> headers, String contentType, 
-                         String post, 
+    public abstract CompletableFuture<HTTPSimpleResponse> makeRequestAsync(String urlStr, String method, Map<String, String> query,
+                         String username, String password,
+                         Map<String, String> headers, String contentType,
+                         String post,
                          Integer connectTimeout, Integer readTimeout);
-    
+
     /**
-     * Same as above except returns the content on HTTP_OK 
+     * A very simple URL getter. queryArgs, contentType, postData are all optional.
+     *
+     * (the synchronous convenience form of 'makeRequestAsync')
+     */
+    public HTTPSimpleResponse makeRequest(String urlStr, String method, Map<String, String> query,
+                         String username, String password,
+                         Map<String, String> headers, String contentType,
+                         String post,
+                         Integer connectTimeout, Integer readTimeout) {
+        try {
+            return makeRequestAsync(urlStr, method, query, username, password, headers, contentType, post, connectTimeout, readTimeout).get();
+
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException("Request was interrupted", e);
+
+        } catch (ExecutionException e) {
+            Throwable cause = e.getCause();
+            if (cause instanceof RuntimeException)
+                throw (RuntimeException) cause;
+
+            // propagate IOExceptions (like SSLHandshakeException) to be handled by the caller
+            if (cause instanceof IOException)
+                throw new RuntimeException(cause);
+
+            throw new RuntimeException("Error executing request", cause);
+        }
+    }
+
+    /**
+     * Same as above except returns the content on HTTP_OK
      */
     public String makeSimpleRequest(String urlStr, String method, Map<String, String> query,
                               String username, String password,
                               Map<String, String> headers, String contentType, String post,
                               Integer connectTimeout, Integer readTimeout) {
-        HTTPSimpleResponse response = makeRequest(urlStr, method, query, username, password, headers, contentType, post, connectTimeout, readTimeout);
+        return contentOnSuccess(makeRequest(urlStr, method, query, username, password, headers, contentType, post, connectTimeout, readTimeout));
+    }
 
-        if (response.statusCode >= 200 && response.statusCode < 300) { // 200 is HTTP_OK
-            // any 'OK'-related response, just return content
-            return response.content;
-            
-        } else {
-            // non-OK, so raise an exception including the content
-            throw new RuntimeException(String.format("Server returned '%s' with content %s", 
-                    response.statusCode + " " + response.reasonPhrase, 
-                    Strings.isEmpty(response.content) ? "<empty>" : JSONObject.quote(response.content)));
-        }        
-    }
-    
     /**
-     * Asynchronous version of makeRequest. Default implementation delegates to the synchronous version.
-     * Implementations that support asynchronous requests should override this method.
-     */
-    public CompletableFuture<HTTPSimpleResponse> makeRequestAsync(String urlStr, String method, Map<String, String> query, 
-                         String username, String password, 
-                         Map<String, String> headers, String contentType, 
-                         String post, 
-                         Integer connectTimeout, Integer readTimeout) {
-        CompletableFuture<HTTPSimpleResponse> future = new CompletableFuture<>();
-        try {
-            HTTPSimpleResponse response = makeRequest(urlStr, method, query, username, password, headers, contentType, post, connectTimeout, readTimeout);
-            future.complete(response);
-        } catch (Exception e) {
-            future.completeExceptionally(e);
-        }
-        return future;
-    }
-    
-    /**
-     * Asynchronous version of makeSimpleRequest. Default implementation delegates to the synchronous version.
-     * Implementations that support asynchronous requests should override this method.
+     * Asynchronous version of makeSimpleRequest.
      */
     public CompletableFuture<String> makeSimpleRequestAsync(String urlStr, String method, Map<String, String> query,
                               String username, String password,
                               Map<String, String> headers, String contentType, String post,
                               Integer connectTimeout, Integer readTimeout) {
-        CompletableFuture<String> future = new CompletableFuture<>();
-        try {
-            String result = makeSimpleRequest(urlStr, method, query, username, password, headers, contentType, post, connectTimeout, readTimeout);
-            future.complete(result);
-        } catch (Exception e) {
-            future.completeExceptionally(e);
+        return makeRequestAsync(urlStr, method, query, username, password, headers, contentType, post, connectTimeout, readTimeout)
+                .thenApply(NodelHTTPClient::contentOnSuccess);
+    }
+
+    /**
+     * Returns the content for 'OK'-related (2xx) responses, otherwise raises an exception including the content.
+     * (shared by the synchronous and asynchronous paths)
+     */
+    private static String contentOnSuccess(HTTPSimpleResponse response) {
+        if (response.statusCode >= 200 && response.statusCode < 300) { // 200 is HTTP_OK
+            // any 'OK'-related response, just return content
+            return response.content;
+
+        } else {
+            // non-OK, so raise an exception including the content
+            throw new RuntimeException(String.format("Server returned '%s' with content %s",
+                    response.statusCode + " " + response.reasonPhrase,
+                    Strings.isEmpty(response.content) ? "<empty>" : JSONObject.quote(response.content)));
         }
-        return future;
     }
     
     /**

@@ -7,7 +7,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.Callable;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicLong;
 
 import org.joda.time.DateTime;
@@ -998,19 +997,6 @@ public class ManagedToolkit {
             throw new IllegalStateException("Node is closed.");
 
         return getHttpClient().makeSimpleRequest(urlStr, method, query, username, password, headers, contentType, post, connectTimeout, readTimeout);
-    }
-    
-    /**
-     * Asynchronous version of getURL. Returns a CompletableFuture that will be completed with the response.
-     * 
-     * Safe timeouts are used to avoid non-responsive servers being able to hold up connections indefinitely.
-     */
-    public CompletableFuture<String> getURLAsync(String urlStr, String method, Map<String, String> query, String username, String password, Map<String, String> headers, String contentType, String post,
-            Integer connectTimeout, Integer readTimeout) {
-        if (_closed)
-            throw new IllegalStateException("Node is closed.");
-
-        return getHttpClient().makeSimpleRequestAsync(urlStr, method, query, username, password, headers, contentType, post, connectTimeout, readTimeout);
     }
 
     /**
