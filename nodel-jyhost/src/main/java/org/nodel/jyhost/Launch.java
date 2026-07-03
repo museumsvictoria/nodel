@@ -516,8 +516,10 @@ public class Launch {
     private static void initialisePython() {
         Properties props = new Properties();
         props.putAll(System.getProperties());
-        props.setProperty("python.import.site", "false");
-        props.setProperty("python.console.encoding", "UTF-8");
+
+        // defaults only; a '-D' System property provided by the operator wins
+        props.putIfAbsent("python.import.site", "false"); // skips 'site-packages' scanning (faster startup); libraries alongside scripts still resolve
+        props.putIfAbsent("python.console.encoding", "UTF-8");
 
         PythonInterpreter.initialize(props, null, s_processArgs);
         
