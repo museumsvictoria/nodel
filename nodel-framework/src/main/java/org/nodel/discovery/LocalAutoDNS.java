@@ -23,6 +23,11 @@ import org.slf4j.LoggerFactory;
 /**
  * A local, non-multicast discovery implementation intended for deterministic testing.
  * Uses in-process registrations and the current HTTP addresses from {@link Nodel}.
+ *
+ * <p>Activated via the {@code org.nodel.discovery.impl} system property read by
+ * {@link AutoDNS}, e.g. {@code -Dorg.nodel.discovery.impl=org.nodel.discovery.LocalAutoDNS;instance}
+ * (see nodel-jyhost/build.gradle). It lives in main sources (not test sources) so the
+ * reflective loader can find it on the host's runtime classpath.
  */
 public class LocalAutoDNS extends AutoDNS {
 
@@ -30,7 +35,10 @@ public class LocalAutoDNS extends AutoDNS {
     private final ConcurrentMap<SimpleName, AdvertisementInfo> _advertisements = new ConcurrentHashMap<>();
 
     private LocalAutoDNS() {
-        _logger.info("LocalAutoDNS enabled (test/local discovery).");
+        // deliberately at warn level (the default logging threshold): this line is both
+        // an audit trail that production multicast discovery is NOT in use, and how the
+        // test suite verifies this implementation actually loaded (see TestBase)
+        _logger.warn("LocalAutoDNS enabled (test/local discovery) - not for production use.");
     }
 
     /**
@@ -59,13 +67,10 @@ public class LocalAutoDNS extends AutoDNS {
     public void registerService(SimpleName node) {
         List<String> addresses = buildHttpAddresses();
         long now = System.nanoTime() / 1000000L;
-        _advertisements.compute(node, (key, existing) -> {
-            if (existing == null) {
-                return new AdvertisementInfo(node, addresses, now);
-            }
-            existing.refresh(node, addresses, now);
-            return existing;
-        });
+        // match NodelAutoDNS' contract exactly so this test double never
+        // masks a double-registration bug that would throw in production
+        if (_advertisements.putIfAbsent(node, new AdvertisementInfo(node, addresses, now)) != null)
+            throw new IllegalStateException(node + " is already being advertised.");
     }
 
     @Override
@@ -80,11 +85,15 @@ public class LocalAutoDNS extends AutoDNS {
 
     @Override
     public void unregisterService(SimpleName node) {
-        if (_advertisements.remove(node) == null) {
-            _logger.warn("Attempted to unregister '{}' but it was not advertised", node);
-        }
+        // match NodelAutoDNS' contract exactly (see registerService)
+        if (_advertisements.remove(node) == null)
+            throw new IllegalStateException(node + " is not advertised anyway.");
     }
 
+    /**
+     * Unlike the multicast implementation's permanent shutdown, this simply clears
+     * the in-process registrations and the instance remains usable (sufficient for tests).
+     */
     @Override
     public void close() throws IOException {
         _advertisements.clear();
@@ -93,23 +102,23 @@ public class LocalAutoDNS extends AutoDNS {
     private List<String> buildHttpAddresses() {
         String[] httpAddresses = Nodel.getHTTPAddresses();
         if (httpAddresses != null && httpAddresses.length > 0 && !isDefaultHttpAddresses(httpAddresses)) {
-            return Arrays.asList(httpAddresses);
+            // copy defensively: Nodel.getHTTPAddresses() exposes its internal array
+            return new ArrayList<>(Arrays.asList(httpAddresses));
         }
+
+        // no real addresses are configured; advertise a localhost placeholder
+        // (with the HTTP port when known, without it otherwise)
         int httpPort = Nodel.getHTTPPort();
-        if (httpPort > 0) {
-            String fallback = String.format("http://127.0.0.1:%s%s", httpPort, Nodel.getHTTPSuffix());
-            _logger.debug("HTTP addresses not configured; using fallback: {}", fallback);
-            return Arrays.asList(fallback);
-        }
-        if (httpAddresses != null && httpAddresses.length > 0) {
-            _logger.debug("HTTP addresses not configured and HTTP port is unset; using existing addresses");
-            return Arrays.asList(httpAddresses);
-        }
-        String fallback = String.format("http://127.0.0.1%s", Nodel.getHTTPSuffix());
-        _logger.debug("HTTP addresses not configured; using fallback: {}", fallback);
+        String fallback = httpPort > 0
+                ? String.format("http://127.0.0.1:%s%s", httpPort, Nodel.getHTTPSuffix())
+                : String.format("http://127.0.0.1%s", Nodel.getHTTPSuffix());
+        // warn (not debug): consumers will see this address and it may not be reachable
+        _logger.warn("HTTP addresses not configured; advertising fallback: {}", fallback);
         return Arrays.asList(fallback);
     }
 
+    // mirrors the unconfigured default in Nodel (s_httpAddresses = {"http://127.0.0.1"});
+    // if that default ever changes this check must follow
     private static boolean isDefaultHttpAddresses(String[] httpAddresses) {
         if (httpAddresses.length != 1) {
             return false;
