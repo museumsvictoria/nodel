@@ -974,9 +974,37 @@ var getSimpleName = function(name){
   return simplematch.exec(name)[1];
 };
 
+// Mirrors backend Nodel.reduce for node URL path keys.
+var reduceNodeNameForPath = function(name){
+  var reduced = '';
+  var lastChar = '';
+  var commentLevel = 0;
+
+  for (var i = 0; i < name.length; i++) {
+    var c = name.charAt(i);
+
+    // Handle '(...)' comments (supports nesting).
+    if (c === '(') {
+      commentLevel += 1;
+    } else if (commentLevel > 0) {
+      if (c === ')') commentLevel -= 1;
+    } else if ((c === '-' && lastChar === '-') || (c === '/' && lastChar === '/')) {
+      // Stop at '--' or '//' comment markers.
+      break;
+    } else if (c.replace(unicodematch, '') !== '') {
+      reduced += c;
+    } else if (c.charCodeAt(0) > 127 && !(/\s/.test(c))) {
+      reduced += c;
+    }
+
+    lastChar = c;
+  }
+
+  return reduced;
+};
+
 var getVerySimpleName = function(name){
-  var smp = simplematch.exec(name);
-  return smp[1].replace(unicodematch,'');
+  return reduceNodeNameForPath(name);
 };
 
 var updateFavicon = function(host){
