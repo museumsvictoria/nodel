@@ -75,12 +75,12 @@ tasks.named('distZip') {
 dependencies {
     implementation project(':nodel-webui-js')
     implementation project(':nodel-framework')
-    implementation 'commons-daemon:commons-daemon:1.0.15'
+    implementation 'commons-daemon:commons-daemon:1.6.0'
     implementation 'org.slf4j:slf4j-api:1.7.10'
     implementation 'org.python:jython-standalone:2.5.4-rc1'
 
     // for the Nodel HTTP client:
-    implementation group: 'org.apache.httpcomponents', name: 'httpclient', version: '4.5.5'
+    implementation group: 'org.apache.httpcomponents', name: 'httpclient', version: '4.5.14'
 
     // convenience dependency: required *only* for 'recipe sync' node
     implementation 'org.eclipse.jgit:org.eclipse.jgit:3.7.1.201504261725-r'
@@ -91,17 +91,20 @@ dependencies {
     }
 
     // convenience dependency: JWTs (JSON Web Tokens), see https://github.com/museumsvictoria/nodel/discussions/297
-    implementation 'io.jsonwebtoken:jjwt-api:0.11.5'
-    runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.11.5'
-    runtimeOnly 'io.jsonwebtoken:jjwt-orgjson:0.11.5'
+    implementation 'io.jsonwebtoken:jjwt-api:0.12.6'
+    runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.12.6'
+    runtimeOnly 'io.jsonwebtoken:jjwt-orgjson:0.12.6'
 
     // Add joda-time dependency
-    implementation 'joda-time:joda-time:2.10.14'
+    implementation 'joda-time:joda-time:2.14.0'
 
     // Playwright e2e testing
-    testImplementation 'com.microsoft.playwright:playwright:1.49.0'
-    testImplementation 'org.junit.jupiter:junit-jupiter-api:5.10.0'
-    testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.10.0'
+    testImplementation 'com.microsoft.playwright:playwright:1.52.0'
+    testImplementation 'org.junit.jupiter:junit-jupiter-api:5.12.2'
+    testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.12.2'
+    // JUnit 5.11+ requires an aligned platform-launcher; this module wires JUnit manually
+    // (no JVM Test Suite plugin) so declare it explicitly to avoid Gradle's older bundled launcher.
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher:1.12.2'
 }
 
 // Test infrastructure documentation moved to BUILDING.md (see "TESTING").
