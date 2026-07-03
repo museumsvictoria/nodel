@@ -490,7 +490,8 @@ var copyFilesSequentially = function(sourceUrl, destUrl, files) {
         results.failed.push(failure);
         if (file.path === 'script.py') {
           d.reject({
-            message: 'Failed to copy script.py (' + failure.type + (failure.status ? ', HTTP ' + failure.status : '') + '): ' + failure.message,
+            // escaped here because rejection messages end up in alert(), which renders HTML
+            message: 'Failed to copy script.py (' + failure.type + (failure.status ? ', HTTP ' + failure.status : '') + '): ' + escapeHtml(failure.message),
             failed: results.failed
           });
           return;
@@ -2152,8 +2153,12 @@ var setEvents = function(){
         detail.contents().length > 0 ? detail : null));
 
     // attribute set via .attr() (quote-safe); omitted entirely when there is no
-    // address so the CSS clickable affordance only appears when clicking works
-    if (!isRecipe && selection.address) card.attr('data-address', selection.address);
+    // address so the CSS clickable affordance only appears when clicking works.
+    // only http(s) addresses are wired up: discovery metadata must never supply a
+    // scheme (e.g. javascript:) that the card-body click would hand to window.open
+    if (!isRecipe && selection.address && /^https?:\/\//i.test(selection.address)) {
+      card.attr('data-address', selection.address);
+    }
 
     $parent.after(card);
 
@@ -2496,8 +2501,11 @@ var setEvents = function(){
           var failedDetails = result.failed.map(function(f) {
             return escapeHtml(f.path) + ' (' + escapeHtml(f.message) + ')';
           }).join(', ');
+          // the link is DOM-built and serialised so the URL is attribute-safe
+          // (escapeHtml does not escape quotes, so it cannot be used in href="...")
+          var openLink = $('<div/>').append($('<a/>').attr('href', result.url).text('Open the new node')).html();
           alert('Node created with ' + result.failed.length + ' file(s) failed to copy: ' + failedDetails +
-            '. <a href="' + result.url + '">Open the new node</a>', 'warning', 0);
+            '. ' + openLink, 'warning', 0);
           $btn.prop('disabled', false);
         } else {
           checkRedirect(result.url);
