@@ -977,16 +977,8 @@ public class PyNode extends BaseDynamicNode {
         bindParams(bindings.params);
     } // (method)
 
-    private PyBaseCode resolveFunctionCode(PyFunction pyFunction) {
-        PyObject codeObject = pyFunction.__findattr__("__code__");
-        if (codeObject == null) {
-            codeObject = pyFunction.__findattr__("func_code");
-        }
-
-        if (codeObject instanceof PyBaseCode)
-            return (PyBaseCode) codeObject;
-
-        throw new IllegalStateException("Unable to resolve Python function code object.");
+    private static PyBaseCode resolveFunctionCode(PyFunction pyFunction) {
+        return (PyBaseCode) pyFunction.__code__;
     }
 
     /**
