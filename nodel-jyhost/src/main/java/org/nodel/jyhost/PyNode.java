@@ -72,7 +72,6 @@ import org.python.core.PyDictionary;
 import org.python.core.PyException;
 import org.python.core.PyFunction;
 import org.python.core.PyObject;
-import org.python.core.PyString;
 import org.python.core.PySystemState;
 import org.python.core.PyUnicode;
 import org.python.util.PythonInterpreter;
@@ -733,32 +732,29 @@ public class PyNode extends BaseDynamicNode {
                     trackFunction("mains");
 
                     // handle @before_main functions (if present)
-                    if (_globals.get(Py.java2py("processBeforeMainFunctions")) instanceof PyFunction) {
-                        PyFunction processBeforeMainFunctions = (PyFunction) _globals.get(Py.java2py("processBeforeMainFunctions"));
+                    PyObject processBeforeMainFunctions = _globals.get(Py.java2py("processBeforeMainFunctions"));
+                    if (processBeforeMainFunctions instanceof PyFunction) {
                         long beforeFnCount = processBeforeMainFunctions.__call__().asLong();
 
                         if (beforeFnCount > 0)
-                        commentary.add("'@before_main' function" + (beforeFnCount == 1 ? "" : "s"));
+                            commentary.add("'@before_main' function" + (beforeFnCount == 1 ? "" : "s"));
                     }
 
                     // handle main function (if present)
-                    if (_python.get("main") instanceof PyFunction) {
-                        PyFunction mainFunction = (PyFunction) _python.get("main");
-                        if (mainFunction != null) {
+                    PyObject mainFunction = _python.get("main");
+                    if (mainFunction instanceof PyFunction) {
                         mainFunction.__call__();
 
                         commentary.add("'main'");
-                        }
                     }
 
                     // handle @after_main functions (if present)
-                    if (_globals.get(Py.java2py("processAfterMainFunctions")) instanceof PyFunction) {
-                        PyFunction processAfterMainFunctions = (PyFunction) _globals.get(Py.java2py("processAfterMainFunctions"));
+                    PyObject processAfterMainFunctions = _globals.get(Py.java2py("processAfterMainFunctions"));
+                    if (processAfterMainFunctions instanceof PyFunction) {
                         long afterFnCount = processAfterMainFunctions.__call__().asLong();
                         if (afterFnCount > 0)
-                        commentary.add("'@after_main' function" + (afterFnCount == 1 ? "" : "s"));
+                            commentary.add("'@after_main' function" + (afterFnCount == 1 ? "" : "s"));
                     }
-
 
                     // nothing went wrong, kick off toolkit
                     _toolkit.enable();
@@ -913,8 +909,8 @@ public class PyNode extends BaseDynamicNode {
             _outReader.inject(message);
 
             try {
-                if (_globals.get(Py.java2py("processCleanupFunctions")) instanceof PyFunction) {
-                    PyFunction processCleanupFunctions = (PyFunction) _globals.get(Py.java2py("processCleanupFunctions"));
+                PyObject processCleanupFunctions = _globals.get(Py.java2py("processCleanupFunctions"));
+                if (processCleanupFunctions instanceof PyFunction) {
                     long cleanupFnCount = processCleanupFunctions.__call__().asLong();
 
                     if (cleanupFnCount > 0) {
