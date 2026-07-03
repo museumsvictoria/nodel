@@ -295,10 +295,12 @@ public class TemplateSelectionE2ETests extends TestBase {
 
     private static void openAddNodeDropdown() {
         page.navigate(BASE_URL);
-        waitForElement(".navbar");
+        // the dropdown sits inside div.page, which stays display:none until nodel.js's
+        // init reveals the active section - well after .navbar (static XSLT output)
+        // renders, so wait for the control itself rather than the navbar. A timeout
+        // here still fails (not skips) the suite if these elements regress.
+        waitForElement(".nodel-add .addgrp .dropdown-toggle");
         Locator dropdown = page.locator(".nodel-add .addgrp .dropdown-toggle").first();
-        // assert (not assume): if these elements regress, this suite must fail, not skip
-        assertTrue(dropdown.isVisible(), "Add node dropdown must exist");
         dropdown.click();
         Locator nodeNameInput = page.locator(".nodel-add input.nodenamval").first();
         assertTrue(nodeNameInput.isVisible(), "Node name input must exist");
