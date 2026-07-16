@@ -231,6 +231,18 @@ public abstract class TestBase {
     }
 
     /**
+     * Upload a file into a node's directory via the 'files/save' endpoint
+     * (e.g. a custom 'content/index.xml' dashboard).
+     */
+    protected static APIResponse uploadNodeFile(String nodeName, String path, String content) {
+        return page.request().post(
+            REST_BASE + "/nodes/" + encode(nodeName) + "/files/save?path=" + path,
+            com.microsoft.playwright.options.RequestOptions.create()
+                .setHeader("Content-Type", "application/octet-stream")
+                .setData(content));
+    }
+
+    /**
      * Create a test node by creating its directory and script file
      * Returns true if created successfully
      */

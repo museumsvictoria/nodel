@@ -27,6 +27,8 @@ import org.nodel.core.NodelClientEvent;
 import org.nodel.core.NodelServerAction;
 import org.nodel.core.NodelServerEvent;
 import org.nodel.core.NodelClients.NodeURL;
+import org.nodel.cron.CronExpressions;
+import org.nodel.cron.CronInfo;
 import org.nodel.discovery.AdvertisementInfo;
 import org.nodel.discovery.AutoDNS;
 import org.nodel.host.LogEntry.Source;
@@ -1019,7 +1021,14 @@ public abstract class BaseNode implements Closeable {
             @Param(name = "filter", title = "Filter", desc = "Optional string filter.") String filter) throws IOException {
         return Nodel.getNodeURLs(filter);
     }
-    
+
+    @Service(name = "cron", order = 7, title = "Cron", desc = "CRON expression support - validation, description and execution times.")
+    public CronInfo cron(
+            @Param(name = "expression", title = "Expression", desc = "A five-field UNIX CRON expression.") String expression,
+            @Param(name = "timezone", title = "Timezone", desc = "An optional IANA timezone e.g. 'Australia/Melbourne' (the host timezone applies otherwise).") String timezone) {
+        return CronExpressions.summarize(expression, timezone);
+    }
+
     /**
      * Must be called by subclasses
      */
