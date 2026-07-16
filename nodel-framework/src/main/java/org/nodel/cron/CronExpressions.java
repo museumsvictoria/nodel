@@ -37,24 +37,50 @@ import com.cronutils.parser.CronParser;
 public class CronExpressions {
 
     /**
+     * Keeps parser and descriptor work bounded for network-facing callers.
+     */
+    public static final int MAX_EXPRESSION_LENGTH = 512;
+
+    /**
+     * Keeps timezone lookup and validation responses bounded.
+     */
+    public static final int MAX_TIME_ZONE_LENGTH = 128;
+
+    /**
+     * Framework-owned compiled form so cron-utils remains an implementation detail.
+     */
+    public static final class CompiledExpression {
+
+        private final Cron _cron;
+
+        private CompiledExpression(Cron cron) {
+            _cron = cron;
+        }
+
+    }
+
+    /**
      * (standard five-field UNIX crontab, Sunday as 0 or 7)
      */
-    private static CronDefinition s_definition = CronDefinitionBuilder.instanceDefinitionFor(CronType.UNIX);
+    private static final CronDefinition s_definition = CronDefinitionBuilder.instanceDefinitionFor(CronType.UNIX);
 
     /**
      * (thread-safe)
      */
-    private static CronParser s_parser = new CronParser(s_definition);
+    private static final CronParser s_parser = new CronParser(s_definition);
 
     /**
      * Parses and validates an expression, throwing with a friendly message on failure.
      */
-    public static Cron parse(String expression) {
+    public static CompiledExpression parse(String expression) {
+        if (expression != null && expression.length() > MAX_EXPRESSION_LENGTH)
+            throw new IllegalArgumentException("CRON expression is too long (maximum " + MAX_EXPRESSION_LENGTH + " characters).");
+
         if (Strings.isBlank(expression))
             throw new IllegalArgumentException("No CRON expression was provided.");
 
         try {
-            return s_parser.parse(expression.trim()).validate();
+            return new CompiledExpression(s_parser.parse(expression.trim()).validate());
 
         } catch (IllegalArgumentException exc) {
             throw new IllegalArgumentException("Invalid CRON expression - " + friendlyMessage(exc), exc);
@@ -92,8 +118,8 @@ public class CronExpressions {
     /**
      * (as above, for an already-parsed expression)
      */
-    public static String describe(Cron cron) {
-        return CronDescriptor.instance(Locale.ENGLISH).describe(cron);
+    public static String describe(CompiledExpression expression) {
+        return CronDescriptor.instance(Locale.ENGLISH).describe(expression._cron);
     }
 
     /**
@@ -101,6 +127,9 @@ public class CronExpressions {
      * (throws IllegalArgumentException when unknown)
      */
     public static ZoneId resolveTimeZone(String timeZone) {
+        if (timeZone != null && timeZone.length() > MAX_TIME_ZONE_LENGTH)
+            throw new IllegalArgumentException("Timezone is too long (maximum " + MAX_TIME_ZONE_LENGTH + " characters).");
+
         if (Strings.isBlank(timeZone))
             return ZoneId.systemDefault();
 
@@ -115,8 +144,8 @@ public class CronExpressions {
     /**
      * The next occurrence strictly after 'from' (or null if the expression can never fire e.g. 'Feb 30').
      */
-    public static ZonedDateTime nextOccurrence(Cron cron, ZonedDateTime from) {
-        return nextOccurrence(ExecutionTime.forCron(cron), from);
+    public static ZonedDateTime nextOccurrence(CompiledExpression expression, ZonedDateTime from) {
+        return nextOccurrence(ExecutionTime.forCron(expression._cron), from);
     }
 
     /**
@@ -130,8 +159,8 @@ public class CronExpressions {
     /**
      * The most recent occurrence strictly before 'from' (or null).
      */
-    public static ZonedDateTime previousOccurrence(Cron cron, ZonedDateTime from) {
-        return previousOccurrence(ExecutionTime.forCron(cron), from);
+    public static ZonedDateTime previousOccurrence(CompiledExpression expression, ZonedDateTime from) {
+        return previousOccurrence(ExecutionTime.forCron(expression._cron), from);
     }
 
     /**
@@ -147,7 +176,7 @@ public class CronExpressions {
      * (throws IllegalArgumentException on an invalid expression or timezone)
      */
     public static DateTime nextExecution(String expression, String timeZone) {
-        Cron cron = parse(expression);
+        CompiledExpression cron = parse(expression);
         ZoneId zone = resolveTimeZone(timeZone);
         return toDateTime(nextOccurrence(cron, ZonedDateTime.now(zone)));
     }
@@ -157,7 +186,7 @@ public class CronExpressions {
      * (throws IllegalArgumentException on an invalid expression or timezone)
      */
     public static DateTime previousExecution(String expression, String timeZone) {
-        Cron cron = parse(expression);
+        CompiledExpression cron = parse(expression);
         ZoneId zone = resolveTimeZone(timeZone);
         return toDateTime(previousOccurrence(cron, ZonedDateTime.now(zone)));
     }
@@ -168,9 +197,10 @@ public class CronExpressions {
      */
     public static CronInfo summarize(String expression, String timeZone) {
         CronInfo info = new CronInfo();
-        info.expression = expression;
+        if (expression == null || expression.length() <= MAX_EXPRESSION_LENGTH)
+            info.expression = expression;
 
-        Cron cron;
+        CompiledExpression cron;
         ZoneId zone;
         try {
             cron = parse(expression);
@@ -190,7 +220,7 @@ public class CronExpressions {
             // never let a description quirk break the summary
         }
 
-        ExecutionTime executionTime = ExecutionTime.forCron(cron);
+        ExecutionTime executionTime = ExecutionTime.forCron(cron._cron);
 
         ZonedDateTime now = ZonedDateTime.now(zone);
         info.previous = toDateTime(previousOccurrence(executionTime, now));

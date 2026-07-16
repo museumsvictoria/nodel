@@ -13,16 +13,18 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
+import java.util.Collections;
 
 import org.joda.time.DateTime;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.nodel.GitHubIssue;
-
-import com.cronutils.model.Cron;
+import org.nodel.cron.CronExpressions.CompiledExpression;
 
 @GitHubIssue("https://github.com/museumsvictoria/nodel/issues/411")
 public class CronExpressionsTest {
@@ -92,6 +94,25 @@ public class CronExpressionsTest {
         assertTrue(CronExpressions.validate("* * * *").contains("4"));
     }
 
+    @Test
+    public void boundsExpressionWorkBeforeParsing() {
+        String accepted = String.join(",", Collections.nCopies(252, "0")) + " * * * *";
+        String rejected = String.join(",", Collections.nCopies(253, "0")) + " * * * *";
+
+        assertEquals(511, accepted.length());
+        assertTrue(CronExpressions.isValid(accepted));
+
+        assertEquals(513, rejected.length());
+        String error = CronExpressions.validate(rejected);
+        assertTrue(error.contains("maximum 512"));
+        assertFalse(error.contains(rejected));
+
+        CronInfo info = CronExpressions.summarize(rejected, null);
+        assertFalse(info.valid);
+        assertNull(info.expression);
+        assertTrue(info.error.length() < 128);
+    }
+
     // human-readable descriptions
 
     @Test
@@ -124,6 +145,39 @@ public class CronExpressionsTest {
     @Test
     public void rejectsUnknownTimezones() {
         assertThrows(IllegalArgumentException.class, () -> CronExpressions.resolveTimeZone("Mars/OlympusMons"));
+    }
+
+    @Test
+    public void rejectsOversizedTimezoneWithoutEchoingIt() {
+        String timeZone = String.join("", Collections.nCopies(CronExpressions.MAX_TIME_ZONE_LENGTH + 1, "A"));
+
+        IllegalArgumentException error = assertThrows(IllegalArgumentException.class,
+                () -> CronExpressions.resolveTimeZone(timeZone));
+        assertTrue(error.getMessage().contains("maximum 128"));
+        assertFalse(error.getMessage().contains(timeZone));
+
+        CronInfo info = CronExpressions.summarize("* * * * *", timeZone);
+        assertFalse(info.valid);
+        assertTrue(info.error.length() < 128);
+    }
+
+    @Test
+    public void publicApiDoesNotExposeCronUtilsTypes() {
+        for (Method method : CronExpressions.class.getDeclaredMethods()) {
+            if (!Modifier.isPublic(method.getModifiers()))
+                continue;
+
+            assertFalse(isCronUtilsType(method.getReturnType()), method.toString());
+            for (Class<?> parameterType : method.getParameterTypes())
+                assertFalse(isCronUtilsType(parameterType), method.toString());
+        }
+    }
+
+    private static boolean isCronUtilsType(Class<?> type) {
+        while (type.isArray())
+            type = type.getComponentType();
+
+        return type.getName().startsWith("com.cronutils.");
     }
 
     // Sunday semantics: 0, 7 and 'SUN' are the same day
@@ -310,7 +364,7 @@ public class CronExpressionsTest {
 
     @Test
     public void parseTrimsWhitespace() {
-        Cron cron = CronExpressions.parse("  0 9 * * 1-5  ");
+        CompiledExpression cron = CronExpressions.parse("  0 9 * * 1-5  ");
         assertNotNull(cron);
     }
 

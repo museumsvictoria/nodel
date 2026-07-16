@@ -16,8 +16,12 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.io.IOException;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 
+import org.joda.time.DateTime;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.nodel.GitHubIssue;
@@ -55,6 +59,20 @@ public class ManagedCronTest {
 
     };
 
+    /**
+     * Runs callback workers independently so queue-wait lifecycle races can be driven by the test thread.
+     */
+    private final static ThreadPool s_asyncPool = new ThreadPool("_async cron (test)", 1) {
+
+        @Override
+        public void execute(Runnable runnable) {
+            Thread thread = new Thread(runnable, "managed-cron-test-worker");
+            thread.setDaemon(true);
+            thread.start();
+        }
+
+    };
+
     private CallbackQueue _callbackQueue;
 
     private AtomicInteger _fires;
@@ -87,9 +105,14 @@ public class ManagedCronTest {
 
         };
 
+        return createCron(callback, expression, timeZone, stopped, s_inlinePool, _callbackQueue);
+    }
+
+    private ManagedCron createCron(H0 callback, String expression, String timeZone, boolean stopped,
+            ThreadPool threadPool, CallbackQueue callbackQueue) {
         H1Sink exceptions = new H1Sink();
 
-        return new ManagedCron(callback, expression, timeZone, stopped, NO_OP, _timers, s_inlinePool, exceptions, _callbackQueue) {
+        return new ManagedCron(callback, expression, timeZone, stopped, NO_OP, _timers, threadPool, exceptions, callbackQueue) {
 
             @Override
             protected long currentTimeMillis() {
@@ -103,6 +126,49 @@ public class ManagedCronTest {
 
         @Override
         public void handle(Exception value) {
+        }
+
+    }
+
+    /**
+     * Stops immediately before entering the real queue, modelling work serialized behind another callback.
+     */
+    private static class BlockingCallbackQueue extends CallbackQueue {
+
+        private CountDownLatch _entered = new CountDownLatch(1);
+
+        private CountDownLatch _release = new CountDownLatch(1);
+
+        private CountDownLatch _completed = new CountDownLatch(1);
+
+        @Override
+        public void handle(H0 callback, org.nodel.Handler.H1<Exception> errorHandler) {
+            _entered.countDown();
+            try {
+                if (!_release.await(5, TimeUnit.SECONDS))
+                    throw new IllegalStateException("Timed out waiting to release the callback queue.");
+
+                super.handle(callback, errorHandler);
+
+            } catch (InterruptedException exc) {
+                Thread.currentThread().interrupt();
+                throw new IllegalStateException(exc);
+
+            } finally {
+                _completed.countDown();
+            }
+        }
+
+        public boolean awaitEntered() throws InterruptedException {
+            return _entered.await(5, TimeUnit.SECONDS);
+        }
+
+        public void release() {
+            _release.countDown();
+        }
+
+        public boolean awaitCompleted() throws InterruptedException {
+            return _completed.await(5, TimeUnit.SECONDS);
         }
 
     }
@@ -178,6 +244,68 @@ public class ManagedCronTest {
         assertEquals(0, _fires.get());
     }
 
+    @Test
+    public void stopSuppressesFireWaitingForCallbackQueue() throws InterruptedException {
+        BlockingCallbackQueue callbackQueue = new BlockingCallbackQueue();
+        ManagedCron cron = createCron(() -> _fires.incrementAndGet(), "* * * * *",
+                "Australia/Melbourne", false, s_asyncPool, callbackQueue);
+        cron.start();
+
+        _nowMillis = cron.getNextExecution().getMillis();
+        _timers.last().task.run();
+        assertTrue(callbackQueue.awaitEntered());
+
+        cron.stop();
+        callbackQueue.release();
+        assertTrue(callbackQueue.awaitCompleted());
+
+        assertEquals(0, _fires.get());
+        assertNull(cron.getLastFired());
+        assertNull(cron.getNextExecution());
+    }
+
+    @Test
+    public void closeSuppressesFireWaitingForCallbackQueue() throws IOException, InterruptedException {
+        BlockingCallbackQueue callbackQueue = new BlockingCallbackQueue();
+        ManagedCron cron = createCron(() -> _fires.incrementAndGet(), "* * * * *",
+                "Australia/Melbourne", false, s_asyncPool, callbackQueue);
+        cron.start();
+
+        _nowMillis = cron.getNextExecution().getMillis();
+        _timers.last().task.run();
+        assertTrue(callbackQueue.awaitEntered());
+
+        cron.close();
+        callbackQueue.release();
+        assertTrue(callbackQueue.awaitCompleted());
+
+        assertEquals(0, _fires.get());
+        assertNull(cron.getLastFired());
+        assertNull(cron.getNextExecution());
+    }
+
+    @Test
+    public void reconfigureSuppressesQueuedFireAndKeepsReplacement() throws InterruptedException {
+        BlockingCallbackQueue callbackQueue = new BlockingCallbackQueue();
+        ManagedCron cron = createCron(() -> _fires.incrementAndGet(), "* * * * *",
+                "Australia/Melbourne", false, s_asyncPool, callbackQueue);
+        cron.start();
+
+        _nowMillis = cron.getNextExecution().getMillis();
+        _timers.last().task.run();
+        assertTrue(callbackQueue.awaitEntered());
+
+        cron.setExpression("0 12 * * *");
+        long replacement = cron.getNextExecution().getMillis();
+        callbackQueue.release();
+        assertTrue(callbackQueue.awaitCompleted());
+
+        assertEquals(0, _fires.get());
+        assertNull(cron.getLastFired());
+        assertEquals(replacement, cron.getNextExecution().getMillis());
+        assertEquals(2, _timers.scheduled.size());
+    }
+
     // firing and rescheduling
 
     @Test
@@ -197,6 +325,80 @@ public class ManagedCronTest {
         assertEquals(millis(following), cron.getNextExecution().getMillis());
         assertEquals(2, _timers.scheduled.size());
         assertEquals(60_000, _timers.last().delay);
+    }
+
+    @Test
+    public void callbackSeesLastFiredAndTheFollowingExecution() {
+        AtomicReference<DateTime> lastDuringCallback = new AtomicReference<>();
+        AtomicReference<DateTime> nextDuringCallback = new AtomicReference<>();
+        ManagedCron[] cronRef = new ManagedCron[1];
+
+        H0 callback = () -> {
+            _fires.incrementAndGet();
+            lastDuringCallback.set(cronRef[0].getLastFired());
+            nextDuringCallback.set(cronRef[0].getNextExecution());
+        };
+
+        cronRef[0] = createCron(callback, "* * * * *", "Australia/Melbourne", false,
+                s_inlinePool, _callbackQueue);
+        cronRef[0].start();
+
+        _nowMillis = millis(ZonedDateTime.of(2026, 7, 16, 10, 1, 0, 0, MELBOURNE));
+        _timers.last().task.run();
+
+        assertEquals(1, _fires.get());
+        assertNotNull(lastDuringCallback.get());
+        assertEquals(_nowMillis, lastDuringCallback.get().getMillis());
+
+        ZonedDateTime following = ZonedDateTime.of(2026, 7, 16, 10, 2, 0, 0, MELBOURNE);
+        assertEquals(millis(following), nextDuringCallback.get().getMillis());
+        assertEquals(lastDuringCallback.get(), cronRef[0].getLastFired());
+    }
+
+    @Test
+    public void selfStopPreservesLastFiredWithoutRearming() {
+        ManagedCron[] cronRef = new ManagedCron[1];
+        H0 callback = () -> {
+            _fires.incrementAndGet();
+            cronRef[0].stop();
+        };
+
+        cronRef[0] = createCron(callback, "* * * * *", "Australia/Melbourne", false,
+                s_inlinePool, _callbackQueue);
+        cronRef[0].start();
+
+        _nowMillis = cronRef[0].getNextExecution().getMillis();
+        _timers.last().task.run();
+
+        assertEquals(1, _fires.get());
+        assertNotNull(cronRef[0].getLastFired());
+        assertEquals(_nowMillis, cronRef[0].getLastFired().getMillis());
+        assertTrue(cronRef[0].isStopped());
+        assertNull(cronRef[0].getNextExecution());
+        assertEquals(1, _timers.scheduled.size());
+    }
+
+    @Test
+    public void selfReconfigurationWinsOverCallbackCompletion() {
+        ManagedCron[] cronRef = new ManagedCron[1];
+        H0 callback = () -> {
+            _fires.incrementAndGet();
+            cronRef[0].setExpression("0 12 * * *");
+        };
+
+        cronRef[0] = createCron(callback, "* * * * *", "Australia/Melbourne", false,
+                s_inlinePool, _callbackQueue);
+        cronRef[0].start();
+
+        _nowMillis = cronRef[0].getNextExecution().getMillis();
+        _timers.last().task.run();
+
+        ZonedDateTime midday = ZonedDateTime.of(2026, 7, 16, 12, 0, 0, 0, MELBOURNE);
+        assertEquals(1, _fires.get());
+        assertNotNull(cronRef[0].getLastFired());
+        assertEquals("0 12 * * *", cronRef[0].getExpression());
+        assertEquals(millis(midday), cronRef[0].getNextExecution().getMillis());
+        assertEquals(2, _timers.scheduled.size());
     }
 
     @Test

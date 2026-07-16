@@ -16,12 +16,11 @@ import org.joda.time.DateTime;
 import org.nodel.Handler.H0;
 import org.nodel.Handler.H1;
 import org.nodel.cron.CronExpressions;
+import org.nodel.cron.CronExpressions.CompiledExpression;
 import org.nodel.threading.CallbackQueue;
 import org.nodel.threading.ThreadPool;
 import org.nodel.threading.TimerTask;
 import org.nodel.threading.Timers;
-
-import com.cronutils.model.Cron;
 
 /**
  * A managed CRON schedule (see CronExpressions for the expression rules), sharing the
@@ -88,7 +87,7 @@ public class ManagedCron implements Closeable {
     /**
      * (parsed and validated form of '_expression')
      */
-    private Cron _cron;
+    private CompiledExpression _cron;
 
     /**
      * The effective timezone (the host timezone unless one was provided).
@@ -109,6 +108,22 @@ public class ManagedCron implements Closeable {
      * The instant (millis) the pending task is aimed at (0 when none is pending).
      */
     private long _nextFireMillis;
+
+    /**
+     * Identifies the currently configured timer generation. Any lifecycle or
+     * configuration change invalidates work queued by an earlier generation.
+     */
+    private long _generation;
+
+    /**
+     * The generation currently admitted to the callback queue (0 when idle).
+     */
+    private long _activeGeneration;
+
+    /**
+     * The physical target of the callback currently in progress.
+     */
+    private long _activeTargetMillis;
 
     /**
      * When the callback actually last fired (null if never).
@@ -149,21 +164,37 @@ public class ManagedCron implements Closeable {
     }
 
     /**
-     * Schedules the next occurrence strictly after 'from' (lock must be held).
+     * Invalidates queued work and clears the pending physical timer (lock must be held).
      */
-    private void scheduleNext(ZonedDateTime from) {
+    private long invalidatePendingSchedule() {
         if (_timerTask != null)
             _timerTask.cancel();
 
         _timerTask = null;
         _nextFireMillis = 0;
 
+        return ++_generation;
+    }
+
+    /**
+     * Whether work from a generation can still be admitted or rearmed (lock must be held).
+     */
+    private boolean isCurrent(long generation) {
+        return !_shutdown && _started && _generation == generation;
+    }
+
+    /**
+     * Schedules the next occurrence strictly after 'from' (lock must be held).
+     */
+    private void scheduleNext(ZonedDateTime from) {
+        final long generation = invalidatePendingSchedule();
+
         ZonedDateTime next = CronExpressions.nextOccurrence(_cron, from);
         if (next == null)
             // can never fire (e.g. 'Feb 30'); remains started but dormant
             return;
 
-        long target = next.toInstant().toEpochMilli();
+        final long target = next.toInstant().toEpochMilli();
         _nextFireMillis = target;
 
         final TimerTask timerTask = new TimerTask() {
@@ -172,13 +203,9 @@ public class ManagedCron implements Closeable {
 
             @Override
             public void run() {
-                long target;
-
                 synchronized (_lock) {
-                    if (_shutdown || _self.isCancelled() || !_started)
+                    if (!isCurrent(generation) || _self.isCancelled())
                         return;
-
-                    target = _nextFireMillis;
 
                     long now = currentTimeMillis();
                     if (target - now > EARLY_FIRE_TOLERANCE) {
@@ -193,20 +220,40 @@ public class ManagedCron implements Closeable {
 
                     @Override
                     public void run() {
+                        _callbackQueue.handle(new H0() {
+
+                            @Override
+                            public void handle() {
+                                synchronized (_lock) {
+                                    if (!isCurrent(generation) || _self.isCancelled())
+                                        return;
+
+                                    // This is the admission point. A stop, close or
+                                    // reconfiguration before it drops the stale callback;
+                                    // after it, the callback may finish but cannot rearm.
+                                    _timerTask = null;
+                                    _nextFireMillis = 0;
+                                    _activeGeneration = generation;
+                                    _activeTargetMillis = target;
+
+                                    long firedAt = currentTimeMillis();
+                                    _lastFired = CronExpressions.toDateTime(ZonedDateTime.ofInstant(Instant.ofEpochMilli(firedAt), _zone));
+                                }
+
+                                _threadStateHandler.handle();
+                                _callback.handle();
+                            }
+
+                        }, _exceptionHandler);
+
                         synchronized (_lock) {
-                            if (_shutdown || _self.isCancelled() || !_started)
+                            if (_activeGeneration == generation) {
+                                _activeGeneration = 0;
+                                _activeTargetMillis = 0;
+                            }
+
+                            if (!isCurrent(generation) || _self.isCancelled())
                                 return;
-                        }
-
-                        _threadStateHandler.handle();
-
-                        _callbackQueue.handle(_callback, _exceptionHandler);
-
-                        synchronized (_lock) {
-                            if (_shutdown || _self.isCancelled() || !_started)
-                                return;
-
-                            _lastFired = DateTime.now();
 
                             // next occurrence from the later of 'now' and the target just fired:
                             // coalesces any occurrences missed while delayed and can never
@@ -243,12 +290,8 @@ public class ManagedCron implements Closeable {
      */
     public void stop() {
         synchronized (_lock) {
-            if (_timerTask != null)
-                _timerTask.cancel();
-
-            _timerTask = null;
-            _nextFireMillis = 0;
             _started = false;
+            invalidatePendingSchedule();
         }
     }
 
@@ -257,7 +300,7 @@ public class ManagedCron implements Closeable {
      * the previous schedule remains in place on failure).
      */
     public void setExpression(String expression) {
-        Cron cron = CronExpressions.parse(expression);
+        CompiledExpression cron = CronExpressions.parse(expression);
 
         synchronized (_lock) {
             _cron = cron;
@@ -265,6 +308,8 @@ public class ManagedCron implements Closeable {
 
             if (_started)
                 scheduleNext(now());
+            else
+                invalidatePendingSchedule();
         }
     }
 
@@ -286,6 +331,8 @@ public class ManagedCron implements Closeable {
 
             if (_started)
                 scheduleNext(now());
+            else
+                invalidatePendingSchedule();
         }
     }
 
@@ -311,12 +358,29 @@ public class ManagedCron implements Closeable {
      * When this schedule will next fire (null when stopped or when it can never fire).
      */
     public DateTime getNextExecution() {
+        CompiledExpression cron;
+        ZoneId zone;
+        long basisMillis;
+
         synchronized (_lock) {
-            if (_nextFireMillis == 0)
+            if (!_started)
                 return null;
 
-            return CronExpressions.toDateTime(ZonedDateTime.ofInstant(Instant.ofEpochMilli(_nextFireMillis), _zone));
+            if (_nextFireMillis != 0)
+                return CronExpressions.toDateTime(ZonedDateTime.ofInstant(Instant.ofEpochMilli(_nextFireMillis), _zone));
+
+            if (_activeGeneration != _generation)
+                return null;
+
+            cron = _cron;
+            zone = _zone;
+            basisMillis = Math.max(currentTimeMillis(), _activeTargetMillis);
         }
+
+        // No next physical timer is armed until the callback completes, preserving
+        // coalescing and non-overlap while still exposing the logical next occurrence.
+        ZonedDateTime basis = ZonedDateTime.ofInstant(Instant.ofEpochMilli(basisMillis), zone);
+        return CronExpressions.toDateTime(CronExpressions.nextOccurrence(cron, basis));
     }
 
     /**
@@ -324,7 +388,7 @@ public class ManagedCron implements Closeable {
      * whether the schedule was running at the time (null if none).
      */
     public DateTime getPreviousExecution() {
-        Cron cron;
+        CompiledExpression cron;
         ZonedDateTime from;
         synchronized (_lock) {
             cron = _cron;
@@ -372,10 +436,7 @@ public class ManagedCron implements Closeable {
 
             _shutdown = true;
             _started = false;
-            _nextFireMillis = 0;
-
-            if (_timerTask != null)
-                _timerTask.cancel();
+            invalidatePendingSchedule();
         }
     }
 

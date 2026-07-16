@@ -1,5 +1,7 @@
 package org.nodel;
 
+import java.util.Collections;
+
 import com.microsoft.playwright.APIResponse;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -61,7 +63,8 @@ public class CronSupportTests extends TestBase {
      * An every-minute schedule proves a real fire end-to-end (worst case ~60 s wait).
      */
     private static final String FIRE_SCRIPT =
-        "cron = Cron(lambda: console.info('CRON-FIRED next=%s' % cron.getNextExecution()), '* * * * *')\n" +
+        "cron = Cron(lambda: console.info('CRON-FIRED last-set=%s next-future=%s' % " +
+        "(cron.getLastFired() is not None, cron.getNextExecution().isAfterNow())), '* * * * *')\n" +
         "\n" +
         "def main():\n" +
         "    console.info('Cron fire test started')\n";
@@ -154,6 +157,22 @@ public class CronSupportTests extends TestBase {
 
     @Test
     @Order(5)
+    public void testCronRestEndpointBoundsOversizedInput() {
+        String expression = String.join(",", Collections.nCopies(253, "0")) + " * * * *";
+        APIResponse response = apiPost("/nodes/" + encode(TOOLKIT_NODE) + "/cron",
+                "{\"expression\":\"" + expression + "\"}");
+        assertEquals(200, response.status(), "REST/cron should return its diagnostic contract");
+
+        String responseText = response.text();
+        String body = responseText.replace(" ", "");
+        assertTrue(body.contains("\"valid\":false"), "oversized expression should be rejected: " + responseText);
+        assertTrue(responseText.contains("maximum 512"), "the bounded failure reason should be included: " + responseText);
+        assertTrue(responseText.length() < 2048, "the diagnostic response should remain bounded");
+        assertTrue(!responseText.contains(expression), "the oversized expression should not be echoed");
+    }
+
+    @Test
+    @Order(6)
     public void testCronRestEndpointSundayForms() {
         // Sunday as 0, 7 or a name resolves to the same schedule
         String nextFor0 = null;
@@ -175,15 +194,15 @@ public class CronSupportTests extends TestBase {
     // live scheduling through the shared timer infrastructure
 
     @Test
-    @Order(6)
+    @Order(7)
     public void testCronFiresOnTheMinute() {
         // an every-minute schedule must fire within ~60 s (plus margin for a busy host)
-        assertTrue(waitForConsoleContains(FIRE_NODE, "CRON-FIRED", 75000),
-                "a started '* * * * *' schedule should fire at the next minute boundary");
+        assertTrue(waitForConsoleContains(FIRE_NODE, "CRON-FIRED last-set=True next-future=True", 75000),
+                "the callback should see its last fire and following execution at the next minute boundary");
     }
 
     @Test
-    @Order(7)
+    @Order(8)
     public void testCronSurvivesNodeRestart() {
         // restarting the node tears the toolkit down and re-runs the recipe: the schedule
         // must be re-registered and look forward only. The console survives a script
