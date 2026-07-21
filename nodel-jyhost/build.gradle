@@ -72,10 +72,17 @@ tasks.named('distZip') {
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
 }
 
+configurations {
+    // carries LocalAutoDNS (nodel-framework's test fixtures) so startNodelhost can put it
+    // on the launched host's classpath without it shipping in any production jar
+    discoveryFixture
+}
+
 dependencies {
     implementation project(':nodel-webui-js')
     implementation project(':nodel-framework')
-    implementation 'commons-daemon:commons-daemon:1.0.15'
+    discoveryFixture testFixtures(project(':nodel-framework'))
+    implementation 'commons-daemon:commons-daemon:1.6.0'
     implementation 'org.slf4j:slf4j-api:1.7.10'
     implementation 'org.python:jython-standalone:2.5.4-rc1'
 
@@ -91,59 +98,37 @@ dependencies {
     }
 
     // convenience dependency: JWTs (JSON Web Tokens), see https://github.com/museumsvictoria/nodel/discussions/297
-    implementation 'io.jsonwebtoken:jjwt-api:0.11.5'
-    runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.11.5'
-    runtimeOnly 'io.jsonwebtoken:jjwt-orgjson:0.11.5'
+    implementation 'io.jsonwebtoken:jjwt-api:0.12.6'
+    runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.12.6'
+    runtimeOnly 'io.jsonwebtoken:jjwt-orgjson:0.12.6'
 
     // Add joda-time dependency
-    implementation 'joda-time:joda-time:2.10.14'
+    implementation 'joda-time:joda-time:2.14.0'
 
     // Playwright e2e testing
-    testImplementation 'com.microsoft.playwright:playwright:1.49.0'
-    testImplementation 'org.junit.jupiter:junit-jupiter-api:5.10.0'
-    testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.10.0'
+    testImplementation 'com.microsoft.playwright:playwright:1.52.0'
+    testImplementation 'org.junit.jupiter:junit-jupiter-api:5.12.2'
+    testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.12.2'
+    // JUnit 5.11+ requires an aligned platform-launcher; this module wires JUnit manually
+    // (no JVM Test Suite plugin) so declare it explicitly to avoid Gradle's older bundled launcher.
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher:1.12.2'
 }
 
-/*
- * =============================================================================
- * E2E / INTEGRATION TEST INFRASTRUCTURE
- * =============================================================================
- *
- * Tests run a dedicated Nodel instance on port 18085 (not the default 8085)
- * in a temporary 'nodelhost-temp' directory for isolation.
- *
- * RUNNING TESTS:
- *   ./gradlew :nodel-jyhost:integrationTest    # API and smoke tests
- *   ./gradlew :nodel-jyhost:e2eTest            # Browser-based UI tests
- *
- * VISUAL DEBUGGING (see browser during E2E tests):
- *   Unix:
- *     HEADED=1 SLOWMO=500 ./gradlew :nodel-jyhost:e2eTest --rerun
- *   PowerShell:
- *     $env:HEADED=1; $env:SLOWMO=500; ./gradlew :nodel-jyhost:e2eTest --rerun
- *
- * WHEN TESTS FAIL:
- *   1. Check nodelhost-temp/output.log and error.log for server issues
- *   2. Re-run with HEADED=1 and/or PWDEBUG=1 to watch/interact with the browser
- *   3. Check build/reports/tests/ for JUnit HTML reports
- *   4. CI uploads failure artifacts (logs + reports) automatically
- *
- * SKIPPING TESTS:
- *   ./gradlew build -x test                    # Skip all tests
- *   ./gradlew build -x integrationTest -x e2eTest  # Skip only Playwright tests
- *
- * =============================================================================
- */
+// Test infrastructure documentation moved to BUILDING.md (see "TESTING").
 def nodelProcess = null
 def isWindows = System.getProperty('os.name').toLowerCase().contains('windows')
+def discoveryEnv = System.getenv('NODEL_TEST_DISCOVERY')
+def useLocalDiscovery = (discoveryEnv == null || discoveryEnv.trim().isEmpty()
+        || discoveryEnv.trim().equalsIgnoreCase('false') || discoveryEnv.trim().equals('0'))
 
 tasks.register('cleanNodelhostTemp', Delete) {
     delete layout.projectDirectory.dir('nodelhost-temp')
 }
 
 tasks.register('startNodelhost') {
-    dependsOn 'cleanNodelhostTemp', 'classes'
+    dependsOn 'cleanNodelhostTemp', 'classes', configurations.discoveryFixture
     doLast {
+        def hostClasspath = files(sourceSets.main.runtimeClasspath, configurations.discoveryFixture).asPath
         // Kill any existing process on the test port before starting
         if (isWindows) {
             ['powershell', '-Command',
@@ -158,19 +143,28 @@ tasks.register('startNodelhost') {
         def tempDir = layout.projectDirectory.dir('nodelhost-temp').asFile
         tempDir.mkdirs()
 
+        if (useLocalDiscovery) {
+            logger.lifecycle("Using LocalAutoDNS for tests (set NODEL_TEST_DISCOVERY=1 for multicast discovery)")
+        } else {
+            logger.lifecycle("Using multicast AutoDNS for tests (NODEL_TEST_DISCOVERY enabled)")
+        }
+
         def pb
         if (isWindows) {
             // Windows: Start java directly with stdin pipe to keep process alive
-            pb = new ProcessBuilder(
-                'java', '-cp', sourceSets.main.runtimeClasspath.asPath,
-                '-ea', 'org.nodel.jyhost.Launch', '-p', '18085'
-            )
+            def args = ['java', '-cp', hostClasspath, '-ea']
+            if (useLocalDiscovery) {
+                args.add('-Dorg.nodel.discovery.impl=org.nodel.discovery.LocalAutoDNS;instance')
+            }
+            args.addAll(['org.nodel.jyhost.Launch', '-p', '18085'])
+            pb = new ProcessBuilder(args)
             pb.redirectInput(ProcessBuilder.Redirect.PIPE)
         } else {
             // Unix: Use tail -f /dev/null to keep stdin open (prevents auto-shutdown)
+            def discoveryArg = useLocalDiscovery ? "-Dorg.nodel.discovery.impl='org.nodel.discovery.LocalAutoDNS;instance' " : ""
             pb = new ProcessBuilder(
                 'bash', '-c',
-                "tail -f /dev/null | java -cp '${sourceSets.main.runtimeClasspath.asPath}' -ea org.nodel.jyhost.Launch -p 18085"
+                "tail -f /dev/null | java -cp '${hostClasspath}' -ea ${discoveryArg}org.nodel.jyhost.Launch -p 18085"
             )
         }
         pb.directory(tempDir)
@@ -200,7 +194,7 @@ tasks.register('startNodelhost') {
             }
             attempt++
             if (attempt >= maxAttempts) {
-                throw new GradleException("Nodel host failed to start within ${maxAttempts} seconds")
+                throw new GradleException("Nodel host failed to start within ${maxAttempts} seconds; check nodel-jyhost/nodelhost-temp/output.log and error.log")
             }
         }
     }
@@ -257,7 +251,7 @@ test {
     finalizedBy 'stopNodelhost'
 }
 
-// Integration Tests - API, smoke, library loading tests (excludes E2E)
+// Integration Tests - all non-E2E-tagged tests (API, smoke and browser-assisted integration tests)
 task integrationTest(type: Test) {
     dependsOn 'startNodelhost'
     useJUnitPlatform {

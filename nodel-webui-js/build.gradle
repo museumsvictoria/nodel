@@ -6,7 +6,7 @@ buildscript {
     }
 
     dependencies {
-        classpath 'joda-time:joda-time:2.10.10'
+        classpath 'joda-time:joda-time:2.14.0'
     }
 }
 
@@ -31,7 +31,7 @@ repositories {
 }
 
 dependencies {
-    implementation 'joda-time:joda-time:2.10.10'
+    implementation 'joda-time:joda-time:2.14.0'
     implementation 'org.joda:joda-convert:2.2.1'
 }
 
@@ -46,60 +46,31 @@ node {
 // ensures compatibility with older dependencies that are otherwise forced to be updated
 npmInstall.args = ['--legacy-peer-deps']
 
-class FileChecker {
-    def nodeModulesDir
-    def srcDir
-    def packageJson
-    def packageLockJson
-    def gruntFile
-
-    FileChecker(Project project) {
-        nodeModulesDir = project.file("${project.projectDir}/node_modules")
-        srcDir = project.file('src')
-        packageJson = project.file('package.json')
-        packageLockJson = project.file('package-lock.json')
-        gruntFile = project.file('Gruntfile.js')
-    }
-
-    def checkFilesChanged() {
-        if (!nodeModulesDir.exists()) {
-            return true
-        } else {
-            def srcDirModified = srcDir.exists() && srcDir.lastModified() > nodeModulesDir.lastModified()
-            def packageJsonModified = packageJson.exists() && packageJson.lastModified() > nodeModulesDir.lastModified()
-            def packageLockJsonModified = packageLockJson.exists() && packageLockJson.lastModified() > nodeModulesDir.lastModified()
-            def gruntFileModified = gruntFile.exists() && gruntFile.lastModified() > nodeModulesDir.lastModified()
-
-            def filesChanged = srcDirModified || packageJsonModified || packageLockJsonModified || gruntFileModified
-
-            return filesChanged
-        }
+npmInstall {
+    // npm prunes bootstrap's nested dev dependencies (installed separately by
+    // grunt-twbs) but leaves the directory, which makes grunt-twbs skip its own
+    // install and fail; remove it so grunt-twbs re-installs a complete set
+    doLast {
+        project.delete("${projectDir}/node_modules/bootstrap/node_modules")
     }
 }
 
-def fileChecker = new FileChecker(project)
-
 tasks.register('gruntRun', NpxTask) {
-    def shouldInstall = fileChecker.checkFilesChanged()
-
-    if (shouldInstall) {
-        dependsOn clean, npmInstall
-    }
+    dependsOn npmInstall
 
     command = "grunt"
-    inputs.property('filesChanged', shouldInstall)
-    inputs.dir("node_modules")
-    outputs.dir("build/grunt")
-
-    onlyIf { shouldInstall }
-
-    doLast {
-        if (shouldInstall) {
-            logger.info('Running Grunt build task as files have changed or node_modules is missing.')
-        } else {
-            logger.info('Skipping Grunt build task as no files have changed and node_modules is present.')
-        }
-    }
+    // Node 20's happy-eyeballs races time out under grunt-google-fonts'
+    // concurrent downloads (AggregateError from fonts.gstatic.com)
+    environment = ['NODE_OPTIONS': '--no-network-family-autoselection']
+    // rely on Gradle's incremental build: a failed run is never treated as
+    // up-to-date, so a partial build/grunt can't be packaged on the next build
+    inputs.files(fileTree('src') {
+        // grunt regenerates these from src/theme.less each run; tracking them
+        // as inputs would retrigger the task once after every theme change
+        exclude 'dark/theme.less', 'light/theme.less'
+    })
+    inputs.files('package.json', 'package-lock.json', 'Gruntfile.js')
+    outputs.dir('build/grunt')
 }
 
 tasks.named('clean', Delete) {
@@ -160,6 +131,6 @@ tasks.named('processResources') {
 }
 
 dependencies {
-    implementation 'joda-time:joda-time:2.10.10'
+    implementation 'joda-time:joda-time:2.14.0'
     implementation 'org.joda:joda-convert:2.2.1'
 }

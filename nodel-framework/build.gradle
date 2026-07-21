@@ -1,4 +1,5 @@
 apply plugin: 'java'
+apply plugin: 'java-test-fixtures'
 apply plugin: 'maven-publish'
 apply plugin: 'eclipse'
 
@@ -42,11 +43,14 @@ testing {
 }
 
 dependencies {
-    implementation 'joda-time:joda-time:2.6'
+    implementation 'joda-time:joda-time:2.14.0'
     implementation 'org.slf4j:slf4j-api:1.7.10'
 
     // SSH features
     implementation group: 'com.jcraft', name: 'jsch', version: '0.1.55'
+
+    // for LocalAutoDNS (test-only discovery implementation, kept out of the shipped jar)
+    testFixturesImplementation 'org.slf4j:slf4j-api:1.7.10'
 }
 
 testing {
@@ -54,11 +58,11 @@ testing {
         // Configure the built-in test suite
         test {
             // Use JUnit Jupiter test framework
-            useJUnitJupiter('5.7.0')
-            
+            useJUnitJupiter('5.12.2')
+
             dependencies {
-                implementation 'org.junit.jupiter:junit-jupiter-params:5.7.0'
-                implementation 'org.mockito:mockito-core:3.12.4'
+                implementation 'org.junit.jupiter:junit-jupiter-params:5.12.2'
+                implementation 'org.mockito:mockito-core:5.18.0'
                 implementation 'ch.qos.logback:logback-classic:1.4.14'
             }
         }

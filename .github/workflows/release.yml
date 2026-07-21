@@ -1,0 +1,179 @@
+name: Release
+
+# Builds and publishes a versioned release for a pushed v* tag.
+#
+# The release type is derived from where the tagged commit sits:
+#   - reachable from master -> stable release (marked "Latest")
+#   - dev only              -> pre-release
+#
+# For tags on commits that predate this workflow file, trigger manually
+# via workflow_dispatch with the tag name.
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Existing tag to release (e.g. v2.2.1.542)'
+        required: true
+        type: string
+
+concurrency:
+  group: release-${{ github.event.inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    outputs:
+      tag: ${{ steps.meta.outputs.tag }}
+      sha: ${{ steps.meta.outputs.sha }}
+      prerelease: ${{ steps.meta.outputs.prerelease }}
+      jar_name: ${{ steps.jar.outputs.name }}
+
+    steps:
+      - name: Checkout
+        # actions/checkout v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          fetch-depth: 0
+
+      - name: Resolve tag metadata
+        id: meta
+        env:
+          TAG: ${{ github.event.inputs.tag || github.ref_name }}
+        run: |
+          SHA=$(git rev-parse --verify "refs/tags/${TAG}^{commit}") || {
+            echo "::error::Tag '${TAG}' not found"; exit 1; }
+
+          # Stable if the tagged commit is on master, pre-release otherwise
+          if git merge-base --is-ancestor "$SHA" origin/master; then
+            PRERELEASE=false
+          else
+            PRERELEASE=true
+          fi
+
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "sha=$SHA" >> "$GITHUB_OUTPUT"
+          echo "prerelease=$PRERELEASE" >> "$GITHUB_OUTPUT"
+
+      - name: Verify tag matches build number
+        env:
+          TAG: ${{ steps.meta.outputs.tag }}
+          SHA: ${{ steps.meta.outputs.sha }}
+        run: |
+          # Version identifiers are 2.2.1.<commit count>; catch a tag pushed
+          # to the wrong commit before it turns into a mislabelled artifact.
+          if [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+\.([0-9]+)$ ]]; then
+            TAG_REV=${BASH_REMATCH[1]}
+            ACTUAL_REV=$(git rev-list --count "$SHA")
+            if [ "$TAG_REV" != "$ACTUAL_REV" ]; then
+              echo "::error::Tag says rev $TAG_REV but $SHA has commit count $ACTUAL_REV"
+              exit 1
+            fi
+          fi
+
+      - name: Ensure branch name for versioning
+        env:
+          SHA: ${{ steps.meta.outputs.sha }}
+          PRERELEASE: ${{ steps.meta.outputs.prerelease }}
+        run: |
+          # build.gradle derives the artifact name from the current branch:
+          # 'master' -> nodelhost-release-*.jar, 'dev' -> nodelhost-dev-*.jar
+          if [ "$PRERELEASE" = "false" ]; then BRANCH=master; else BRANCH=dev; fi
+          git checkout -B "$BRANCH" "$SHA"
+
+      - name: Setup Java 11
+        # actions/setup-java v4
+        uses: actions/setup-java@c1e323688fd81a25caa38c78aa6df2d33d3e20d9
+        with:
+          distribution: temurin
+          java-version: "11"
+
+      - name: Setup Gradle
+        # gradle/actions/setup-gradle v4
+        uses: gradle/actions/setup-gradle@ed408507eac070d1f99cc633dbcf757c94c7933a
+
+      - name: Run unit tests
+        run: ./gradlew :nodel-framework:test
+
+      - name: Build jar
+        run: ./gradlew :nodel-jyhost:build -x test
+
+      - name: Locate jar
+        id: jar
+        run: |
+          JAR=$(ls nodel-jyhost/build/distributions/standalone/nodelhost-*.jar | head -n 1)
+          echo "name=$(basename "$JAR")" >> "$GITHUB_OUTPUT"
+          echo "path=$JAR" >> "$GITHUB_OUTPUT"
+
+      - name: Upload jar
+        # actions/upload-artifact v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: nodelhost-jar
+          path: ${{ steps.jar.outputs.path }}
+          retention-days: 1
+
+  release:
+    needs: [build]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download jar
+        # actions/download-artifact v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: nodelhost-jar
+
+      - name: Generate release notes
+        env:
+          PRERELEASE: ${{ needs.build.outputs.prerelease }}
+          JAR_NAME: ${{ needs.build.outputs.jar_name }}
+          RELEASES_URL: https://github.com/${{ github.repository }}/releases
+        run: |
+          if [ "$PRERELEASE" = "true" ]; then
+            cat > release_notes.md <<'EOF'
+          > [!NOTE]
+          > **This is a pre-release built from `dev`** — newer than the latest
+          > stable release, and a fixed point that is more predictable than the
+          > rolling [tip ("nightly") build](__RELEASES_URL__/tag/tip).
+          EOF
+          else
+            cat > release_notes.md <<'EOF'
+          Stable release, built from `master`.
+          EOF
+          fi
+          cat >> release_notes.md <<'EOF'
+
+          ## Usage
+
+          - Requires **[Java 11](https://adoptium.net/temurin/releases/)** or later.
+          - `java -jar __JAR_NAME__`
+          - Then open http://localhost:8085
+          EOF
+          sed -i \
+            -e "s|__JAR_NAME__|$JAR_NAME|g" \
+            -e "s|__RELEASES_URL__|$RELEASES_URL|g" \
+            release_notes.md
+
+      - name: Upload release
+        # softprops/action-gh-release v2
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65
+        with:
+          tag_name: ${{ needs.build.outputs.tag }}
+          target_commitish: ${{ needs.build.outputs.sha }}
+          name: ${{ needs.build.outputs.tag }}
+          prerelease: ${{ needs.build.outputs.prerelease == 'true' }}
+          make_latest: ${{ needs.build.outputs.prerelease == 'false' }}
+          body_path: release_notes.md
+          generate_release_notes: true
+          files: ${{ needs.build.outputs.jar_name }}
+          fail_on_unmatched_files: true
