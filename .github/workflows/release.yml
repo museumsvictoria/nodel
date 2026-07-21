@@ -37,8 +37,8 @@ jobs:
 
     steps:
       - name: Checkout
-        # actions/checkout v4
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        # actions/checkout v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           fetch-depth: 0
 
@@ -88,15 +88,15 @@ jobs:
           git checkout -B "$BRANCH" "$SHA"
 
       - name: Setup Java 11
-        # actions/setup-java v4
-        uses: actions/setup-java@c1e323688fd81a25caa38c78aa6df2d33d3e20d9
+        # actions/setup-java v5
+        uses: actions/setup-java@03ad4de0992f5dab5e18fcb136590ce7c4a0ac95
         with:
           distribution: temurin
           java-version: "11"
 
       - name: Setup Gradle
-        # gradle/actions/setup-gradle v4
-        uses: gradle/actions/setup-gradle@ed408507eac070d1f99cc633dbcf757c94c7933a
+        # gradle/actions/setup-gradle v5
+        uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c
 
       - name: Run unit tests
         run: ./gradlew :nodel-framework:test
@@ -112,8 +112,8 @@ jobs:
           echo "path=$JAR" >> "$GITHUB_OUTPUT"
 
       - name: Upload jar
-        # actions/upload-artifact v4
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        # actions/upload-artifact v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: nodelhost-jar
           path: ${{ steps.jar.outputs.path }}
@@ -128,8 +128,8 @@ jobs:
 
     steps:
       - name: Download jar
-        # actions/download-artifact v4
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        # actions/download-artifact v8
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
         with:
           name: nodelhost-jar
 
@@ -165,8 +165,8 @@ jobs:
             release_notes.md
 
       - name: Upload release
-        # softprops/action-gh-release v2
-        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65
+        # softprops/action-gh-release v3
+        uses: softprops/action-gh-release@3d0d9888cb7fd7b750713d6e236d1fcb99157228
         with:
           tag_name: ${{ needs.build.outputs.tag }}
           target_commitish: ${{ needs.build.outputs.sha }}
