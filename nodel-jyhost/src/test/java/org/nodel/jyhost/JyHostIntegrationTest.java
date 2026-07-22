@@ -1,7 +1,6 @@
 package org.nodel.jyhost;
 
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import java.io.BufferedReader;
 import java.io.ByteArrayOutputStream;
@@ -17,6 +16,8 @@ import java.nio.file.Paths;
 import java.nio.file.attribute.FileTime;
 import java.util.Comparator;
 import java.util.concurrent.TimeUnit;
+
+import static org.junit.jupiter.api.Assertions.fail;
 
 public class JyHostIntegrationTest {
 
@@ -184,7 +185,7 @@ public class JyHostIntegrationTest {
         long deadline = System.currentTimeMillis() + timeoutMs;
         while (System.currentTimeMillis() < deadline) {
             if (!process.isAlive()) {
-                Assert.fail("Host process exited early.\n" + output);
+                fail("Host process exited early.\n" + output);
             }
             if (Files.exists(portFile)) {
                 String portText = new String(Files.readAllBytes(portFile), StandardCharsets.UTF_8).trim();
@@ -194,7 +195,7 @@ public class JyHostIntegrationTest {
             }
             Thread.sleep(200);
         }
-        Assert.fail("Timed out waiting for host port file.\n" + output);
+        fail("Timed out waiting for host port file.\n" + output);
         return -1;
     }
 
@@ -203,7 +204,7 @@ public class JyHostIntegrationTest {
         String lastBody = null;
         while (System.currentTimeMillis() < deadline) {
             if (!process.isAlive()) {
-                Assert.fail("Host process exited early.\n" + output);
+                fail("Host process exited early.\n" + output);
             }
             try {
                 lastBody = httpGet(url);
@@ -214,7 +215,7 @@ public class JyHostIntegrationTest {
             }
             Thread.sleep(250);
         }
-        Assert.fail("Timed out waiting for '" + token + "' in " + url + ". Last response:\n" + lastBody);
+        fail("Timed out waiting for '" + token + "' in " + url + ". Last response:\n" + lastBody);
     }
 
     private static String httpGet(String url) throws IOException {

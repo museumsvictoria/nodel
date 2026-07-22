@@ -1,7 +1,96 @@
+import org.joda.time.DateTime
+
+buildscript {
+    repositories {
+        mavenCentral()
+    }
+    dependencies {
+        classpath 'joda-time:joda-time:2.10.10'
+    }
+}
+
+ext {
+    getGitInfo = {
+        def branch = ""
+        def id = ""
+        def rev = ""
+        def origin = ""
+        
+        try {
+            branch = new ByteArrayOutputStream().withStream { os ->
+                exec {
+                    commandLine 'git', 'rev-parse', '--abbrev-ref', 'HEAD'
+                    standardOutput = os
+                }
+                return os.toString().trim()
+            }
+            
+            id = new ByteArrayOutputStream().withStream { os ->
+                exec {
+                    commandLine 'git', 'rev-parse', 'HEAD'
+                    standardOutput = os
+                }
+                return os.toString().trim()
+            }
+            
+            rev = new ByteArrayOutputStream().withStream { os ->
+                exec {
+                    commandLine 'git', 'rev-list', '--count', 'HEAD'
+                    standardOutput = os
+                }
+                return os.toString().trim()
+            }
+            
+            origin = new ByteArrayOutputStream().withStream { os ->
+                exec {
+                    commandLine 'git', 'config', '--get', 'remote.origin.url'
+                    standardOutput = os
+                }
+                return os.toString().trim()
+            }
+        } catch (Exception e) {
+            logger.warn("Error executing git command: ${e.message}")
+        }
+        
+        return [
+                branch : branch,
+                id     : id,
+                rev    : rev,
+                origin : origin
+        ]
+    }
+
+    gitInfo = getGitInfo()
+    buildSummary = gitInfo.id
+    hostname = InetAddress.getLocalHost().getHostName().toUpperCase()
+    now = DateTime.now().toString()
+    rev = gitInfo.rev.replaceAll(/[^a-zA-Z0-9]/, '')
+
+    branch = gitInfo.branch
+    if (branch == 'master') {
+        branch = 'release'
+    } else if (branch.contains('/')) {
+        branch = branch.substring(branch.indexOf('/') + 1)
+    }
+
+    baseVersion = '2.2.1'
+    versionIdentifier = "${baseVersion}-${branch}_r${rev}"
+    println "versionIdentifier: ${versionIdentifier}"
+}
+
 subprojects {
     apply plugin: 'java'
     group = 'org.nodel'
-    version = '2.2.1'
+    version = rootProject.ext.baseVersion
+    
+    java {
+        sourceCompatibility = JavaVersion.VERSION_11
+        targetCompatibility = JavaVersion.VERSION_11
+    }
+    
+    tasks.withType(JavaCompile).configureEach {
+        options.release = 11
+    }
     repositories {
         mavenCentral()
     }

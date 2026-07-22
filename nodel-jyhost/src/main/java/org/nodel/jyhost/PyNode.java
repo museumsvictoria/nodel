@@ -543,9 +543,11 @@ public class PyNode extends BaseDynamicNode {
         
         _logger.info("Initialising new Python interpreter...");
         
-        // a fresh system state per (re)configuration; the working directory and 'sys.path'
-        // are established in 'injectToolkit' where the interpreter's effective state is available
+        // Seed the current thread before creating the thread-local interpreter. Some dynamically
+        // discovered nodes otherwise fail to initialise under Jython 2.7; injectToolkit reapplies
+        // the same configuration to the interpreter's effective state after creation.
         PySystemState pySystemState = new PySystemState();
+        configurePythonState(pySystemState);
         Py.setSystemState(pySystemState);
         
         _globals = new PyDictionary();
@@ -836,13 +838,10 @@ public class PyNode extends BaseDynamicNode {
     private void injectToolkit() throws IOException {
         // toolkit and callback queue are cleaned up by 'cleanupInterpreter'
 
-        // the thread-local interpreter's effective system state is only reliably available
-        // here (post interpreter creation), so this must remain the single place where the
-        // working directory and 'sys.path' (node root and meta root) are established
+        // Reapply the shared state configuration to the thread-local interpreter's effective
+        // system state, which is only reliably available after interpreter creation.
         _pySystemState = Py.getSystemState();
-        _pySystemState.setCurrentWorkingDir(_root.getAbsolutePath());
-        ensureSysPath(_pySystemState, _root.getAbsolutePath());
-        ensureSysPath(_pySystemState, _metaRoot.getAbsolutePath());
+        configurePythonState(_pySystemState);
 
         _callbackQueue = new CallbackQueue();
         _toolkit = new ManagedToolkit(this)
@@ -889,6 +888,12 @@ public class PyNode extends BaseDynamicNode {
         _pySystemState.__setattr__("nodetoolkit", Py.java2py(_toolkit));
     }
 
+    private void configurePythonState(PySystemState systemState) {
+        systemState.setCurrentWorkingDir(_root.getAbsolutePath());
+        ensureSysPath(systemState, _root.getAbsolutePath());
+        ensureSysPath(systemState, _metaRoot.getAbsolutePath());
+    }
+
     private void ensureSysPath(PySystemState systemState, String path) {
         PyUnicode pathString = new PyUnicode(path);
         if (!systemState.path.contains(pathString)) {
@@ -901,7 +906,7 @@ public class PyNode extends BaseDynamicNode {
      */
     private void cleanupInterpreter() {
         String message;
-        
+
         if (_python != null) {
             message = "(closing this interpreter...)";
 
@@ -909,6 +914,17 @@ public class PyNode extends BaseDynamicNode {
             _outReader.inject(message);
 
             try {
+                // Ensure the PySystemState is set before executing cleanup functions
+                PySystemState systemState = _python.getSystemState();
+                if (systemState == null)
+                    throw new IllegalStateException("Python interpreter not ready.");
+
+                Py.setSystemState(systemState);
+
+                // Reassign the output streams
+                _python.setOut(_outReader);
+                _python.setErr(_errReader);
+
                 PyObject processCleanupFunctions = _globals.get(Py.java2py("processCleanupFunctions"));
                 if (processCleanupFunctions instanceof PyFunction) {
                     long cleanupFnCount = processCleanupFunctions.__call__().asLong();
@@ -925,12 +941,12 @@ public class PyNode extends BaseDynamicNode {
             }
 
             _python.cleanup();
-            
+
             message = "(clean up complete)";
             _logger.info(message);
             _outReader.inject(message);
         }
-        
+
         if (_toolkit != null) {
             _toolkit.shutdown();
         }
@@ -1661,14 +1677,16 @@ public class PyNode extends BaseDynamicNode {
     }
 
     /**
-     * Waits no longer than 10s to try and get a reentrant lock.
+     * Waits no longer than 60s to try and get a reentrant lock.
      * Starts off sharing one lock, but may need more if nodes lock up or take too long to initialise.
+     * This is done to deliberately constrain parallelism during intialisation so as to not encourage 
+     * race-conditions the Python code that isn't necessarily used to being executed in a free-threaded environment.
      */
     private ReentrantLock getAReentrantLock() throws InterruptedException {
         ReentrantLock lock = null;
 
         for (;;) {
-            if (lock != null && lock.tryLock(10, TimeUnit.SECONDS)) {
+            if (lock != null && lock.tryLock(60, TimeUnit.SECONDS)) {
                 return lock;
 
             } else {
@@ -1682,7 +1700,7 @@ public class PyNode extends BaseDynamicNode {
                         // won't get here the first iteration
                         s_currentGlobalRentrantLock = new ReentrantLock();
 
-                        _logger.warn("The interlocked initialisation sequence of the scripting engines is slow or dead-locked. A new lock has been created to hopefully release any potential dead-lock.");
+                        _logger.warn("A node is taking more than 60s to initialise.");
 
                         lock = s_currentGlobalRentrantLock;
                     }

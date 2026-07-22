@@ -23,6 +23,11 @@
             <xsl:value-of select="@showvalue"/>
           </xsl:attribute>
         </xsl:if>
+        <xsl:if test="@showeventarg">
+          <xsl:attribute name="data-showeventarg">
+            <xsl:value-of select="@showeventarg"/>
+          </xsl:attribute>
+        </xsl:if>
       </xsl:if>
       <xsl:apply-templates select="column"/>
     </div>
@@ -191,6 +196,11 @@
           <xsl:value-of select="@showvalue"/>
         </xsl:attribute>
       </xsl:if>
+      <xsl:if test="@showeventarg">
+        <xsl:attribute name="data-showeventarg">
+          <xsl:value-of select="@showeventarg"/>
+        </xsl:attribute>
+      </xsl:if>
     </xsl:if>
     <xsl:if test="@event">
       <xsl:attribute name="data-event">
@@ -242,6 +252,11 @@
         <xsl:if test="@showvalue">
           <xsl:attribute name="data-showarg">
             <xsl:value-of select="@showvalue"/>
+          </xsl:attribute>
+        </xsl:if>
+        <xsl:if test="@showeventarg">
+          <xsl:attribute name="data-showeventarg">
+            <xsl:value-of select="@showeventarg"/>
           </xsl:attribute>
         </xsl:if>
       </xsl:if>
@@ -326,6 +341,11 @@
             <xsl:value-of select="@showvalue"/>
           </xsl:attribute>
         </xsl:if>
+        <xsl:if test="@showeventarg">
+          <xsl:attribute name="data-showeventarg">
+            <xsl:value-of select="@showeventarg"/>
+          </xsl:attribute>
+        </xsl:if>
       </xsl:if>
       <xsl:if test="@arg">
         <xsl:attribute name="data-arg">
@@ -408,6 +428,11 @@
             <xsl:value-of select="@showvalue"/>
           </xsl:attribute>
         </xsl:if>
+        <xsl:if test="@showeventarg">
+          <xsl:attribute name="data-showeventarg">
+            <xsl:value-of select="@showeventarg"/>
+          </xsl:attribute>
+        </xsl:if>
       </xsl:if>
       <xsl:apply-templates select="button|switch|partialswitch"/>
     </div>
@@ -458,6 +483,11 @@
         <xsl:if test="@showvalue">
           <xsl:attribute name="data-showarg">
             <xsl:value-of select="@showvalue"/>
+          </xsl:attribute>
+        </xsl:if>
+        <xsl:if test="@showeventarg">
+          <xsl:attribute name="data-showeventarg">
+            <xsl:value-of select="@showeventarg"/>
           </xsl:attribute>
         </xsl:if>
       </xsl:if>
@@ -511,6 +541,11 @@
             <xsl:if test="@showvalue">
               <xsl:attribute name="data-showarg">
                 <xsl:value-of select="@showvalue"/>
+              </xsl:attribute>
+            </xsl:if>
+            <xsl:if test="@showeventarg">
+              <xsl:attribute name="data-showeventarg">
+                <xsl:value-of select="@showeventarg"/>
               </xsl:attribute>
             </xsl:if>
           </xsl:if>
@@ -585,6 +620,11 @@
         <xsl:if test="@showvalue">
           <xsl:attribute name="data-showarg">
             <xsl:value-of select="@showvalue"/>
+          </xsl:attribute>
+        </xsl:if>
+        <xsl:if test="@showeventarg">
+          <xsl:attribute name="data-showeventarg">
+            <xsl:value-of select="@showeventarg"/>
           </xsl:attribute>
         </xsl:if>
       </xsl:if>
@@ -678,6 +718,11 @@
             <xsl:value-of select="@showvalue"/>
           </xsl:attribute>
         </xsl:if>
+        <xsl:if test="@showeventarg">
+          <xsl:attribute name="data-showeventarg">
+            <xsl:value-of select="@showeventarg"/>
+          </xsl:attribute>
+        </xsl:if>
       </xsl:if>
       <xsl:attribute name="data-class-off">
         <xsl:choose>
@@ -766,6 +811,11 @@
             <xsl:value-of select="@showvalue"/>
           </xsl:attribute>
         </xsl:if>
+        <xsl:if test="@showeventarg">
+          <xsl:attribute name="data-showeventarg">
+            <xsl:value-of select="@showeventarg"/>
+          </xsl:attribute>
+        </xsl:if>
       </xsl:if>
       <xsl:for-each select="pill">
         <li>
@@ -796,6 +846,11 @@
                 <xsl:value-of select="@showvalue"/>
               </xsl:attribute>
             </xsl:if>
+            <xsl:if test="@showeventarg">
+              <xsl:attribute name="data-showeventarg">
+                <xsl:value-of select="@showeventarg"/>
+              </xsl:attribute>
+            </xsl:if>
           </xsl:if>
           <a href="#" data-arg="{@value}"><xsl:value-of select="text()"/><xsl:apply-templates select="badge|partialbadge|signal"/></a>
         </li>
@@ -822,6 +877,11 @@
         <xsl:if test="@showvalue">
           <xsl:attribute name="data-showarg">
             <xsl:value-of select="@showvalue"/>
+          </xsl:attribute>
+        </xsl:if>
+        <xsl:if test="@showeventarg">
+          <xsl:attribute name="data-showeventarg">
+            <xsl:value-of select="@showeventarg"/>
           </xsl:attribute>
         </xsl:if>
       </xsl:if>
@@ -883,6 +943,11 @@
               <xsl:if test="@showvalue">
                 <xsl:attribute name="data-showarg">
                   <xsl:value-of select="@showvalue"/>
+                </xsl:attribute>
+              </xsl:if>
+              <xsl:if test="@showeventarg">
+                <xsl:attribute name="data-showeventarg">
+                  <xsl:value-of select="@showeventarg"/>
                 </xsl:attribute>
               </xsl:if>
             </xsl:if>
@@ -1002,6 +1067,11 @@
           <xsl:value-of select="@showevent"/>
         </xsl:attribute>
       </xsl:if>
+      <xsl:if test="@showeventarg">
+        <xsl:attribute name="data-showeventarg">
+          <xsl:value-of select="@showeventarg"/>
+        </xsl:attribute>
+      </xsl:if>
     </div>
   </xsl:template>
   <!-- dynamicbuttongroup -->
@@ -1028,6 +1098,11 @@
             <xsl:value-of select="@showvalue"/>
           </xsl:attribute>
         </xsl:if>
+        <xsl:if test="@showeventarg">
+          <xsl:attribute name="data-showeventarg">
+            <xsl:value-of select="@showeventarg"/>
+          </xsl:attribute>
+        </xsl:if>
       </xsl:if>
       <xsl:if test="@page">
         <xsl:attribute name="data-nav">
@@ -1035,7 +1110,7 @@
         </xsl:attribute>
       </xsl:if>
       <div class="panel-body">
-        <xsl:apply-templates select="image"/><xsl:apply-templates select="link"/><xsl:apply-templates select="button|switch|partialswitch"/><xsl:apply-templates select="badge|partialbadge|signal"/><strong><xsl:value-of select="text()"/></strong>
+        <xsl:apply-templates select="image"/><xsl:apply-templates select="icon"/><xsl:apply-templates select="link"/><xsl:apply-templates select="button|switch|partialswitch"/><xsl:apply-templates select="badge|partialbadge|signal"/><strong><xsl:value-of select="text()"/></strong>
         <xsl:if test="@event">
           <br/><span class="status">Unknown</span>
         </xsl:if>
@@ -1056,6 +1131,11 @@
         <xsl:if test="@showvalue">
           <xsl:attribute name="data-showarg">
             <xsl:value-of select="@showvalue"/>
+          </xsl:attribute>
+        </xsl:if>
+        <xsl:if test="@showeventarg">
+          <xsl:attribute name="data-showeventarg">
+            <xsl:value-of select="@showeventarg"/>
           </xsl:attribute>
         </xsl:if>
       </xsl:if>
@@ -1117,6 +1197,11 @@
             <xsl:value-of select="@showvalue"/>
           </xsl:attribute>
         </xsl:if>
+        <xsl:if test="@showeventarg">
+          <xsl:attribute name="data-showeventarg">
+            <xsl:value-of select="@showeventarg"/>
+          </xsl:attribute>
+        </xsl:if>
       </xsl:if>
       <span class="glyphicon glyphicon-new-window"></span><span><xsl:value-of select="text()"/></span>
     </a>
@@ -1138,6 +1223,11 @@
             <xsl:value-of select="@showvalue"/>
           </xsl:attribute>
         </xsl:if>
+        <xsl:if test="@showeventarg">
+          <xsl:attribute name="data-showeventarg">
+            <xsl:value-of select="@showeventarg"/>
+          </xsl:attribute>
+        </xsl:if>
       </xsl:if>
       <span class="glyphicon glyphicon-new-window"></span><span><xsl:value-of select="text()"/></span>
     </a>
@@ -1157,6 +1247,11 @@
         <xsl:if test="@showvalue">
           <xsl:attribute name="data-showarg">
             <xsl:value-of select="@showvalue"/>
+          </xsl:attribute>
+        </xsl:if>
+        <xsl:if test="@showeventarg">
+          <xsl:attribute name="data-showeventarg">
+            <xsl:value-of select="@showeventarg"/>
           </xsl:attribute>
         </xsl:if>
       </xsl:if>
@@ -1187,6 +1282,11 @@
               </xsl:choose>
             </xsl:attribute>
           </xsl:if>
+          <xsl:if test="@showeventarg">
+            <xsl:attribute name="data-showeventarg">
+              <xsl:value-of select="@showeventarg"/>
+            </xsl:attribute>
+          </xsl:if>
         </xsl:when>
       </xsl:choose>
       <div class="panel panel-default">
@@ -1214,6 +1314,11 @@
         <xsl:if test="@showvalue">
           <xsl:attribute name="data-showarg">
             <xsl:value-of select="@showvalue"/>
+          </xsl:attribute>
+        </xsl:if>
+        <xsl:if test="@showeventarg">
+          <xsl:attribute name="data-showeventarg">
+            <xsl:value-of select="@showeventarg"/>
           </xsl:attribute>
         </xsl:if>
       </xsl:if>
@@ -1466,7 +1571,28 @@
   <!-- qrcode-->
   <!-- meter -->
   <xsl:template match="meter">
-    <div class="meter" data-event="{@event}">
+    <div>
+      <xsl:attribute name="class">
+        <xsl:text>meter</xsl:text>
+        <xsl:if test="@showevent">
+          <xsl:text> sect</xsl:text>
+        </xsl:if>
+      </xsl:attribute>
+      <xsl:if test="@event">
+        <xsl:attribute name="data-event">
+          <xsl:value-of select="@event"/>
+        </xsl:attribute>
+      </xsl:if>
+      <xsl:if test="@showevent">
+        <xsl:attribute name="data-showevent">
+          <xsl:value-of select="@showevent"/>
+        </xsl:attribute>
+        <xsl:if test="@showvalue">
+          <xsl:attribute name="data-showarg">
+            <xsl:value-of select="@showvalue"/>
+          </xsl:attribute>
+        </xsl:if>
+      </xsl:if>
       <xsl:attribute name="data-type">
         <xsl:value-of select="@type"/>
       </xsl:attribute>
@@ -1531,6 +1657,11 @@
             <xsl:value-of select="@showvalue"/>
           </xsl:attribute>
         </xsl:if>
+        <xsl:if test="@showeventarg">
+          <xsl:attribute name="data-showeventarg">
+            <xsl:value-of select="@showeventarg"/>
+          </xsl:attribute>
+        </xsl:if>
       </xsl:if>
       <xsl:apply-templates/>
     </div>
@@ -1546,47 +1677,54 @@
         <div class="base">
           <div class="addgrp">
             <div class="dropdown">
+              <xsl:variable name="addgrp" select="generate-id(.)"/>
               <button class="btn btn-default dropdown-toggle" type="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
                 <xsl:attribute name="id">
                   <xsl:text>addgrp_</xsl:text>
-                  <xsl:value-of select="generate-id(.)"/>
+                  <xsl:value-of select="$addgrp"/>
                 </xsl:attribute>
                 <xsl:text>Add node here</xsl:text>
               </button>
-              <ul class="dropdown-menu">
+              <ul class="dropdown-menu add-node-unified">
                 <xsl:attribute name="aria-labelledby">
                   <xsl:text>addgrp_</xsl:text>
-                  <xsl:value-of select="generate-id(.)"/>
+                  <xsl:value-of select="$addgrp"/>
                 </xsl:attribute>
                 <li>
                   <form>
                     <fieldset>
+                      <xsl:variable name="nodenamval" select="generate-id(.)"/>
                       <label>
                         <xsl:attribute name="for">
                           <xsl:text>nodenamval_</xsl:text>
-                          <xsl:value-of select="generate-id(.)"/>
+                          <xsl:value-of select="$nodenamval"/>
                         </xsl:attribute>
                         <xsl:text>Node name</xsl:text>
                       </label>
                       <input class="form-control nodenamval" type="text">
                         <xsl:attribute name="id">
                           <xsl:text>nodenamval_</xsl:text>
-                          <xsl:value-of select="generate-id(.)"/>
+                          <xsl:value-of select="$nodenamval"/>
                         </xsl:attribute>
                       </input>
+                      <!-- Unified template search -->
+                      <xsl:variable name="templateval" select="generate-id(.)"/>
                       <label>
                         <xsl:attribute name="for">
-                          <xsl:text>recipeval_</xsl:text>
-                          <xsl:value-of select="generate-id(.)"/>
+                          <xsl:text>templateval_</xsl:text>
+                          <xsl:value-of select="$templateval"/>
                         </xsl:attribute>
-                        <xsl:text>Recipe</xsl:text>
+                        <xsl:text>Template </xsl:text>
+                        <small class="text-muted">(optional)</small>
                       </label>
-                      <select class="form-control recipepicker goto" type="text">
-                        <xsl:attribute name="id">
-                          <xsl:text>recipeval_</xsl:text>
-                          <xsl:value-of select="generate-id(.)"/>
-                        </xsl:attribute>
-                      </select>
+                      <div style="position:relative">
+                        <input class="form-control unified-template-search" type="text" placeholder="Search recipes or nodes..." autocomplete="off">
+                          <xsl:attribute name="id">
+                            <xsl:text>templateval_</xsl:text>
+                            <xsl:value-of select="$templateval"/>
+                          </xsl:attribute>
+                        </input>
+                      </div>
                     </fieldset>
                     <div class="btn-toolbar">
                       <button type="submit" class="btn btn-success nodeaddsubmit">Add</button>
@@ -1603,17 +1741,18 @@
       <div data-nodel="{@type}" class="nodel-{@type}">
         <div class="base">
           <div class="panel panel-default">
+            <xsl:variable name="editgrp" select="generate-id(.)"/>
             <div class="panel-heading accordion-toggle collapsed" data-toggle="collapse" aria-expanded="false">
               <xsl:attribute name="data-target">
                 <xsl:text>#editgrp_</xsl:text>
-                <xsl:value-of select="generate-id(.)"/>
+                <xsl:value-of select="$editgrp"/>
               </xsl:attribute>
               <div class="panel-title"><h5 class="panel-title">Editor</h5></div>
             </div>
             <div class="panel-collapse collapse" aria-expanded="false">
               <xsl:attribute name="id">
                 <xsl:text>editgrp_</xsl:text>
-                <xsl:value-of select="generate-id(.)"/>
+                <xsl:value-of select="$editgrp"/>
               </xsl:attribute>
               <div class="panel-body">           
                 <div class="row">
@@ -1637,17 +1776,18 @@
                               <li>
                                 <form>
                                   <fieldset>
+                                    <xsl:variable name="scriptnameval" select="generate-id(.)"/>
                                     <label>
                                       <xsl:attribute name="for">
                                         <xsl:text>scriptnameval_</xsl:text>
-                                        <xsl:value-of select="generate-id(.)"/>
+                                        <xsl:value-of select="$scriptnameval"/>
                                       </xsl:attribute>
                                       <xsl:text>File name</xsl:text>
                                     </label>
                                     <input class="form-control scriptnamval" type="text">
                                       <xsl:attribute name="id">
                                         <xsl:text>scriptnameval_</xsl:text>
-                                        <xsl:value-of select="generate-id(.)"/>
+                                        <xsl:value-of select="$scriptnameval"/>
                                       </xsl:attribute>
                                     </input>
                                   </fieldset>

@@ -1,6 +1,24 @@
-![nodellogo](http://nodel.io/media/1066/logo-nodel.png)
+<div align="center">
 
-[Nodel](http://nodel.io) is an open source digital media control system for museums and galleries.
+  <img src="http://nodel.io/media/1066/logo-nodel.png" alt="Nodel logo" height="110">
+
+  <p>
+    <a href="http://www.mozilla.org/MPL/2.0">
+      <img src="https://img.shields.io/badge/license-MPL%202.0-brightgreen.svg" alt="License: MPL 2.0">
+    </a>
+    <a href="https://github.com/museumsvictoria/nodel/releases">
+      <img src="https://img.shields.io/github/v/release/museumsvictoria/nodel.svg" alt="Latest release">
+    </a>
+    <a href="https://github.com/museumsvictoria/nodel/releases">
+      <img src="https://img.shields.io/github/downloads/museumsvictoria/nodel/total?logo=github" alt="Total downloads">
+    </a>
+    <img src="https://img.shields.io/badge/Java-11%2B-orange.svg" alt="Requires Java 11+">
+  </p>
+
+</div>
+
+
+Nodel is an open source digital media control system for museums and galleries.
 
 It uses a series of nodes that perform **"actions"** or respond to **"signals"** to control various devices on a network, allowing quick and easy management of digital media devices.
 
@@ -93,7 +111,7 @@ The platform-independent nature of Nodel also allows it to easily scale to suit 
 System requirements
 ============
 
-* Any operating system capable of hosting the Java 8 Runtime Environment – including OS X, Windows or Linux 
+* Any operating system capable of hosting the Java Runtime Environment (Java 11+) – including OS X, Windows or Linux 
 * A current web browser
 * Made for mobile
 
@@ -113,14 +131,10 @@ Building and releases
 
 Notes
 =====
-* thoroughly road tested with Java 8 (available from [AdoptOpenJDK](https://adoptopenjdk.net/))
+* minimum required Java version is Java 11 (available from [AdoptOpenJDK](https://adoptopenjdk.net/))
+* also runs fine on Java 21 LTS despite console warnings
 * for service / daemon use, see [wiki pages](https://github.com/museumsvictoria/nodel/wiki)
 * check `bootstrap` files for startup config
-
-Licenses
-========
-* Platform - [Mozilla Public License, version 2.0](http://www.mozilla.org/MPL/2.0)
-* Recipes - [MIT License](http://opensource.org/licenses/MIT)
 
 
 Credits
