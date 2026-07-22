@@ -14,6 +14,7 @@ import java.io.RandomAccessFile;
 import java.net.BindException;
 import java.net.ServerSocket;
 import java.nio.channels.FileLock;
+import java.util.Properties;
 
 import org.joda.time.DateTime;
 import org.nodel.StartupException;
@@ -513,7 +514,14 @@ public class Launch {
      * Needs to be called once before using any interpreters.
      */
     private static void initialisePython() {
-        PythonInterpreter.initialize(System.getProperties(), null, s_processArgs);
+        Properties props = new Properties();
+        props.putAll(System.getProperties());
+
+        // defaults only; a '-D' System property provided by the operator wins
+        props.putIfAbsent("python.import.site", "false"); // skips 'site-packages' scanning (faster startup); libraries alongside scripts still resolve
+        props.putIfAbsent("python.console.encoding", "UTF-8");
+
+        PythonInterpreter.initialize(props, null, s_processArgs);
         
         // JSONObject.NULL
         Py.getAdapter().addPostClass(new PyObjectAdapter() {
