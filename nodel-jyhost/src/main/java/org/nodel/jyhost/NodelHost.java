@@ -706,7 +706,8 @@ public class NodelHost {
                 
             } else {
                 try {
-                    sb.append(URLEncoder.encode(String.valueOf(c), "UTF-8"));
+                    // URLEncoder treats '*' as form-safe, but Windows filenames do not.
+                    sb.append(URLEncoder.encode(String.valueOf(c), "UTF-8").replace("*", "%2A"));
                     
                 } catch (UnsupportedEncodingException e) {
                     throw new RuntimeException("Encoding unexpectedly failed.", e);
