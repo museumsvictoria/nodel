@@ -638,21 +638,33 @@ public abstract class BaseNode implements Closeable {
     }    
     
     /**
-     * Injects the remote binding values into the Remote Bindings
+     * Fills out any 'gaps' in a config's remote-binding values (nulls in a freshly
+     * constructed or partially hand-edited config), returning the non-null, mutable
+     * structure. Remote actions/events can be created during script execution i.e.
+     * before a node's config has been applied, so lookups must go through here.
      */
-    protected void injectRemoteBindingValues(NodeConfig config, RemoteBindings remoteBindings) {
-        // fill out any 'gaps' in config
+    protected static RemoteBindingValues ensureRemoteBindingValues(NodeConfig config) {
         RemoteBindingValues remoteBindingValues = config.remoteBindingValues;
         if (remoteBindingValues == null) {
             remoteBindingValues = new RemoteBindingValues();
             config.remoteBindingValues = remoteBindingValues;
         }
-        
+
         if (remoteBindingValues.actions == null)
             remoteBindingValues.actions = new LinkedHashMap<SimpleName, RemoteBindingValues.ActionValue>();
         if (remoteBindingValues.events == null)
             remoteBindingValues.events = new LinkedHashMap<SimpleName, RemoteBindingValues.EventValue>();
-        
+
+        return remoteBindingValues;
+    }
+
+    /**
+     * Injects the remote binding values into the Remote Bindings
+     */
+    protected void injectRemoteBindingValues(NodeConfig config, RemoteBindings remoteBindings) {
+        // fill out any 'gaps' in config
+        RemoteBindingValues remoteBindingValues = ensureRemoteBindingValues(config);
+
         // actions
         Map<SimpleName, ActionValue> actionValues = remoteBindingValues.actions;
         if (actionValues != null) {
@@ -847,13 +859,43 @@ public abstract class BaseNode implements Closeable {
     }
 
     /**
+     * Ensures '_bindings' can safely accept remote action/event info entries.
+     * Between loads it can be the shared 'Bindings.Empty' (immutable maps, and
+     * must never be mutated), and remote actions/events can be created during
+     * script execution i.e. before this node's bindings have been extracted
+     * and applied.
+     */
+    private RemoteBindings ensureMutableRemoteBindings() {
+        if (_bindings == Bindings.Empty) {
+            Bindings fresh = new Bindings();
+            // share the sections not written to here
+            fresh.local = Bindings.Empty.local;
+            fresh.params = Bindings.Empty.params;
+            _bindings = fresh;
+        }
+
+        RemoteBindings remote = _bindings.remote;
+        if (remote == null || remote == RemoteBindings.Empty) {
+            remote = new RemoteBindings();
+            _bindings.remote = remote;
+        }
+
+        if (remote.actions == null)
+            remote.actions = new LinkedHashMap<SimpleName, NodelActionInfo>();
+        if (remote.events == null)
+            remote.events = new LinkedHashMap<SimpleName, NodelEventInfo>();
+
+        return remote;
+    }
+
+    /**
      * Add a remote action (by subclass)
      */
     protected void addRemoteAction(NodelClientAction remoteAction, SimpleName suggestedNode, SimpleName suggestedAction) {
         SimpleName remoteActionName = remoteAction.getName();
         
         // look up the value first
-        Map<SimpleName, ActionValue> actionValues = _config.remoteBindingValues.actions;
+        Map<SimpleName, ActionValue> actionValues = ensureRemoteBindingValues(_config).actions;
         ActionValue actionValue = actionValues.get(remoteAction.getName());
         
         SimpleName node = null;
@@ -875,7 +917,7 @@ public abstract class BaseNode implements Closeable {
         }
 
         // ensure a section is already reserved for this remote action
-        Map<SimpleName, NodelActionInfo> remoteActionBindings = _bindings.remote.actions;
+        Map<SimpleName, NodelActionInfo> remoteActionBindings = ensureMutableRemoteBindings().actions;
         
         // (check if same name already being used)
         if (remoteActionBindings.containsKey(remoteActionName))
@@ -902,7 +944,7 @@ public abstract class BaseNode implements Closeable {
         SimpleName remoteEventName = remoteEvent.getName();
         
         // look up the value first
-        Map<SimpleName, EventValue> eventValues = _config.remoteBindingValues.events;
+        Map<SimpleName, EventValue> eventValues = ensureRemoteBindingValues(_config).events;
         EventValue eventValue = eventValues.get(remoteEvent.getName());
         
         SimpleName node = null;
@@ -924,7 +966,7 @@ public abstract class BaseNode implements Closeable {
         }
 
         // ensure a section is already reserved for this remote action
-        Map<SimpleName, NodelEventInfo> remoteEventBindings = _bindings.remote.events;
+        Map<SimpleName, NodelEventInfo> remoteEventBindings = ensureMutableRemoteBindings().events;
         
         // (check if same name already being used)
         if (remoteEventBindings.containsKey(remoteEventName))
