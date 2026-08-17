@@ -604,7 +604,12 @@ public class PyNode extends BaseDynamicNode {
         Bindings bindings = Bindings.Empty;
         
         List<String> dependenciesUsed = new ArrayList<>(); // holds the dependencies actually used (for logging purposes)
-        
+
+        // remote actions/events created at module level (during script execution)
+        // resolve their binding values through '_config', so the incoming config
+        // must be in place before any script runs
+        _config = config;
+
         try {
             cleanupBindings();
             
@@ -692,8 +697,6 @@ public class PyNode extends BaseDynamicNode {
             injectRemoteBindingValues(config, bindings.remote);
             
             injectParamValues(config, bindings.params);
-            
-            _config = config;
         } catch (Exception exc) {
             hasErrors = true;
             
