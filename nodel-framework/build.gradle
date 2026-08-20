@@ -46,6 +46,15 @@ dependencies {
     implementation 'joda-time:joda-time:2.14.0'
     implementation 'org.slf4j:slf4j-api:1.7.10'
 
+    // CRON expression parsing, validation, descriptions and execution-time calculation
+    // (see org.nodel.cron). Its declared slf4j-api is 2.x which must not leak in: the host
+    // ships a 1.7-style binding (org.slf4j.impl.StaticLoggerBinder) that slf4j-api 2.x
+    // silently ignores. cron-utils only calls 1.7-era Logger/LoggerFactory methods, so
+    // running it against the project's pinned 1.7.10 API is safe.
+    implementation('com.cronutils:cron-utils:9.2.1') {
+        exclude group: 'org.slf4j', module: 'slf4j-api'
+    }
+
     // SSH features
     implementation group: 'com.jcraft', name: 'jsch', version: '0.1.55'
 

@@ -198,6 +198,77 @@ class Timer:
   def isStopped(self):
       return self.wrapper.isStopped()
 
+# A managed CRON schedule using standard five-field UNIX expressions
+# ('<minute> <hour> <day-of-month> <month> <day-of-week>', names like MON or JAN allowed,
+#  Sunday as 0 or 7; the host timezone applies unless an IANA 'timezone' is given)
+# e.g. Cron(lambda: console.info('school run!'), '30 8 * * MON-FRI')
+# (raises an exception immediately when the expression or timezone is invalid)
+class Cron:
+  def __init__(self, func, expression, timezone=None, stopped=False):
+      self.wrapper = nodetoolkit.createCron(func, expression, timezone, stopped)
+
+  def setExpression(self, expression):
+      self.wrapper.setExpression(expression)
+
+  def getExpression(self):
+      return self.wrapper.getExpression()
+
+  def setTimezone(self, timezone):
+      self.wrapper.setTimeZone(timezone)
+
+  def getTimezone(self):
+      return self.wrapper.getTimeZone()
+
+  # a human-readable description e.g. 'at 09:00 every day between Monday and Friday'
+  def getDescription(self):
+      return self.wrapper.getDescription()
+
+  # when this schedule will next fire (None when stopped or when it can never fire)
+  def getNextExecution(self):
+      return self.wrapper.getNextExecution()
+
+  # the most recent occurrence of the expression before now (None if none)
+  def getPreviousExecution(self):
+      return self.wrapper.getPreviousExecution()
+
+  # when the callback actually last fired (None if never)
+  def getLastFired(self):
+      return self.wrapper.getLastFired()
+
+  def start(self):
+      self.wrapper.start()
+
+  def stop(self):
+      self.wrapper.stop()
+
+  def isStarted(self):
+      return self.wrapper.isStarted()
+
+  def isStopped(self):
+      return self.wrapper.isStopped()
+
+# Returns None when a CRON expression is valid, otherwise the failure reason
+def cron_validate(expression):
+    return nodetoolkit.cronValidate(expression)
+
+# Whether a CRON expression parses and validates
+def cron_is_valid(expression):
+    return nodetoolkit.cronIsValid(expression)
+
+# A human-readable description of a CRON expression (raises when invalid)
+def cron_describe(expression):
+    return nodetoolkit.cronDescribe(expression)
+
+# The next execution of a CRON expression after now as a DateTime, or None if it can never fire
+# (optional IANA timezone; raises when the expression or timezone is invalid)
+def cron_next(expression, timezone=None):
+    return nodetoolkit.cronNextExecution(expression, timezone)
+
+# The most recent execution of a CRON expression before now as a DateTime, or None
+# (optional IANA timezone; raises when the expression or timezone is invalid)
+def cron_previous(expression, timezone=None):
+    return nodetoolkit.cronPreviousExecution(expression, timezone)
+
 # Create a node (on-the-fly)
 def Node(nodeName):
     return nodetoolkit.createNode(nodeName)
