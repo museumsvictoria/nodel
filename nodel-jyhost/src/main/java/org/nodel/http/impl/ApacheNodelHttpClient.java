@@ -1,537 +1,615 @@
 package org.nodel.http.impl;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.InputStreamReader;
 import java.net.InetAddress;
-import java.net.URI;
 import java.net.UnknownHostException;
-import java.security.SecureRandom;
-import java.security.cert.CertificateException;
-import java.security.cert.X509Certificate;
+import java.nio.ByteBuffer;
+import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
+import java.util.Base64;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.concurrent.CompletableFuture;
+import java.util.zip.GZIPInputStream;
+import java.util.zip.InflaterInputStream;
 
 import javax.net.ssl.SSLContext;
-import javax.net.ssl.X509TrustManager;
 
-import org.apache.http.Header;
-import org.apache.http.HttpEntity;
-import org.apache.http.HttpEntityEnclosingRequest;
-import org.apache.http.HttpHost;
-import org.apache.http.HttpRequest;
-import org.apache.http.HttpResponse;
-import org.apache.http.ProtocolException;
-import org.apache.http.StatusLine;
-import org.apache.http.auth.AuthScope;
-import org.apache.http.auth.AuthenticationException;
-import org.apache.http.auth.Credentials;
-import org.apache.http.auth.NTCredentials;
-import org.apache.http.auth.UsernamePasswordCredentials;
-import org.apache.http.client.CredentialsProvider;
-import org.apache.http.client.RedirectStrategy;
-import org.apache.http.client.config.RequestConfig;
-import org.apache.http.client.methods.HttpDelete;
-import org.apache.http.client.methods.HttpEntityEnclosingRequestBase;
-import org.apache.http.client.methods.HttpGet;
-import org.apache.http.client.methods.HttpHead;
-import org.apache.http.client.methods.HttpOptions;
-import org.apache.http.client.methods.HttpPatch;
-import org.apache.http.client.methods.HttpPost;
-import org.apache.http.client.methods.HttpPut;
-import org.apache.http.client.methods.HttpRequestBase;
-import org.apache.http.client.methods.HttpTrace;
-import org.apache.http.client.methods.HttpUriRequest;
-import org.apache.http.config.Registry;
-import org.apache.http.config.RegistryBuilder;
-import org.apache.http.conn.socket.ConnectionSocketFactory;
-import org.apache.http.conn.socket.PlainConnectionSocketFactory;
-import org.apache.http.conn.ssl.NoopHostnameVerifier;
-import org.apache.http.conn.ssl.SSLConnectionSocketFactory;
-import org.apache.http.entity.StringEntity;
-import org.apache.http.impl.auth.BasicScheme;
-import org.apache.http.impl.client.BasicCredentialsProvider;
-import org.apache.http.impl.client.CloseableHttpClient;
-import org.apache.http.impl.client.HttpClientBuilder;
-import org.apache.http.impl.client.HttpClients;
-import org.apache.http.impl.conn.PoolingHttpClientConnectionManager;
-import org.apache.http.protocol.HttpContext;
+import org.apache.hc.client5.http.async.methods.SimpleHttpRequest;
+import org.apache.hc.client5.http.async.methods.SimpleRequestBuilder;
+import org.apache.hc.client5.http.async.methods.SimpleRequestProducer;
+import org.apache.hc.client5.http.auth.AuthScope;
+import org.apache.hc.client5.http.auth.Credentials;
+import org.apache.hc.client5.http.auth.NTCredentials;
+import org.apache.hc.client5.http.auth.UsernamePasswordCredentials;
+import org.apache.hc.client5.http.config.RequestConfig;
+import org.apache.hc.client5.http.impl.DefaultRedirectStrategy;
+import org.apache.hc.client5.http.impl.async.CloseableHttpAsyncClient;
+import org.apache.hc.client5.http.impl.async.HttpAsyncClientBuilder;
+import org.apache.hc.client5.http.impl.async.HttpAsyncClients;
+import org.apache.hc.client5.http.impl.auth.BasicCredentialsProvider;
+import org.apache.hc.client5.http.impl.nio.PoolingAsyncClientConnectionManagerBuilder;
+import org.apache.hc.client5.http.ssl.ClientTlsStrategyBuilder;
+import org.apache.hc.client5.http.ssl.NoopHostnameVerifier;
+import org.apache.hc.core5.concurrent.FutureCallback;
+import org.apache.hc.core5.http.ContentType;
+import org.apache.hc.core5.http.Header;
+import org.apache.hc.core5.http.HttpHost;
+import org.apache.hc.core5.http.HttpRequest;
+import org.apache.hc.core5.http.HttpResponse;
+import org.apache.hc.core5.http.nio.entity.AbstractBinAsyncEntityConsumer;
+import org.apache.hc.core5.http.nio.support.AbstractAsyncResponseConsumer;
+import org.apache.hc.core5.http.protocol.HttpContext;
+import org.apache.hc.core5.io.CloseMode;
+import org.apache.hc.core5.reactor.IOReactorConfig;
+import org.apache.hc.core5.ssl.SSLContexts;
+import org.apache.hc.core5.util.ByteArrayBuffer;
+import org.apache.hc.core5.util.Timeout;
 import org.nodel.Strings;
 import org.nodel.Version;
-import org.nodel.diagnostics.CountableInputStream;
-import org.nodel.diagnostics.SharableMeasurementProvider;
-import org.nodel.io.Stream;
-import org.nodel.io.UnexpectedIOException;
 import org.nodel.net.HTTPSimpleResponse;
 import org.nodel.net.NodelHTTPClient;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class ApacheNodelHttpClient extends NodelHTTPClient {
-    
-    private Object _lock = new Object();
-    
+
+    private static Logger s_logger = LoggerFactory.getLogger(ApacheNodelHttpClient.class);
+
+    private final Object _lock = new Object();
+
     /**
      * The Apache Http Client
      * (created lazily)
      */
-    private CloseableHttpClient _httpClient;
-    
+    private CloseableHttpAsyncClient _httpAsyncClient;
+
     /**
      * Required with 'applySecurity'
      */
-    private CredentialsProvider _credentialsProvider;
+    private BasicCredentialsProvider _credentialsProvider;
 
     /**
      * Mainly used for adjusting timeouts
      */
     private RequestConfig _requestConfig;
-    
+
     /**
      * Maximum content allowed to avoid uncontrolled memory allocation
      * (default 150 MB, anything more should be using a streaming technique instead)
      */
     private final static int MAX_ALLOWED = 150 * 1024 * 1024;
-    
+
     /**
-     * This needs to be done lazily because proxy can only be set up once
-     * 
-     * (uses double-check singleton)
+     * Limits reactor threads so async usage stays bounded.
+     */
+    private static final int IO_THREAD_COUNT = 2;
+
+    /**
+     * Tracks whether this client has been closed.
+     */
+    private volatile boolean _closed;
+
+    /**
+     * Lazily initialises the async client (callers must hold '_lock').
+     * This ensures the client (and its proxy configuration) is only set up once.
      */
     private void lazyInit() {
-        if (_httpClient == null) {
-            synchronized (_lock) {
-                if (_httpClient != null)
-                    return;
-                
-                HttpClientBuilder builder = HttpClients.custom()
-                        .setUserAgent("Nodel/" + Version.shared().version)
-                        
-                        // need to reference this later
-                        .setDefaultCredentialsProvider(_credentialsProvider = new BasicCredentialsProvider())
-                        
-                        // unrestricted connections
-                        .setMaxConnTotal(1000)
-                        .setMaxConnPerRoute(1000)
-                       
-                        // default timeouts
-                        .setDefaultRequestConfig(_requestConfig = RequestConfig.custom()
-                                .setConnectTimeout(DEFAULT_CONNECTTIMEOUT)
-                                .setSocketTimeout(DEFAULT_READTIMEOUT)
-                                .build());
-                
-                // using a proxy?
-                if (!Strings.isBlank(_proxyAddress))
-                    builder.setProxy(prepareForProxyUse(_proxyAddress, _proxyUsername, _proxyPassword));
-                
-                // ignore all SSL verifications errors?
-                if (_ignoreSSL)
-                    prepareForNoSSL(builder);
-                
-                // ignore all redirect codes
-                if (_ignoreRedirects)
-                    builder.setRedirectStrategy(IGNORE_ALL_REDIRECTS);
-                
-                // build the client
-                _httpClient = builder.build();
-            }
+        if (_httpAsyncClient != null) return;
+
+        if (_credentialsProvider == null) {
+            _credentialsProvider = new BasicCredentialsProvider();
+            _requestConfig = RequestConfig.custom()
+                    .setConnectTimeout(Timeout.ofMilliseconds(DEFAULT_CONNECTTIMEOUT))
+                    .setResponseTimeout(Timeout.ofMilliseconds(DEFAULT_READTIMEOUT))
+                    .build();
         }
+
+        IOReactorConfig ioReactorConfig = IOReactorConfig.custom()
+                .setSoTimeout(Timeout.ofMilliseconds(DEFAULT_READTIMEOUT))
+                .setIoThreadCount(IO_THREAD_COUNT)
+                .build();
+
+        HttpAsyncClientBuilder builder = HttpAsyncClients.custom()
+                .setUserAgent("Nodel/" + Version.shared().version)
+                .setDefaultCredentialsProvider(_credentialsProvider) // need to reference this later
+                .setDefaultRequestConfig(_requestConfig) // default timeouts
+                .setIOReactorConfig(ioReactorConfig);
+
+        PoolingAsyncClientConnectionManagerBuilder poolBuilder = PoolingAsyncClientConnectionManagerBuilder.create()
+                .setMaxConnTotal(1000)
+                .setMaxConnPerRoute(1000);
+
+        // ignore all SSL verifications errors?
+        if (_ignoreSSL) {
+            prepareForNoSSL(poolBuilder);
+        }
+
+        builder.setConnectionManager(poolBuilder.build());
+
+        // using a proxy?
+        if (!Strings.isBlank(_proxyAddress)) {
+            builder.setProxy(prepareForProxyUse(_proxyAddress, _proxyUsername, _proxyPassword));
+        }
+
+        if (_ignoreRedirects) {
+            builder.setRedirectStrategy(IGNORE_ALL_REDIRECTS);
+        }
+
+        // build the client
+        _httpAsyncClient = builder.build();
+        _httpAsyncClient.start();
     }
 
     /**
-     * (convenience method) 
+     * (convenience method)
      */
     private HttpHost prepareForProxyUse(String proxyAddress, String proxyUsername, String proxyPassword) {
-        HttpHost proxy;
-        
-        String proxyHost = null;
-        int proxyPort = -1;
-        
-        try {
-            int lastIndexOfColon = proxyAddress.lastIndexOf(':');
-            proxyHost = proxyAddress.substring(0, lastIndexOfColon);
-            proxyPort = Integer.parseInt(proxyAddress.substring(lastIndexOfColon + 1));
-        } catch (Exception ignore) {
+        int lastIndexOfColon = proxyAddress.lastIndexOf(':');
+        if (lastIndexOfColon <= 0) {
+            throw new IllegalArgumentException("Proxy address must be in the form host:port");
         }
-        
-        if (Strings.isBlank(proxyHost) || proxyPort <= 0)
-            throw new IllegalArgumentException("Proxy address is not in form host:port");
-        
-        proxy = new HttpHost(proxyHost, proxyPort);
-        
-        // using proxy credentials?
+
+        String proxyHost = proxyAddress.substring(0, lastIndexOfColon);
+        int proxyPort;
+
+        try {
+            proxyPort = Integer.parseInt(proxyAddress.substring(lastIndexOfColon + 1));
+        } catch (NumberFormatException e) {
+            throw new IllegalArgumentException("Invalid proxy port");
+        }
+
+        if (Strings.isBlank(proxyHost) || proxyPort <= 0) {
+            throw new IllegalArgumentException("Proxy address must be in the form host:port");
+        }
+
+        HttpHost proxy = new HttpHost(proxyHost, proxyPort);
+
         if (!Strings.isBlank(proxyUsername) && proxyPassword != null) {
             String userPart = proxyUsername;
             String domainPart = null;
             int indexOfBackSlash = proxyUsername.indexOf('\\');
+
             if (indexOfBackSlash > 0) {
                 domainPart = proxyUsername.substring(0, indexOfBackSlash);
                 userPart = proxyUsername.substring(Math.min(proxyUsername.length() - 1, indexOfBackSlash + 1));
             }
+
             AuthScope authScope = new AuthScope(proxyHost, proxyPort);
+
             if (domainPart == null) {
-                _credentialsProvider.setCredentials(authScope, new UsernamePasswordCredentials(proxyUsername, proxyPassword));
+                _credentialsProvider.setCredentials(authScope,
+                        new UsernamePasswordCredentials(proxyUsername, proxyPassword.toCharArray()));
             } else {
                 // normally used with NTLM
-                _credentialsProvider.setCredentials(authScope, new NTCredentials(userPart, proxyPassword, getLocalHostName(), domainPart));
+                _credentialsProvider.setCredentials(authScope,
+                        new NTCredentials(userPart, proxyPassword.toCharArray(), getLocalHostName(), domainPart));
             }
         }
-        
+
         return proxy;
     }
-    
+
     /**
      * (convenience method)
      */
-    private void prepareForNoSSL(HttpClientBuilder builder) {
+    private void prepareForNoSSL(PoolingAsyncClientConnectionManagerBuilder poolBuilder) {
         try {
-            SSLContext sslContext = SSLContext.getInstance("TLS");
-            sslContext.init(null, new X509TrustManager[] { IGNORE_SSL_TRUSTMANAGER }, new SecureRandom());
-            builder.setSSLContext(sslContext);
-            
-            SSLConnectionSocketFactory sslSocketFactory = new SSLConnectionSocketFactory(sslContext, new NoopHostnameVerifier());
-            builder.setSSLSocketFactory(sslSocketFactory);
-            
-            Registry<ConnectionSocketFactory> socketFactoryRegistry = RegistryBuilder.<ConnectionSocketFactory>create()
-                    .register("http", PlainConnectionSocketFactory.getSocketFactory())
-                    .register("https", sslSocketFactory)
-                    .build();
-            
-            PoolingHttpClientConnectionManager connMgr = new PoolingHttpClientConnectionManager(socketFactoryRegistry);
-            builder.setConnectionManager(connMgr);
+            SSLContext sslContext = SSLContexts.custom().loadTrustMaterial(null, (chain, authType) -> true).build();
+            poolBuilder.setTlsStrategy(ClientTlsStrategyBuilder.create()
+                    .setSslContext(sslContext)
+                    .setHostnameVerifier(NoopHostnameVerifier.INSTANCE)
+                    .build());
         } catch (Exception e) {
-            throw new RuntimeException(e);
+            throw new RuntimeException("Error initialising SSL context", e);
         }
-    }    
-    
+    }
+
     @Override
-    public HTTPSimpleResponse makeRequest(String urlStr, String method, Map<String, String> query, 
-                         String username, String password, 
-                         Map<String, String> headers, String contentType, 
-                         String body, 
+    public CompletableFuture<HTTPSimpleResponse> makeRequestAsync(String urlStr, String method, Map<String, String> query,
+                         String username, String password,
+                         Map<String, String> headers, String contentType,
+                         String body,
                          Integer connectTimeout, Integer readTimeout) {
-        lazyInit();
-        
+
+        final CompletableFuture<HTTPSimpleResponse> future = new CompletableFuture<>();
+
+        final CloseableHttpAsyncClient client;
+        synchronized (_lock) {
+            if (_closed) {
+                future.completeExceptionally(new IllegalStateException("HTTP client is closed"));
+                return future;
+            }
+            lazyInit();
+            client = _httpAsyncClient;
+        }
+
         // record rate of new connections
         s_attemptRate.incrementAndGet();
-        
-        // construct the full URL (includes query string)
-        String fullURL;
-        
-        String queryPart = urlEncodeQuery(query);
-        if (!Strings.isEmpty(queryPart))
-            fullURL = String.format("%s?%s", urlStr, queryPart);
-        else
-            fullURL = urlStr;
 
-        // (out of scope for clean up purposes)
-        InputStream inputStream = null;
-        CountableInputStream cis = null;
-        
-        boolean executed = false;
-        
+        // construct the full URL (includes query string)
+        String fullURL = urlStr;
+        String queryPart = urlEncodeQuery(query);
+        if (!Strings.isEmpty(queryPart)) {
+            fullURL = String.format("%s?%s", urlStr, queryPart);
+        }
+
         try {
-            // GET, POST or other
-            HttpRequestBase request = selectHTTPbyMethod(method, body, fullURL);
-            
+            final SimpleHttpRequest request = createRequest(method, fullURL, body, contentType);
+
             // if username is supplied, apply security
-            if (!Strings.isBlank(username))
-                applySecurity(request, username, !Strings.isEmpty(password) ? password : "");            
-            
-            // set 'Content-Type' header
-            if (!Strings.isBlank(contentType))
-                request.setHeader("Content-Type", contentType);
+            if (!Strings.isBlank(username)) {
+                applySecurity(request, username, !Strings.isEmpty(password) ? password : "");
+            }
 
             // add (or override) any request headers
             if (headers != null) {
-                for (Entry<String, String> entry : headers.entrySet())
+                for (Entry<String, String> entry : headers.entrySet()) {
                     request.setHeader(entry.getKey(), entry.getValue());
+                }
             }
-            
-            if (!Strings.isEmpty(body)) {
-                if (!(request instanceof HttpEntityEnclosingRequest))
-                    throw new IllegalArgumentException("The HTTP method does not accept a body - " + method);
-                
-                HttpEntityEnclosingRequest httpWithBody = (HttpEntityEnclosingRequest) request;
-                httpWithBody.setEntity(new StringEntity(body, "utf-8"));
-            }
-            
-            // set any timeouts that apply
-            if (connectTimeout != null || readTimeout != null) {
-                int actualConnTimeout = connectTimeout != null ? connectTimeout : DEFAULT_CONNECTTIMEOUT;
-                int actualReadTimeout = readTimeout != null ? readTimeout : DEFAULT_READTIMEOUT;
 
-                request.setConfig(RequestConfig.copy(_requestConfig)
-                        .setConnectTimeout(actualConnTimeout)
-                        .setSocketTimeout(actualReadTimeout)
-                        .build());
+            // advertise compression support unless the caller manages it themselves
+            // (the response consumer transparently decompresses, matching the previous HttpClient 4 behaviour)
+            if (!request.containsHeader("Accept-Encoding")) {
+                request.setHeader("Accept-Encoding", "gzip, deflate");
             }
-            
-            // perform the request 
-            
-            // (and count it)
-            executed = true;
+
+            applyTimeouts(request, connectTimeout, readTimeout);
+
+            // execute() is non-blocking — it hands the exchange straight to the client's I/O reactor
             s_activeConnections.incrementAndGet();
-            
-            HttpResponse httpResponse = _httpClient.execute(request);
-            
-            // count the post now
-            if (!Strings.isEmpty(body))
-                s_sendRate.addAndGet(body.length());
-            
-            // safely get the response (regardless of response code for now)
-            String content = null;
-            
-            // safely get the content encoding
-            HttpEntity entity = httpResponse.getEntity();
-            if (entity != null) {
-                Header contentEncodingHeader = entity.getContentEncoding();
-                String contentEncoding = null;
-                if (contentEncodingHeader != null)
-                    contentEncoding = contentEncodingHeader.getValue();
+            boolean submitted = false;
+            try {
+                client.execute(SimpleRequestProducer.create(request), new BoundedResponseConsumer(), new FutureCallback<HTTPSimpleResponse>() {
+                    // (counters are adjusted *before* completing the future because dependents
+                    //  attached to it run synchronously on this thread)
 
-                // only if no specific encoding specified, fallback to UTF-8 for json and xml
-                if (contentEncoding == null) {
-                    Header recvContentTypeHeader = entity.getContentType();
-                    if (recvContentTypeHeader != null) {
-                        String recvContentType = recvContentTypeHeader.getValue() != null ? recvContentTypeHeader.getValue().toLowerCase() : ""; // as safe lower-case
-
-                        if (recvContentType.contains("json") || recvContentType.contains("xml"))
-                            contentEncoding = "utf-8";
+                    @Override
+                    public void completed(HTTPSimpleResponse result) {
+                        s_activeConnections.decrementAndGet();
+                        if (!Strings.isEmpty(body)) {
+                            s_sendRate.addAndGet(body.length());
+                        }
+                        future.complete(result);
                     }
+
+                    @Override
+                    public void failed(Exception ex) {
+                        s_activeConnections.decrementAndGet();
+                        future.completeExceptionally(ex);
+                    }
+
+                    @Override
+                    public void cancelled() {
+                        s_activeConnections.decrementAndGet();
+                        future.cancel(true);
+                    }
+                });
+                submitted = true;
+            } finally {
+                if (!submitted) {
+                    s_activeConnections.decrementAndGet();
                 }
-
-                inputStream = entity.getContent();
-
-                // inject a counter so bytes can be counted, not characters
-                SafeCounter byteCounter = new SafeCounter();
-                cis = new CountableInputStream(inputStream, SharableMeasurementProvider.Null.INSTANCE, byteCounter);
-
-                // try using the given encoding or a straight 8-bit widening (for convenience ISO-8859-1 does that trick)
-                String encodingToUse = Strings.isBlank(contentEncoding) ? "ISO-8859-1" : contentEncoding;
-
-                InputStreamReader isr = new InputStreamReader(cis, encodingToUse); // unknown encoding will raise an exception
-                content = Stream.readFully(isr);
             }
-            
-            StatusLine statusLine = httpResponse.getStatusLine();
-            
-            HTTPSimpleResponse result = new HTTPSimpleResponse();
-            result.content = content;
-            result.statusCode = statusLine.getStatusCode();
-            result.reasonPhrase = statusLine.getReasonPhrase();
-            
-            for (Header header : httpResponse.getAllHeaders())
-                result.addHeader(header.getName(), header.getValue());
-            
-            return result;
-            
-        } catch (IOException exc) {
-            throw new UnexpectedIOException(exc);
-            
-        } finally {
-            Stream.safeClose(inputStream);
-            
-            // count how many bytes were processed (failure or not)
-            if (cis != null)
-                s_receiveRate.addAndGet(cis.getTotal());
-            
-            if (executed)
-                s_activeConnections.decrementAndGet();
+        } catch (Exception e) {
+            future.completeExceptionally(e);
         }
+
+        return future;
+    }
+
+    private void applyTimeouts(SimpleHttpRequest request, Integer connectTimeout, Integer readTimeout) {
+        int actualConnTimeout = connectTimeout != null ? connectTimeout : DEFAULT_CONNECTTIMEOUT;
+        int actualReadTimeout = readTimeout != null ? readTimeout : DEFAULT_READTIMEOUT;
+
+        RequestConfig customConfig = RequestConfig.copy(_requestConfig)
+                .setConnectTimeout(Timeout.ofMilliseconds(actualConnTimeout))
+                .setResponseTimeout(Timeout.ofMilliseconds(actualReadTimeout))
+                .build();
+
+        request.setConfig(customConfig);
     }
 
     /**
-     * (convenience function)
+     * Creates a request using HttpClient 5's SimpleRequestBuilder,
+     * replacing the old selectHTTPbyMethod() and nonstandardHTTPMethod() helpers.
      */
-    private static HttpRequestBase selectHTTPbyMethod(String method, String body, String url) {
-        // deal with in order of likelihood
-        if (Strings.isBlank(method) && Strings.isEmpty(body) || "GET".equals(method))
-            return new HttpGet(url);
-        
-        else if (Strings.isBlank(method) && !Strings.isEmpty(body) || "POST".equals(method))
-            return new HttpPost(url);
-        
-        else if ("DELETE".equals(method))
-            return new HttpDelete(url);
-        
-        else if ("HEAD".equals(method))
-            return new HttpHead(url);
-        
-        else if ("PUT".equals(method))
-            return new HttpPut(url);
-        
-        else if ("TRACE".equals(method))
-            return new HttpTrace(url);
-        
-        else if ("OPTIONS".equals(method))
-            return new HttpOptions(url);
-
-        else if ("PATCH".equals(method))
-            return new HttpPatch(url);
-
-        else if (!Strings.isBlank(method))
-            return nonstandardHTTPMethod(method, body, url);
-
-        else
-            throw new IllegalArgumentException("Unknown HTTP method - " + method);
-    }
-
-    /**
-     * (convenience function)
-     */
-    private static HttpRequestBase nonstandardHTTPMethod(String method, String body, String url) {
-        // nonstandard / uncommon method has been specified - related issue #344
-        HttpRequestBase request;
-
-        // select a method class that does or does not support content (enclosed entity)
-        if (Strings.isEmpty(body)) {
-            request = new HttpRequestBase() {
-
-                @Override
-                public String getMethod() {
-                    return method;
-                }
-
-            };
+    private SimpleHttpRequest createRequest(String method, String url, String body, String contentType) {
+        String effectiveMethod;
+        if (Strings.isBlank(method)) {
+            effectiveMethod = Strings.isEmpty(body) ? "GET" : "POST";
         } else {
-            request = new HttpEntityEnclosingRequestBase() {
-
-                @Override
-                public String getMethod() {
-                    return method;
-                }
-
-            };
+            effectiveMethod = method;
         }
-        request.setURI(URI.create(url));
+
+        SimpleRequestBuilder builder = SimpleRequestBuilder.create(effectiveMethod).setUri(url);
+
+        if (!Strings.isEmpty(body)) {
+            String effectiveContentType = contentType != null ? contentType : "text/plain";
+
+            ContentType cType = null;
+            // Accept callers passing full header values with parameters (charset, boundary, etc.).
+            // Prefer parse to keep parameters, and fall back to stripping parameters if needed.
+            try {
+                cType = ContentType.parse(effectiveContentType);
+                if (cType.getCharset() == null) {
+                    cType = cType.withCharset("utf-8");
+                }
+            } catch (Exception parseExc) {
+                try {
+                    String mimeOnly = effectiveContentType.split(";", 2)[0].trim();
+                    cType = ContentType.create(mimeOnly, "utf-8");
+                } catch (Exception createExc) {
+                    cType = ContentType.TEXT_PLAIN.withCharset("utf-8");
+                }
+            }
+
+            builder.setBody(body, cType);
+        }
+
+        SimpleHttpRequest request = builder.build();
+
+        if (!Strings.isBlank(contentType)) {
+            request.setHeader("Content-Type", contentType);
+        }
+
         return request;
     }
 
     /**
      * Applies security for a given HTTP request.
-     * @throws AuthenticationException 
      */
-    private void applySecurity(HttpRequestBase httpRequest, String username, String password) {
-        Credentials creds;
-
+    private void applySecurity(SimpleHttpRequest request, String username, String password) {
         // in case of NTLM, check for '\' in username
         String userPart = username;
         String domainPart = null;
         int indexOfBackSlash = username.indexOf('\\');
+
         if (indexOfBackSlash > 0) {
-            // NTLM
             domainPart = username.substring(0, indexOfBackSlash);
             userPart = username.substring(Math.min(username.length() - 1, indexOfBackSlash + 1));
-
-            creds = new NTCredentials(userPart, password, getLocalHostName(), domainPart);
-
-        } else {
-            // BasicAuth
-            creds = new UsernamePasswordCredentials(username, password);
-
-            // pre-emptive
-            try {
-                httpRequest.setHeader(new BasicScheme().authenticate(creds, httpRequest, null));
-            } catch (AuthenticationException e) {
-                throw new RuntimeException(e);
-            }
         }
 
-        _credentialsProvider.setCredentials(new AuthScope(httpRequest.getURI().getHost(), httpRequest.getURI().getPort()), creds);
-    }    
+        Credentials creds;
+        if (domainPart == null) {
+            // BasicAuth: pre-emptive to save the challenge round-trip
+            // (never for NTLM credentials — those must not leak in Basic-encoded form)
+            request.setHeader("Authorization", "Basic " + Base64.getEncoder()
+                    .encodeToString((username + ":" + password).getBytes(StandardCharsets.ISO_8859_1)));
+
+            creds = new UsernamePasswordCredentials(username, password.toCharArray());
+        } else {
+            // NTLM
+            creds = new NTCredentials(userPart, password.toCharArray(), getLocalHostName(), domainPart);
+        }
+
+        try {
+            _credentialsProvider.setCredentials(
+                    new AuthScope(request.getAuthority().getHostName(), request.getAuthority().getPort()),
+                    creds);
+        } catch (Exception e) {
+            s_logger.warn("Could not register credentials for challenge-response authentication; the request will proceed without them.", e);
+        }
+    }
 
     @Override
-    public void close() throws IOException {
-        Stream.safeClose(_httpClient);
+    public void setProxy(String address, String username, String password) {
+        synchronized (_lock) {
+            super.setProxy(address, username, password);
+            closeClient(); // Force re-initialisation on the next request
+        }
     }
-    
+
+    @Override
+    public void setIgnoreSSL(boolean value) {
+        synchronized (_lock) {
+            super.setIgnoreSSL(value);
+            closeClient(); // Force re-initialisation on the next request
+        }
+    }
+
+    @Override
+    public void setIgnoreRedirects(boolean value) {
+        synchronized (_lock) {
+            super.setIgnoreRedirects(value);
+            closeClient(); // Force re-initialisation on the next request
+        }
+    }
+
+    private void closeClient() {
+        if (_httpAsyncClient != null) {
+            _httpAsyncClient.close(CloseMode.GRACEFUL);
+            _httpAsyncClient = null;
+        }
+    }
+
+    @Override
+    public void close() {
+        synchronized (_lock) {
+            if (_closed) {
+                return;
+            }
+            _closed = true;
+
+            // GRACEFUL lets in-flight exchanges complete while the I/O threads wind down;
+            // deliberately no waiting here — node shutdown must never stall on network activity
+            closeClient();
+
+            _credentialsProvider = null;
+            _requestConfig = null;
+        }
+    }
+
     // static convenience methods
-    
+
     /**
      * Returns the local host name (does not throw exceptions).
      */
     private static String getLocalHostName() {
         try {
             return InetAddress.getLocalHost().getHostName();
-        } catch (UnknownHostException exc) {
-            throw new UnexpectedIOException(exc);
+        } catch (UnknownHostException e) {
+            return "localhost";
         }
     }
-    
+
     // convenience instances
-    
-    /**
-     * Ignores all SSL issues
-     */
-    private static X509TrustManager IGNORE_SSL_TRUSTMANAGER = new X509TrustManager() {
-        
-        public void checkClientTrusted(X509Certificate[] chain, String authType) throws CertificateException { }
-        
-        public void checkServerTrusted(X509Certificate[] chain, String authType) throws CertificateException { }
-        
-        public X509Certificate[] getAcceptedIssuers() {
-            return new X509Certificate[0];
-        }
-        
-    };
-    
-    /**
-     * Is injected into stream to count bytes (vs characters)
-     */
-    private static class SafeCounter implements SharableMeasurementProvider {
-
-        private long _counter;
-
-        @Override
-        public long getMeasurement() {
-            return _counter;
-        }
-
-        @Override
-        public void set(long value) {
-            _counter = value;
-
-            if (_counter > MAX_ALLOWED)
-                throw new UnexpectedIOException("Too big - HTTP response over " + MAX_ALLOWED + " bytes is not allowed");
-        }
-
-        @Override
-        public void add(long value) {
-            _counter += value;
-            
-            if (_counter > MAX_ALLOWED)
-                throw new UnexpectedIOException("Too big - HTTP response over " + MAX_ALLOWED + " bytes is not allowed");
-        }
-
-        @Override
-        public void incr() {
-            _counter++;
-            
-            if (_counter > MAX_ALLOWED)
-                throw new UnexpectedIOException("Too big - HTTP response over " + MAX_ALLOWED + " bytes is not allowed");
-        }
-
-        @Override
-        public void decr() {
-            _counter--;
-        }
-
-    }
 
     /**
-     *  A redirect strategy used to ignore all redirect directives i.e. will be manually handled
+     *  A redirect strategy used to ignore all redirect directives
      */
-    private static RedirectStrategy IGNORE_ALL_REDIRECTS = new RedirectStrategy() {
-
+    private static final DefaultRedirectStrategy IGNORE_ALL_REDIRECTS = new DefaultRedirectStrategy() {
         @Override
-        public boolean isRedirected(HttpRequest request, HttpResponse response, HttpContext context) throws ProtocolException {
+        public boolean isRedirected(HttpRequest request, HttpResponse response, HttpContext context) {
             return false;
         }
+    };
+
+    /**
+     * Buffers the response in memory (bounded by MAX_ALLOWED), transparently decompressing
+     * gzip/deflate bodies the way HttpClient 4 used to (HttpClient 5's async chain has no
+     * built-in equivalent). Responses without an entity (e.g. HEAD, 204, 304) complete with
+     * null content via the base class.
+     */
+    private static class BoundedResponseConsumer extends AbstractAsyncResponseConsumer<HTTPSimpleResponse, byte[]> {
+
+        public BoundedResponseConsumer() {
+            super(new BoundedEntityConsumer());
+        }
 
         @Override
-        public HttpUriRequest getRedirect(HttpRequest request, HttpResponse response, HttpContext context) throws ProtocolException {
-            return null;
+        public void informationResponse(HttpResponse response, HttpContext context) {
+            // Ignore informational responses so 1xx flows (e.g. 100-Continue) proceed normally.
         }
-        
-    };
-    
+
+        @Override
+        protected HTTPSimpleResponse buildResult(HttpResponse response, byte[] entity, ContentType contentType) {
+            HTTPSimpleResponse result = new HTTPSimpleResponse();
+            result.statusCode = response.getCode();
+            result.reasonPhrase = response.getReasonPhrase();
+
+            byte[] content = entity;
+
+            // transparently decompress (mirrors HttpClient 4's ResponseContentEncoding behaviour)
+            boolean decompressed = false;
+            Header contentEncodingHeader = response.getFirstHeader("Content-Encoding");
+            if (content != null && content.length > 0 && contentEncodingHeader != null) {
+                String contentEncoding = contentEncodingHeader.getValue().trim().toLowerCase();
+                try {
+                    if (contentEncoding.contains("gzip")) {
+                        content = readFullyBounded(new GZIPInputStream(new ByteArrayInputStream(content)));
+                        decompressed = true;
+                    } else if (contentEncoding.contains("deflate")) {
+                        content = readFullyBounded(new InflaterInputStream(new ByteArrayInputStream(content)));
+                        decompressed = true;
+                    }
+                } catch (IOException e) {
+                    throw new RuntimeException("Could not decompress '" + contentEncoding + "' response", e);
+                }
+            }
+
+            for (Header header : response.getHeaders()) {
+                // a decompressed body no longer matches these headers, so drop them (as HttpClient 4 did)
+                if (decompressed && (header.getName().equalsIgnoreCase("Content-Encoding")
+                        || header.getName().equalsIgnoreCase("Content-Length")
+                        || header.getName().equalsIgnoreCase("Content-MD5"))) {
+                    continue;
+                }
+
+                result.addHeader(header.getName(), header.getValue());
+            }
+
+            if (content != null) {
+                result.content = new String(content, selectCharset(contentType));
+            }
+
+            return result;
+        }
+
+        /**
+         * Uses the response charset when specified; if not, falls back to UTF-8 for json/xml or
+         * a straight 8-bit widening otherwise (for convenience ISO-8859-1 does that trick)
+         */
+        private static Charset selectCharset(ContentType contentType) {
+            if (contentType != null) {
+                if (contentType.getCharset() != null) {
+                    return contentType.getCharset();
+                }
+
+                String mimeType = contentType.getMimeType() != null ? contentType.getMimeType().toLowerCase() : "";
+                if (mimeType.contains("json") || mimeType.contains("xml")) {
+                    return StandardCharsets.UTF_8;
+                }
+            }
+            return StandardCharsets.ISO_8859_1;
+        }
+
+        /**
+         * (drains a decompression stream, still enforcing the MAX_ALLOWED cap)
+         */
+        private static byte[] readFullyBounded(InputStream is) throws IOException {
+            ByteArrayOutputStream out = new ByteArrayOutputStream(8192);
+            byte[] chunk = new byte[8192];
+            for (int read; (read = is.read(chunk)) > 0;) {
+                if (out.size() + read > MAX_ALLOWED) {
+                    throw new IOException("Too big - HTTP response over " + MAX_ALLOWED + " bytes is not allowed");
+                }
+                out.write(chunk, 0, read);
+            }
+            return out.toByteArray();
+        }
+    }
+
+    /**
+     * In-memory entity consumer that rejects bodies larger than MAX_ALLOWED and feeds the
+     * receive-rate counter as bytes arrive.
+     */
+    private static class BoundedEntityConsumer extends AbstractBinAsyncEntityConsumer<byte[]> {
+
+        private final ByteArrayBuffer _buffer = new ByteArrayBuffer(8192);
+
+        @Override
+        protected void streamStart(ContentType contentType) {
+        }
+
+        @Override
+        protected int capacityIncrement() {
+            return 65536;
+        }
+
+        @Override
+        protected void data(ByteBuffer src, boolean endOfStream) throws IOException {
+            int length = src.remaining();
+
+            if (_buffer.length() + length > MAX_ALLOWED) {
+                throw new IOException("Too big - HTTP response over " + MAX_ALLOWED + " bytes is not allowed");
+            }
+
+            // count bytes (not characters) as they arrive, failure or not
+            s_receiveRate.addAndGet(length);
+
+            if (src.hasArray()) {
+                _buffer.append(src.array(), src.arrayOffset() + src.position(), length);
+                src.position(src.position() + length);
+            } else {
+                byte[] chunk = new byte[length];
+                src.get(chunk);
+                _buffer.append(chunk, 0, length);
+            }
+        }
+
+        @Override
+        protected byte[] generateContent() {
+            return _buffer.toByteArray();
+        }
+
+        @Override
+        public void releaseResources() {
+            _buffer.clear();
+        }
+    }
 }
