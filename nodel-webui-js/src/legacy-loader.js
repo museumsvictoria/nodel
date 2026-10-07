@@ -97,31 +97,6 @@
     parts.push(' ' + name + '="' + escapeAttribute(value) + '"');
   }
 
-  function validateExplicitXmlTarget(targetPath) {
-    if (!targetPath) {
-      throw new Error('Missing XML target.');
-    }
-    if (/^https?:\/\//i.test(targetPath) || /^\/\//.test(targetPath)) {
-      throw new Error('Explicit XML target must be a local relative XML path.');
-    }
-    if (/^\//.test(targetPath)) {
-      throw new Error('Explicit XML target cannot use an absolute path.');
-    }
-    if (/[?#]/.test(targetPath)) {
-      throw new Error('Explicit XML target cannot contain query or fragment parts.');
-    }
-    if (/(^|\/)\.\.(\/|$)/.test(targetPath)) {
-      throw new Error('Explicit XML target cannot traverse directories.');
-    }
-    if (!/\.xml$/i.test(targetPath)) {
-      throw new Error('Explicit XML target must point to an XML file.');
-    }
-    if (!/^[A-Za-z0-9._\-/]+$/.test(targetPath)) {
-      throw new Error('Explicit XML target contains unsupported characters.');
-    }
-    return targetPath.replace(/^\.\//, '');
-  }
-
   function generateLegacyId(node) {
     var existing = node.getAttribute('data-legacy-id');
     if (existing) {
@@ -936,27 +911,18 @@
   }
 
   function getTargetPath() {
-    var explicit = getQueryParam('xml');
-    if (explicit) {
-      var validated = validateExplicitXmlTarget(explicit);
-      debugLog('Using explicit XML target:', validated);
-      return validated;
-    }
     if (wrapperTarget) {
       debugLog('Using wrapper XML target:', wrapperTarget);
       return wrapperTarget;
     }
-    var pathParts = window.location.pathname.split('/');
-    if (pathParts[1] === 'nodes' && pathParts[2]) {
-      debugLog('Checking for node-local index.xml at:', window.location.pathname);
-      return fetch('index.xml', { credentials: 'same-origin' }).then(function(response) {
-        var target = response.ok ? 'index.xml' : 'nodel.xml';
-        debugLog('Node route selected target:', target);
-        return target;
-      });
-    }
-    debugLog('Falling back to default host target: locals.xml');
-    return Promise.resolve('locals.xml');
+    return window.location.href;
+  }
+
+  function xmlFetchUrl(targetPath) {
+    var url = new URL(targetPath, window.location.href);
+    url.hash = '';
+    url.searchParams.set('_raw', '1');
+    return url.href;
   }
 
   function getJsRenderTemplates() {
@@ -1018,7 +984,7 @@
 
   function renderLegacyPage(targetPath) {
     var startedAt = Date.now();
-    return Promise.all([fetchText(targetPath), getJsRenderTemplates()]).then(function(results) {
+    return Promise.all([fetchText(xmlFetchUrl(targetPath)), getJsRenderTemplates()]).then(function(results) {
       var xmlDoc = parseXml(results[0], targetPath);
       var html = buildDocument(xmlDoc, results[1], targetPath);
       // Replace the bootstrap wrapper document wholesale so the reconstructed
@@ -1027,11 +993,6 @@
       document.open();
       document.write(html);
       document.close();
-      // document.open() removes event listeners from the old document.
-      // Reinstall the wrapper router so navigation continues to avoid XSLT.
-      if (typeof window.NODEL_LEGACY_INSTALL_ROUTER === 'function') {
-        window.NODEL_LEGACY_INSTALL_ROUTER();
-      }
       debugLog('Rendered target:', targetPath, 'in', (Date.now() - startedAt) + 'ms', 'unknown tags:', Object.keys(unknownTags));
     });
   }
@@ -1042,7 +1003,7 @@
     document.close();
   }
 
-  Promise.resolve(getTargetPath())
+  Promise.resolve().then(getTargetPath)
     .then(function(targetPath) {
       return renderLegacyPage(targetPath);
     })

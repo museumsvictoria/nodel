@@ -110,36 +110,8 @@ module.exports = function(grunt) {
             dest: 'build/grunt/index.htm'
           },
           {
-            src: 'src/locals.htm',
-            dest: 'build/grunt/locals.htm'
-          },
-          {
-            src: 'src/nodes.htm',
-            dest: 'build/grunt/nodes.htm'
-          },
-          {
-            src: 'src/nodel.htm',
-            dest: 'build/grunt/nodel.htm'
-          },
-          {
-            src: 'src/toolkit.htm',
-            dest: 'build/grunt/toolkit.htm'
-          },
-          {
-            src: 'src/diagnostics.htm',
-            dest: 'build/grunt/diagnostics.htm'
-          },
-          {
-            src: 'src/status.htm',
-            dest: 'build/grunt/status.htm'
-          },
-          {
             src: 'src/legacy-loader.js',
             dest: 'build/grunt/legacy-loader.js'
-          },
-          {
-            src: 'src/legacy-router.js',
-            dest: 'build/grunt/legacy-router.js'
           },
           {
             src: 'src/index.smil',
