@@ -164,11 +164,15 @@
 
   function renderChildren(node, filter) {
     var output = '';
-    var children = childElements(node);
+    var children = node.childNodes || [];
     for (var i = 0; i < children.length; i++) {
       var child = children[i];
-      if (!filter || filter(child)) {
-        output += renderNode(child);
+      if (child.nodeType === 1) {
+        if (!filter || filter(child)) {
+          output += renderNode(child);
+        }
+      } else if (!filter && (child.nodeType === 3 || child.nodeType === 4)) {
+        output += escapeHtml(child.nodeValue);
       }
     }
     return output;
@@ -1012,3 +1016,4 @@
       showError(error);
     });
 })();
+

@@ -25,6 +25,12 @@
               <cell><text>Cell 1</text></cell>
               <cell><text>Cell 2</text></cell>
             </row>
+            <row>
+              <cell>Plain cell text</cell>
+              <cell>Before <text>Wrapped text</text> after</cell>
+              <cell><![CDATA[CDATA <text> & content]]></cell>
+              <cell>Escaped &lt;tag&gt; &amp; &quot;quotes&quot;</cell>
+            </row>
           </grid>
           <pills event="PillsEvent" showevent="PillsShow" showvalue="PillsValue" showeventarg="PillsArg">
             <pill value="One" showevent="PillShow" showvalue="PillValue" showeventarg="PillArg">One<badge event="PillBadgeEvent">1</badge></pill>
@@ -93,3 +99,4 @@
     </row>
   </footer>
 </pages>
+
