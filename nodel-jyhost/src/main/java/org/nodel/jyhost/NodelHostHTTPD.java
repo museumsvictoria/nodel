@@ -6,7 +6,9 @@ package org.nodel.jyhost;
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
+import java.io.ByteArrayInputStream;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -424,12 +426,71 @@ public class NodelHostHTTPD extends NanoHTTPD {
                     response = handlePySp((PyNode) restTarget, uri + ".pysp", root, method, params, request);
             }
 
-            if (response == null || Status.NOT_FOUND.equals(response.getStatus()))
+            if (response == null || Status.NOT_FOUND.equals(response.getStatus())) {
+                Response legacy = tryServeLegacyXml(uri, root, method, params);
+                if (legacy != null)
+                    return legacy;
                 return super.serve(uri, root, method, params, request);
+            }
 
             return response;
         }
     } // (method)
+
+    private static final String LEGACY_XML_BOOTSTRAP =
+            "<!DOCTYPE html><html><head><meta charset=\"utf-8\">"
+            + "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">"
+            + "<title>Loading legacy UI</title>"
+            + "<script>window.NODEL_LEGACY_REVEAL_GATED = true;</script>"
+            + "<script src=\"/legacy-loader.js\"></script></head><body></body></html>";
+
+    /** Only the final static fallback changes representation; raw requests stay untouched. */
+    private Response tryServeLegacyXml(String uri, File root, String method, Properties params) {
+        if ("1".equals(params.getProperty("_raw"))
+                || !("GET".equalsIgnoreCase(method) || "HEAD".equalsIgnoreCase(method))
+                || !uri.regionMatches(true, uri.length() - 4, ".xml", 0, 4)
+                || uriIntoPath(uri) == null)
+            return null;
+
+        File firstChoice = getFirstChoiceDir();
+        File bundled = getRootDir();
+        File target = null;
+        if (root != null && firstChoice != null && bundled != null) {
+            target = resolveFile(uri, root);
+        } else {
+            // Static serving skips absent roots, but resolveFile treats a null
+            // parent as a filesystem path. Never inspect those phantom candidates.
+            String path = uriIntoPath(uri);
+            for (File contentRoot : new File[] { root, firstChoice, bundled }) {
+                if (contentRoot == null)
+                    continue;
+                File candidate = new File(contentRoot, path);
+                if (candidate.isFile()) {
+                    target = candidate;
+                    break;
+                }
+            }
+        }
+        if (target == null || !target.isFile() || !target.canRead())
+            return null;
+
+        try (InputStream input = new FileInputStream(target)) {
+            if (!LegacyXmlProlog.matches(input))
+                return null;
+        } catch (IOException exc) {
+            return null;
+        }
+
+        Response response = new Response(Status.OK, "text/html; charset=utf-8", LEGACY_XML_BOOTSTRAP);
+        response.addHeader("Cache-Control", "no-store");
+        if ("HEAD".equalsIgnoreCase(method)) {
+            // This framework suppresses HEAD chunking, but not fixed-length bodies.
+            // Keep the HTML representation length while emitting no body or gzip trailer.
+            response.setData(new ByteArrayInputStream(new byte[0]));
+            response.setUseGzip(false);
+        }
+        return response;
+    }
 
     /**
      * An exception message

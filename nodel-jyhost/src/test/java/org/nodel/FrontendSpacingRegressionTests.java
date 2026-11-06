@@ -82,7 +82,7 @@ public class FrontendSpacingRegressionTests extends TestBase {
         String reducedName = getReducedName(TEST_NODE);
         String nodeBaseUrl = BASE_URL + "/nodes/" + reducedName + "/";
 
-        APIResponse xmlResponse = page.request().get(nodeBaseUrl + "index.xml");
+        APIResponse xmlResponse = page.request().get(nodeBaseUrl + "index.xml?_raw=1");
         assertEquals(200, xmlResponse.status(), "index.xml should be fetchable");
 
         APIResponse xslResponse = page.request().get(nodeBaseUrl + "v1/index.xsl");

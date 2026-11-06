@@ -1,0 +1,1 @@
+<pages><page title="Main"><row><column><button action="Set" arg="">Clear</button><text showevent="State" showvalue="">No state</text><title>One <b>bold</b> word</title><subtitle>One <b>bold</b> word</subtitle><text>One <b>bold</b> word</text></column></row></page></pages>

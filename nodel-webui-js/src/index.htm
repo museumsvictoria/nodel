@@ -1,17 +1,56 @@
+<!DOCTYPE html>
 <html>
   <head>
-    <script>
-      var node = null;
-      if(window.location.pathname.split( '/' )[1]=="nodes") node = decodeURIComponent(window.location.pathname.split( '/' )[2].replace(/\+/g, '%20'));
-      if(node) {
-        var request = new XMLHttpRequest();
-        var testurl = window.location.href.replace(/\/$/, '') + '/index.xml';
-        request.open('GET', testurl, false);
-        request.send();
-        if (request.status === 200) window.location.href = "index.xml";
-        else window.location.href = "nodel.xml";
-      }
-      else window.location.href = "locals.xml";
-    </script>
+    <meta charset="utf-8"/>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1"/>
+    <title>Loading legacy UI</title>
   </head>
+  <body>
+    <script>
+      (function() {
+        'use strict';
+        var url = new URL(window.location.href);
+        var hasExplicit = url.searchParams.has('xml');
+        var explicit = url.searchParams.get('xml');
+        var target;
+
+        function fail(message) {
+          document.body.textContent = message;
+          document.title = 'Legacy UI unavailable';
+        }
+
+        function validate(value) {
+          if (!value || /^https?:\/\//i.test(value) || /^\/\//.test(value) || /^\//.test(value) ||
+              /[?#]/.test(value) || /(^|\/)\.\.(\/|$)/.test(value) || !/\.xml$/i.test(value) ||
+              !/^[A-Za-z0-9._\-/]+$/.test(value)) {
+            throw new Error('Invalid XML target.');
+          }
+          return value.replace(/^\.\//, '');
+        }
+
+        if (hasExplicit) {
+          try { target = validate(explicit); }
+          catch (error) { fail('Unable to load the requested XML page.'); return; }
+        } else if (/^\/nodes\/[^/]+\/(?:index\.htm)?$/.test(url.pathname)) {
+          fetch(new URL('index.xml?_raw=1', url.href), { credentials: 'same-origin' }).then(function(response) {
+            target = response.ok ? 'index.xml' : 'nodel.xml';
+            navigate();
+          }).catch(function() {
+            fail('Unable to determine the default node page. Please retry.');
+          });
+          return;
+        } else {
+          target = 'locals.xml';
+        }
+
+        function navigate() {
+          url.pathname = new URL(target, url.href).pathname;
+          url.searchParams.delete('xml');
+          window.location.replace(url.href);
+        }
+        navigate();
+      })();
+    </script>
+  </body>
 </html>
