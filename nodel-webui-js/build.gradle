@@ -36,7 +36,7 @@ dependencies {
 }
 
 node {
-    version = '20.12.0'
+    version = file('.nvmrc').text.trim()
     download = true
 
     workDir = file("${project.buildDir}/nodejs")
@@ -59,7 +59,7 @@ tasks.register('gruntRun', NpxTask) {
     dependsOn npmInstall
 
     command = "grunt"
-    // Node 20's happy-eyeballs races time out under grunt-google-fonts'
+    // Node's happy-eyeballs races time out under grunt-google-fonts'
     // concurrent downloads (AggregateError from fonts.gstatic.com)
     environment = ['NODE_OPTIONS': '--no-network-family-autoselection']
     // rely on Gradle's incremental build: a failed run is never treated as
