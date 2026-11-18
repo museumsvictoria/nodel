@@ -38,7 +38,8 @@ def check_host(host, directory, expected_sha):
 def main(jar, expected_sha):
     with tempfile.TemporaryDirectory() as temp:
         directory = Path(temp)
-        with (directory / "host.log").open("w+") as log:
+        log_path = directory / "host.log"
+        with log_path.open("w") as log:
             # The host shuts down on stdin EOF. Keep its console open for the probe.
             with subprocess.Popen(
                 ["java", "-jar", str(jar.resolve()), "-p", "0"],
@@ -47,8 +48,7 @@ def main(jar, expected_sha):
                 try:
                     check_host(host, directory, expected_sha)
                 except Exception:
-                    log.seek(0)
-                    sys.stderr.write(log.read())
+                    sys.stderr.write(log_path.read_text(errors="replace"))
                     raise
                 finally:
                     host.terminate()

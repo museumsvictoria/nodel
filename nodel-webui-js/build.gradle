@@ -69,7 +69,7 @@ tasks.register('gruntRun', NpxTask) {
         // as inputs would retrigger the task once after every theme change
         exclude 'dark/theme.less', 'light/theme.less'
     })
-    inputs.files('package.json', 'package-lock.json', 'Gruntfile.js')
+    inputs.files('.nvmrc', 'package.json', 'package-lock.json', 'Gruntfile.js')
     outputs.dir('build/grunt')
 }
 
