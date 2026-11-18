@@ -961,6 +961,8 @@ public class ManagedToolkit {
         if (_httpClient != null) {
             try {
                 synchronized (_lock) {
+                    // This will call close() on the HttpClient, which will gracefully terminate in-flight requests
+                    // and shutdown any underlying I/O threads for async clients
                     _httpClient.close();
                 }
                 
