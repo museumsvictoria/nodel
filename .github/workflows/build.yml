@@ -33,7 +33,7 @@ jobs:
       - name: Setup Node.js 24
         uses: actions/setup-node@v4
         with:
-          node-version: 24
+          node-version-file: nodel-webui-js/.nvmrc
       - name: Install test dependencies
         run: npm ci --legacy-peer-deps --ignore-scripts --no-audit --no-fund
       - name: Run wrapper regression tests
