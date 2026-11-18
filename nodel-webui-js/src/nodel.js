@@ -15,6 +15,13 @@ $.postJSON = function(url, data, callback) {
 
 var counter = 0;
 
+// the app-wide timestamp display format (also registered as the 'nicetime' template helper)
+var nicetime = function (value, precise, format) {
+  if (precise) return moment(value).format('MM-DD HH:mm:ss.SS');
+  if (format) return moment(value).format(format);
+  else return moment(value).format('Do MMM, h:mm a');
+};
+
 $.views.helpers({
   initObj: function (id, value) {
     if(!_.isPlainObject(value)) $.observable(this.data).setProperty(id, {});
@@ -50,11 +57,7 @@ $.views.helpers({
       });
     }
   },
-  nicetime: function (value, precise, format) {
-    if (precise) return moment(value).format('MM-DD HH:mm:ss.SS');
-    if (format) return moment(value).format(format);
-    else return moment(value).format('Do MMM, h:mm a');
-  },
+  nicetime: nicetime,
   fromtime: function(value) {
     now = moment();
     if (typeof(value) == 'string') // treat value as an absolute timestamp
@@ -1206,24 +1209,21 @@ var makeTemplate = function(ele, schema, tmpls){
   //console.log(generatedTemplate);
   $.views.settings.delimiters("{{", "}}");
   var tmpl = $.templates(generatedTemplate);
+  var linkAndResolve = function(data){
+    tmpl.link(ele, data);
+    $(ele).find('.base').addClass('bound');
+    // surface validation and schedule feedback for pre-filled cron fields
+    $(ele).find('input.nodel-cron').each(function () { updateCronFeedback(this); });
+    d.resolve();
+  };
   if(!(_.isUndefined($(ele).data('source'))) && ($(ele).data('source').charAt(0) != '/')){
     // Relative path : $.getJSON(proto+'//'+host+'/nodes/'+encodeURIComponent(node)+'/REST/'+$(ele).data('source'), function(data) {
-    $.getJSON('REST/'+$(ele).data('source'), function(data) {
-      tmpl.link(ele, data);
-      $(ele).find('.base').addClass('bound');
-      d.resolve();
-    });
+    $.getJSON('REST/'+$(ele).data('source'), linkAndResolve);
   } else if(!(_.isUndefined($(ele).data('source'))) && ($(ele).data('source').charAt(0) == '/')){
     // Relative path : $.getJSON(proto+'//'+host+'/nodes/'+encodeURIComponent(node)+'/REST'+$(ele).data('source'), function(data) {
-    $.getJSON('REST'+$(ele).data('source'), function(data) {
-      tmpl.link(ele, data);
-      $(ele).find('.base').addClass('bound');
-      d.resolve();
-    }); 
+    $.getJSON('REST'+$(ele).data('source'), linkAndResolve);
   } else {
-    tmpl.link(ele, {});
-    $(ele).find('.base').addClass('bound');
-    d.resolve();
+    linkAndResolve({});
   }
   return d.promise();
 };
@@ -1280,7 +1280,57 @@ var convertSchemaNames = function(){
   });
 };
 
+// CRON schedule support (schema format 'cron'), shared by the node UI and custom dashboards.
+// The host owns the CRON rules ('REST/cron') so validation, descriptions and execution times
+// cannot drift between consumers. 'timezone' is optional (the host timezone applies); 'onresult'
+// receives {valid, error, description, timeZone, previous, next, upcoming} or null if unreachable.
+var describeCron = function(expression, timezone, onresult) {
+  var query = {'expression': expression};
+  if(timezone) query['timezone'] = timezone;
+  // Relative path : $.getJSON(proto+'//'+host+'/nodes/'+encodeURIComponent(node)+'/REST/cron', query, function(info) {
+  $.getJSON('REST/cron', query, function(info) {
+    onresult(info);
+  }).fail(function() {
+    onresult(null);
+  });
+};
+
+// refreshes the feedback line under a 'format: cron' input (set 'data-timezone' on the
+// input to preview against a specific IANA timezone)
+var updateCronFeedback = function(ele) {
+  var input = $(ele);
+  var group = input.closest('.form-group');
+  var feedback = group.find('.nodel-cron-feedback').first();
+  if(!feedback.length) return;
+  var expression = $.trim(input.val());
+  if(!expression) {
+    group.removeClass('has-error');
+    feedback.empty();
+    return;
+  }
+  describeCron(expression, input.data('timezone'), function(info) {
+    if($.trim(input.val()) !== expression) return; // superseded while in-flight
+    if(!info) return; // host unreachable; leave feedback as-is
+    if(info.valid) {
+      group.removeClass('has-error');
+      var text = info.description ? info.description : '';
+      if(info.next) text += (text ? ' — ' : '') + 'next: ' + nicetime(info.next);
+      feedback.text(text);
+    } else {
+      group.addClass('has-error');
+      feedback.text(info.error ? info.error : 'Invalid CRON expression');
+    }
+  });
+};
+
 var setEvents = function(){
+  $('body').on('input change', 'input.nodel-cron', function () {
+    var ele = this;
+    if(!_.isFunction($(ele).data('cronrefresh'))) {
+      $(ele).data('cronrefresh', _.debounce(function() { updateCronFeedback(ele); }, 300));
+    }
+    $(ele).data('cronrefresh')();
+  });
   $(window).on('resize', function () {
     updatepadding();
   });

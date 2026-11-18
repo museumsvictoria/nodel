@@ -1,7 +1,6 @@
 package org.nodel;
 
 import com.microsoft.playwright.APIResponse;
-import com.microsoft.playwright.options.RequestOptions;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -61,11 +60,7 @@ public class FrontendSpacingRegressionTests extends TestBase {
         boolean created = createTestNode(TEST_NODE, TEST_SCRIPT);
         assumeTrue(created, "Test node must be created and discovered for spacing regression tests");
 
-        APIResponse response = page.request().post(
-            REST_BASE + "/nodes/" + encode(TEST_NODE) + "/files/save?path=content/index.xml",
-            RequestOptions.create()
-                .setHeader("Content-Type", "application/octet-stream")
-                .setData(INDEX_XML));
+        APIResponse response = uploadNodeFile(TEST_NODE, "content/index.xml", INDEX_XML);
 
         assertEquals(200, response.status(), "content/index.xml upload should return 200");
     }
