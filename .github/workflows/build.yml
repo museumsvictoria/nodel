@@ -64,7 +64,6 @@ jobs:
 
   unit-tests:
     name: Unit Tests
-    needs: [build]
     runs-on: ubuntu-latest
     timeout-minutes: 5
 
@@ -96,7 +95,6 @@ jobs:
 
   integration-tests:
     name: Integration Tests
-    needs: [build]
     # Playwright 1.52.0 supports Ubuntu 24.04, not the 26.04 latest image.
     runs-on: ubuntu-24.04
     timeout-minutes: 15
@@ -120,9 +118,8 @@ jobs:
           path: ~/.cache/ms-playwright
           key: playwright-browsers-${{ hashFiles('nodel-jyhost/build.gradle') }}
 
-      - name: Install Playwright system dependencies
-        run: ./gradlew playwrightInstallDeps
-
+      # No install-deps step: the runner image already has Chromium's libraries, and
+      # install-deps only adds fallback fonts from an apt mirror that is often slow.
       - name: Install Playwright browsers
         run: ./gradlew playwrightInstall
 
@@ -151,7 +148,6 @@ jobs:
 
   e2e-tests:
     name: E2E Tests
-    needs: [build]
     # Playwright 1.52.0 supports Ubuntu 24.04, not the 26.04 latest image.
     runs-on: ubuntu-24.04
     timeout-minutes: 15
@@ -175,9 +171,8 @@ jobs:
           path: ~/.cache/ms-playwright
           key: playwright-browsers-${{ hashFiles('nodel-jyhost/build.gradle') }}
 
-      - name: Install Playwright system dependencies
-        run: ./gradlew playwrightInstallDeps
-
+      # No install-deps step: the runner image already has Chromium's libraries, and
+      # install-deps only adds fallback fonts from an apt mirror that is often slow.
       - name: Install Playwright browsers
         run: ./gradlew playwrightInstall
 
