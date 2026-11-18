@@ -66,7 +66,8 @@ public abstract class TestBase {
      */
     protected static void navigateToHome() {
         page.navigate(BASE_URL);
-        page.waitForSelector(".navbar", new Page.WaitForSelectorOptions().setTimeout(60000));
+        // nodel.js activates the first nav item only after its REST-driven rendering has finished
+        page.waitForSelector(".nav.navbar-nav .active", new Page.WaitForSelectorOptions().setTimeout(60000));
     }
 
     /**
