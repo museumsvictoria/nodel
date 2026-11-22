@@ -28,6 +28,7 @@ _lastError.txt
 /nodel-webui-js/.settings
 /nodel-webui-js/bin
 /nodel-jyhost/.nodel
+/nodel-jyhost/nodelhost-temp
 /nodel-jyhost/recipes
 /nodel-jyhost/*temp*/
 nodel-webui-js/node_modules/

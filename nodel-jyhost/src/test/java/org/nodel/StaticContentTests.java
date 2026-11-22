@@ -3,6 +3,7 @@ package org.nodel;
 import com.microsoft.playwright.*;
 import org.junit.jupiter.api.*;
 
+import static com.microsoft.playwright.assertions.PlaywrightAssertions.assertThat;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
@@ -98,7 +99,7 @@ public class StaticContentTests extends TestBase {
 
     @Test
     public void testListGroupContainer() {
-        assertNotNull(page.querySelector(".list-group"), "list-group container should be present");
+        assertThat(page.locator(".nodel-locals .list-group")).hasCount(1);
     }
 
     // ===== CSS Styling Verification =====

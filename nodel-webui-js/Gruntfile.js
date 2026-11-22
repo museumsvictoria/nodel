@@ -110,6 +110,10 @@ module.exports = function(grunt) {
             dest: 'build/grunt/index.htm'
           },
           {
+            src: 'src/legacy-loader.js',
+            dest: 'build/grunt/legacy-loader.js'
+          },
+          {
             src: 'src/index.smil',
             dest: 'build/grunt/index-sample.smil'
           },
@@ -165,7 +169,7 @@ module.exports = function(grunt) {
             expand: true,
             cwd: 'build/grunt/',
             src: '**',
-            dest: '/Local/Nodel/custom/content/'
+            dest: '/opt/nodel/custom/content/'
           }
         ]
       }

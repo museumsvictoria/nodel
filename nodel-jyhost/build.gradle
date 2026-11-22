@@ -149,24 +149,13 @@ tasks.register('startNodelhost') {
             logger.lifecycle("Using multicast AutoDNS for tests (NODEL_TEST_DISCOVERY enabled)")
         }
 
-        def pb
-        if (isWindows) {
-            // Windows: Start java directly with stdin pipe to keep process alive
-            def args = ['java', '-cp', hostClasspath, '-ea']
-            if (useLocalDiscovery) {
-                args.add('-Dorg.nodel.discovery.impl=org.nodel.discovery.LocalAutoDNS;instance')
-            }
-            args.addAll(['org.nodel.jyhost.Launch', '-p', '18085'])
-            pb = new ProcessBuilder(args)
-            pb.redirectInput(ProcessBuilder.Redirect.PIPE)
-        } else {
-            // Unix: Use tail -f /dev/null to keep stdin open (prevents auto-shutdown)
-            def discoveryArg = useLocalDiscovery ? "-Dorg.nodel.discovery.impl='org.nodel.discovery.LocalAutoDNS;instance' " : ""
-            pb = new ProcessBuilder(
-                'bash', '-c',
-                "tail -f /dev/null | java -cp '${hostClasspath}' -ea ${discoveryArg}org.nodel.jyhost.Launch -p 18085"
-            )
+        def args = ['java', '-cp', hostClasspath, '-ea']
+        if (useLocalDiscovery) {
+            args.add('-Dorg.nodel.discovery.impl=org.nodel.discovery.LocalAutoDNS;instance')
         }
+        args.addAll(['org.nodel.jyhost.Launch', '-p', '18085'])
+        def pb = new ProcessBuilder(args)
+        pb.redirectInput(ProcessBuilder.Redirect.PIPE)
         pb.directory(tempDir)
         pb.redirectOutput(new File(tempDir, 'output.log'))
         pb.redirectError(new File(tempDir, 'error.log'))
