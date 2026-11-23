@@ -58,16 +58,31 @@ jobs:
       - name: Setup Gradle
         # gradle/actions/setup-gradle v5
         uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c
+        with:
+          # Cache cleanup runs gradle from PATH on Java 11. Match the project wrapper.
+          gradle-version: '8.14.5'
 
       - name: Build jar (skip tests)
         run: ./gradlew :nodel-jyhost:build -x test
 
       - name: Locate jar
         id: jar
+        shell: bash
         run: |
-          JAR=$(ls nodel-jyhost/build/distributions/standalone/nodelhost-*.jar | head -n 1)
-          echo "name=$(basename "$JAR")" >> "$GITHUB_OUTPUT"
-          echo "path=$JAR" >> "$GITHUB_OUTPUT"
+          shopt -s nullglob
+          jars=(nodel-jyhost/build/distributions/standalone/nodelhost-*.jar)
+          if (( ${#jars[@]} != 1 )); then
+            echo "Expected one standalone JAR, found ${#jars[@]}" >&2
+            exit 1
+          fi
+          echo "name=${jars[0]##*/}" >> "$GITHUB_OUTPUT"
+          echo "path=${jars[0]}" >> "$GITHUB_OUTPUT"
+
+      - name: Smoke-test standalone jar
+        env:
+          JAR_PATH: ${{ steps.jar.outputs.path }}
+          EXPECTED_SHA: ${{ steps.meta.outputs.sha }}
+        run: python3 .github/scripts/smoke-test-jar.py "$JAR_PATH" "$EXPECTED_SHA"
 
       - name: Upload jar
         # actions/upload-artifact v7

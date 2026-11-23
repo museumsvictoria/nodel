@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<pages title="Parity Fixture" theme="dark" logo="logo.png" core="true">
+  <header destination="index.htm">
+    <nodel type="nav"/>
+    <nodel type="edit"/>
+  </header>
+  <pagegroup title="Group">
+    <page title="Group Page" action="GroupAction">
+      <row class="alpha" showevent="RowEvent" showvalue="RowValue" showeventarg="RowArg">
+        <column>
+          <title size="3" showevent="TitleEvent" showvalue="TitleValue" showeventarg="TitleArg">Title</title>
+          <subtitle size="6" showevent="SubtitleEvent" showvalue="SubtitleValue" showeventarg="SubtitleArg">Subtitle</subtitle>
+          <text showevent="TextEvent" showvalue="TextValue" showeventarg="TextArg"><icon lib="fa" type="info-circle"/>Text</text>
+          <text showevent="TextUnknownEvent"><icon lib="custom" type="ignored"/>Hidden icon lib</text>
+          <button event="ButtonEvent" action="ButtonAction" showevent="ButtonShow" showvalue="ButtonValue" showeventarg="ButtonArg" confirm="Please" class="btn-warning" arg="BtnArg" arg-on="On" arg-off="Off">Button<badge event="BadgeEvent">B</badge></button>
+          <button type="momentary" action-on="OnAction" action-off="OffAction" class="btn-info">Momentary</button>
+          <buttongroup showevent="ButtonGroupEvent" showeventarg="ButtonGroupArg">
+            <button event="GroupButtonEvent">Group Button</button>
+            <switch event="SwitchEvent" showevent="SwitchShow" showeventarg="SwitchArg">Switch</switch>
+            <partialswitch join="JoinEvent" showevent="PartialShow" showeventarg="PartialArg">Partial</partialswitch>
+          </buttongroup>
+          <image source="image.png" showevent="ImageEvent" showvalue="ImageValue" showeventarg="ImageArg" event="ImageClick" height="24" width="48"/>
+          <grid>
+            <row class="gridrow" showevent="GridRowEvent" showvalue="GridRowValue" showeventarg="GridRowArg">
+              <cell><text>Cell 1</text></cell>
+              <cell><text>Cell 2</text></cell>
+            </row>
+            <row>
+              <cell>Plain cell text</cell>
+              <cell>Before <text>Wrapped text</text> after</cell>
+              <cell><![CDATA[CDATA <text> & content]]></cell>
+              <cell>Escaped &lt;tag&gt; &amp; &quot;quotes&quot;</cell>
+            </row>
+          </grid>
+          <pills event="PillsEvent" showevent="PillsShow" showvalue="PillsValue" showeventarg="PillsArg">
+            <pill value="One" showevent="PillShow" showvalue="PillValue" showeventarg="PillArg">One<badge event="PillBadgeEvent">1</badge></pill>
+            <pill value="Two">Two<signal event="SignalEvent">S</signal></pill>
+          </pills>
+          <select event="SelectEvent" action="SelectAction" showevent="SelectShow" showvalue="SelectValue" showeventarg="SelectArg">
+            <item value="A" showevent="ItemShow" showvalue="ItemValue" showeventarg="ItemArg">Item A</item>
+            <item value="B">Item B</item>
+          </select>
+          <dynamicselect data="DynamicData" event="DynEvent" action="DynAction" confirmtext="DynConfirm"/>
+          <dynamicbuttongroup data="DynButtons" event="DynGroupEvent" action="DynGroupAction" showevent="DynGroupShow" showeventarg="DynGroupArg"/>
+          <status event="StatusEvent" showevent="StatusShow" showvalue="StatusValue" showeventarg="StatusArg" page="StatusPage">
+            <image source="status.png"/>
+            <icon lib="fa" type="info-circle"/>
+            <link node="NodeA" showevent="LinkShow" showvalue="LinkValue" showeventarg="LinkArg">Link</link>
+            <button event="StatusButtonEvent">Status Button</button>
+            <switch event="StatusSwitchEvent">Status Switch</switch>
+            <partialswitch join="StatusJoin">Status Partial</partialswitch>
+            <badge event="StatusBadgeEvent">Status Badge</badge>
+            <statussleep action="SleepAction" showevent="SleepShow" showeventarg="SleepArg"/>
+          </status>
+          <panel event="PanelEvent" showevent="PanelShow" showvalue="PanelValue" showeventarg="PanelArg" height="120"/>
+          <range type="vertical" event="RangeEvent" action="RangeAction" showevent="RangeShow" showvalue="RangeValue" showeventarg="RangeArg" height="140" min="0" max="10" step="2" nudge="1"/>
+          <field event="FieldEvent"/>
+          <lighting event="LightEvent" action="LightAction" options="1,2,3"/>
+          <qrcode event="QrEvent" text="QR Text" height="96" help="Scan me"/>
+          <meter event="MeterEvent" type="temperature" range="perc" showevent="MeterShow" showvalue="MeterValue" showeventarg="MeterArg"/>
+          <signal event="SignalNodeEvent" range="perc">Signal</signal>
+          <gap value="10"/>
+          <group showevent="GroupShow" showvalue="GroupValue" showeventarg="GroupArg">
+            <text>Inside group</text>
+          </group>
+          <special_banner>
+            <text>Special banner content</text>
+          </special_banner>
+          <nodel type="description"/>
+          <nodel type="actsig"/>
+          <nodel type="log"/>
+          <nodel type="serverlog"/>
+          <nodel type="charts"/>
+          <nodel type="console"/>
+          <nodel type="params"/>
+          <nodel type="remote"/>
+          <nodel type="list"/>
+          <nodel type="locals"/>
+          <nodel type="diagnostics"/>
+          <nodel type="add"/>
+          <nodel type="editor"/>
+          <nodel type="toolkit"/>
+        </column>
+      </row>
+    </page>
+  </pagegroup>
+  <page title="Solo" destination="solo.htm">
+    <row>
+      <column>
+        <text>Solo page</text>
+      </column>
+    </row>
+  </page>
+  <footer>
+    <row>
+      <column>
+        <text>Footer text</text>
+      </column>
+    </row>
+  </footer>
+</pages>
+
