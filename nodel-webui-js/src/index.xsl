@@ -529,6 +529,9 @@
                 <input title="<%>desc%>" type="<%>format%>" class="form-control" placeholder="<%>hint%>" data-link="{:<%:~key%>:} id{:~idxid(~idx,'<%:~id%>_field_<%:~key%>')}"/>
               <%else format == 'long'%>
                 <textarea title="<%>desc%>" class="form-control" placeholder="<%>hint%>" data-link="{:<%:~key%>:} id{:~idxid(~idx,'<%:~id%>_field_<%:~key%>')}"></textarea>
+              <%else format == 'cron'%>
+                <input title="<%>desc%>" type="text" autocomplete="off" spellcheck="false" class="form-control nodel-cron" placeholder="<%>hint%>" data-link="{:<%:~key%>:} id{:~idxid(~idx,'<%:~id%>_field_<%:~key%>')}"/>
+                <div class="help-block nodel-cron-feedback"></div>
               <%else%>
                 <input title="<%>desc%>" type="text" class="form-control" placeholder="<%>hint%>" data-link="{:<%:~key%>:} id{:~idxid(~idx,'<%:~id%>_field_<%:~key%>')}"/>
               <%/if%>

@@ -24,6 +24,7 @@ import org.nodel.core.NodelClientEvent;
 import org.nodel.core.NodelEventHandler;
 import org.nodel.core.NodelServerAction;
 import org.nodel.core.NodelServerEvent;
+import org.nodel.cron.CronExpressions;
 import org.nodel.host.BaseDynamicNode;
 import org.nodel.host.Binding;
 import org.nodel.host.LogEntry;
@@ -119,6 +120,11 @@ public class ManagedToolkit {
      * ('exceptionHandler' with context)
      */
     private H1<Exception> _timerExceptionHandler = createExceptionHandlerWithContext("timer");
+
+    /**
+     * ('exceptionHandler' with context)
+     */
+    private H1<Exception> _cronExceptionHandler = createExceptionHandlerWithContext("cron");
     
     /**
      * ('exceptionHandler' with context)
@@ -175,6 +181,11 @@ public class ManagedToolkit {
      * All the managed timers.
      */
     private Set<ManagedTimer> _timers = new HashSet<ManagedTimer>();
+
+    /**
+     * All the managed CRON schedules.
+     */
+    private Set<ManagedCron> _crons = new HashSet<ManagedCron>();
     
     /**
      * Holds all the TCP connections
@@ -368,6 +379,80 @@ public class ManagedToolkit {
             }
             _timers.clear();
         }
+    }
+
+    /**
+     * Creates a managed CRON schedule (see ManagedCron).
+     * (throws IllegalArgumentException on an invalid expression or timezone)
+     */
+    public ManagedCron createCron(H0 func, String expression, String timeZone, boolean stopped) {
+        synchronized (_lock) {
+            if (_closed)
+                throw new IllegalStateException("Node is closed.");
+
+            // create a schedule (will be stopped)
+            ManagedCron cron = new ManagedCron(func, expression, timeZone, stopped, _threadStateHandler, s_timers, s_threadPool, _cronExceptionHandler, _callbackQueue);
+
+            _crons.add(cron);
+
+            // if created after normal init, start (if no 'stopped' flag)
+            if (_enabled && !stopped)
+                cron.start();
+
+            // otherwise .start() will be called from 'enable'
+
+            return cron;
+        }
+    }
+
+    /**
+     * Safely clears all created CRON schedules.
+     */
+    public void releaseCrons() {
+        synchronized (_lock) {
+            for (ManagedCron cron : _crons) {
+                Stream.safeClose(cron);
+            }
+            _crons.clear();
+        }
+    }
+
+    /**
+     * Returns null when a CRON expression is valid, otherwise the failure reason.
+     */
+    public String cronValidate(String expression) {
+        return CronExpressions.validate(expression);
+    }
+
+    /**
+     * Whether a CRON expression parses and validates.
+     */
+    public boolean cronIsValid(String expression) {
+        return CronExpressions.isValid(expression);
+    }
+
+    /**
+     * A human-readable description of a CRON expression.
+     * (throws IllegalArgumentException when invalid)
+     */
+    public String cronDescribe(String expression) {
+        return CronExpressions.describe(expression);
+    }
+
+    /**
+     * The next execution of a CRON expression after now, or null if it can never fire.
+     * (optional IANA timezone; throws IllegalArgumentException when invalid)
+     */
+    public DateTime cronNextExecution(String expression, String timeZone) {
+        return CronExpressions.nextExecution(expression, timeZone);
+    }
+
+    /**
+     * The most recent execution of a CRON expression before now, or null.
+     * (optional IANA timezone; throws IllegalArgumentException when invalid)
+     */
+    public DateTime cronPreviousExecution(String expression, String timeZone) {
+        return CronExpressions.previousExecution(expression, timeZone);
     }
     
     /**
@@ -928,6 +1013,12 @@ public class ManagedToolkit {
                 }
             }
 
+            for (ManagedCron cron : _crons) {
+                // start only those that haven't opted out
+                if (!cron.getStoppedAtFirst())
+                    cron.start();
+            }
+
             for (ManagedTCP tcp : _tcpConnections) {
                 tcp.start();
             }
@@ -1011,9 +1102,11 @@ public class ManagedToolkit {
             _closed = true;
 
             releaseCalls();
-            
+
             releaseTimers();
-            
+
+            releaseCrons();
+
             releaseTCPs();
             
             releaseUDPs();
