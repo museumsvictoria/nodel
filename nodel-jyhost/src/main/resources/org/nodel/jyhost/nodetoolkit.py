@@ -88,11 +88,64 @@ def date_parse(s):
 
 # Simple URL retriever (supports POST) where 'query' and 'headers' are dictionaries. 
 # If 'fullResponse', result is an object which includes 'statusCode', 'reason', 'content' and attributes made up of the response HTTP headers
-def get_url(url, method=None, query=None, username=None, password=None, headers=None, contentType=None, post=None, connectTimeout=10, readTimeout=15, fullResponse=False):
-  if fullResponse:
-    return nodetoolkit.getHttpClient().makeRequest(url, method, query, username, password, headers, contentType, post, long(connectTimeout*1000), long(readTimeout*1000))
-  else:
-    return nodetoolkit.getHttpClient().makeSimpleRequest(url, method, query, username, password, headers, contentType, post, long(connectTimeout*1000), long(readTimeout*1000))
+#
+# If 'async' is True, the request goes out in the background and a CompletableFuture is returned immediately.
+# Optional 'complete' and 'error' callbacks handle the outcome e.g.
+#
+#   def on_complete(result):
+#     console.info('Got response: %s' % result)
+#
+#   def on_error(exc):
+#     console.error('Request failed: %s' % exc)
+#
+#   get_url('http://example.com', async=True, complete=on_complete, error=on_error)
+#
+# (if no 'error' callback is supplied, failures are raised into the node's console)
+def get_url(url, method=None, query=None, username=None, password=None, headers=None, contentType=None, post=None, connectTimeout=10, readTimeout=15, fullResponse=False, async=False, complete=None, error=None):
+  client = nodetoolkit.getHttpClient()
+  args = (url, method, query, username, password, headers, contentType, post, long(connectTimeout*1000), long(readTimeout*1000))
+
+  if not async:
+    return client.makeRequest(*args) if fullResponse else client.makeSimpleRequest(*args)
+
+  from java.util.function import BiConsumer
+  from java.util.concurrent import CompletionException, ExecutionException
+
+  future = client.makeRequestAsync(*args) if fullResponse else client.makeSimpleRequestAsync(*args)
+
+  class CallbackHandler(BiConsumer):
+    def accept(self, result, exception):
+      try:
+        if exception is None:
+          if complete is not None:
+            call_safe(lambda: complete(result))
+          return
+
+        # unwrap the future's wrapper so callbacks deal with the real cause
+        cause = exception
+        while isinstance(cause, (CompletionException, ExecutionException)) and cause.getCause() is not None:
+          cause = cause.getCause()
+
+        if error is not None:
+          call_safe(lambda: error(cause))
+        else:
+          # no 'error' callback supplied: raise into the node's console instead of failing silently
+          def raiseIntoConsole():
+            raise cause
+          call_safe(raiseIntoConsole)
+      except:
+        # never let a callback vanish silently e.g. if this node closed while the request was in-flight
+        # (stderr is captured into the node's console while it is alive)
+        import sys, traceback
+        try:
+          print >> sys.stderr, 'get_url (async): a callback could not be delivered'
+          traceback.print_exc()
+        except:
+          pass
+
+  future.whenComplete(CallbackHandler())
+
+  return future
   
 # For HTTP proxy use, call this before any other HTTP client operations: 
 #     _toolkit.getHttpClient().setProxy("PROXY_HOST:PORT_PORT", USERNAME or None, PASSWORD or None)
